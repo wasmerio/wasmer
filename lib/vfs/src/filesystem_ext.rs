@@ -40,10 +40,11 @@ pub trait FileSystemExt {
     /// This is analogous to [`std::fs::read_to_string()`].
     async fn read_to_string(&self, path: impl AsRef<Path> + Send) -> Result<String, FsError>;
 
-    /// Make sure a file exists, creating an empty file if it doesn't.
+    /// Update a file's modification and access times, creating the file if it
+    /// doesn't already exist.
     fn touch(&self, path: impl AsRef<Path> + Send) -> Result<(), FsError>;
 
-    /// Recursively iterate over all paths inside a directory, discarding any
+    /// Recursively iterate over all paths inside a directory, ignoring any
     /// errors that may occur along the way.
     fn walk(&self, path: impl AsRef<Path>) -> Box<dyn Iterator<Item = DirEntry> + '_>;
 }

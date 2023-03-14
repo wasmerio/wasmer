@@ -1,105 +1,99 @@
 use crate::FileSystem;
-use std::ops::ControlFlow;
 
 /// A chain of one or more [`FileSystem`]s.
-pub trait FileSystems {
+pub trait FileSystems<'a>: 'a {
     // FIXME(Michael-F-Bryan): Rewrite this to use GATs and an external iterator
-    // when we bump the MSRV to 1.65 or higher.
-    fn for_each_filesystems<F, Ret>(&self, func: F) -> Option<Ret>
-    where
-        F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>;
+    // when we bump the MSRV to 1.65 or higher. That'll get rid of all the
+    // lifetimes and HRTBs.
+    type Iter: IntoIterator<Item = &'a dyn FileSystem> + 'a;
+    fn iter_filesystems(&'a self) -> Self::Iter;
 }
 
-impl<'b, S> FileSystems for &'b S
+impl<'a, 'b, S> FileSystems<'a> for &'b S
 where
-    S: FileSystems + 'b,
+    S: FileSystems<'a> + 'b,
+    'b: 'a,
 {
-    fn for_each_filesystems<F, Ret>(&self, func: F) -> Option<Ret>
-    where
-        F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>,
-    {
-        (**self).for_each_filesystems(func)
+    type Iter = S::Iter;
+
+    fn iter_filesystems(&'a self) -> Self::Iter {
+        (**self).iter_filesystems()
     }
 }
 
-impl<T> FileSystems for Vec<T>
-where
-    T: FileSystem,
-{
-    fn for_each_filesystems<F, Ret>(&self, func: F) -> Option<Ret>
-    where
-        F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>,
-    {
-        self[..].for_each_filesystems(func)
-    }
-}
-
-impl<T, const N: usize> FileSystems for [T; N]
+impl<'a, T> FileSystems<'a> for Vec<T>
 where
     T: FileSystem,
 {
-    fn for_each_filesystems<F, Ret>(&self, func: F) -> Option<Ret>
-    where
-        F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>,
-    {
-        self[..].for_each_filesystems(func)
+    type Iter = <[T] as FileSystems<'a>>::Iter;
+
+    fn iter_filesystems(&'a self) -> Self::Iter {
+        self[..].iter_filesystems()
     }
 }
 
-impl<T> FileSystems for [T]
+impl<'a, T, const N: usize> FileSystems<'a> for [T; N]
 where
     T: FileSystem,
 {
-    fn for_each_filesystems<F, Ret>(&self, mut func: F) -> Option<Ret>
-    where
-        F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>,
-    {
-        for fs in self.iter() {
-            match func(fs) {
-                ControlFlow::Continue(_) => continue,
-                ControlFlow::Break(result) => return Some(result),
-            }
-        }
+    type Iter = [&'a dyn FileSystem; N];
 
-        None
+    fn iter_filesystems(&'a self) -> Self::Iter {
+        // TODO: rewrite this when array::each_ref() is stable
+        let mut i = 0;
+        [(); N].map(|_| {
+            let f = &self[i] as &dyn FileSystem;
+            i += 1;
+            f
+        })
     }
 }
 
-impl FileSystems for () {
-    fn for_each_filesystems<F, Ret>(&self, _func: F) -> Option<Ret>
-    where
-        F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>,
-    {
-        None
+impl<'a, T> FileSystems<'a> for [T]
+where
+    T: FileSystem,
+{
+    type Iter = std::iter::Map<std::slice::Iter<'a, T>, fn(&T) -> &dyn FileSystem>;
+
+    fn iter_filesystems(&'a self) -> Self::Iter {
+        self.iter().map(|fs| fs as &dyn FileSystem)
     }
+}
+
+impl<'a> FileSystems<'a> for () {
+    type Iter = std::iter::Empty<&'a dyn FileSystem>;
+
+    fn iter_filesystems(&'a self) -> Self::Iter {
+        std::iter::empty()
+    }
+}
+
+macro_rules! count {
+    ($first:tt $($rest:tt)*) => {
+        1 + count!($($rest)*)
+    };
+    () => { 0 };
 }
 
 macro_rules! tuple_filesystems {
     ($first:ident $(, $rest:ident)* $(,)?) => {
-        impl<$first, $( $rest ),*> FileSystems for ($first, $($rest),*)
+        impl<'a, $first, $( $rest ),*> FileSystems<'a> for ($first, $($rest),*)
         where
             $first: FileSystem,
             $($rest: FileSystem),*
         {
-            fn for_each_filesystems<F, Ret>(&self, mut func: F) -> Option<Ret>
-            where
-                F: FnMut(&dyn FileSystem) -> ControlFlow<Ret>,
-            {
+            type Iter = [&'a dyn FileSystem; count!($first $($rest)*)];
+
+            fn iter_filesystems(&'a self) -> Self::Iter {
                 #[allow(non_snake_case)]
-                let ($first, $($rest),*) = &self;
+                let ($first, $($rest),*) = self;
 
-                if let ControlFlow::Break(result) = func($first) {
-                    return Some(result);
-                }
-
-                $(
-                    if let ControlFlow::Break(result) = func($rest) {
-                        return Some(result);
-                    }
-                )*
-
-                None
+                [
+                    $first as &dyn FileSystem,
+                    $($rest),*
+                ]
             }
+
         }
 
         tuple_filesystems!($($rest),*);

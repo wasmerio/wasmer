@@ -1,4 +1,4 @@
-use std::{fmt::Debug, ops::ControlFlow, path::Path};
+use std::{fmt::Debug, path::Path};
 
 use crate::{
     FileOpener, FileSystem, FileSystemExt, FileSystems, FsError, Metadata, OpenOptions,
@@ -50,8 +50,8 @@ pub struct OverlayFileSystem<P, S> {
 
 impl<P, S> OverlayFileSystem<P, S>
 where
-    P: FileSystem,
-    S: FileSystems,
+    P: FileSystem + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
 {
     /// Create a new [`FileSystem`] using a primary [`crate::FileSystem`] and a
     /// chain of secondary [`FileSystems`].
@@ -62,43 +62,47 @@ where
         }
     }
 
+    /// Get a reference to the primary filesystem.
     pub fn primary(&self) -> &P {
         &self.primary
     }
 
+    /// Get a mutable reference to the primary filesystem.
     pub fn primary_mut(&mut self) -> &mut P {
         &mut self.primary
     }
 
+    /// Get a reference to the secondary filesystems.
     pub fn secondaries(&self) -> &S {
         &self.secondaries
     }
 
+    /// Get a mutable reference to the secondary filesystems.
     pub fn secondaries_mut(&mut self) -> &mut S {
         &mut self.secondaries
     }
 
+    /// Consume the [`OverlayFileSystem`], returning the underlying primary and
+    /// secondary filesystems.
     pub fn into_inner(self) -> (P, S) {
         (self.primary, self.secondaries)
     }
 
     fn permission_error_or_not_found(&self, path: &Path) -> Result<(), FsError> {
-        let result = self.secondaries.for_each_filesystems(|fs| {
+        for fs in self.secondaries.iter_filesystems() {
             if fs.exists(path) {
-                ControlFlow::Break(FsError::PermissionDenied)
-            } else {
-                ControlFlow::Continue(())
+                return Err(FsError::PermissionDenied);
             }
-        });
+        }
 
-        Err(result.unwrap_or(FsError::EntryNotFound))
+        Err(FsError::EntryNotFound)
     }
 }
 
 impl<P, S> FileSystem for OverlayFileSystem<P, S>
 where
     P: FileSystem + 'static,
-    S: crate::FileSystems + Send + Sync + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
 {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
@@ -115,25 +119,17 @@ where
             Err(e) => return Err(e),
         }
 
-        let result = self
-            .secondaries
-            .for_each_filesystems(|fs| match fs.read_dir(path) {
+        for fs in self.secondaries.iter_filesystems() {
+            match fs.read_dir(path) {
                 Ok(r) => {
                     for entry in r {
-                        match entry {
-                            Ok(entry) => entries.push(entry),
-                            Err(e) => return ControlFlow::Break(e),
-                        }
+                        entries.push(entry?);
                     }
                     had_at_least_one_success = true;
-                    ControlFlow::Continue(())
                 }
-                Err(e) if should_continue(e) => ControlFlow::Continue(()),
-                Err(e) => ControlFlow::Break(e),
-            });
-
-        if let Some(error) = result {
-            return Err(error);
+                Err(e) if should_continue(e) => continue,
+                Err(e) => return Err(e),
+            }
         }
 
         if had_at_least_one_success {
@@ -183,14 +179,14 @@ where
             Err(e) => return Err(e),
         }
 
-        let result = self
-            .secondaries
-            .for_each_filesystems(|fs| match fs.metadata(path) {
-                Err(e) if should_continue(e) => ControlFlow::Continue(()),
-                other => ControlFlow::Break(other),
-            });
+        for fs in self.secondaries.iter_filesystems() {
+            match fs.metadata(path) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
 
-        result.unwrap_or(Err(FsError::EntryNotFound))
+        Err(FsError::EntryNotFound)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
@@ -210,7 +206,7 @@ where
 impl<P, S> FileOpener for OverlayFileSystem<P, S>
 where
     P: FileSystem,
-    S: FileSystems + Send + Sync + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
 {
     fn open(
         &self,
@@ -227,16 +223,14 @@ where
             other => return other,
         }
 
-        if conf.create || conf.create_new && !self.exists(path) {
+        if (conf.create || conf.create_new) && !self.exists(path) {
             if let Some(parent) = path.parent() {
-                let is_secondary_dir = self
+                let parent_exists_on_secondary_fs = self
                     .secondaries
-                    .for_each_filesystems(|fs| match fs.is_dir(parent) {
-                        true => ControlFlow::Break(true),
-                        false => ControlFlow::Continue(()),
-                    })
-                    .unwrap_or(false);
-                if is_secondary_dir {
+                    .iter_filesystems()
+                    .into_iter()
+                    .any(|fs| fs.is_dir(parent));
+                if parent_exists_on_secondary_fs {
                     // We fall into the special case where you can create a file
                     // that looks like it is inside a secondary filesystem folder,
                     // but actually it gets created on the host
@@ -246,6 +240,8 @@ where
                         .new_open_options()
                         .options(conf.clone())
                         .open(path);
+                } else {
+                    return Err(FsError::EntryNotFound);
                 }
             }
         }
@@ -254,14 +250,14 @@ where
             return Err(FsError::PermissionDenied);
         }
 
-        self.secondaries
-            .for_each_filesystems(|fs| {
-                match fs.new_open_options().options(conf.clone()).open(path) {
-                    Err(e) if should_continue(e) => ControlFlow::Continue(()),
-                    other => ControlFlow::Break(other),
-                }
-            })
-            .unwrap_or(Err(FsError::EntryNotFound))
+        for fs in self.secondaries.iter_filesystems() {
+            match fs.new_open_options().options(conf.clone()).open(path) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 }
 
@@ -271,20 +267,18 @@ fn opening_would_require_mutations<S>(
     conf: &OpenOptionsConfig,
 ) -> bool
 where
-    S: FileSystems + Send + Sync,
+    S: for<'a> FileSystems<'a> + Send + Sync,
 {
-    if conf.append || conf.write || conf.create_new {
+    if conf.append || conf.write || conf.create_new | conf.truncate {
         return true;
     }
 
     if conf.create {
-        // Would we create the file if it doesn't exist yet.
+        // Would we create the file if it doesn't exist yet?
         let already_exists = secondaries
-            .for_each_filesystems(|fs| match fs.is_file(path) {
-                true => ControlFlow::Break(()),
-                false => ControlFlow::Continue(()),
-            })
-            .is_some();
+            .iter_filesystems()
+            .into_iter()
+            .any(|fs| fs.is_file(path));
 
         if !already_exists {
             return true;
@@ -297,21 +291,20 @@ where
 impl<P, S> Debug for OverlayFileSystem<P, S>
 where
     P: FileSystem,
-    S: FileSystems,
+    S: for<'a> FileSystems<'a>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         struct IterFilesystems<'a, S>(&'a S);
         impl<'a, S> Debug for IterFilesystems<'a, S>
         where
-            S: FileSystems,
+            S: for<'b> FileSystems<'b>,
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut f = f.debug_list();
 
-                let _: Option<()> = self.0.for_each_filesystems(|fs| {
+                for fs in self.0.iter_filesystems() {
                     f.entry(&fs);
-                    ControlFlow::Continue(())
-                });
+                }
 
                 f.finish()
             }
@@ -353,7 +346,7 @@ mod tests {
         fn _arc<A, S>(fs: OverlayFileSystem<A, S>) -> Arc<dyn crate::FileSystem + 'static>
         where
             A: FileSystem + 'static,
-            S: FileSystems + Send + Sync + Debug + 'static,
+            S: for<'a> FileSystems<'a> + Send + Sync + Debug + 'static,
         {
             Arc::new(fs)
         }
@@ -561,6 +554,13 @@ mod tests {
             .unwrap();
         assert!(fs.primary.is_dir("/lib/python3.6/something-else"));
         assert!(!fs.secondaries[0].is_dir("/lib/python3.6/something-else"));
+        // It only works when you are directly inside an existing directory
+        // on the secondary filesystem, though
+        assert_eq!(
+            fs.touch("/lib/python3.6/collections/this/doesnt/exist.txt")
+                .unwrap_err(),
+            FsError::EntryNotFound
+        );
         // you should also be able to read files mounted from the host
         assert_eq!(fs.read_to_string(&file_txt).await.unwrap(), "First!");
         // Overwriting them is fine and we'll see the changes on the host
