@@ -17,7 +17,7 @@
 
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::WasiEnv;
+use wasmer_wasix::WasiEnv;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(

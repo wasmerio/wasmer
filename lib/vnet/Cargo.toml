@@ -1,6 +1,6 @@
 [package]
-name = "wasmer-vnet"
-version = "3.2.0-alpha.1"
+name = "virtnet"
+version = "0.1.0"
 description = "Wasmer Virtual Networking"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"

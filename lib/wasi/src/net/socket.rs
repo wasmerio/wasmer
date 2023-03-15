@@ -10,12 +10,12 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use wasmer_types::MemorySize;
-use wasmer_vnet::{
+use virtnet::{
     VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket,
     VirtualUdpSocket,
 };
-use wasmer_wasi_types::wasi::{
+use wasmer_types::MemorySize;
+use wasmer_wasix_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
 };
 
@@ -1213,7 +1213,7 @@ impl InodeSocketProtected {
     pub fn poll_read_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
+    ) -> std::task::Poll<virtnet::Result<usize>> {
         match &mut self.kind {
             InodeSocketKind::TcpListener { socket, .. } => socket.poll_accept_ready(cx),
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_read_ready(cx),
@@ -1221,7 +1221,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
-                std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
+                std::task::Poll::Ready(Err(virtnet::NetworkError::IOError))
             }
         }
     }
@@ -1229,7 +1229,7 @@ impl InodeSocketProtected {
     pub fn poll_write_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
+    ) -> std::task::Poll<virtnet::Result<usize>> {
         match &mut self.kind {
             InodeSocketKind::TcpListener { .. } => std::task::Poll::Pending,
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_write_ready(cx),
@@ -1237,7 +1237,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
-                std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
+                std::task::Poll::Ready(Err(virtnet::NetworkError::IOError))
             }
         }
     }

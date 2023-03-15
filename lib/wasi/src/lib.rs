@@ -65,27 +65,27 @@ use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
-pub use wasmer_wasi_types;
+pub use wasmer_wasix_types;
 
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
     MemorySize, RuntimeError,
 };
 
-pub use wasmer_vfs;
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
-pub use wasmer_vfs::FsError as WasiFsError;
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
-pub use wasmer_vfs::VirtualFile as WasiFile;
-pub use wasmer_vfs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
-pub use wasmer_vnet;
-pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
+pub use virtfs;
+#[deprecated(since = "2.1.0", note = "Please use `virtfs::FsError`")]
+pub use virtfs::FsError as WasiFsError;
+#[deprecated(since = "2.1.0", note = "Please use `virtfs::VirtualFile`")]
+pub use virtfs::VirtualFile as WasiFile;
+pub use virtfs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
+pub use virtnet;
+pub use virtnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "host-vnet")]
-pub use wasmer_wasi_local_networking::{
+pub use virtnet_native::{
     io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
 };
-use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
+use wasmer_wasix_types::wasi::{BusErrno, Errno, ExitCode};
 
 pub use crate::{
     fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},

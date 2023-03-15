@@ -5,8 +5,8 @@ use std::{
 
 use derivative::*;
 use futures::future::BoxFuture;
-use wasmer_vfs::{AsyncWriteExt, NullFile, VirtualFile};
-use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
+use virtfs::{AsyncWriteExt, NullFile, VirtualFile};
+use wasmer_wasix_types::wasi::{Signal, Snapshot0Clockid};
 
 use crate::syscalls::platform_clock_time_get;
 

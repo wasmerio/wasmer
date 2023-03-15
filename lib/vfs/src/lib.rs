@@ -24,7 +24,7 @@ pub mod special_file;
 pub mod tmp_fs;
 pub mod union_fs;
 pub mod zero_file;
-// tty_file -> see wasmer_wasi::tty_file
+// tty_file -> see wasmer_wasix::tty_file
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;

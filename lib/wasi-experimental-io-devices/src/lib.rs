@@ -6,9 +6,9 @@ pub mod link_ext;
 pub use crate::link_ext::*;
 
 #[cfg(not(feature = "link_external_libs"))]
-use wasmer_wasi::fs::WasiFs;
+use wasmer_wasix::fs::WasiFs;
 #[cfg(not(feature = "link_external_libs"))]
-use wasmer_wasi::fs::WasiInodes;
+use wasmer_wasix::fs::WasiInodes;
 
 #[cfg(not(feature = "link_external_libs"))]
 pub fn initialize(_: &WasiInodes, _: &mut WasiFs) -> Result<(), String> {

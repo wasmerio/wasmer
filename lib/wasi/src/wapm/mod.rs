@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use wasmer_vfs::FileSystem;
+use virtfs::FileSystem;
 
 use tracing::*;
 #[allow(unused_imports)]
@@ -364,7 +364,7 @@ where
     }
 
     // Add the file system from the webc
-    let webc_fs = wasmer_vfs::webc_fs::WebcFileSystem::init_all(ownership.clone());
+    let webc_fs = virtfs::webc_fs::WebcFileSystem::init_all(ownership.clone());
     let top_level_dirs = webc_fs.top_level_dirs().clone();
     pck.webc_fs = Some(Arc::new(webc_fs));
     pck.webc_top_level_dirs = top_level_dirs;

@@ -5,15 +5,15 @@ use cfg_if::cfg_if;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
-use wasmer_wasi_types::wasi::{BusErrno, Rights};
+use wasmer_wasix_types::wasi::{BusErrno, Rights};
 
 use crate::VirtualBusError;
 
 cfg_if! {
     if #[cfg(feature = "host-fs")] {
-        pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
+        pub use virtfs::host_fs::{Stderr, Stdin, Stdout};
     } else {
-        pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
+        pub use virtfs::mem_fs::{Stderr, Stdin, Stdout};
     }
 }
 

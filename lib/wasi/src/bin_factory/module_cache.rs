@@ -7,7 +7,7 @@ use std::{
 };
 
 use wasmer::Module;
-use wasmer_wasi_types::wasi::Snapshot0Clockid;
+use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
 use crate::{syscalls::platform_clock_time_get, WasiRuntime};

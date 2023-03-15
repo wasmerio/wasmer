@@ -16,13 +16,13 @@ use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-#[cfg(feature = "sys")]
-use wasmer::Engine;
-use wasmer_vfs::{
+use virtfs::{
     ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
     PipeRx, PipeTx, RootFileSystemBuilder, VirtualFile,
 };
-use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
+#[cfg(feature = "sys")]
+use wasmer::Engine;
+use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
@@ -209,7 +209,7 @@ impl Console {
             } else {
                 let mut stderr = self.stderr.clone();
                 tasks.block_on(async {
-                    wasmer_vfs::AsyncWriteExt::write_all(
+                    virtfs::AsyncWriteExt::write_all(
                         &mut stderr,
                         format!("package not found [{}]\r\n", webc).as_bytes(),
                     )
@@ -229,12 +229,9 @@ impl Console {
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             tasks.block_on(async {
-                wasmer_vfs::AsyncWriteExt::write_all(
-                    &mut stderr,
-                    format!("{}\r\n", err).as_bytes(),
-                )
-                .await
-                .ok();
+                virtfs::AsyncWriteExt::write_all(&mut stderr, format!("{}\r\n", err).as_bytes())
+                    .await
+                    .ok();
             });
             tracing::debug!("failed to load used dependency - {}", err);
             return Err(VirtualBusError::BadRequest);
@@ -268,7 +265,7 @@ impl Console {
         data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
 
         let mut stderr = self.stderr.clone();
-        wasmer_vfs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
+        virtfs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
             .await
             .ok();
     }

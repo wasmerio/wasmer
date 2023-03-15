@@ -1,9 +1,9 @@
 [package]
-name = "wasmer-wasi-local-networking"
-version = "3.2.0-alpha.1"
+name = "virtnet-native"
+version = "0.1.0"
 description = "An WASIX extension for local networking"
 categories = ["wasm"]
-keywords = ["wasm", "webassembly", "types"]
+keywords = ["wasm", "webassembly", "types", "wasix"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
@@ -14,7 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-vnet = { version = "=3.2.0-alpha.1", path = "../vnet" }
+virtnet = { version = "0.1.0", path = "../vnet" }
 tracing = "0.1"
 bytes = "1.1"
 tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false }

@@ -3,7 +3,7 @@ pub mod builtins;
 use std::{collections::HashMap, sync::Arc};
 
 use wasmer::{FunctionEnvMut, Store};
-use wasmer_wasi_types::wasi::Errno;
+use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
     bin_factory::ModuleCache, syscalls::stderr_write, VirtualBusError, WasiEnv, WasiRuntime,

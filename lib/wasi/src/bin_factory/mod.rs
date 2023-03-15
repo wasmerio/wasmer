@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use wasmer_vfs::{AsyncReadExt, FileSystem};
+use virtfs::{AsyncReadExt, FileSystem};
 
 mod binary_package;
 mod exec;
