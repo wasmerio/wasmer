@@ -94,7 +94,7 @@ pub fn translate_module<'data>(
             | Payload::ComponentImportSection(_)
             | Payload::ComponentExportSection(_)
             | Payload::ModuleSection { .. } => {
-                unimplemented!("module linking not implemented yet")
+                unimplemented!("module linking not implemented. It will only be implemented if/when browsers support it")
             }
 
             Payload::TagSection(_) => {
