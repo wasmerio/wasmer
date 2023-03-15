@@ -25,7 +25,7 @@ use crate::abi::{get_abi, Abi};
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use std::convert::TryFrom;
-use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
+use wasmer_compiler::wasmparser::{MemArg, Operator};
 use wasmer_compiler::{
     from_binaryreadererror_wasmerror, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
     MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
@@ -1028,7 +1028,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn annotate_user_memaccess(
         &mut self,
         memory_index: MemoryIndex,
-        _memarg: &MemoryImmediate,
+        _memarg: &MemArg,
         alignment: u32,
         memaccess: InstructionValue<'ctx>,
     ) -> Result<(), CompileError> {
@@ -1051,7 +1051,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,
-        memarg: &MemoryImmediate,
+        memarg: &MemArg,
         ptr_ty: PointerType<'ctx>,
         var_offset: IntValue<'ctx>,
         value_size: usize,
@@ -1174,7 +1174,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .into_pointer_value())
     }
 
-    fn trap_if_misaligned(&self, _memarg: &MemoryImmediate, ptr: PointerValue<'ctx>, align: u8) {
+    fn trap_if_misaligned(&self, _memarg: &MemArg, ptr: PointerValue<'ctx>, align: u8) {
         if align <= 1 {
             return;
         }
@@ -1394,7 +1394,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
         if !self.state.reachable {
             match op {
-                Operator::Block { ty: _ } | Operator::Loop { ty: _ } | Operator::If { ty: _ } => {
+                Operator::Block { blockty: _ }
+                | Operator::Loop { blockty: _ }
+                | Operator::If { blockty: _ } => {
                     self.unreachable_depth += 1;
                     return Ok(());
                 }
@@ -1420,7 +1422,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              * Control Flow instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
              ***************************/
-            Operator::Block { ty } => {
+            Operator::Block { blockty } => {
                 let current_block = self
                     .builder
                     .get_insert_block()
@@ -1431,7 +1433,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let phis: SmallVec<[PhiValue<'ctx>; 1]> = self
                     .module_translation
-                    .blocktype_params_results(ty)?
+                    .blocktype_params_results(blockty)?
                     .1
                     .iter()
                     .map(|&wp_ty| {
@@ -1447,7 +1449,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push_block(end_block, phis);
                 self.builder.position_at_end(current_block);
             }
-            Operator::Loop { ty } => {
+            Operator::Loop { blockty } => {
                 let loop_body = self.context.append_basic_block(self.function, "loop_body");
                 let loop_next = self.context.append_basic_block(self.function, "loop_outer");
                 let pre_loop_block = self.builder.get_insert_block().unwrap();
@@ -1455,7 +1457,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let blocktypes = self.module_translation.blocktype_params_results(ty)?;
+                let blocktypes = self.module_translation.blocktype_params_results(blockty)?;
                 let phis = blocktypes
                     .1
                     .iter()
@@ -1592,7 +1594,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_conditional_branch(cond_value, *frame.br_dest(), else_block);
                 self.builder.position_at_end(else_block);
             }
-            Operator::BrTable { ref table } => {
+            Operator::BrTable { ref targets } => {
                 let current_block = self
                     .builder
                     .get_insert_block()
@@ -1600,7 +1602,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let index = self.state.pop1()?;
 
-                let default_frame = self.state.frame_at_depth(table.default())?;
+                let default_frame = self.state.frame_at_depth(targets.default())?;
 
                 let phis = if default_frame.is_loop() {
                     default_frame.loop_body_phis()
@@ -1613,7 +1615,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     phi.add_incoming(&[(value, current_block)]);
                 }
 
-                let cases: Vec<_> = table
+                let cases: Vec<_> = targets
                     .targets()
                     .enumerate()
                     .map(|(case_index, depth)| {
@@ -1649,7 +1651,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.popn(args_len)?;
                 self.state.reachable = false;
             }
-            Operator::If { ty } => {
+            Operator::If { blockty } => {
                 let current_block = self
                     .builder
                     .get_insert_block()
@@ -1663,7 +1665,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     let phis = self
                         .module_translation
-                        .blocktype_params_results(ty)?
+                        .blocktype_params_results(blockty)?
                         .1
                         .iter()
                         .map(|&wp_ty| {
@@ -1694,7 +1696,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.position_at_end(if_else_block);
                 let block_param_types = self
                     .module_translation
-                    .blocktype_params_results(ty)?
+                    .blocktype_params_results(blockty)?
                     .0
                     .iter()
                     .map(|&wp_ty| {
@@ -2268,8 +2270,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .iter()
                     .for_each(|ret| self.state.push1(*ret));
             }
-            Operator::CallIndirect { index, table_index } => {
-                let sigindex = SignatureIndex::from_u32(index);
+            Operator::CallIndirect {
+                type_index,
+                table_index,
+                table_byte: _,
+            } => {
+                let sigindex = SignatureIndex::from_u32(type_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
                 let expected_dynamic_sigindex =
                     self.ctx
@@ -3946,7 +3952,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I8x16RoundingAverageU => {
+            Operator::I8x16AvgrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i8x16(v1, i1);
                 let (v2, _) = self.v128_into_i8x16(v2, i2);
@@ -3977,7 +3983,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8RoundingAverageU => {
+            Operator::I16x8AvgrU => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1);
                 let (v2, _) = self.v128_into_i16x8(v2, i2);
@@ -8945,7 +8951,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::AtomicFence { flags: _ } => {
+            Operator::AtomicFence => {
                 // Fence is a nop.
                 //
                 // Fence was added to preserve information about fences from
@@ -10946,10 +10952,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().left().unwrap());
             }
-            Operator::MemoryInit { segment, mem } => {
+            Operator::MemoryInit { data_index, mem } => {
                 let (dest, src, len) = self.state.pop3()?;
                 let mem = self.intrinsics.i32_ty.const_int(mem.into(), false);
-                let segment = self.intrinsics.i32_ty.const_int(segment.into(), false);
+                let segment = self.intrinsics.i32_ty.const_int(data_index.into(), false);
                 self.builder.build_call(
                     self.intrinsics.memory_init,
                     &[
@@ -10963,24 +10969,24 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "",
                 );
             }
-            Operator::DataDrop { segment } => {
-                let segment = self.intrinsics.i32_ty.const_int(segment.into(), false);
+            Operator::DataDrop { data_index } => {
+                let segment = self.intrinsics.i32_ty.const_int(data_index.into(), false);
                 self.builder.build_call(
                     self.intrinsics.data_drop,
                     &[vmctx.as_basic_value_enum().into(), segment.into()],
                     "",
                 );
             }
-            Operator::MemoryCopy { src, dst } => {
+            Operator::MemoryCopy { dst_mem, src_mem } => {
                 // ignored until we support multiple memories
-                let _dst = dst;
+                let _dst = dst_mem;
                 let (memory_copy, src) = if let Some(local_memory_index) = self
                     .wasm_module
-                    .local_memory_index(MemoryIndex::from_u32(src))
+                    .local_memory_index(MemoryIndex::from_u32(src_mem))
                 {
                     (self.intrinsics.memory_copy, local_memory_index.as_u32())
                 } else {
-                    (self.intrinsics.imported_memory_copy, src)
+                    (self.intrinsics.imported_memory_copy, src_mem)
                 };
 
                 let (dest_pos, src_pos, len) = self.state.pop3()?;
@@ -11137,9 +11143,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "",
                 );
             }
-            Operator::TableInit { segment, table } => {
+            Operator::TableInit { elem_index, table } => {
                 let (dst, src, len) = self.state.pop3()?;
-                let segment = self.intrinsics.i32_ty.const_int(segment as u64, false);
+                let segment = self.intrinsics.i32_ty.const_int(elem_index as u64, false);
                 let table = self.intrinsics.i32_ty.const_int(table as u64, false);
                 self.builder.build_call(
                     self.intrinsics.table_init,
@@ -11154,8 +11160,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     "",
                 );
             }
-            Operator::ElemDrop { segment } => {
-                let segment = self.intrinsics.i32_ty.const_int(segment as u64, false);
+            Operator::ElemDrop { elem_index } => {
+                let segment = self.intrinsics.i32_ty.const_int(elem_index as u64, false);
                 self.builder.build_call(
                     self.intrinsics.elem_drop,
                     &[self.ctx.basic().into(), segment.into()],
