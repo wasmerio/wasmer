@@ -92,7 +92,7 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use smallvec::SmallVec;
 use std::vec::Vec;
 
-use wasmer_compiler::wasmparser::{MemArg, Operator};
+use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{
     FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
@@ -235,13 +235,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          *  block and have already been translated) and modify the value stack to use the
          *  possible `Block`'s arguments values.
          ***********************************************************************************/
-        Operator::Block { blockty } => {
-            let (params, results) = module_translation_state.blocktype_params_results(*blockty)?;
+        Operator::Block { ty } => {
+            let (params, results) = module_translation_state.blocktype_params_results(*ty)?;
             let next = block_with_params(builder, results, environ)?;
             state.push_block(next, params.len(), results.len());
         }
-        Operator::Loop { blockty } => {
-            let (params, results) = module_translation_state.blocktype_params_results(*blockty)?;
+        Operator::Loop { ty } => {
+            let (params, results) = module_translation_state.blocktype_params_results(*ty)?;
             let loop_body = block_with_params(builder, params, environ)?;
             let next = block_with_params(builder, results, environ)?;
             canonicalise_then_jump(builder, loop_body, state.peekn(params.len()));
@@ -257,10 +257,10 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             builder.switch_to_block(loop_body);
             environ.translate_loop_header(builder.cursor())?;
         }
-        Operator::If { blockty } => {
+        Operator::If { ty } => {
             let val = state.pop1();
 
-            let (params, results) = module_translation_state.blocktype_params_results(*blockty)?;
+            let (params, results) = module_translation_state.blocktype_params_results(*ty)?;
             let (destination, else_data) = if params == results {
                 // It is possible there is no `else` block, so we will only
                 // allocate a block for it if/when we find the `else`. For now,
@@ -293,13 +293,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             //   and we add nothing;
             // - either the If have an Else clause, in that case the destination of this jump
             //   instruction will be changed later when we translate the Else operator.
-            state.push_if(
-                destination,
-                else_data,
-                params.len(),
-                results.len(),
-                *blockty,
-            );
+            state.push_if(destination, else_data, params.len(), results.len(), *ty);
         }
         Operator::Else => {
             let i = state.control_stack.len() - 1;
@@ -439,10 +433,10 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.reachable = false;
         }
         Operator::BrIf { relative_depth } => translate_br_if(*relative_depth, builder, state),
-        Operator::BrTable { targets } => {
-            let default = targets.default();
+        Operator::BrTable { table } => {
+            let default = table.default();
             let mut min_depth = default;
-            for depth in targets.targets() {
+            for depth in table.targets() {
                 let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                 if depth < min_depth {
                     min_depth = depth;
@@ -458,10 +452,10 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 }
             };
             let val = state.pop1();
-            let mut data = JumpTableData::with_capacity(targets.len() as usize);
+            let mut data = JumpTableData::with_capacity(table.len() as usize);
             if jump_args_count == 0 {
                 // No jump arguments
-                for depth in targets.targets() {
+                for depth in table.targets() {
                     let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                     let block = {
                         let i = state.control_stack.len() - 1 - (depth as usize);
@@ -485,7 +479,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let return_count = jump_args_count;
                 let mut dest_block_sequence = vec![];
                 let mut dest_block_map = HashMap::new();
-                for depth in targets.targets() {
+                for depth in table.targets() {
                     let depth = depth.map_err(from_binaryreadererror_wasmerror)?;
                     let branch_block = match dest_block_map.entry(depth as usize) {
                         hash_map::Entry::Occupied(entry) => *entry.get(),
@@ -586,14 +580,10 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.popn(num_args);
             state.pushn(inst_results);
         }
-        Operator::CallIndirect {
-            type_index,
-            table_index,
-            table_byte: _,
-        } => {
+        Operator::CallIndirect { index, table_index } => {
             // `index` is the index of the function's signature and `table_index` is the index of
             // the table to search the function in.
-            let (sigref, num_args) = state.get_indirect_sig(builder.func, *type_index, environ)?;
+            let (sigref, num_args) = state.get_indirect_sig(builder.func, *index, environ)?;
             let table = state.get_or_create_table(builder.func, *table_index, environ)?;
             let callee = state.pop1();
 
@@ -606,7 +596,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             bitcast_arguments(args, &types, builder);
 
             let args = state.peekn(num_args);
-            let sig_idx = SignatureIndex::from_u32(*type_index);
+            let sig_idx = SignatureIndex::from_u32(*index);
 
             let call = environ.translate_call_indirect(
                 builder.cursor(),
@@ -1309,11 +1299,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::AtomicFence { .. } => {
             builder.ins().fence();
         }
-        Operator::MemoryCopy { dst_mem, src_mem } => {
-            let src_index = MemoryIndex::from_u32(*src_mem);
-            let dst_index = MemoryIndex::from_u32(*dst_mem);
-            let src_heap = state.get_heap(builder.func, *src_mem, environ)?;
-            let dst_heap = state.get_heap(builder.func, *dst_mem, environ)?;
+        Operator::MemoryCopy { src, dst } => {
+            let src_index = MemoryIndex::from_u32(*src);
+            let dst_index = MemoryIndex::from_u32(*dst);
+            let src_heap = state.get_heap(builder.func, *src, environ)?;
+            let dst_heap = state.get_heap(builder.func, *dst, environ)?;
             let len = state.pop1();
             let src_pos = state.pop1();
             let dst_pos = state.pop1();
@@ -1336,7 +1326,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dest = state.pop1();
             environ.translate_memory_fill(builder.cursor(), heap_index, heap, dest, val, len)?;
         }
-        Operator::MemoryInit { data_index, mem } => {
+        Operator::MemoryInit { segment, mem } => {
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
             let len = state.pop1();
@@ -1346,14 +1336,14 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 builder.cursor(),
                 heap_index,
                 heap,
-                *data_index,
+                *segment,
                 dest,
                 src,
                 len,
             )?;
         }
-        Operator::DataDrop { data_index } => {
-            environ.translate_data_drop(builder.cursor(), *data_index)?;
+        Operator::DataDrop { segment } => {
+            environ.translate_data_drop(builder.cursor(), *segment)?;
         }
         Operator::TableSize { table: index } => {
             let table = state.get_or_create_table(builder.func, *index, environ)?;
@@ -1419,7 +1409,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             environ.translate_table_fill(builder.cursor(), table_index, dest, val, len)?;
         }
         Operator::TableInit {
-            elem_index,
+            segment,
             table: table_index,
         } => {
             let table = state.get_or_create_table(builder.func, *table_index, environ)?;
@@ -1428,7 +1418,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dest = state.pop1();
             environ.translate_table_init(
                 builder.cursor(),
-                *elem_index,
+                *segment,
                 TableIndex::from_u32(*table_index),
                 table,
                 dest,
@@ -1436,8 +1426,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 len,
             )?;
         }
-        Operator::ElemDrop { elem_index } => {
-            environ.translate_elem_drop(builder.cursor(), *elem_index)?;
+        Operator::ElemDrop { segment } => {
+            environ.translate_elem_drop(builder.cursor(), *segment)?;
         }
         Operator::V128Const { value } => {
             let data = value.bytes().to_vec().into();
@@ -1600,7 +1590,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().umax(a, b))
         }
-        Operator::I8x16AvgrU | Operator::I16x8AvgrU => {
+        Operator::I8x16RoundingAverageU | Operator::I16x8RoundingAverageU => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().avg_round(a, b))
         }
@@ -2036,22 +2026,18 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I32x4RelaxedTruncSatF32x4U
         | Operator::I32x4RelaxedTruncSatF64x2SZero
         | Operator::I32x4RelaxedTruncSatF64x2UZero
-        | Operator::F32x4RelaxedFma
-        | Operator::F32x4RelaxedFnma
-        | Operator::F64x2RelaxedFma
-        | Operator::F64x2RelaxedFnma
-        | Operator::I8x16RelaxedLaneselect
-        | Operator::I16x8RelaxedLaneselect
-        | Operator::I32x4RelaxedLaneselect
-        | Operator::I64x2RelaxedLaneselect
+        | Operator::F32x4Fma
+        | Operator::F32x4Fms
+        | Operator::F64x2Fma
+        | Operator::F64x2Fms
+        | Operator::I8x16LaneSelect
+        | Operator::I16x8LaneSelect
+        | Operator::I32x4LaneSelect
+        | Operator::I64x2LaneSelect
         | Operator::F32x4RelaxedMin
         | Operator::F32x4RelaxedMax
         | Operator::F64x2RelaxedMin
-        | Operator::F64x2RelaxedMax
-        | Operator::F32x4RelaxedDotBf16x8AddF32x4
-        | Operator::I16x8RelaxedQ15mulrS
-        | Operator::I16x8DotI8x16I7x16S
-        | Operator::I32x4DotI8x16I7x16AddS => {
+        | Operator::F64x2RelaxedMax => {
             return Err(wasm_unsupported!("proposed relaxed-simd operator {:?}", op));
         }
     };
@@ -2072,7 +2058,7 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
 ) -> WasmResult<()> {
     debug_assert!(!state.reachable);
     match *op {
-        Operator::If { blockty } => {
+        Operator::If { ty } => {
             // Push a placeholder control stack entry. The if isn't reachable,
             // so we don't have any branches anywhere.
             state.push_if(
@@ -2082,10 +2068,10 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
                 },
                 0,
                 0,
-                blockty,
+                ty,
             );
         }
-        Operator::Loop { blockty: _ } | Operator::Block { blockty: _ } => {
+        Operator::Loop { ty: _ } | Operator::Block { ty: _ } => {
             state.push_block(ir::Block::reserved_value(), 0, 0);
         }
         Operator::Else => {
@@ -2277,7 +2263,7 @@ fn get_heap_addr(
 
 /// Prepare for a load; factors out common functionality between load and load_extend operations.
 fn prepare_load<FE: FuncEnvironment + ?Sized>(
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     loaded_bytes: u32,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
@@ -2307,7 +2293,7 @@ fn prepare_load<FE: FuncEnvironment + ?Sized>(
 
 /// Translate a load instruction.
 fn translate_load<FE: FuncEnvironment + ?Sized>(
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     opcode: ir::Opcode,
     result_ty: Type,
     builder: &mut FunctionBuilder,
@@ -2328,7 +2314,7 @@ fn translate_load<FE: FuncEnvironment + ?Sized>(
 
 /// Translate a store instruction.
 fn translate_store<FE: FuncEnvironment + ?Sized>(
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     opcode: ir::Opcode,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
@@ -2373,7 +2359,7 @@ fn translate_icmp(cc: IntCC, builder: &mut FunctionBuilder, state: &mut FuncTran
 
 fn fold_atomic_mem_addr(
     linear_mem_addr: Value,
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     access_ty: Type,
     builder: &mut FunctionBuilder,
 ) -> Value {
@@ -2407,7 +2393,7 @@ fn fold_atomic_mem_addr(
 // and then compute the final effective address.
 fn finalise_atomic_mem_addr<FE: FuncEnvironment + ?Sized>(
     linear_mem_addr: Value,
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     access_ty: Type,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
@@ -2459,7 +2445,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
     widened_ty: Type,
     access_ty: Type,
     op: AtomicRmwOp,
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
@@ -2505,7 +2491,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
 fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
     widened_ty: Type,
     access_ty: Type,
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
@@ -2556,7 +2542,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
 fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
     widened_ty: Type,
     access_ty: Type,
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
@@ -2595,7 +2581,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
 
 fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
     access_ty: Type,
-    memarg: &MemArg,
+    memarg: &MemoryImmediate,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
@@ -2747,7 +2733,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I8x16MinU
         | Operator::I8x16MaxS
         | Operator::I8x16MaxU
-        | Operator::I8x16AvgrU
+        | Operator::I8x16RoundingAverageU
         | Operator::I8x16Bitmask
         | Operator::I8x16Popcnt => I8X16,
 
@@ -2784,7 +2770,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I16x8MinU
         | Operator::I16x8MaxS
         | Operator::I16x8MaxU
-        | Operator::I16x8AvgrU
+        | Operator::I16x8RoundingAverageU
         | Operator::I16x8Mul
         | Operator::I16x8Bitmask => I16X8,
 

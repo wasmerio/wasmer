@@ -4,9 +4,9 @@
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::ops::{Deref, Range};
+use std::ops::Deref;
 use wasmer_types::{LocalFunctionIndex, MiddlewareError, ModuleInfo, WasmResult};
-use wasmparser::{BinaryReader, Operator, ValType};
+use wasmparser::{BinaryReader, Operator, Range, Type};
 
 use super::error::from_binaryreadererror_wasmerror;
 use crate::translator::environ::FunctionBinaryReader;
@@ -137,16 +137,16 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
             .map_err(from_binaryreadererror_wasmerror)
     }
 
-    fn read_local_decl(&mut self) -> WasmResult<(u32, ValType)> {
+    fn read_local_decl(&mut self) -> WasmResult<(u32, Type)> {
         let count = self
             .state
             .inner
             .read_var_u32()
             .map_err(from_binaryreadererror_wasmerror)?;
-        let ty: ValType = self
+        let ty = self
             .state
             .inner
-            .read_val_type()
+            .read_type()
             .map_err(from_binaryreadererror_wasmerror)?;
         Ok((count, ty))
     }
@@ -204,7 +204,7 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
         self.state.inner.eof()
     }
 
-    fn range(&self) -> Range<usize> {
+    fn range(&self) -> Range {
         self.state.inner.range()
     }
 }
