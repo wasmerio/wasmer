@@ -259,6 +259,9 @@
 <span id="257">257</span>
 <span id="258">258</span>
 <span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -396,8 +399,11 @@
                                         .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>
                                         .<span class="ident">access</span>()
                                         .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
-                                    <span class="ident">written</span> <span class="op">+</span><span class="op">=</span>
-                                        <span class="ident">handle</span>.<span class="ident">write</span>(<span class="ident">buf</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="ident">map_io_err</span>)<span class="question-mark">?</span>;
+                                    <span class="ident">written</span> <span class="op">+</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">handle</span>.<span class="ident">write</span>(<span class="ident">buf</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span> {
+                                        <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
+                                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">written</span> <span class="op">&gt;</span> <span class="number">0</span> =&gt; <span class="kw">break</span>,
+                                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">map_io_err</span>(<span class="ident">err</span>)),
+                                    };
                                 }
                                 <span class="prelude-val">Ok</span>(<span class="ident">written</span>)
                             }

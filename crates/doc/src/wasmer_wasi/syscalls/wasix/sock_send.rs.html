@@ -78,6 +78,11 @@
 <span id="76">76</span>
 <span id="77">77</span>
 <span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
@@ -123,9 +128,14 @@
                     .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>
                     .<span class="ident">access</span>()
                     .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
-                <span class="ident">sent</span> <span class="op">+</span><span class="op">=</span> <span class="ident">socket</span>
+                <span class="ident">sent</span> <span class="op">+</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">socket</span>
                     .<span class="ident">send</span>(<span class="ident">env</span>.<span class="ident">tasks</span>().<span class="ident">deref</span>(), <span class="ident">buf</span>.<span class="ident">as_ref</span>(), <span class="ident">fd</span>.<span class="ident">flags</span>)
-                    .<span class="kw">await</span><span class="question-mark">?</span>;
+                    .<span class="kw">await</span>
+                {
+                    <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">sent</span> <span class="op">&gt;</span> <span class="number">0</span> =&gt; <span class="kw">break</span>,
+                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>),
+                };
             }
             <span class="prelude-val">Ok</span>(<span class="ident">sent</span>)
         })

@@ -358,6 +358,10 @@
 <span id="356">356</span>
 <span id="357">357</span>
 <span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::VecDeque</span>, <span class="ident">task::Waker</span>};
 
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">AsyncReadExt</span>, <span class="ident">ReadBuf</span>};
@@ -539,7 +543,7 @@
                                         .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
 
                                     <span class="ident">total_read</span> <span class="op">+</span><span class="op">=</span>
-                                        <span class="ident">handle</span>.<span class="ident">read</span>(<span class="ident">buf</span>.<span class="ident">as_mut</span>()).<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
+                                        <span class="kw">match</span> <span class="ident">handle</span>.<span class="ident">read</span>(<span class="ident">buf</span>.<span class="ident">as_mut</span>()).<span class="kw">await</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
                                             <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="ident">From</span>::<span class="op">&lt;</span><span class="ident">std::io::Error</span><span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">err</span>);
                                             <span class="kw">match</span> <span class="ident">err</span> {
                                                 <span class="ident">Errno::Again</span> =&gt; {
@@ -551,7 +555,11 @@
                                                 }
                                                 <span class="ident">a</span> =&gt; <span class="ident">a</span>,
                                             }
-                                        })<span class="question-mark">?</span>;
+                                        }) {
+                                            <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
+                                            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">total_read</span> <span class="op">&gt;</span> <span class="number">0</span> =&gt; <span class="kw">break</span>,
+                                            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>),
+                                        };
                                 }
                                 <span class="prelude-val">Ok</span>(<span class="ident">total_read</span>)
                             }
