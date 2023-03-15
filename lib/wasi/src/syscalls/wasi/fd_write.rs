@@ -135,8 +135,11 @@ fn fd_write_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    written +=
-                                        handle.write(buf.as_ref()).await.map_err(map_io_err)?;
+                                    written += match handle.write(buf.as_ref()).await {
+                                        Ok(s) => s,
+                                        Err(_) if written > 0 => break,
+                                        Err(err) => return Err(map_io_err(err)),
+                                    };
                                 }
                                 Ok(written)
                             }

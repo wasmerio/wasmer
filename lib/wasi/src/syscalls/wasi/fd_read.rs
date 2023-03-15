@@ -179,7 +179,7 @@ fn fd_read_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?;
 
                                     total_read +=
-                                        handle.read(buf.as_mut()).await.map_err(|err| {
+                                        match handle.read(buf.as_mut()).await.map_err(|err| {
                                             let err = From::<std::io::Error>::from(err);
                                             match err {
                                                 Errno::Again => {
@@ -191,7 +191,11 @@ fn fd_read_internal<M: MemorySize>(
                                                 }
                                                 a => a,
                                             }
-                                        })?;
+                                        }) {
+                                            Ok(s) => s,
+                                            Err(_) if total_read > 0 => break,
+                                            Err(err) => return Err(err),
+                                        };
                                 }
                                 Ok(total_read)
                             }
