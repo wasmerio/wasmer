@@ -7,6 +7,7 @@ use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
+use wasmer_compiler::wasm_unsupported;
 use wasmer_compiler::wasmparser;
 use wasmer_types::{FunctionType, LibCall, RelocationKind, Type, WasmError, WasmResult};
 
@@ -91,29 +92,35 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
 /// Create a `Block` with the given Wasm parameters.
 pub fn block_with_params<PE: TargetEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
-    params: &[wasmparser::ValType],
+    params: &[wasmparser::Type],
     environ: &PE,
 ) -> WasmResult<ir::Block> {
     let block = builder.create_block();
     for ty in params.iter() {
         match ty {
-            wasmparser::ValType::I32 => {
+            wasmparser::Type::I32 => {
                 builder.append_block_param(block, ir::types::I32);
             }
-            wasmparser::ValType::I64 => {
+            wasmparser::Type::I64 => {
                 builder.append_block_param(block, ir::types::I64);
             }
-            wasmparser::ValType::F32 => {
+            wasmparser::Type::F32 => {
                 builder.append_block_param(block, ir::types::F32);
             }
-            wasmparser::ValType::F64 => {
+            wasmparser::Type::F64 => {
                 builder.append_block_param(block, ir::types::F64);
             }
-            wasmparser::ValType::ExternRef | wasmparser::ValType::FuncRef => {
+            wasmparser::Type::ExternRef | wasmparser::Type::FuncRef => {
                 builder.append_block_param(block, environ.reference_type());
             }
-            wasmparser::ValType::V128 => {
+            wasmparser::Type::V128 => {
                 builder.append_block_param(block, ir::types::I8X16);
+            }
+            ty => {
+                return Err(wasm_unsupported!(
+                    "block_with_params: type {:?} in multi-value block's signature",
+                    ty
+                ))
             }
         }
     }
