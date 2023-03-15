@@ -97,7 +97,7 @@ impl ModuleCache {
             let cache = self.cache_webc.read().unwrap();
             if let Some(data) = cache.get(&name) {
                 if let Some(when_cached) = data.when_cached.as_ref() {
-                    /** get the current platform time at this point because of the lock conflict
+                    /* get the current platform time at this point because of the lock conflict
                      * now time remains the same and the lock from a differnt thread can cause when_cached to go ahead
                      * and cause a panic
                      */
