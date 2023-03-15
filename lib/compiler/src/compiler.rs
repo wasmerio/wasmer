@@ -92,6 +92,7 @@ pub trait Compiler: Send {
         features: &Features,
         data: &'data [u8],
     ) -> Result<(), CompileError> {
+        let mut validator = Validator::new();
         let wasm_features = WasmFeatures {
             bulk_memory: features.bulk_memory,
             threads: features.threads,
@@ -99,6 +100,7 @@ pub trait Compiler: Send {
             multi_value: features.multi_value,
             simd: features.simd,
             tail_call: features.tail_call,
+            module_linking: features.module_linking,
             multi_memory: features.multi_memory,
             memory64: features.memory64,
             exceptions: features.exceptions,
@@ -108,9 +110,8 @@ pub trait Compiler: Send {
             mutable_global: true,
             saturating_float_to_int: true,
             sign_extension: true,
-            component_model: false,
         };
-        let mut validator = Validator::new_with_features(wasm_features);
+        validator.wasm_features(wasm_features);
         validator
             .validate_all(data)
             .map_err(|e| CompileError::Validate(format!("{}", e)))?;

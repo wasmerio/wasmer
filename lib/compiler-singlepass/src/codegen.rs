@@ -11,7 +11,7 @@ use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
-use wasmer_compiler::wasmparser::{BlockType as WpTypeOrFuncType, Operator, ValType as WpType};
+use wasmer_compiler::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer_compiler::FunctionBodyData;
 #[cfg(feature = "unwind")]
 use wasmer_types::CompiledFunctionUnwindInfo;
@@ -2711,15 +2711,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                 }
             }
-            Operator::CallIndirect {
-                type_index,
-                table_index,
-                table_byte: _,
-            } => {
+            Operator::CallIndirect { index, table_index } => {
                 // TODO: removed restriction on always being table idx 0;
                 // does any code depend on this?
                 let table_index = TableIndex::new(table_index as _);
-                let index = SignatureIndex::new(type_index as usize);
+                let index = SignatureIndex::new(index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
                     sig.params().iter().cloned().map(type_to_wp_type).collect();
@@ -2940,7 +2936,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                 }
             }
-            Operator::If { blockty } => {
+            Operator::If { ty } => {
                 let label_end = self.machine.get_label();
                 let label_else = self.machine.get_label();
 
@@ -2950,8 +2946,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label: label_end,
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
+                    returns: match ty {
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CompileError::Codegen(
@@ -3068,13 +3064,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 self.machine.emit_label(end_label)?;
             }
-            Operator::Block { blockty } => {
+            Operator::Block { ty } => {
                 let frame = ControlFrame {
                     label: self.machine.get_label(),
                     loop_like: false,
                     if_else: IfElseState::None,
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
+                    returns: match ty {
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CompileError::Codegen(
@@ -3089,7 +3085,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 };
                 self.control_stack.push(frame);
             }
-            Operator::Loop { blockty } => {
+            Operator::Loop { ty } => {
                 self.machine.align_for_loop()?;
                 let label = self.machine.get_label();
                 let state_diff_id = self.get_state_diff();
@@ -3099,8 +3095,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label,
                     loop_like: true,
                     if_else: IfElseState::None,
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
+                    returns: match ty {
+                        WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CompileError::Codegen(
@@ -3154,7 +3150,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ret,
                 )?;
             }
-            Operator::MemoryInit { data_index, mem } => {
+            Operator::MemoryInit { segment, mem } => {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
@@ -3179,10 +3175,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         this.machine
                             .emit_call_register(this.machine.get_grp_for_call())
                     },
-                    // [vmctx, memory_index, data_index, dst, src, len]
+                    // [vmctx, memory_index, segment_index, dst, src, len]
                     [
                         Location::Imm32(mem),
-                        Location::Imm32(data_index),
+                        Location::Imm32(segment),
                         dst,
                         src,
                         len,
@@ -3201,7 +3197,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
                 self.release_locations_only_stack(&[dst, src, len])?;
             }
-            Operator::DataDrop { data_index } => {
+            Operator::DataDrop { segment } => {
                 self.machine.move_location(
                     Size::S64,
                     Location::Memory(
@@ -3218,20 +3214,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         this.machine
                             .emit_call_register(this.machine.get_grp_for_call())
                     },
-                    // [vmctx, data_index]
-                    iter::once(Location::Imm32(data_index)),
+                    // [vmctx, segment_index]
+                    iter::once(Location::Imm32(segment)),
                     iter::once(WpType::I64),
                 )?;
             }
-            Operator::MemoryCopy { dst_mem, src_mem } => {
+            Operator::MemoryCopy { src, dst } => {
                 // ignore until we support multiple memories
-                let _dst = dst_mem;
+                let _dst = dst;
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
                 self.release_locations_only_regs(&[len, src_pos, dst_pos])?;
 
-                let memory_index = MemoryIndex::new(src_mem as usize);
+                let memory_index = MemoryIndex::new(src as usize);
                 let (memory_copy_index, memory_index) =
                     if self.module.local_memory_index(memory_index).is_some() {
                         (
@@ -4070,12 +4066,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.machine.emit_label(after)?;
             }
-            Operator::BrTable { ref targets } => {
-                let default_target = targets.default();
-                let targets = targets
+            Operator::BrTable { ref table } => {
+                let targets = table
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {:?}", e)))?;
+                let default_target = table.default();
                 let cond = self.pop_value_released()?;
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
@@ -4241,7 +4237,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                 }
             }
-            Operator::AtomicFence => {
+            Operator::AtomicFence { flags: _ } => {
                 // Fence is a nop.
                 //
                 // Fence was added to preserve information about fences from
@@ -6350,7 +6346,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.release_locations_only_stack(&[dest, val, len])?;
             }
-            Operator::TableInit { elem_index, table } => {
+            Operator::TableInit { segment, table } => {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
@@ -6377,7 +6373,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, table_index, elem_index, dst, src, len]
                     [
                         Location::Imm32(table),
-                        Location::Imm32(elem_index),
+                        Location::Imm32(segment),
                         dest,
                         src,
                         len,
@@ -6397,7 +6393,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.release_locations_only_stack(&[dest, src, len])?;
             }
-            Operator::ElemDrop { elem_index } => {
+            Operator::ElemDrop { segment } => {
                 self.machine.move_location(
                     Size::S64,
                     Location::Memory(
@@ -6417,7 +6413,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .emit_call_register(this.machine.get_grp_for_call())
                     },
                     // [vmctx, elem_index]
-                    [Location::Imm32(elem_index)].iter().cloned(),
+                    [Location::Imm32(segment)].iter().cloned(),
                     [WpType::I32].iter().cloned(),
                 )?;
             }
