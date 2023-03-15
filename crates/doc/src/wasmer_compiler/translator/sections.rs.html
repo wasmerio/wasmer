@@ -488,39 +488,6 @@
 <span id="488">488</span>
 <span id="489">489</span>
 <span id="490">490</span>
-<span id="491">491</span>
-<span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
-<span id="512">512</span>
-<span id="513">513</span>
-<span id="514">514</span>
-<span id="515">515</span>
-<span id="516">516</span>
-<span id="517">517</span>
-<span id="518">518</span>
-<span id="519">519</span>
-<span id="520">520</span>
-<span id="521">521</span>
-<span id="522">522</span>
-<span id="523">523</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -539,7 +506,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasm_unsupported</span>;
 <span class="kw">use</span> <span class="ident">core::convert::TryFrom</span>;
 <span class="kw">use</span> <span class="ident">std::boxed::Box</span>;
-<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::vec::Vec</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::packed_option::ReservedValue</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
@@ -550,26 +516,22 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
 <span class="kw">use</span> <span class="ident">wasmparser</span>::{
     <span class="self">self</span>, <span class="ident">Data</span>, <span class="ident">DataKind</span>, <span class="ident">DataSectionReader</span>, <span class="ident">Element</span>, <span class="ident">ElementItem</span>, <span class="ident">ElementItems</span>, <span class="ident">ElementKind</span>,
-    <span class="ident">ElementSectionReader</span>, <span class="ident">Export</span>, <span class="ident">ExportSectionReader</span>, <span class="ident">ExternalKind</span>, <span class="ident">FuncType</span> <span class="kw">as</span> <span class="ident">WPFunctionType</span>,
-    <span class="ident">FunctionSectionReader</span>, <span class="ident">GlobalSectionReader</span>, <span class="ident">GlobalType</span> <span class="kw">as</span> <span class="ident">WPGlobalType</span>, <span class="ident">ImportSectionEntryType</span>,
-    <span class="ident">ImportSectionReader</span>, <span class="ident">MemorySectionReader</span>, <span class="ident">MemoryType</span> <span class="kw">as</span> <span class="ident">WPMemoryType</span>, <span class="ident">NameSectionReader</span>,
-    <span class="ident">Naming</span>, <span class="ident">NamingReader</span>, <span class="ident">Operator</span>, <span class="ident">TableSectionReader</span>, <span class="ident">TypeDef</span>, <span class="ident">TypeSectionReader</span>,
+    <span class="ident">ElementSectionReader</span>, <span class="ident">Export</span>, <span class="ident">ExportSectionReader</span>, <span class="ident">ExternalKind</span>, <span class="ident">FunctionSectionReader</span>,
+    <span class="ident">GlobalSectionReader</span>, <span class="ident">GlobalType</span> <span class="kw">as</span> <span class="ident">WPGlobalType</span>, <span class="ident">ImportSectionReader</span>, <span class="ident">MemorySectionReader</span>,
+    <span class="ident">MemoryType</span> <span class="kw">as</span> <span class="ident">WPMemoryType</span>, <span class="ident">NameSectionReader</span>, <span class="ident">Operator</span>, <span class="ident">TableSectionReader</span>, <span class="ident">TypeRef</span>,
+    <span class="ident">TypeSectionReader</span>,
 };
 
 <span class="doccomment">/// Helper function translating wasmparser types to Wasm Type.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wptype_to_type</span>(<span class="ident">ty</span>: <span class="ident">wasmparser::Type</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wptype_to_type</span>(<span class="ident">ty</span>: <span class="ident">wasmparser::ValType</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span> {
     <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">wasmparser::Type::I32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::I32</span>),
-        <span class="ident">wasmparser::Type::I64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::I64</span>),
-        <span class="ident">wasmparser::Type::F32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::F32</span>),
-        <span class="ident">wasmparser::Type::F64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::F64</span>),
-        <span class="ident">wasmparser::Type::V128</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::V128</span>),
-        <span class="ident">wasmparser::Type::ExternRef</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::ExternRef</span>),
-        <span class="ident">wasmparser::Type::FuncRef</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::FuncRef</span>),
-        <span class="ident">ty</span> =&gt; <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-            <span class="string">&quot;wptype_to_type: wasmparser type {:?}&quot;</span>,
-            <span class="ident">ty</span>
-        )),
+        <span class="ident">wasmparser::ValType::I32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::I32</span>),
+        <span class="ident">wasmparser::ValType::I64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::I64</span>),
+        <span class="ident">wasmparser::ValType::F32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::F32</span>),
+        <span class="ident">wasmparser::ValType::F64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::F64</span>),
+        <span class="ident">wasmparser::ValType::V128</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::V128</span>),
+        <span class="ident">wasmparser::ValType::ExternRef</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::ExternRef</span>),
+        <span class="ident">wasmparser::ValType::FuncRef</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Type::FuncRef</span>),
     }
 }
 
@@ -583,7 +545,9 @@
     <span class="ident">environ</span>.<span class="ident">reserve_signatures</span>(<span class="ident">count</span>)<span class="question-mark">?</span>;
 
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">types</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">TypeDef::Func</span>(<span class="ident">WPFunctionType</span> { <span class="ident">params</span>, <span class="ident">returns</span> })) <span class="op">=</span> <span class="ident">entry</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">wasmparser::Type::Func</span>(<span class="ident">functype</span>)) <span class="op">=</span> <span class="ident">entry</span> {
+            <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="ident">functype</span>.<span class="ident">params</span>();
+            <span class="kw">let</span> <span class="ident">returns</span> <span class="op">=</span> <span class="ident">functype</span>.<span class="ident">results</span>();
             <span class="kw">let</span> <span class="ident">sig_params</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>
                 .<span class="ident">iter</span>()
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ty</span><span class="op">|</span> {
@@ -600,7 +564,9 @@
                 .<span class="ident">collect</span>();
             <span class="kw">let</span> <span class="ident">sig</span> <span class="op">=</span> <span class="ident">FunctionType::new</span>(<span class="ident">sig_params</span>, <span class="ident">sig_returns</span>);
             <span class="ident">environ</span>.<span class="ident">declare_signature</span>(<span class="ident">sig</span>)<span class="question-mark">?</span>;
-            <span class="ident">module_translation_state</span>.<span class="ident">wasm_types</span>.<span class="ident">push</span>((<span class="ident">params</span>, <span class="ident">returns</span>));
+            <span class="ident">module_translation_state</span>
+                .<span class="ident">wasm_types</span>
+                .<span class="ident">push</span>((<span class="ident">params</span>.<span class="ident">to_vec</span>().<span class="ident">into</span>(), <span class="ident">returns</span>.<span class="ident">to_vec</span>().<span class="ident">into</span>()));
         } <span class="kw">else</span> {
             <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
         }
@@ -619,23 +585,20 @@
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">imports</span> {
         <span class="kw">let</span> <span class="ident">import</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">module</span>;
-        <span class="kw">let</span> <span class="ident">field_name</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">field</span>;
+        <span class="kw">let</span> <span class="ident">field_name</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">name</span>;
 
         <span class="kw">match</span> <span class="ident">import</span>.<span class="ident">ty</span> {
-            <span class="ident">ImportSectionEntryType::Function</span>(<span class="ident">sig</span>) =&gt; {
+            <span class="ident">TypeRef::Func</span>(<span class="ident">sig</span>) =&gt; {
                 <span class="ident">environ</span>.<span class="ident">declare_func_import</span>(
                     <span class="ident">SignatureIndex::from_u32</span>(<span class="ident">sig</span>),
                     <span class="ident">module_name</span>,
-                    <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
+                    <span class="ident">field_name</span>,
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">ImportSectionEntryType::Module</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">ImportSectionEntryType::Instance</span>(<span class="kw">_</span>) =&gt; {
-                <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
-            }
-            <span class="ident">ImportSectionEntryType::Tag</span>(<span class="kw">_</span>) =&gt; {
+            <span class="ident">TypeRef::Tag</span>(<span class="kw">_</span>) =&gt; {
                 <span class="macro">unimplemented!</span>(<span class="string">&quot;exception handling not implemented yet&quot;</span>)
             }
-            <span class="ident">ImportSectionEntryType::Memory</span>(<span class="ident">WPMemoryType</span> {
+            <span class="ident">TypeRef::Memory</span>(<span class="ident">WPMemoryType</span> {
                 <span class="ident">shared</span>,
                 <span class="ident">memory64</span>,
                 <span class="ident">initial</span>,
@@ -651,20 +614,20 @@
                         <span class="ident">shared</span>,
                     },
                     <span class="ident">module_name</span>,
-                    <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
+                    <span class="ident">field_name</span>,
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">ImportSectionEntryType::Global</span>(<span class="kw-2">ref</span> <span class="ident">ty</span>) =&gt; {
+            <span class="ident">TypeRef::Global</span>(<span class="kw-2">ref</span> <span class="ident">ty</span>) =&gt; {
                 <span class="ident">environ</span>.<span class="ident">declare_global_import</span>(
                     <span class="ident">GlobalType</span> {
                         <span class="ident">ty</span>: <span class="ident">wptype_to_type</span>(<span class="ident">ty</span>.<span class="ident">content_type</span>).<span class="ident">unwrap</span>(),
                         <span class="ident">mutability</span>: <span class="ident">ty</span>.<span class="ident">mutable</span>.<span class="ident">into</span>(),
                     },
                     <span class="ident">module_name</span>,
-                    <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
+                    <span class="ident">field_name</span>,
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">ImportSectionEntryType::Table</span>(<span class="kw-2">ref</span> <span class="ident">tab</span>) =&gt; {
+            <span class="ident">TypeRef::Table</span>(<span class="kw-2">ref</span> <span class="ident">tab</span>) =&gt; {
                 <span class="ident">environ</span>.<span class="ident">declare_table_import</span>(
                     <span class="ident">TableType</span> {
                         <span class="ident">ty</span>: <span class="ident">wptype_to_type</span>(<span class="ident">tab</span>.<span class="ident">element_type</span>).<span class="ident">unwrap</span>(),
@@ -672,7 +635,7 @@
                         <span class="ident">maximum</span>: <span class="ident">tab</span>.<span class="ident">maximum</span>,
                     },
                     <span class="ident">module_name</span>,
-                    <span class="ident">field_name</span>.<span class="ident">unwrap_or_default</span>(),
+                    <span class="ident">field_name</span>,
                 )<span class="question-mark">?</span>;
             }
         }
@@ -807,7 +770,7 @@
 
     <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">exports</span> {
         <span class="kw">let</span> <span class="ident">Export</span> {
-            <span class="ident">field</span>,
+            <span class="ident">name</span>: <span class="ident">field</span>,
             <span class="kw-2">ref</span> <span class="ident">kind</span>,
             <span class="ident">index</span>,
         } <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
@@ -817,18 +780,13 @@
         <span class="comment">// becomes a concern here.</span>
         <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">kind</span> {
-            <span class="ident">ExternalKind::Function</span> =&gt; {
-                <span class="ident">environ</span>.<span class="ident">declare_func_export</span>(<span class="ident">FunctionIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
-            }
+            <span class="ident">ExternalKind::Func</span> =&gt; <span class="ident">environ</span>.<span class="ident">declare_func_export</span>(<span class="ident">FunctionIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>,
             <span class="ident">ExternalKind::Table</span> =&gt; <span class="ident">environ</span>.<span class="ident">declare_table_export</span>(<span class="ident">TableIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>,
             <span class="ident">ExternalKind::Memory</span> =&gt; {
                 <span class="ident">environ</span>.<span class="ident">declare_memory_export</span>(<span class="ident">MemoryIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
             }
             <span class="ident">ExternalKind::Global</span> =&gt; {
                 <span class="ident">environ</span>.<span class="ident">declare_global_export</span>(<span class="ident">GlobalIndex::new</span>(<span class="ident">index</span>), <span class="ident">field</span>)<span class="question-mark">?</span>
-            }
-            <span class="ident">ExternalKind::Type</span> <span class="op">|</span> <span class="ident">ExternalKind::Module</span> <span class="op">|</span> <span class="ident">ExternalKind::Instance</span> =&gt; {
-                <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
             }
             <span class="ident">ExternalKind::Tag</span> =&gt; {
                 <span class="macro">unimplemented!</span>(<span class="string">&quot;exception handling not implemented yet&quot;</span>)
@@ -888,7 +846,7 @@
             <span class="ident">ty</span>,
             <span class="ident">range</span>: <span class="kw">_</span>,
         } <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmparser::Type::FuncRef</span> {
+        <span class="kw">if</span> <span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">wasmparser::ValType::FuncRef</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
                 <span class="string">&quot;unsupported table element type: {:?}&quot;</span>,
                 <span class="ident">ty</span>
@@ -898,9 +856,9 @@
         <span class="kw">match</span> <span class="ident">kind</span> {
             <span class="ident">ElementKind::Active</span> {
                 <span class="ident">table_index</span>,
-                <span class="ident">init_expr</span>,
+                <span class="ident">offset_expr</span>,
             } =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">init_expr</span>.<span class="ident">get_binary_reader</span>();
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">offset_expr</span>.<span class="ident">get_binary_reader</span>();
                 <span class="kw">let</span> (<span class="ident">base</span>, <span class="ident">offset</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_expr_reader</span>
                     .<span class="ident">read_operator</span>()
                     .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>
@@ -949,9 +907,9 @@
         <span class="kw">match</span> <span class="ident">kind</span> {
             <span class="ident">DataKind::Active</span> {
                 <span class="ident">memory_index</span>,
-                <span class="ident">init_expr</span>,
+                <span class="ident">offset_expr</span>,
             } =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">init_expr</span>.<span class="ident">get_binary_reader</span>();
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">init_expr_reader</span> <span class="op">=</span> <span class="ident">offset_expr</span>.<span class="ident">get_binary_reader</span>();
                 <span class="kw">let</span> (<span class="ident">base</span>, <span class="ident">offset</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">init_expr_reader</span>
                     .<span class="ident">read_operator</span>()
                     .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>
@@ -992,20 +950,20 @@
     <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">subsection</span>) <span class="op">=</span> <span class="ident">names</span>.<span class="ident">read</span>() {
         <span class="kw">match</span> <span class="ident">subsection</span> {
             <span class="ident">wasmparser::Name::Function</span>(<span class="ident">function_subsection</span>) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">function_names</span>) <span class="op">=</span> <span class="ident">function_subsection</span>
-                    .<span class="ident">get_map</span>()
-                    .<span class="ident">ok</span>()
-                    .<span class="ident">and_then</span>(<span class="ident">parse_function_name_subsection</span>)
-                {
-                    <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">name</span>) <span class="kw">in</span> <span class="ident">function_names</span> {
-                        <span class="ident">environ</span>.<span class="ident">declare_function_name</span>(<span class="ident">index</span>, <span class="ident">name</span>)<span class="question-mark">?</span>;
+                <span class="kw">for</span> <span class="ident">naming</span> <span class="kw">in</span> <span class="ident">function_subsection</span>.<span class="ident">into_iter</span>().<span class="ident">flatten</span>() {
+                    <span class="kw">if</span> <span class="ident">naming</span>.<span class="ident">index</span> <span class="op">!</span><span class="op">=</span> <span class="ident">std::u32::MAX</span> {
+                        <span class="ident">environ</span>.<span class="ident">declare_function_name</span>(
+                            <span class="ident">FunctionIndex::from_u32</span>(<span class="ident">naming</span>.<span class="ident">index</span>),
+                            <span class="ident">naming</span>.<span class="ident">name</span>,
+                        )<span class="question-mark">?</span>;
                     }
                 }
             }
-            <span class="ident">wasmparser::Name::Module</span>(<span class="ident">module</span>) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">module</span>.<span class="ident">get_name</span>() {
-                    <span class="ident">environ</span>.<span class="ident">declare_module_name</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
-                }
+            <span class="ident">wasmparser::Name::Module</span> {
+                <span class="ident">name</span>,
+                <span class="ident">name_range</span>: <span class="kw">_</span>,
+            } =&gt; {
+                <span class="ident">environ</span>.<span class="ident">declare_module_name</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
             }
             <span class="ident">wasmparser::Name::Local</span>(<span class="kw">_</span>) =&gt; {}
             <span class="ident">wasmparser::Name::Label</span>(<span class="kw">_</span>)
@@ -1019,30 +977,6 @@
         };
     }
     <span class="prelude-val">Ok</span>(())
-}
-
-<span class="kw">fn</span> <span class="ident">parse_function_name_subsection</span>(
-    <span class="kw-2">mut</span> <span class="ident">naming_reader</span>: <span class="ident">NamingReader</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_names</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">naming_reader</span>.<span class="ident">get_count</span>() {
-        <span class="kw">let</span> <span class="ident">Naming</span> { <span class="ident">index</span>, <span class="ident">name</span> } <span class="op">=</span> <span class="ident">naming_reader</span>.<span class="ident">read</span>().<span class="ident">ok</span>()<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">index</span> <span class="op">==</span> <span class="ident">std::u32::MAX</span> {
-            <span class="comment">// We reserve `u32::MAX` for our own use.</span>
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
-        }
-
-        <span class="kw">if</span> <span class="ident">function_names</span>
-            .<span class="ident">insert</span>(<span class="ident">FunctionIndex::from_u32</span>(<span class="ident">index</span>), <span class="ident">name</span>)
-            .<span class="ident">is_some</span>()
-        {
-            <span class="comment">// If the function index has been previously seen, then we</span>
-            <span class="comment">// break out of the loop and early return `None`, because these</span>
-            <span class="comment">// should be unique.</span>
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
-        }
-    }
-    <span class="prelude-val">Some</span>(<span class="ident">function_names</span>)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

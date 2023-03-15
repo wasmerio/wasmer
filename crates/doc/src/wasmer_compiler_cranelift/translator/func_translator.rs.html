@@ -270,9 +270,6 @@
 <span id="270">270</span>
 <span id="271">271</span>
 <span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -291,9 +288,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::timing</span>;
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>, <span class="ident">Variable</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">wasm_unsupported</span>, <span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">ModuleTranslationState</span>,
-};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">ModuleTranslationState</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">WasmResult</span>};
 
 <span class="doccomment">/// WebAssembly to Cranelift IR function translator.</span>
@@ -456,12 +451,12 @@
 <span class="kw">fn</span> <span class="ident">declare_locals</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
     <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">count</span>: <span class="ident">u32</span>,
-    <span class="ident">wasm_type</span>: <span class="ident">wasmparser::Type</span>,
+    <span class="ident">wasm_type</span>: <span class="ident">wasmparser::ValType</span>,
     <span class="ident">next_local</span>: <span class="kw-2">&amp;mut</span> <span class="ident">usize</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
 ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="comment">// All locals are initialized to 0.</span>
-    <span class="kw">use</span> <span class="ident">wasmparser::Type</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">wasmparser::ValType</span>::<span class="kw-2">*</span>;
     <span class="kw">let</span> <span class="ident">zeroval</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">wasm_type</span> {
         <span class="ident">I32</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">iconst</span>(<span class="ident">ir::types::I32</span>, <span class="number">0</span>),
         <span class="ident">I64</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">iconst</span>(<span class="ident">ir::types::I64</span>, <span class="number">0</span>),
@@ -473,7 +468,6 @@
         }
         <span class="ident">ExternRef</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="ident">environ</span>.<span class="ident">reference_type</span>()),
         <span class="ident">FuncRef</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="ident">environ</span>.<span class="ident">reference_type</span>()),
-        <span class="ident">ty</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;unsupported local type {:?}&quot;</span>, <span class="ident">ty</span>)),
     };
 
     <span class="kw">let</span> <span class="ident">wasmer_ty</span> <span class="op">=</span> <span class="ident">wptype_to_type</span>(<span class="ident">wasm_type</span>).<span class="ident">unwrap</span>();

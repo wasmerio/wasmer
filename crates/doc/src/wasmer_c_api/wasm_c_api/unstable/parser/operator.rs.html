@@ -1075,6 +1075,14 @@
 <span id="1073">1073</span>
 <span id="1074">1074</span>
 <span id="1075">1075</span>
+<span id="1076">1076</span>
+<span id="1077">1077</span>
+<span id="1078">1078</span>
+<span id="1079">1079</span>
+<span id="1080">1080</span>
+<span id="1081">1081</span>
+<span id="1082">1082</span>
+<span id="1083">1083</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_api::wasmparser::Operator</span>;
 
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
@@ -1610,6 +1618,10 @@
     <span class="ident">F32x4RelaxedMax</span>,
     <span class="ident">F64x2RelaxedMin</span>,
     <span class="ident">F64x2RelaxedMax</span>,
+    <span class="ident">I16x8RelaxedQ15mulrS</span>,
+    <span class="ident">I16x8DotI8x16I7x16S</span>,
+    <span class="ident">I32x4DotI8x16I7x16AddS</span>,
+    <span class="ident">F32x4RelaxedDotBf16x8AddF32x4</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasmer_parser_operator_t</span> {
@@ -2121,8 +2133,8 @@
             <span class="ident">O::V128Store16Lane</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::V128Store16Lane</span>,
             <span class="ident">O::V128Store32Lane</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::V128Store32Lane</span>,
             <span class="ident">O::V128Store64Lane</span> { .. } =&gt; <span class="ident"><span class="self">Self</span>::V128Store64Lane</span>,
-            <span class="ident">O::I8x16RoundingAverageU</span> =&gt; <span class="ident"><span class="self">Self</span>::I8x16RoundingAverageU</span>,
-            <span class="ident">O::I16x8RoundingAverageU</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8RoundingAverageU</span>,
+            <span class="ident">O::I8x16AvgrU</span> =&gt; <span class="ident"><span class="self">Self</span>::I8x16RoundingAverageU</span>,
+            <span class="ident">O::I16x8AvgrU</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8RoundingAverageU</span>,
             <span class="ident">O::I16x8Q15MulrSatS</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8Q15MulrSatS</span>,
             <span class="ident">O::F32x4DemoteF64x2Zero</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4DemoteF64x2Zero</span>,
             <span class="ident">O::F64x2PromoteLowF32x4</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2PromoteLowF32x4</span>,
@@ -2135,18 +2147,22 @@
             <span class="ident">O::I32x4RelaxedTruncSatF32x4U</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF32x4U</span>,
             <span class="ident">O::I32x4RelaxedTruncSatF64x2SZero</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF64x2SZero</span>,
             <span class="ident">O::I32x4RelaxedTruncSatF64x2UZero</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4RelaxedTruncSatF64x2UZero</span>,
-            <span class="ident">O::F32x4Fma</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4Fma</span>,
-            <span class="ident">O::F32x4Fms</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4Fms</span>,
-            <span class="ident">O::F64x2Fma</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2Fma</span>,
-            <span class="ident">O::F64x2Fms</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2Fms</span>,
-            <span class="ident">O::I8x16LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I8x16LaneSelect</span>,
-            <span class="ident">O::I16x8LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8LaneSelect</span>,
-            <span class="ident">O::I32x4LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4LaneSelect</span>,
-            <span class="ident">O::I64x2LaneSelect</span> =&gt; <span class="ident"><span class="self">Self</span>::I64x2LaneSelect</span>,
+            <span class="ident">O::F32x4RelaxedFma</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4Fma</span>,
+            <span class="ident">O::F32x4RelaxedFnma</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4Fms</span>,
+            <span class="ident">O::F64x2RelaxedFma</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2Fma</span>,
+            <span class="ident">O::F64x2RelaxedFnma</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2Fms</span>,
+            <span class="ident">O::I8x16RelaxedLaneselect</span> =&gt; <span class="ident"><span class="self">Self</span>::I8x16LaneSelect</span>,
+            <span class="ident">O::I16x8RelaxedLaneselect</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8LaneSelect</span>,
+            <span class="ident">O::I32x4RelaxedLaneselect</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4LaneSelect</span>,
+            <span class="ident">O::I64x2RelaxedLaneselect</span> =&gt; <span class="ident"><span class="self">Self</span>::I64x2LaneSelect</span>,
             <span class="ident">O::F32x4RelaxedMin</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4RelaxedMin</span>,
             <span class="ident">O::F32x4RelaxedMax</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4RelaxedMax</span>,
             <span class="ident">O::F64x2RelaxedMin</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2RelaxedMin</span>,
             <span class="ident">O::F64x2RelaxedMax</span> =&gt; <span class="ident"><span class="self">Self</span>::F64x2RelaxedMax</span>,
+            <span class="ident">O::I16x8RelaxedQ15mulrS</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8RelaxedQ15mulrS</span>,
+            <span class="ident">O::I16x8DotI8x16I7x16S</span> =&gt; <span class="ident"><span class="self">Self</span>::I16x8DotI8x16I7x16S</span>,
+            <span class="ident">O::I32x4DotI8x16I7x16AddS</span> =&gt; <span class="ident"><span class="self">Self</span>::I32x4DotI8x16I7x16AddS</span>,
+            <span class="ident">O::F32x4RelaxedDotBf16x8AddF32x4</span> =&gt; <span class="ident"><span class="self">Self</span>::F32x4RelaxedDotBf16x8AddF32x4</span>,
         }
     }
 }

@@ -11362,6 +11362,12 @@
 <span id="11360">11360</span>
 <span id="11361">11361</span>
 <span id="11362">11362</span>
+<span id="11363">11363</span>
+<span id="11364">11364</span>
+<span id="11365">11365</span>
+<span id="11366">11366</span>
+<span id="11367">11367</span>
+<span id="11368">11368</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
         <span class="ident">tbaa_label</span>, <span class="ident">type_to_llvm</span>, <span class="ident">CtxType</span>, <span class="ident">FunctionCache</span>, <span class="ident">GlobalCache</span>, <span class="ident">Intrinsics</span>, <span class="ident">MemoryCache</span>,
@@ -11389,7 +11395,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config</span>::{<span class="ident">CompiledKind</span>, <span class="ident">LLVM</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::object_file</span>::{<span class="ident">load_object_file</span>, <span class="ident">CompiledFunction</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">MemoryImmediate</span>, <span class="ident">Operator</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">MemArg</span>, <span class="ident">Operator</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">from_binaryreadererror_wasmerror</span>, <span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBodyData</span>,
     <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>,
@@ -12392,7 +12398,7 @@
     <span class="kw">fn</span> <span class="ident">annotate_user_memaccess</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">memory_index</span>: <span class="ident">MemoryIndex</span>,
-        <span class="ident">_memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryImmediate</span>,
+        <span class="ident">_memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemArg</span>,
         <span class="ident">alignment</span>: <span class="ident">u32</span>,
         <span class="ident">memaccess</span>: <span class="ident">InstructionValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
@@ -12415,7 +12421,7 @@
     <span class="kw">fn</span> <span class="ident">resolve_memory_ptr</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">memory_index</span>: <span class="ident">MemoryIndex</span>,
-        <span class="ident">memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryImmediate</span>,
+        <span class="ident">memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemArg</span>,
         <span class="ident">ptr_ty</span>: <span class="ident">PointerType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">var_offset</span>: <span class="ident">IntValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
         <span class="ident">value_size</span>: <span class="ident">usize</span>,
@@ -12538,7 +12544,7 @@
             .<span class="ident">into_pointer_value</span>())
     }
 
-    <span class="kw">fn</span> <span class="ident">trap_if_misaligned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryImmediate</span>, <span class="ident">ptr</span>: <span class="ident">PointerValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">align</span>: <span class="ident">u8</span>) {
+    <span class="kw">fn</span> <span class="ident">trap_if_misaligned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemArg</span>, <span class="ident">ptr</span>: <span class="ident">PointerValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">align</span>: <span class="ident">u8</span>) {
         <span class="kw">if</span> <span class="ident">align</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">1</span> {
             <span class="kw">return</span>;
         }
@@ -12758,7 +12764,9 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
         <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">reachable</span> {
             <span class="kw">match</span> <span class="ident">op</span> {
-                <span class="ident">Operator::Block</span> { <span class="ident">ty</span>: <span class="kw">_</span> } <span class="op">|</span> <span class="ident">Operator::Loop</span> { <span class="ident">ty</span>: <span class="kw">_</span> } <span class="op">|</span> <span class="ident">Operator::If</span> { <span class="ident">ty</span>: <span class="kw">_</span> } =&gt; {
+                <span class="ident">Operator::Block</span> { <span class="ident">blockty</span>: <span class="kw">_</span> }
+                <span class="op">|</span> <span class="ident">Operator::Loop</span> { <span class="ident">blockty</span>: <span class="kw">_</span> }
+                <span class="op">|</span> <span class="ident">Operator::If</span> { <span class="ident">blockty</span>: <span class="kw">_</span> } =&gt; {
                     <span class="self">self</span>.<span class="ident">unreachable_depth</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
                 }
@@ -12784,7 +12792,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
              * Control Flow instructions.
              * https://github.com/sunfishcode/wasm-reference-manual/blob/master/WebAssembly.md#control-flow-instructions
              ***************************/</span>
-            <span class="ident">Operator::Block</span> { <span class="ident">ty</span> } =&gt; {
+            <span class="ident">Operator::Block</span> { <span class="ident">blockty</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">current_block</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">get_insert_block</span>()
@@ -12795,7 +12803,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
                 <span class="kw">let</span> <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">module_translation</span>
-                    .<span class="ident">blocktype_params_results</span>(<span class="ident">ty</span>)<span class="question-mark">?</span>
+                    .<span class="ident">blocktype_params_results</span>(<span class="ident">blockty</span>)<span class="question-mark">?</span>
                     .<span class="number">1</span>
                     .<span class="ident">iter</span>()
                     .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">wp_ty</span><span class="op">|</span> {
@@ -12811,7 +12819,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push_block</span>(<span class="ident">end_block</span>, <span class="ident">phis</span>);
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">current_block</span>);
             }
-            <span class="ident">Operator::Loop</span> { <span class="ident">ty</span> } =&gt; {
+            <span class="ident">Operator::Loop</span> { <span class="ident">blockty</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">loop_body</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="self">self</span>.<span class="ident">function</span>, <span class="string">&quot;loop_body&quot;</span>);
                 <span class="kw">let</span> <span class="ident">loop_next</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">context</span>.<span class="ident">append_basic_block</span>(<span class="self">self</span>.<span class="ident">function</span>, <span class="string">&quot;loop_outer&quot;</span>);
                 <span class="kw">let</span> <span class="ident">pre_loop_block</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">get_insert_block</span>().<span class="ident">unwrap</span>();
@@ -12819,7 +12827,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_unconditional_branch</span>(<span class="ident">loop_body</span>);
 
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">loop_next</span>);
-                <span class="kw">let</span> <span class="ident">blocktypes</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_translation</span>.<span class="ident">blocktype_params_results</span>(<span class="ident">ty</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">blocktypes</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_translation</span>.<span class="ident">blocktype_params_results</span>(<span class="ident">blockty</span>)<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="ident">blocktypes</span>
                     .<span class="number">1</span>
                     .<span class="ident">iter</span>()
@@ -12956,7 +12964,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     .<span class="ident">build_conditional_branch</span>(<span class="ident">cond_value</span>, <span class="kw-2">*</span><span class="ident">frame</span>.<span class="ident">br_dest</span>(), <span class="ident">else_block</span>);
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">else_block</span>);
             }
-            <span class="ident">Operator::BrTable</span> { <span class="kw-2">ref</span> <span class="ident">table</span> } =&gt; {
+            <span class="ident">Operator::BrTable</span> { <span class="kw-2">ref</span> <span class="ident">targets</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">current_block</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">get_insert_block</span>()
@@ -12964,7 +12972,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
                 <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">default_frame</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">frame_at_depth</span>(<span class="ident">table</span>.<span class="ident">default</span>())<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">default_frame</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">frame_at_depth</span>(<span class="ident">targets</span>.<span class="ident">default</span>())<span class="question-mark">?</span>;
 
                 <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">default_frame</span>.<span class="ident">is_loop</span>() {
                     <span class="ident">default_frame</span>.<span class="ident">loop_body_phis</span>()
@@ -12977,7 +12985,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">phi</span>.<span class="ident">add_incoming</span>(<span class="kw-2">&amp;</span>[(<span class="ident">value</span>, <span class="ident">current_block</span>)]);
                 }
 
-                <span class="kw">let</span> <span class="ident">cases</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">table</span>
+                <span class="kw">let</span> <span class="ident">cases</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">targets</span>
                     .<span class="ident">targets</span>()
                     .<span class="ident">enumerate</span>()
                     .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">case_index</span>, <span class="ident">depth</span>)<span class="op">|</span> {
@@ -13013,7 +13021,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">args_len</span>)<span class="question-mark">?</span>;
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
             }
-            <span class="ident">Operator::If</span> { <span class="ident">ty</span> } =&gt; {
+            <span class="ident">Operator::If</span> { <span class="ident">blockty</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">current_block</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">get_insert_block</span>()
@@ -13027,7 +13035,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
                     <span class="kw">let</span> <span class="ident">phis</span> <span class="op">=</span> <span class="self">self</span>
                         .<span class="ident">module_translation</span>
-                        .<span class="ident">blocktype_params_results</span>(<span class="ident">ty</span>)<span class="question-mark">?</span>
+                        .<span class="ident">blocktype_params_results</span>(<span class="ident">blockty</span>)<span class="question-mark">?</span>
                         .<span class="number">1</span>
                         .<span class="ident">iter</span>()
                         .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">wp_ty</span><span class="op">|</span> {
@@ -13058,7 +13066,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">position_at_end</span>(<span class="ident">if_else_block</span>);
                 <span class="kw">let</span> <span class="ident">block_param_types</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">module_translation</span>
-                    .<span class="ident">blocktype_params_results</span>(<span class="ident">ty</span>)<span class="question-mark">?</span>
+                    .<span class="ident">blocktype_params_results</span>(<span class="ident">blockty</span>)<span class="question-mark">?</span>
                     .<span class="number">0</span>
                     .<span class="ident">iter</span>()
                     .<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">wp_ty</span><span class="op">|</span> {
@@ -13632,8 +13640,12 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     .<span class="ident">iter</span>()
                     .<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">ret</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="kw-2">*</span><span class="ident">ret</span>));
             }
-            <span class="ident">Operator::CallIndirect</span> { <span class="ident">index</span>, <span class="ident">table_index</span> } =&gt; {
-                <span class="kw">let</span> <span class="ident">sigindex</span> <span class="op">=</span> <span class="ident">SignatureIndex::from_u32</span>(<span class="ident">index</span>);
+            <span class="ident">Operator::CallIndirect</span> {
+                <span class="ident">type_index</span>,
+                <span class="ident">table_index</span>,
+                <span class="ident">table_byte</span>: <span class="kw">_</span>,
+            } =&gt; {
+                <span class="kw">let</span> <span class="ident">sigindex</span> <span class="op">=</span> <span class="ident">SignatureIndex::from_u32</span>(<span class="ident">type_index</span>);
                 <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">wasm_module</span>.<span class="ident">signatures</span>[<span class="ident">sigindex</span>];
                 <span class="kw">let</span> <span class="ident">expected_dynamic_sigindex</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">ctx</span>
@@ -15310,7 +15322,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator::I8x16RoundingAverageU</span> =&gt; {
+            <span class="ident">Operator::I8x16AvgrU</span> =&gt; {
                 <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i8x16</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> (<span class="ident">v2</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i8x16</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
@@ -15341,7 +15353,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator::I16x8RoundingAverageU</span> =&gt; {
+            <span class="ident">Operator::I16x8AvgrU</span> =&gt; {
                 <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i16x8</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> (<span class="ident">v2</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i16x8</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
@@ -20309,7 +20321,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator::AtomicFence</span> { <span class="ident">flags</span>: <span class="kw">_</span> } =&gt; {
+            <span class="ident">Operator::AtomicFence</span> =&gt; {
                 <span class="comment">// Fence is a nop.</span>
                 <span class="comment">//</span>
                 <span class="comment">// Fence was added to preserve information about fences from</span>
@@ -22310,10 +22322,10 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="ident">size</span>.<span class="ident">add_attribute</span>(<span class="ident">AttributeLoc::Function</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">readonly</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">size</span>.<span class="ident">try_as_basic_value</span>().<span class="ident">left</span>().<span class="ident">unwrap</span>());
             }
-            <span class="ident">Operator::MemoryInit</span> { <span class="ident">segment</span>, <span class="ident">mem</span> } =&gt; {
+            <span class="ident">Operator::MemoryInit</span> { <span class="ident">data_index</span>, <span class="ident">mem</span> } =&gt; {
                 <span class="kw">let</span> (<span class="ident">dest</span>, <span class="ident">src</span>, <span class="ident">len</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop3</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">mem</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>);
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">segment</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">data_index</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>);
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
                     <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">memory_init</span>,
                     <span class="kw-2">&amp;</span>[
@@ -22327,24 +22339,24 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="string">&quot;&quot;</span>,
                 );
             }
-            <span class="ident">Operator::DataDrop</span> { <span class="ident">segment</span> } =&gt; {
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">segment</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>);
+            <span class="ident">Operator::DataDrop</span> { <span class="ident">data_index</span> } =&gt; {
+                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">data_index</span>.<span class="ident">into</span>(), <span class="bool-val">false</span>);
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
                     <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">data_drop</span>,
                     <span class="kw-2">&amp;</span>[<span class="ident">vmctx</span>.<span class="ident">as_basic_value_enum</span>().<span class="ident">into</span>(), <span class="ident">segment</span>.<span class="ident">into</span>()],
                     <span class="string">&quot;&quot;</span>,
                 );
             }
-            <span class="ident">Operator::MemoryCopy</span> { <span class="ident">src</span>, <span class="ident">dst</span> } =&gt; {
+            <span class="ident">Operator::MemoryCopy</span> { <span class="ident">dst_mem</span>, <span class="ident">src_mem</span> } =&gt; {
                 <span class="comment">// ignored until we support multiple memories</span>
-                <span class="kw">let</span> <span class="ident">_dst</span> <span class="op">=</span> <span class="ident">dst</span>;
+                <span class="kw">let</span> <span class="ident">_dst</span> <span class="op">=</span> <span class="ident">dst_mem</span>;
                 <span class="kw">let</span> (<span class="ident">memory_copy</span>, <span class="ident">src</span>) <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_memory_index</span>) <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">wasm_module</span>
-                    .<span class="ident">local_memory_index</span>(<span class="ident">MemoryIndex::from_u32</span>(<span class="ident">src</span>))
+                    .<span class="ident">local_memory_index</span>(<span class="ident">MemoryIndex::from_u32</span>(<span class="ident">src_mem</span>))
                 {
                     (<span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">memory_copy</span>, <span class="ident">local_memory_index</span>.<span class="ident">as_u32</span>())
                 } <span class="kw">else</span> {
-                    (<span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">imported_memory_copy</span>, <span class="ident">src</span>)
+                    (<span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">imported_memory_copy</span>, <span class="ident">src_mem</span>)
                 };
 
                 <span class="kw">let</span> (<span class="ident">dest_pos</span>, <span class="ident">src_pos</span>, <span class="ident">len</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop3</span>()<span class="question-mark">?</span>;
@@ -22501,9 +22513,9 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="string">&quot;&quot;</span>,
                 );
             }
-            <span class="ident">Operator::TableInit</span> { <span class="ident">segment</span>, <span class="ident">table</span> } =&gt; {
+            <span class="ident">Operator::TableInit</span> { <span class="ident">elem_index</span>, <span class="ident">table</span> } =&gt; {
                 <span class="kw">let</span> (<span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop3</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">segment</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">elem_index</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
                 <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">table</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
                     <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">table_init</span>,
@@ -22518,8 +22530,8 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="string">&quot;&quot;</span>,
                 );
             }
-            <span class="ident">Operator::ElemDrop</span> { <span class="ident">segment</span> } =&gt; {
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">segment</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
+            <span class="ident">Operator::ElemDrop</span> { <span class="ident">elem_index</span> } =&gt; {
+                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="ident">elem_index</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
                 <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
                     <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">elem_drop</span>,
                     <span class="kw-2">&amp;</span>[<span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">basic</span>().<span class="ident">into</span>(), <span class="ident">segment</span>.<span class="ident">into</span>()],

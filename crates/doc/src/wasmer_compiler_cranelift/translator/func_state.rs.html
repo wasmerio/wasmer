@@ -614,7 +614,7 @@
         <span class="ident">num_return_values</span>: <span class="ident">usize</span>,
         <span class="ident">original_stack_size</span>: <span class="ident">usize</span>,
         <span class="ident">exit_is_branched_to</span>: <span class="ident">bool</span>,
-        <span class="ident">blocktype</span>: <span class="ident">wasmer_compiler::wasmparser::TypeOrFuncType</span>,
+        <span class="ident">blocktype</span>: <span class="ident">wasmer_compiler::wasmparser::BlockType</span>,
         <span class="doccomment">/// Was the head of the `if` reachable?</span>
         <span class="ident">head_is_reachable</span>: <span class="ident">bool</span>,
         <span class="doccomment">/// What was the reachability at the end of the consequent?</span>
@@ -970,7 +970,7 @@
         <span class="ident">else_data</span>: <span class="ident">ElseData</span>,
         <span class="ident">num_param_types</span>: <span class="ident">usize</span>,
         <span class="ident">num_result_types</span>: <span class="ident">usize</span>,
-        <span class="ident">blocktype</span>: <span class="ident">wasmer_compiler::wasmparser::TypeOrFuncType</span>,
+        <span class="ident">blocktype</span>: <span class="ident">wasmer_compiler::wasmparser::BlockType</span>,
     ) {
         <span class="macro">debug_assert!</span>(<span class="ident">num_param_types</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">len</span>());
 

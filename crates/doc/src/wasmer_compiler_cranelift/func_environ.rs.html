@@ -1622,7 +1622,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetFrontendConfig</span>;
 <span class="kw">use</span> <span class="ident">cranelift_frontend::FunctionBuilder</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Type</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::ValType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::VMBuiltinFunctionIndex</span>;
@@ -2608,11 +2608,11 @@
     <span class="kw">fn</span> <span class="ident">translate_ref_null</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="kw-2">mut</span> <span class="ident">pos</span>: <span class="ident">cranelift_codegen::cursor::FuncCursor</span>,
-        <span class="ident">ty</span>: <span class="ident">Type</span>,
+        <span class="ident">ty</span>: <span class="ident">ValType</span>,
     ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Value</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">ty</span> {
-            <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="self">self</span>.<span class="ident">reference_type</span>()),
-            <span class="ident">Type::ExternRef</span> =&gt; <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="self">self</span>.<span class="ident">reference_type</span>()),
+            <span class="ident">ValType::FuncRef</span> =&gt; <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="self">self</span>.<span class="ident">reference_type</span>()),
+            <span class="ident">ValType::ExternRef</span> =&gt; <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="self">self</span>.<span class="ident">reference_type</span>()),
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasmError::Unsupported</span>(
                     <span class="string">&quot;`ref.null T` that is not a `funcref` or an `externref`&quot;</span>.<span class="ident">into</span>(),

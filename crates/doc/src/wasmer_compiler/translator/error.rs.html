@@ -90,7 +90,7 @@
         <span class="kw">let</span> <span class="ident">binary_reader_error</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_bytes</span>(<span class="number">10</span>).<span class="ident">unwrap_err</span>();
         <span class="kw">match</span> <span class="ident">from_binaryreadererror_wasmerror</span>(<span class="ident">binary_reader_error</span>) {
             <span class="ident">WasmError::InvalidWebAssembly</span> { <span class="ident">message</span>, <span class="ident">offset</span> } =&gt; {
-                <span class="macro">assert_eq!</span>(<span class="ident">message</span>, <span class="string">&quot;Unexpected EOF&quot;</span>);
+                <span class="macro">assert_eq!</span>(<span class="ident">message</span>, <span class="string">&quot;unexpected end-of-file&quot;</span>);
                 <span class="macro">assert_eq!</span>(<span class="ident">offset</span>, <span class="number">0</span>);
             }
             <span class="ident">err</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, <span class="ident">err</span>),
@@ -103,7 +103,7 @@
         <span class="kw">let</span> <span class="ident">binary_reader_error</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_bytes</span>(<span class="number">10</span>).<span class="ident">unwrap_err</span>();
         <span class="kw">match</span> <span class="ident">from_binaryreadererror_compileerror</span>(<span class="ident">binary_reader_error</span>) {
             <span class="ident">CompileError::Wasm</span>(<span class="ident">WasmError::InvalidWebAssembly</span> { <span class="ident">message</span>, <span class="ident">offset</span> }) =&gt; {
-                <span class="macro">assert_eq!</span>(<span class="ident">message</span>, <span class="string">&quot;Unexpected EOF&quot;</span>);
+                <span class="macro">assert_eq!</span>(<span class="ident">message</span>, <span class="string">&quot;unexpected end-of-file&quot;</span>);
                 <span class="macro">assert_eq!</span>(<span class="ident">offset</span>, <span class="number">0</span>);
             }
             <span class="ident">err</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, <span class="ident">err</span>),

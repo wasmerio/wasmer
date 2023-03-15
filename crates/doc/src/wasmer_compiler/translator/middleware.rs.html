@@ -214,9 +214,9 @@
 <span class="kw">use</span> <span class="ident">smallvec::SmallVec</span>;
 <span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
+<span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">Range</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">MiddlewareError</span>, <span class="ident">ModuleInfo</span>, <span class="ident">WasmResult</span>};
-<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">Range</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">ValType</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error::from_binaryreadererror_wasmerror</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::environ::FunctionBinaryReader</span>;
@@ -347,16 +347,16 @@
             .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">Type</span>)<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">ValType</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">state</span>
             .<span class="ident">inner</span>
             .<span class="ident">read_var_u32</span>()
             .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>
+        <span class="kw">let</span> <span class="ident">ty</span>: <span class="ident">ValType</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">state</span>
             .<span class="ident">inner</span>
-            .<span class="ident">read_type</span>()
+            .<span class="ident">read_val_type</span>()
             .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((<span class="ident">count</span>, <span class="ident">ty</span>))
     }
@@ -414,7 +414,7 @@
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">eof</span>()
     }
 
-    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Range</span> {
+    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">range</span>()
     }
 }
