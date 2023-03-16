@@ -1,6 +1,7 @@
 use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::imports::Imports;
+use crate::jsc::as_js::AsJs;
 use crate::jsc::vm::VMInstance;
 use crate::module::Module;
 use crate::store::AsStoreMut;
@@ -21,13 +22,12 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
-        unimplemented!();
-        // let instance = module
-        //     .0
-        //     .instantiate(&mut store, imports)
-        //     .map_err(|e| InstantiationError::Start(e))?;
+        let instance = module
+            .0
+            .instantiate(&mut store, imports)
+            .map_err(|e| InstantiationError::Start(e))?;
 
-        // Self::from_module_and_instance(store, &module, instance)
+        Self::from_module_and_instance(store, &module, instance)
     }
 
     pub(crate) fn new_by_index(
@@ -35,37 +35,41 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
-        unimplemented!();
-        // let mut imports = Imports::new();
-        // for (import_ty, extern_ty) in module.imports().zip(externs.iter()) {
-        //     imports.define(import_ty.module(), import_ty.name(), extern_ty.clone());
-        // }
-        // Self::new(store, module, &imports)
+        let mut imports = Imports::new();
+        for (import_ty, extern_ty) in module.imports(&store.as_store_ref()).zip(externs.iter()) {
+            imports.define(import_ty.module(), import_ty.name(), extern_ty.clone());
+        }
+        Self::new(store, module, &imports)
     }
 
-    // pub(crate) fn from_module_and_instance(
-    //     mut store: &mut impl AsStoreMut,
-    //     module: &Module,
-    //     instance: WebAssembly::Instance,
-    // ) -> Result<(Self, Exports), InstantiationError> {
-    //     let instance_exports = instance.exports();
+    pub(crate) fn from_module_and_instance(
+        mut store: &mut impl AsStoreMut,
+        module: &Module,
+        instance: VMInstance,
+    ) -> Result<(Self, Exports), InstantiationError> {
+        let engine = store.as_store_mut();
+        let context = engine.engine().0.context();
 
-    //     let exports = module
-    //         .exports()
-    //         .map(|export_type| {
-    //             let name = export_type.name();
-    //             let extern_type = export_type.ty();
-    //             // Annotation is here to prevent spurious IDE warnings.
-    //             #[allow(unused_unsafe)]
-    //             let js_export =
-    //                 unsafe { js_sys::Reflect::get(&instance_exports, &name.into()).unwrap() };
-    //             let extern_ = Extern::from_jsvalue(&mut store, extern_type, &js_export)
-    //                 .map_err(|e| wasm_bindgen::JSValue::from(e))
-    //                 .unwrap();
-    //             Ok((name.to_string(), extern_))
-    //         })
-    //         .collect::<Result<Exports, InstantiationError>>()?;
+        let mut instance_exports = instance
+            .get_property(&context, "exports".to_string())
+            .to_object(&context);
 
-    //     Ok((Self { _handle: instance }, exports))
-    // }
+        let exports_ty = module.exports(&store.as_store_mut()).collect::<Vec<_>>();
+
+        let exports = exports_ty
+            .iter()
+            .map(|export_type| {
+                let name = export_type.name();
+                let mut store = store.as_store_mut();
+                let context = store.engine().0.context();
+                let extern_type = export_type.ty();
+                // Annotation is here to prevent spurious IDE warnings.
+                let js_export = instance_exports.get_property(&context, name.into());
+                let extern_ = Extern::from_jsvalue(&mut store, extern_type, &js_export).unwrap();
+                Ok((name.to_string(), extern_))
+            })
+            .collect::<Result<Exports, InstantiationError>>()?;
+
+        Ok((Self { _handle: instance }, exports))
+    }
 }

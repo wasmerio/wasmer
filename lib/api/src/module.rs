@@ -339,8 +339,11 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
-        self.0.imports()
+    pub fn imports<'a>(
+        &'a self,
+        engine: &'a impl AsEngineRef,
+    ) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+        self.0.imports(engine)
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -366,8 +369,11 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
-        self.0.exports()
+    pub fn exports<'a>(
+        &'a self,
+        engine: &'a impl AsEngineRef,
+    ) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+        self.0.exports(engine)
     }
 
     /// Get the custom sections of the module given a `name`.
@@ -377,8 +383,12 @@ impl Module {
     /// Following the WebAssembly spec, one name can have multiple
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        self.0.custom_sections(name)
+    pub fn custom_sections<'a>(
+        &'a self,
+        engine: &'a impl AsEngineRef,
+        name: &'a str,
+    ) -> impl Iterator<Item = Box<[u8]>> + 'a {
+        self.0.custom_sections(engine, name)
     }
 
     /// The ABI of the [`ModuleInfo`] is very unstable, we refactor it very often.

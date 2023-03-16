@@ -2,7 +2,7 @@ pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
 mod objects {
-    use rusty_jsc::JSValue;
+    use rusty_jsc::{JSContext, JSObject, JSValue};
 
     use crate::jsc::vm::{VMFunctionEnvironment, VMGlobal};
     use std::{fmt, marker::PhantomData, num::NonZeroUsize};

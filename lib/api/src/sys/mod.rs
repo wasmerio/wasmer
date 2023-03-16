@@ -34,4 +34,6 @@ pub(crate) mod vm {
     pub(crate) type VMExternMemory = InternalStoreHandle<VMMemory>;
     pub(crate) type VMExternGlobal = InternalStoreHandle<VMGlobal>;
     pub(crate) type VMExternFunction = InternalStoreHandle<VMFunction>;
+
+    pub type VMFunctionCallback = *const VMFunctionBody;
 }

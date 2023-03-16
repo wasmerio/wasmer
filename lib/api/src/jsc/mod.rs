@@ -25,6 +25,7 @@ mod lib {
     }
 }
 
+pub(crate) mod as_js;
 pub(crate) mod engine;
 pub(crate) mod errors;
 pub(crate) mod extern_ref;

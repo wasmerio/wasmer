@@ -4,7 +4,7 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use rusty_jsc::{JSObject, JSValue};
+use rusty_jsc::{JSObject, JSObjectCallAsFunctionCallback, JSValue};
 use std::any::Any;
 use std::fmt;
 #[cfg(feature = "tracing")]
@@ -262,3 +262,5 @@ pub(crate) type VMExternTable = VMTable;
 pub(crate) type VMExternMemory = VMMemory;
 pub(crate) type VMExternGlobal = VMGlobal;
 pub(crate) type VMExternFunction = VMFunction;
+
+pub type VMFunctionCallback = JSObjectCallAsFunctionCallback;

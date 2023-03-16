@@ -2,7 +2,9 @@ use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
-use crate::jsc::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment};
+use crate::jsc::vm::{
+    VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionCallback, VMFunctionEnvironment,
+};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
@@ -13,7 +15,7 @@ use std::panic::{self, AssertUnwindSafe};
 
 use wasmer_types::{FunctionType, NativeWasmType, RawValue};
 
-use rusty_jsc::{JSObject, JSValue};
+use rusty_jsc::{JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue};
 
 #[inline]
 fn result_to_js(val: &Value) -> JSValue {
@@ -137,27 +139,23 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        unimplemented!();
-        // let store = store.as_store_mut();
-        // if std::mem::size_of::<F>() != 0 {
-        //     Self::closures_unsupported_panic();
-        // }
-        // let function = WasmFunction::<Args, Rets>::new(func);
-        // let address = function.address() as usize as u32;
-
-        // let ft = wasm_bindgen::function_table();
-        // let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
-        // let func = as_table.get(address).unwrap();
+        // unimplemented!();
+        let store = store.as_store_mut();
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
+        let function = WasmFunction::<Args, Rets>::new(func);
+        let callback = function.callback(store.engine().0.context());
 
         // let binded_func = func.bind1(
         //     &JSValue::UNDEFINED,
         //     &JSValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
         // );
-        // let ty = function.ty();
-        // let vm_function = VMFunction::new(binded_func, ty);
-        // Self {
-        //     handle: vm_function,
-        // }
+        let ty = function.ty();
+        let vm_function = VMFunction::new(callback, ty);
+        Self {
+            handle: vm_function,
+        }
     }
 
     pub fn new_typed_with_env<T, F, Args, Rets>(
@@ -311,7 +309,7 @@ impl fmt::Debug for Function {
 /// more.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WasmFunction<Args = (), Rets = ()> {
-    address: *const VMFunctionBody,
+    callback: JSObjectCallAsFunctionCallback,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -330,7 +328,7 @@ where
         T: Sized,
     {
         Self {
-            address: function.function_body_ptr(),
+            callback: function.function_callback(),
             _phantom: PhantomData,
         }
     }
@@ -343,8 +341,8 @@ where
 
     /// Get the address of this `WasmFunction`.
     #[allow(dead_code)]
-    pub fn address(&self) -> *const VMFunctionBody {
-        self.address
+    pub fn callback(&self, context: &JSContext) -> JSObject {
+        JSObject::new_function_with_callback(context, "FunctionCallback".to_string(), self.callback)
     }
 }
 
@@ -368,7 +366,7 @@ macro_rules! impl_host_function {
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(&self) -> *const VMFunctionBody {
+                fn function_callback(&self) -> VMFunctionCallback {
                     unimplemented!();
                     // /// This is a function that wraps the real host
                     // /// function. Its address will be used inside the
@@ -423,70 +421,145 @@ macro_rules! impl_host_function {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(&self) -> *const VMFunctionBody {
-                    unimplemented!();
-                    // /// This is a function that wraps the real host
-                    // /// function. Its address will be used inside the
-                    // /// runtime.
-                    // unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
-                    // where
-                    //     $( $x: FromToNativeWasmType, )*
-                    //     Rets: WasmTypeList,
-                    //     RetsAsResult: IntoResult<Rets>,
-                    //     Func: Fn($( $x , )*) -> RetsAsResult + 'static,
-                    // {
-                    //     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
-                    //     let func: &Func = &*(&() as *const () as *const Func);
-                    //     let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                fn function_callback(&self) -> VMFunctionCallback {
+                    use rusty_jsc::{JSContext, JSObject, JSValue, callback};
 
-                    //     let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                    //         func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
-                    //     }));
+                    #[callback]
+                    fn fn_callback<$( $x, )* Rets, RetsAsResult, Func>(
+                        ctx: JSContext,
+                        function: JSObject,
+                        this_object: JSObject,
+                        arguments: &[JSValue; count_idents_plus_one!( $( $x ),* )],
+                    ) -> Result<JSValue, JSValue>
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                        // $( $x: NativeWasmTypeInto, )*
+                    {
+                        use std::convert::TryInto;
+                        let func: &Func = &*(&() as *const () as *const Func);
+                        let global = ctx.get_global_object();
+                        dbg!(arguments.len());
+                        let store_ptr = dbg!(arguments[0].to_number(&ctx) as usize);
+                        println!("CALLING 0");
 
-                    //     match result {
-                    //         Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    //         #[cfg(feature = "std")]
-                    //         #[allow(deprecated)]
-                    //         Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                    //         #[cfg(feature = "core")]
-                    //         #[allow(deprecated)]
-                    //         Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                    //         Err(_panic) => unimplemented!(),
-                    //     }
-                    // }
+                        let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                        println!("CALLING 1");
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            // let list =
+                            type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
+                            println!("CALLING 1.1 {}, idents+1: {}, idents: {}", arguments.len(), count_idents_plus_one!( $( $x ),* ), count_idents!( $( $x ),* ));
+                            let args_without_store: JSArray = arguments.try_into().unwrap();
+                            println!("CALLING 1.2");
+                            let [ $( $x ),* ] = args_without_store;
+                            println!("CALLING 2");
+                            // let ABI = <$x::Native as NativeWasmType>::Abi
+                            // let r: ($( $x , )*) = ($( $x::from_raw(&mut store, RawValue { i32: $x.to_number(&ctx) as _ }) ),*);
+                            // func($( FromToNativeWasmType::from_native($x.to_number(&ctx) as <$x::Native as NativeWasmType>::Abi) ),* ).into_result()
+                            func($( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { i32: dbg!($x.to_number(&ctx) as _) }) ) ),* ).into_result()
+                        }));
+                        println!("CALLING 3");
 
-                    // func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                        // println!("Result {:?}", result.unwrap().unwrap().into_c_struct(&mut store));
+                        // println!("Result {}", result.unwrap().unwrap().into_array(&mut store));
+
+
+                        match result {
+                            Ok(Ok(result)) => {
+                                println!("RESULT");
+                                unimplemented!();
+                                // match Rets::size() {
+                                //     0 => {JSValue::undefined(&ctx)},
+                                //     1 => unsafe {
+                                //         // let ty = Rets::wasm_types()[0];
+                                //         // let value: JSValue = Value::
+                                //         // *mut_rets = val.as_raw(&mut store);
+                                //     }
+                                //     _n => {
+                                //         if !results.is_array(&context) {
+                                //             panic!("Expected results to be an array.")
+                                //         }
+                                //         unimplemented!();
+                                //         // let results = results.into();
+                                //         // for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
+                                //         //     let ret = results.get(i as u32);
+                                //         //     unsafe {
+                                //         //         let val = param_from_js(&ret_type, &ret);
+                                //         //         let slot = mut_rets.add(i);
+                                //         //         *slot = val.as_raw(&mut store);
+                                //         //     }
+                                //         // }
+                                //     }
+                                // }
+                            },
+                            #[cfg(feature = "std")]
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            #[cfg(feature = "core")]
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Err(_panic) => unimplemented!(),
+                        }
+
+                    }
+                    Some(fn_callback::< $( $x, )* Rets, RetsAsResult, Self > as _)
                 }
             }
         };
     }
+
+// Black-magic to count the number of identifiers at compile-time.
+macro_rules! count_idents_plus_one {
+    ( $($idents:ident),* ) => {
+        {
+            #[allow(dead_code, non_camel_case_types)]
+            enum Idents { $( $idents, )* __CountIdentsLast }
+            const COUNT: usize = Idents::__CountIdentsLast as usize;
+            COUNT+1
+        }
+    };
+}
+
+// Black-magic to count the number of identifiers at compile-time.
+macro_rules! count_idents {
+    ( $($idents:ident),* ) => {
+        {
+            #[allow(dead_code, non_camel_case_types)]
+            enum Idents { $( $idents, )* __CountIdentsLast }
+            const COUNT: usize = Idents::__CountIdentsLast as usize;
+            COUNT
+        }
+    };
+}
 
 // Here we go! Let's generate all the C struct, `WasmTypeList`
 // implementations and `HostFunction` implementations.
 impl_host_function!([C] S0,);
 impl_host_function!([transparent] S1, A1);
 impl_host_function!([C] S2, A1, A2);
-impl_host_function!([C] S3, A1, A2, A3);
-impl_host_function!([C] S4, A1, A2, A3, A4);
-impl_host_function!([C] S5, A1, A2, A3, A4, A5);
-impl_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
-impl_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
-impl_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
-impl_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
-impl_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
-impl_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
-impl_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
-impl_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
-impl_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-impl_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-impl_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
-impl_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
-impl_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
-impl_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
-impl_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
-impl_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
-impl_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
-impl_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
-impl_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
-impl_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
+// impl_host_function!([C] S3, A1, A2, A3);
+// impl_host_function!([C] S4, A1, A2, A3, A4);
+// impl_host_function!([C] S5, A1, A2, A3, A4, A5);
+// impl_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
+// impl_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
+// impl_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+// impl_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+// impl_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+// impl_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+// impl_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+// impl_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+// impl_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+// impl_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+// impl_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+// impl_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+// impl_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+// impl_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+// impl_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+// impl_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+// impl_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+// impl_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+// impl_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+// impl_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+// impl_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);

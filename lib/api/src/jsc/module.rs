@@ -1,13 +1,15 @@
 use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
+use crate::jsc::as_js::AsJs;
 use crate::store::AsStoreMut;
+use crate::store::AsStoreRef;
 use crate::vm::VMInstance;
 use crate::Extern;
 use crate::IntoBytes;
 use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
-use rusty_jsc::{JSObject, JSValue};
+use rusty_jsc::{JSObject, JSString, JSValue};
 use std::path::Path;
 #[cfg(feature = "tracing")]
 use tracing::{debug, warn};
@@ -63,54 +65,77 @@ impl Module {
     }
 
     pub(crate) unsafe fn from_binary_unchecked(
-        _engine: &impl AsEngineRef,
+        engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        unimplemented!();
+        // unimplemented!();
+        let mut binary = binary.to_vec();
+        let engine = engine.as_engine_ref();
+        let context = engine.engine().0.context();
+        let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
+        println!("Bytes {}", bytes.to_jsvalue().to_string(&context));
+
+        // let mut global = context.get_global_object();
+        // let mut global_wasm = global.get_property(&context, "WebAssembly".to_string()).to_object(&context);
+
+        // let mut module_type = global_wasm
+        //     .get_property(&context, "Module".to_string())
+        //     .to_object(&context);
+        // let mut instance = wasm
+        //     .get_property(&context, "Instance".to_string())
+        //     .to_object(&context);
+        let module_type = engine.engine().0.wasm_module_type();
+        let module = module_type
+            .construct(&context, &[bytes.to_jsvalue()])
+            .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context))))?;
+        // println!("MODULE ERR {}", module.unwrap_err().to_string(&context));
+        // unimplemented!();
+        // let module = module.unwrap();
+        // let mut wasm = global
+        //     .get_property(&context, "WebAssembly".to_string())
+        //     .to_object(&context);
+
         // let js_bytes = Uint8Array::view(binary);
         // let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
-        // Ok(Self::from_js_module(module, binary))
+        Ok(Self::from_js_module(module, binary))
     }
 
-    // /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
-    // ///
-    // pub(crate) unsafe fn from_js_module(
-    //     module: WebAssembly::Module,
-    //     binary: impl IntoBytes,
-    // ) -> Self {
-    //     let binary = binary.into_bytes();
-    //     // The module is now validated, so we can safely parse it's types
-    //     #[cfg(feature = "wasm-types-polyfill")]
-    //     let (type_hints, name) = {
-    //         let info = crate::jsc::module_info_polyfill::translate_module(&binary[..]).unwrap();
+    /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
+    ///
+    pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
+        let binary = binary.into_bytes();
+        // The module is now validated, so we can safely parse it's types
+        #[cfg(feature = "wasm-types-polyfill")]
+        let (type_hints, name) = {
+            let info = crate::jsc::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
-    //         (
-    //             Some(ModuleTypeHints {
-    //                 imports: info
-    //                     .info
-    //                     .imports()
-    //                     .map(|import| import.ty().clone())
-    //                     .collect::<Vec<_>>(),
-    //                 exports: info
-    //                     .info
-    //                     .exports()
-    //                     .map(|export| export.ty().clone())
-    //                     .collect::<Vec<_>>(),
-    //             }),
-    //             info.info.name,
-    //         )
-    //     };
-    //     #[cfg(not(feature = "wasm-types-polyfill"))]
-    //     let (type_hints, name) = (None, None);
+            (
+                Some(ModuleTypeHints {
+                    imports: info
+                        .info
+                        .imports()
+                        .map(|import| import.ty().clone())
+                        .collect::<Vec<_>>(),
+                    exports: info
+                        .info
+                        .exports()
+                        .map(|export| export.ty().clone())
+                        .collect::<Vec<_>>(),
+                }),
+                info.info.name,
+            )
+        };
+        #[cfg(not(feature = "wasm-types-polyfill"))]
+        let (type_hints, name) = (None, None);
 
-    //     Self {
-    //         module,
-    //         type_hints,
-    //         name,
-    //         #[cfg(feature = "js-serializable-module")]
-    //         raw_bytes: Some(binary.into_bytes()),
-    //     }
-    // }
+        Self {
+            module,
+            type_hints,
+            name,
+            #[cfg(feature = "js-serializable-module")]
+            raw_bytes: Some(binary.into_bytes()),
+        }
+    }
 
     pub fn validate(_engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
         unimplemented!();
@@ -130,85 +155,72 @@ impl Module {
         store: &mut impl AsStoreMut,
         imports: &Imports,
     ) -> Result<VMInstance, RuntimeError> {
-        unimplemented!();
-        // // Ensure all imports come from the same store.
-        // if imports
-        //     .into_iter()
-        //     .any(|(_, import)| !import.is_from_store(store))
-        // {
-        //     return Err(RuntimeError::user(Box::new(
-        //         InstantiationError::DifferentStores,
-        //     )));
-        // }
-        // // TODO: refactor this if possible, after the WASIX merge.
-        // // The imported/exported memory does not have the correct properties
-        // // (incorrect size and shared flag) hence when using shared memory its
-        // // failing - the only way to fix it is to resolve the import and use the
-        // // correct memory properties. this regression issue was only found
-        // // in WASIX on the browser as the other areas don't mind that they don't match up
-        // // sharrattj/dash should be able to reproduce this.
+        // Ensure all imports come from the same store.
+        if imports
+            .into_iter()
+            .any(|(_, import)| !import.is_from_store(store))
+        {
+            return Err(RuntimeError::user(Box::new(
+                InstantiationError::DifferentStores,
+            )));
+        }
 
-        // let imports_object = js_sys::Object::new();
-        // let mut import_externs: Vec<Extern> = vec![];
-        // for import_type in self.imports() {
-        //     let resolved_import = imports.get_export(import_type.module(), import_type.name());
-        //     // Annotation is here to prevent spurious IDE warnings.
-        //     #[allow(unused_variables)]
-        //     if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
-        //         if resolved_import.is_some() {
-        //             #[cfg(feature = "tracing")]
-        //             debug!("imported shared memory {:?}", &mem_ty);
-        //         } else {
-        //             #[cfg(feature = "tracing")]
-        //             warn!(
-        //                 "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
-        //                 import_type.module(),
-        //                 import_type.name(),
-        //                 import_type.ty(),
-        //             );
-        //         }
-        //     }
-        //     // Annotation is here to prevent spurious IDE warnings.
-        //     #[allow(unused_unsafe)]
-        //     unsafe {
-        //         if let Some(import) = resolved_import {
-        //             let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
-        //             if !val.is_undefined() {
-        //                 // If the namespace is already set
-        //                 js_sys::Reflect::set(
-        //                     &val,
-        //                     &import_type.name().into(),
-        //                     &import.as_jsvalue(&store.as_store_ref()),
-        //                 )?;
-        //             } else {
-        //                 // If the namespace doesn't exist
-        //                 let import_namespace = js_sys::Object::new();
-        //                 js_sys::Reflect::set(
-        //                     &import_namespace,
-        //                     &import_type.name().into(),
-        //                     &import.as_jsvalue(&store.as_store_ref()),
-        //                 )?;
-        //                 js_sys::Reflect::set(
-        //                     &imports_object,
-        //                     &import_type.module().into(),
-        //                     &import_namespace.into(),
-        //                 )?;
-        //             }
-        //             import_externs.push(import);
-        //         } else {
-        //             #[cfg(feature = "tracing")]
-        //             warn!(
-        //                 "import not found {}:{}",
-        //                 import_type.module(),
-        //                 import_type.name()
-        //             );
-        //         }
-        //     }
-        //     // in case the import is not found, the JS Wasm VM will handle
-        //     // the error for us, so we don't need to handle it
-        // }
-        // Ok(WebAssembly::Instance::new(&self.module, &imports_object)
-        //     .map_err(|e: JSValue| -> RuntimeError { e.into() })?)
+        // TODO: refactor this if possible, after the WASIX merge.
+        // The imported/exported memory does not have the correct properties
+        // (incorrect size and shared flag) hence when using shared memory its
+        // failing - the only way to fix it is to resolve the import and use the
+        // correct memory properties. this regression issue was only found
+        // in WASIX on the browser as the other areas don't mind that they don't match up
+        // sharrattj/dash should be able to reproduce this.
+
+        let store = store.as_store_mut();
+        let context = store.engine().0.context();
+
+        let mut imports_object = JSObject::new(&context);
+        for import_type in self.imports(&store) {
+            let resolved_import = imports.get_export(import_type.module(), import_type.name());
+            if let Some(import) = resolved_import {
+                let val = imports_object.get_property(&context, import_type.module().into());
+                if !val.is_undefined(&context) {
+                    // If the namespace is already set
+                    let mut obj_val = val.to_object(&context);
+                    obj_val.set_property(
+                        &context,
+                        import_type.name().into(),
+                        import.as_jsvalue(&store.as_store_ref()),
+                    );
+                } else {
+                    // If the namespace doesn't exist
+                    let mut import_namespace = JSObject::new(&context);
+                    import_namespace.set_property(
+                        &context,
+                        import_type.name().into(),
+                        import.as_jsvalue(&store.as_store_ref()),
+                    );
+                    imports_object.set_property(
+                        &context,
+                        import_type.module().into(),
+                        import_namespace.to_jsvalue(),
+                    );
+                }
+            } else {
+                #[cfg(feature = "tracing")]
+                warn!(
+                    "import not found {}:{}",
+                    import_type.module(),
+                    import_type.name()
+                );
+            }
+            // in case the import is not found, the JS Wasm VM will handle
+            // the error for us, so we don't need to handle it
+        }
+
+        let instance_type = store.engine().0.wasm_instance_type();
+        let instance = instance_type.construct(
+            &context,
+            &[self.module.to_jsvalue(), imports_object.to_jsvalue()],
+        );
+        Ok(instance.map_err(|e: JSValue| -> RuntimeError { e.into() })?)
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -253,77 +265,82 @@ impl Module {
     pub fn set_name(&mut self, name: &str) -> bool {
         self.name = Some(name.to_string());
         true
-        // match Reflect::set(self.module.as_ref(), &"wasmer_name".into(), &name.into()) {
-        //     Ok(_) => true,
-        //     _ => false
-        // }
-        // Arc::get_mut(&mut self.artifact)
-        //     .and_then(|artifact| artifact.module_mut())
-        //     .map(|mut module_info| {
-        //         module_info.info.name = Some(name.to_string());
-        //         true
-        //     })
-        //     .unwrap_or(false)
     }
 
-    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+    pub fn imports<'a>(
+        &'a self,
+        engine: &impl AsEngineRef,
+    ) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         // unimplemented!();
-        // let imports = WebAssembly::Module::imports(&self.module);
-        // let iter = imports
-        //     .iter()
-        //     .enumerate()
-        //     .map(move |(i, val)| {
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         unsafe {
-        //             let module = Reflect::get(val.as_ref(), &"module".into())
-        //                 .unwrap()
-        //                 .as_string()
-        //                 .unwrap();
-        //             let field = Reflect::get(val.as_ref(), &"name".into())
-        //                 .unwrap()
-        //                 .as_string()
-        //                 .unwrap();
-        //             let kind = Reflect::get(val.as_ref(), &"kind".into())
-        //                 .unwrap()
-        //                 .as_string()
-        //                 .unwrap();
-        //             let type_hint = self
-        //                 .type_hints
-        //                 .as_ref()
-        //                 .map(|hints| hints.imports.get(i).unwrap().clone());
-        //             let extern_type = if let Some(hint) = type_hint {
-        //                 hint
-        //             } else {
-        //                 match kind.as_str() {
-        //                     "function" => {
-        //                         let func_type = FunctionType::new(vec![], vec![]);
-        //                         ExternType::Function(func_type)
-        //                     }
-        //                     "global" => {
-        //                         let global_type = GlobalType::new(Type::I32, Mutability::Const);
-        //                         ExternType::Global(global_type)
-        //                     }
-        //                     "memory" => {
-        //                         // The javascript API does not yet expose these properties so without
-        //                         // the type_hints we don't know what memory to import.
-        //                         let memory_type = MemoryType::new(Pages(1), None, false);
-        //                         ExternType::Memory(memory_type)
-        //                     }
-        //                     "table" => {
-        //                         let table_type = TableType::new(Type::FuncRef, 1, None);
-        //                         ExternType::Table(table_type)
-        //                     }
-        //                     _ => unimplemented!(),
-        //                 }
-        //             };
-        //             ImportType::new(&module, &field, extern_type)
-        //         }
-        //     })
-        //     .collect::<Vec<_>>()
-        //     .into_iter();
-        // ImportsIterator::new(iter, imports.length() as usize)
-        ImportsIterator::new(vec![].into_iter(), 0usize)
+        let engine = engine.as_engine_ref();
+        let context = engine.engine().0.context();
+        let module_type = engine.engine().0.wasm_module_type();
+        let custom_sections_func = module_type.get_property(&context, "imports".to_string());
+        let imports = custom_sections_func
+            .to_object(&context)
+            .call(
+                &context,
+                module_type.clone(),
+                &[self.module.clone().to_jsvalue()],
+            )
+            .unwrap()
+            .to_object(&context);
+        let length = imports
+            .get_property(&context, "length".to_string())
+            .to_number(&context) as u32;
+        let iter = (0..length)
+            .map(|i| {
+                let val = imports
+                    .get_property_at_index(&context, i)
+                    .unwrap()
+                    .to_object(&context);
+                // Annotation is here to prevent spurious IDE warnings.
+                #[allow(unused_unsafe)]
+                unsafe {
+                    let module = val
+                        .get_property(&context, "module".to_string())
+                        .to_string(&context);
+                    let field = val
+                        .get_property(&context, "name".to_string())
+                        .to_string(&context);
+                    let kind = val
+                        .get_property(&context, "kind".to_string())
+                        .to_string(&context);
+                    let type_hint: Option<ExternType> = self
+                        .type_hints
+                        .as_ref()
+                        .map(|hints| hints.imports[i as usize].clone());
+                    let extern_type = if let Some(hint) = type_hint {
+                        hint
+                    } else {
+                        match kind.as_str() {
+                            "function" => {
+                                let func_type = FunctionType::new(vec![], vec![]);
+                                ExternType::Function(func_type)
+                            }
+                            "global" => {
+                                let global_type = GlobalType::new(Type::I32, Mutability::Const);
+                                ExternType::Global(global_type)
+                            }
+                            "memory" => {
+                                // The javascript API does not yet expose these properties so without
+                                // the type_hints we don't know what memory to import.
+                                let memory_type = MemoryType::new(Pages(1), None, false);
+                                ExternType::Memory(memory_type)
+                            }
+                            "table" => {
+                                let table_type = TableType::new(Type::FuncRef, 1, None);
+                                ExternType::Table(table_type)
+                            }
+                            _ => unimplemented!(),
+                        }
+                    };
+                    ImportType::new(&module, &field, extern_type)
+                }
+            })
+            .collect::<Vec<_>>()
+            .into_iter();
+        ImportsIterator::new(iter, length as usize)
     }
 
     /// Set the type hints for this module.
@@ -332,7 +349,6 @@ impl Module {
     /// import or export types of the module.
     #[allow(unused)]
     pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
-        unimplemented!();
         // let exports = WebAssembly::Module::exports(&self.module);
         // // Check exports
         // if exports.length() as usize != type_hints.exports.len() {
@@ -359,71 +375,124 @@ impl Module {
         //         return Err(format!("The provided type hint for the export {} is {} which doesn't match the expected kind: {}", i, kind.as_str(), expected_kind));
         //     }
         // }
-        // self.type_hints = Some(type_hints);
-        // Ok(())
+        self.type_hints = Some(type_hints);
+        Ok(())
     }
 
-    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        // unimplemented!();
-        ExportsIterator::new(vec![].into_iter(), 0usize)
-        // let exports = WebAssembly::Module::exports(&self.module);
-        // let iter = exports
-        //     .iter()
-        //     .enumerate()
-        //     .map(move |(i, val)| {
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         let field = unsafe {
-        //             Reflect::get(val.as_ref(), &"name".into())
-        //                 .unwrap()
-        //                 .as_string()
-        //                 .unwrap()
-        //         };
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         let kind = unsafe {
-        //             Reflect::get(val.as_ref(), &"kind".into())
-        //                 .unwrap()
-        //                 .as_string()
-        //                 .unwrap()
-        //         };
-        //         let type_hint = self
-        //             .type_hints
-        //             .as_ref()
-        //             .map(|hints| hints.exports.get(i).unwrap().clone());
-        //         let extern_type = if let Some(hint) = type_hint {
-        //             hint
-        //         } else {
-        //             // The default types
-        //             match kind.as_str() {
-        //                 "function" => {
-        //                     let func_type = FunctionType::new(vec![], vec![]);
-        //                     ExternType::Function(func_type)
-        //                 }
-        //                 "global" => {
-        //                     let global_type = GlobalType::new(Type::I32, Mutability::Const);
-        //                     ExternType::Global(global_type)
-        //                 }
-        //                 "memory" => {
-        //                     let memory_type = MemoryType::new(Pages(1), None, false);
-        //                     ExternType::Memory(memory_type)
-        //                 }
-        //                 "table" => {
-        //                     let table_type = TableType::new(Type::FuncRef, 1, None);
-        //                     ExternType::Table(table_type)
-        //                 }
-        //                 _ => unimplemented!(),
-        //             }
-        //         };
-        //         ExportType::new(&field, extern_type)
-        //     })
-        //     .collect::<Vec<_>>()
-        //     .into_iter();
-        // ExportsIterator::new(iter, exports.length() as usize)
+    pub fn exports<'a>(
+        &'a self,
+        engine: &impl AsEngineRef,
+    ) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+        let engine = engine.as_engine_ref();
+        let context = engine.engine().0.context();
+        let module_type = engine.engine().0.wasm_module_type();
+        let custom_sections_func = module_type.get_property(&context, "exports".to_string());
+        let exports = custom_sections_func
+            .to_object(&context)
+            .call(
+                &context,
+                module_type.clone(),
+                &[self.module.clone().to_jsvalue()],
+            )
+            .unwrap()
+            .to_object(&context);
+        let length = exports
+            .get_property(&context, "length".to_string())
+            .to_number(&context) as u32;
+        let iter = (0..length)
+            .map(|i| {
+                let val = exports
+                    .get_property_at_index(&context, i)
+                    .unwrap()
+                    .to_object(&context);
+                // Annotation is here to prevent spurious IDE warnings.
+                #[allow(unused_unsafe)]
+                let field = unsafe {
+                    val.get_property(&context, "name".to_string())
+                        .to_string(&context)
+                };
+                // Annotation is here to prevent spurious IDE warnings.
+                #[allow(unused_unsafe)]
+                let kind = unsafe {
+                    val.get_property(&context, "kind".to_string())
+                        .to_string(&context)
+                };
+                let type_hint: Option<ExternType> = self
+                    .type_hints
+                    .as_ref()
+                    .map(|hints| hints.exports[i as usize].clone());
+                let extern_type = if let Some(hint) = type_hint {
+                    hint
+                } else {
+                    // The default types
+                    match kind.as_str() {
+                        "function" => {
+                            let func_type = FunctionType::new(vec![], vec![]);
+                            ExternType::Function(func_type)
+                        }
+                        "global" => {
+                            let global_type = GlobalType::new(Type::I32, Mutability::Const);
+                            ExternType::Global(global_type)
+                        }
+                        "memory" => {
+                            let memory_type = MemoryType::new(Pages(1), None, false);
+                            ExternType::Memory(memory_type)
+                        }
+                        "table" => {
+                            let table_type = TableType::new(Type::FuncRef, 1, None);
+                            ExternType::Table(table_type)
+                        }
+                        _ => unimplemented!(),
+                    }
+                };
+                ExportType::new(&field, extern_type)
+            })
+            .collect::<Vec<_>>()
+            .into_iter();
+        ExportsIterator::new(iter, length as usize)
     }
 
-    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
+    pub fn custom_sections<'a>(
+        &'a self,
+        engine: &impl AsEngineRef,
+        name: &'a str,
+    ) -> impl Iterator<Item = Box<[u8]>> + 'a {
         // unimplemented!();
+        let engine = engine.as_engine_ref();
+        let context = engine.engine().0.context();
+        let module_type = engine.engine().0.wasm_module_type();
+        let custom_sections_func = module_type.get_property(&context, "customSections".to_string());
+        let name = JSString::from_utf8(name.to_string())
+            .unwrap()
+            .to_jsvalue(&context);
+        let results = custom_sections_func
+            .to_object(&context)
+            .call(
+                &context,
+                module_type.clone(),
+                &[self.module.clone().to_jsvalue(), name],
+            )
+            .unwrap()
+            .to_object(&context);
+        let length = results
+            .get_property(&context, "length".to_string())
+            .to_number(&context) as u32;
+
+        // println!("CUSTOM SECTION: {} (len: {}, isarr: {})", results.to_string(&context), length, custom_sections.is_array(&context));
+
+        // let custom_sections = results.to_object(&context);
+        let array_buffers = (0..length).map(|i| {
+            let array_buffer = results.get_property_at_index(&context, i).unwrap();
+            // println!("ARRAY BUFFER {}", array_buffer.to_string(&context));
+            array_buffer
+                .to_object(&context)
+                .get_array_buffer(&context)
+                .unwrap()
+                .to_owned()
+                .into_boxed_slice()
+        });
+        // println!("array_buffers: {:?}", array_buffers);
+        // get_property_at_index
         // WebAssembly::Module::custom_sections(&self.module, name)
         //     .iter()
         //     .map(move |buf_val| {
@@ -432,7 +501,7 @@ impl Module {
         //     })
         //     .collect::<Vec<Box<[u8]>>>()
         //     .into_iter()
-        vec![].into_iter()
+        array_buffers.collect::<Vec<Box<[u8]>>>().into_iter()
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {

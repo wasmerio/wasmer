@@ -264,13 +264,13 @@ impl std::error::Error for RuntimeError {
     }
 }
 
-// impl From<JSValue> for RuntimeError {
-//     fn from(original: JSValue) -> Self {
-//         // We try to downcast the error and see if it's
-//         // an instance of RuntimeError instead, so we don't need
-//         // to re-wrap it.
-//         WasmerRuntimeError::downcast_js(original).unwrap_or_else(|js| RuntimeError {
-//             inner: Arc::new(RuntimeErrorSource::Js(js)),
-//         })
-//     }
-// }
+impl From<JSValue> for RuntimeError {
+    fn from(original: JSValue) -> Self {
+        // TODO: We should try to downcast the error and see if it's
+        // an instance of RuntimeError instead, so we don't need
+        // to re-wrap it.
+        RuntimeError {
+            inner: Arc::new(RuntimeErrorSource::Js(original)),
+        }
+    }
+}

@@ -7,7 +7,7 @@ use crate::sys::externals::function as function_impl;
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionBody, VMTrampoline};
+use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionCallback, VMTrampoline};
 use crate::{
     Extern, FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, TypedFunction, Value,
 };
@@ -26,7 +26,7 @@ where
     Kind: HostFunctionKind,
 {
     /// Get the pointer to the function body.
-    fn function_body_ptr(&self) -> *const VMFunctionBody;
+    fn function_callback(&self) -> VMFunctionCallback;
 
     /// Get the pointer to the function call trampoline.
     fn call_trampoline_address() -> VMTrampoline {
