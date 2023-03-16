@@ -18,7 +18,6 @@ getrandom = "0.2"
 wasmer-wasix-types = { path = "../wasi-types", version = "0.1.0" }
 wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default-features = false }
 wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
-wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
 virtual-fs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
 wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }
@@ -51,8 +50,6 @@ term_size = { version = "0.3", optional = true }
 linked_hash_set = { version = "0.1" }
 # used by feature='host-termios'
 termios = { version = "0.3", optional = true }
-# the various compilers
-wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
 heapless = "0.7.16"
@@ -95,21 +92,22 @@ default = ["sys-default"]
 
 time = ["tokio/time"]
 
-webc_runner = ["serde_cbor", "wasmer/compiler"]
+webc_runner = ["serde_cbor"]
 webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
-sys = ["wasmer/sys", "wasmer-wasix-types/sys", "webc/mmap", "wasmer-vm", "time"]
-sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
+sys = ["webc/mmap", "time"]
+sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
-compiler = [ "wasmer/compiler", "wasmer-compiler"]
+# Deprecated. Kept it for compatibility
+compiler = []
 
-js = ["wasmer/js", "virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
-js-default = ["js", "wasmer/js-default"]
-test-js = ["js", "wasmer/js-default", "wasmer/wat"]
+js = ["virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
+js-default = ["js"]
+test-js = ["js", "wasmer/wat"]
 
 host-vnet = [ "virtual-net/host-net" ]
 host-threads = []
