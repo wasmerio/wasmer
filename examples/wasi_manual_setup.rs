@@ -16,7 +16,6 @@
 //! Ready?
 
 use wasmer::{Instance, Module, Store};
-use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasi::WasiEnv;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,10 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = std::fs::read(wasm_path)?;
 
     // Create a Store.
-    // Note that we don't need to specify the engine/compiler if we want to use
-    // the default provided by Wasmer.
-    // You can use `Store::default()` for that.
-    let mut store = Store::new(Cranelift::default());
+    let mut store = Store::default();
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
