@@ -91,6 +91,7 @@ impl Function {
                                                          this: JSObject,
                                                          args: &[JSValue]|
               -> Result<JSValue, JSValue> {
+            println!("ENTERING CLOSURE");
             let global = ctx.get_global_object();
             let store_ptr = global
                 .get_property(&ctx, "__store_ptr".to_string())
@@ -402,7 +403,7 @@ macro_rules! impl_host_function {
                             // let list =
                             type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
                             // println!("CALLING 1.1 {}, idents+1: {}, idents: {}", arguments.len(), count_idents_plus_one!( $( $x ),* ), count_idents!( $( $x ),* ));
-                            let args_without_store: JSArray = arguments.try_into().unwrap();
+                            let args_without_store: JSArray = arguments[1..].try_into().unwrap();
                             println!("CALLING 1.2");
                             let [ $( $x ),* ] = args_without_store;
                             println!("CALLING 2");
