@@ -82,28 +82,8 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
-
-    /// Create a directory and all its parent directories.
-    fn create_dir_all(&self, path: &Path) -> Result<()> {
-        create_dir_all(self, path)
-    }
 }
 
-fn create_dir_all(fs: &(impl FileSystem + ?Sized), path: &Path) -> Result<()> {
-    match fs.create_dir(path) {
-        Ok(_) | Err(FsError::AlreadyExists) => Ok(()),
-        Err(FsError::EntryNotFound) => {
-            // Note: paths don't normally have many segments, so it should be
-            // fine to use recursion here. This function should also be elegible
-            // for TCO.
-            match path.parent() {
-                Some(parent) => create_dir_all(fs, parent),
-                None => Err(FsError::EntryNotFound),
-            }
-        }
-        Err(e) => Err(e),
-    }
-}
 
 impl dyn FileSystem + 'static {
     #[inline]
