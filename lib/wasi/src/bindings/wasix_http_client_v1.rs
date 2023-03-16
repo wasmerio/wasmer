@@ -251,18 +251,16 @@ where
                 );
                 match result {
                     Ok(e) => {
+                        let val = wai_bindgen_wasmer::rt::as_i32({
+                            let data_mut = store.data_mut();
+                            let mut tables = data_mut.tables.borrow_mut();
+                            tables.client_table.insert(e) as i32
+                        });
                         let _memory_view = _memory.view(&store);
                         let caller_memory = unsafe { _memory_view.data_unchecked_mut() };
                         caller_memory
                             .store(arg0 + 0, wai_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
-                        caller_memory.store(
-                            arg0 + 4,
-                            wai_bindgen_wasmer::rt::as_i32({
-                                let data_mut = store.data_mut();
-                                let mut tables = data_mut.tables.borrow_mut();
-                                tables.client_table.insert(e) as i32
-                            }),
-                        )?;
+                        caller_memory.store(arg0 + 4, val)?;
                     }
                     Err(e) => {
                         let _memory_view = _memory.view(&store);
@@ -312,12 +310,12 @@ where
                     .unwrap()
                     .func_canonical_abi_realloc
                     .clone();
-                let _memory: wasmer::Memory = store.data().lazy.get().unwrap().memory.clone();
-                let _memory_view = _memory.view(&store);
+                let (data_mut, alt_store) = store.data_and_store_mut();
+                let _memory: wasmer::Memory = data_mut.lazy.get().unwrap().memory.clone();
+                let _memory_view = _memory.view(&alt_store);
                 let mut _bc = wai_bindgen_wasmer::BorrowChecker::new(unsafe {
                     _memory_view.data_unchecked_mut()
                 });
-                let data_mut = store.data_mut();
                 let tables = data_mut.tables.borrow_mut();
                 let load0 = _bc.load::<i32>(arg0 + 0)?;
                 let load1 = _bc.load::<i32>(arg0 + 4)?;
