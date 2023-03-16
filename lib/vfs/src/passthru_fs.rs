@@ -70,7 +70,7 @@ mod test_builder {
             .create(true)
             .open("/foo.txt")
             .unwrap()
-            .write(b"hello")
+            .write_all(b"hello")
             .await
             .unwrap();
 
