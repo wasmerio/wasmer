@@ -6,8 +6,6 @@ use crate::{
 };
 use futures::Future;
 use tracing::*;
-#[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
@@ -82,15 +80,7 @@ pub fn spawn_exec_module(
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
         let memory_spawn = match shared_memory {
-            Some(ty) => {
-                #[cfg(feature = "sys")]
-                let style = store.engine().tunables().memory_style(&ty);
-                SpawnType::CreateWithType(SpawnedMemory {
-                    ty,
-                    #[cfg(feature = "sys")]
-                    style,
-                })
-            }
+            Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
             None => SpawnType::Create,
         };
 
@@ -99,7 +89,7 @@ pub fn spawn_exec_module(
         let tasks_outer = tasks.clone();
 
         let task = {
-            move |mut store, module, memory| {
+            move |mut store, module, memory: Option<Memory>| {
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env;
                 wasi_env.runtime = runtime;
@@ -111,9 +101,8 @@ pub fn spawn_exec_module(
                 let (mut import_object, init) =
                     import_object_for_all_wasi_versions(&module, &mut store, &wasi_env.env);
                 let imported_memory = if let Some(memory) = memory {
-                    let imported_memory = Memory::new_from_existing(&mut store, memory);
-                    import_object.define("env", "memory", imported_memory.clone());
-                    Some(imported_memory)
+                    import_object.define("env", "memory", memory.clone());
+                    Some(memory)
                 } else {
                     None
                 };

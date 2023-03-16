@@ -1,7 +1,7 @@
 use super::*;
 use crate::{os::task::OwnedTaskStatus, syscalls::*};
 
-use wasmer::vm::VMMemory;
+use wasmer::Memory;
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -115,11 +115,12 @@ pub fn proc_fork<M: MemorySize>(
 
         // Fork the memory and copy the module (compiled code)
         let env = ctx.data();
-        let fork_memory: VMMemory = match env
+        let mut fork_store = ctx.data().runtime.new_store();
+        let fork_module = env.inner().instance.module().clone();
+        let fork_memory: Memory = match env
             .memory()
-            .try_clone(&ctx)
+            .duplicate_in_store(&ctx, &mut fork_store)
             .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
-            .and_then(|mut memory| memory.duplicate())
         {
             Ok(memory) => memory.into(),
             Err(err) => {
@@ -129,9 +130,6 @@ pub fn proc_fork<M: MemorySize>(
                 return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
             }
         };
-        let fork_module = env.inner().instance.module().clone();
-
-        let mut fork_store = ctx.data().runtime.new_store();
 
         // Now we use the environment and memory references
         let runtime = child_env.runtime.clone();
@@ -152,7 +150,7 @@ pub fn proc_fork<M: MemorySize>(
             let module = fork_module;
 
             let spawn_type = SpawnType::NewThread(fork_memory);
-            let task = move |mut store, module, memory| {
+            let task = move |mut store, module, memory: Option<Memory>| {
                 // Create the WasiFunctionEnv
                 let pid = child_env.pid();
                 let tid = child_env.tid();
@@ -164,7 +162,6 @@ pub fn proc_fork<M: MemorySize>(
                 let (mut import_object, init) =
                     import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
                 let memory = if let Some(memory) = memory {
-                    let memory = Memory::new_from_existing(&mut store, memory);
                     import_object.define("env", "memory", memory.clone());
                     memory
                 } else {
