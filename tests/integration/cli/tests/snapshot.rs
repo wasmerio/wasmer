@@ -18,6 +18,7 @@ pub struct TestSpec {
     pub wasm_hash: String,
     /// Name of webc dependencies to inject.
     pub use_packages: Vec<String>,
+    pub include_webcs: Vec<String>,
     pub cli_args: Vec<String>,
     pub stdin: Option<Vec<u8>>,
     pub debug_output: bool,
@@ -32,6 +33,7 @@ impl std::fmt::Debug for TestSpec {
             // TODO: show hash of code?
             // .field("wasm_code", &self.wasm_code)
             .field("use_packages", &self.use_packages)
+            .field("include_webcs", &self.include_webcs)
             .field("cli_args", &self.cli_args)
             .field("stdin", &self.stdin)
             .finish()
@@ -72,6 +74,7 @@ impl TestBuilder {
                 name: None,
                 wasm_hash: String::new(),
                 use_packages: Vec::new(),
+                include_webcs: Vec::new(),
                 cli_args: Vec::new(),
                 stdin: None,
                 debug_output: false,
@@ -102,9 +105,29 @@ impl TestBuilder {
         self
     }
 
+    pub fn include_static_package(mut self, s: impl Into<String>) -> Self {
+        self.spec.include_webcs.push(s.into());
+        self
+    }
+
     pub fn use_coreutils(self) -> Self {
         // TODO: use custom compiled coreutils
         self.use_pkg("sharrattj/coreutils")
+    }
+
+    pub fn include_static_packages(self) -> Self {
+        self.include_static_package("./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc")
+            .include_static_package(
+                "./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc",
+            )
+            .include_static_package("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc")
+            .include_static_package("./webc/python-0.1.0.webc")
+            .include_static_package(
+                "./webc/static-web-server-1.0.8-a241658c-e409-4749-872c-ae8eab142ef0.webc",
+            )
+            .include_static_package(
+                "./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc",
+            )
     }
 
     pub fn use_dash(self) -> Self {
@@ -206,6 +229,12 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     for pkg in &spec.use_packages {
         cmd.args(&["--use", &pkg]);
     }
+
+    /*
+    for pkg in &spec.include_webcs {
+        cmd.args(&["--include-webc", &pkg]);
+    }
+    */
 
     let log_level = if spec.debug_output {
         "debug"
@@ -401,6 +430,7 @@ fn test_snapshot_file_copy() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .stdin_str("hi")
         .arg("/dev/stdin")
         .arg("/dev/stdout")
@@ -413,6 +443,7 @@ fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -496,6 +527,7 @@ fn test_snapshot_web_server() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .enable_network(true)
+        .include_static_packages()
         .use_coreutils()
         .use_pkg("sharrattj/wasmer-sh")
         .stdin_str(
@@ -516,6 +548,7 @@ fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -527,6 +560,7 @@ fn test_snapshot_longjump() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-longjmp.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -538,6 +572,7 @@ fn test_snapshot_longjump2() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-stack.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -548,6 +583,7 @@ fn test_snapshot_fork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-fork.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -559,6 +595,7 @@ fn test_snapshot_pipes() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-pipe.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -602,6 +639,7 @@ fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -645,6 +683,7 @@ fn test_snapshot_vfork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -672,6 +711,7 @@ fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .stdin_str("echo hello | cat")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -682,6 +722,7 @@ fn test_snapshot_dash_python() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -692,6 +733,7 @@ fn test_snapshot_dash_dev_zero() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .stdin_str("head -c 10 /dev/zero")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -702,6 +744,7 @@ fn test_snapshot_dash_dev_urandom() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .stdin_str("head -c 10 /dev/urandom | wc -c")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -712,6 +755,7 @@ fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_dash()
+        .include_static_packages()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -722,6 +766,7 @@ fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_bash()
+        .include_static_packages()
         .stdin_str("/bin/bash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -742,6 +787,7 @@ fn test_snapshot_bash_ls() {
         .with_name(function!())
         .stdin_str("ls\nexit\n")
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -752,6 +798,7 @@ fn test_snapshot_bash_pipe() {
         .with_name(function!())
         .stdin_str("echo hello | cat\nexit\n")
         .use_coreutils()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -761,6 +808,7 @@ fn test_snapshot_bash_python() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .include_static_packages()
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
@@ -772,6 +820,7 @@ fn test_snapshot_bash_bash() {
         .with_name(function!())
         .stdin_str("/bin/bash\necho hi\nexit\necho hi2\n")
         .use_bash()
+        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -781,6 +830,7 @@ fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_dash()
+        .include_static_packages()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
