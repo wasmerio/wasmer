@@ -1,8 +1,8 @@
 use std::{fmt::Debug, path::Path};
 
 use crate::{
-    FileOpener, FileSystem, FileSystemExt, FileSystems, FsError, Metadata, OpenOptions,
-    OpenOptionsConfig, ReadDir, VirtualFile,
+    ops, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
+    ReadDir, VirtualFile,
 };
 
 /// A primary filesystem and chain of secondary filesystems that are overlayed
@@ -90,7 +90,7 @@ where
 
     fn permission_error_or_not_found(&self, path: &Path) -> Result<(), FsError> {
         for fs in self.secondaries.filesystems() {
-            if fs.exists(path) {
+            if ops::exists(fs, path) {
                 return Err(FsError::PermissionDenied);
             }
         }
@@ -217,18 +217,18 @@ where
             other => return other,
         }
 
-        if (conf.create || conf.create_new) && !self.exists(path) {
+        if (conf.create || conf.create_new) && !ops::exists(self, path) {
             if let Some(parent) = path.parent() {
                 let parent_exists_on_secondary_fs = self
                     .secondaries
                     .filesystems()
                     .into_iter()
-                    .any(|fs| fs.is_dir(parent));
+                    .any(|fs| ops::is_dir(fs, parent));
                 if parent_exists_on_secondary_fs {
                     // We fall into the special case where you can create a file
                     // that looks like it is inside a secondary filesystem folder,
                     // but actually it gets created on the host
-                    self.primary.create_dir_all(parent)?;
+                    ops::create_dir_all(&self.primary, parent)?;
                     return self
                         .primary
                         .new_open_options()
@@ -272,7 +272,7 @@ where
         let already_exists = secondaries
             .filesystems()
             .into_iter()
-            .any(|fs| fs.is_file(path));
+            .any(|fs| ops::is_file(fs, path));
 
         if !already_exists {
             return true;
@@ -324,9 +324,7 @@ mod tests {
     use tokio::io::AsyncWriteExt;
 
     use super::*;
-    use crate::{
-        mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, FileSystemExt, RootFileSystemBuilder,
-    };
+    use crate::{mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
 
     #[test]
     fn object_safe() {
@@ -375,7 +373,7 @@ mod tests {
             FsError::EntryNotFound,
             "Deleted from primary"
         );
-        assert!(!overlay.secondaries[0].exists(&second));
+        assert!(!ops::exists(&overlay.secondaries[0], &second));
 
         // Directory on the primary fs isn't empty
         assert_eq!(
@@ -388,22 +386,21 @@ mod tests {
             overlay.remove_dir(third).unwrap_err(),
             FsError::PermissionDenied,
         );
-        assert!(overlay.secondaries[0].exists(third));
+        assert!(ops::exists(&overlay.secondaries[0], third));
     }
 
     #[tokio::test]
     async fn open_files() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        primary.create_dir_all("/primary").unwrap();
-        primary.touch("/primary/read.txt").unwrap();
-        primary.touch("/primary/write.txt").unwrap();
-        secondary.create_dir_all("/secondary").unwrap();
-        secondary.touch("/secondary/read.txt").unwrap();
-        secondary.touch("/secondary/write.txt").unwrap();
-        secondary.create_dir_all("/primary").unwrap();
-        secondary
-            .write("/primary/read.txt", "This is shadowed")
+        ops::create_dir_all(&primary, "/primary").unwrap();
+        ops::touch(&primary, "/primary/read.txt").unwrap();
+        ops::touch(&primary, "/primary/write.txt").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::touch(&secondary, "/secondary/read.txt").unwrap();
+        ops::touch(&secondary, "/secondary/write.txt").unwrap();
+        ops::create_dir_all(&secondary, "/primary").unwrap();
+        ops::write(&secondary, "/primary/read.txt", "This is shadowed")
             .await
             .unwrap();
 
@@ -416,8 +413,8 @@ mod tests {
             .write(true)
             .open("/new.txt")
             .unwrap();
-        assert!(fs.primary.exists("/new.txt"));
-        assert!(!fs.secondaries[0].exists("/new.txt"));
+        assert!(ops::exists(&fs.primary, "/new.txt"));
+        assert!(!ops::exists(&fs.secondaries[0], "/new.txt"));
 
         // You can open a file for reading and writing on the primary fs
         let _ = fs
@@ -429,7 +426,7 @@ mod tests {
             .unwrap();
 
         // Files on the primary should always shadow the secondary
-        let content = fs.read_to_string("/primary/read.txt").await.unwrap();
+        let content = ops::read_to_string(&fs, "/primary/read.txt").await.unwrap();
         assert_ne!(content, "This is shadowed");
     }
 
@@ -437,15 +434,15 @@ mod tests {
     fn create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        secondary.create_dir_all("/path/to/").unwrap();
-        assert!(!primary.is_dir("/path/to/"));
+        ops::create_dir_all(&secondary, "/path/to/").unwrap();
+        assert!(!ops::is_dir(&primary, "/path/to/"));
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.touch("/path/to/file.txt").unwrap();
+        ops::touch(&fs, "/path/to/file.txt").unwrap();
 
-        assert!(fs.primary.is_dir("/path/to/"));
-        assert!(fs.primary.is_file("/path/to/file.txt"));
-        assert!(!fs.secondaries[0].is_file("/path/to/file.txt"));
+        assert!(ops::is_dir(&fs.primary, "/path/to/"));
+        assert!(ops::is_file(&fs.primary, "/path/to/file.txt"));
+        assert!(!ops::is_file(&fs.secondaries[0], "/path/to/file.txt"));
     }
 
     #[tokio::test]
@@ -453,22 +450,20 @@ mod tests {
         let primary = MemFS::default();
         let secondary = MemFS::default();
         let secondary_overlayed = MemFS::default();
-        primary.create_dir_all("/primary").unwrap();
-        primary.touch("/primary/read.txt").unwrap();
-        primary.touch("/primary/write.txt").unwrap();
-        secondary.create_dir_all("/secondary").unwrap();
-        secondary.touch("/secondary/read.txt").unwrap();
-        secondary.touch("/secondary/write.txt").unwrap();
+        ops::create_dir_all(&primary, "/primary").unwrap();
+        ops::touch(&primary, "/primary/read.txt").unwrap();
+        ops::touch(&primary, "/primary/write.txt").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::touch(&secondary, "/secondary/read.txt").unwrap();
+        ops::touch(&secondary, "/secondary/write.txt").unwrap();
         // This second "secondary" filesystem should share the same folders as
         // the first one.
-        secondary_overlayed.create_dir_all("/secondary").unwrap();
-        secondary_overlayed
-            .touch("/secondary/overlayed.txt")
-            .unwrap();
+        ops::create_dir_all(&secondary_overlayed, "/secondary").unwrap();
+        ops::touch(&secondary_overlayed, "/secondary/overlayed.txt").unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary, secondary_overlayed]);
 
-        let paths: Vec<_> = fs.walk("/").map(|entry| entry.path()).collect();
+        let paths: Vec<_> = ops::walk(&fs, "/").map(|entry| entry.path()).collect();
         assert_eq!(
             paths,
             vec![
@@ -515,13 +510,13 @@ mod tests {
         let fs = OverlayFileSystem::new(primary, [webc]);
 
         // We should get all the normal directories from rootfs (primary)
-        assert!(fs.is_dir("/lib"));
-        assert!(fs.is_dir("/bin"));
-        assert!(fs.is_file("/dev/stdin"));
-        assert!(fs.is_file("/dev/stdout"));
+        assert!(ops::is_dir(&fs, "/lib"));
+        assert!(ops::is_dir(&fs, "/bin"));
+        assert!(ops::is_file(&fs, "/dev/stdin"));
+        assert!(ops::is_file(&fs, "/dev/stdout"));
         // We also want to see files from the WEBC volumes (secondary)
-        assert!(fs.is_dir("/lib/python3.6"));
-        assert!(fs.is_file("/lib/python3.6/collections/__init__.py"));
+        assert!(ops::is_dir(&fs, "/lib/python3.6"));
+        assert!(ops::is_file(&fs, "/lib/python3.6/collections/__init__.py"));
         // files on a secondary fs aren't writable
         assert_eq!(
             fs.new_open_options()
@@ -532,41 +527,48 @@ mod tests {
         );
         // you are allowed to create files that look like they are in a secondary
         // folder, though
-        fs.touch("/lib/python3.6/collections/something-else.py")
-            .unwrap();
+        ops::touch(&fs, "/lib/python3.6/collections/something-else.py").unwrap();
         // But it'll be on the primary filesystem, not the secondary one
-        assert!(fs
-            .primary
-            .is_file("/lib/python3.6/collections/something-else.py"));
-        assert!(!fs.secondaries[0].is_file("/lib/python3.6/collections/something-else.py"));
+        assert!(ops::is_file(
+            &fs.primary,
+            "/lib/python3.6/collections/something-else.py"
+        ));
+        assert!(!ops::is_file(
+            &fs.secondaries[0],
+            "/lib/python3.6/collections/something-else.py"
+        ));
         // You can do the same thing with folders
         fs.create_dir("/lib/python3.6/something-else".as_ref())
             .unwrap();
-        assert!(fs.primary.is_dir("/lib/python3.6/something-else"));
-        assert!(!fs.secondaries[0].is_dir("/lib/python3.6/something-else"));
+        assert!(ops::is_dir(&fs.primary, "/lib/python3.6/something-else"));
+        assert!(!ops::is_dir(
+            &fs.secondaries[0],
+            "/lib/python3.6/something-else"
+        ));
         // It only works when you are directly inside an existing directory
         // on the secondary filesystem, though
         assert_eq!(
-            fs.touch("/lib/python3.6/collections/this/doesnt/exist.txt")
-                .unwrap_err(),
+            ops::touch(&fs, "/lib/python3.6/collections/this/doesnt/exist.txt").unwrap_err(),
             FsError::EntryNotFound
         );
         // you should also be able to read files mounted from the host
-        assert!(fs.is_dir("/first"));
-        assert!(fs.is_file("/first/file.txt"));
+        assert!(ops::is_dir(&fs, "/first"));
+        assert!(ops::is_file(&fs, "/first/file.txt"));
         assert_eq!(
-            fs.read_to_string("/first/file.txt").await.unwrap(),
+            ops::read_to_string(&fs, "/first/file.txt").await.unwrap(),
             "First!"
         );
         // Overwriting them is fine and we'll see the changes on the host
-        fs.write("/first/file.txt", "Updated").await.unwrap();
+        ops::write(&fs, "/first/file.txt", "Updated").await.unwrap();
         assert_eq!(std::fs::read_to_string(&file_txt).unwrap(), "Updated");
         // The filesystem will see changes on the host that happened after it was
         // set up
         let another = second.join("another.txt");
         std::fs::write(&another, "asdf").unwrap();
         assert_eq!(
-            fs.read_to_string("/second/another.txt").await.unwrap(),
+            ops::read_to_string(&fs, "/second/another.txt")
+                .await
+                .unwrap(),
             "asdf"
         );
     }
