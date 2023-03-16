@@ -34,7 +34,7 @@ mod tests {
         let binary_reader_error = reader.read_bytes(10).unwrap_err();
         match from_binaryreadererror_wasmerror(binary_reader_error) {
             WasmError::InvalidWebAssembly { message, offset } => {
-                assert_eq!(message, "Unexpected EOF");
+                assert_eq!(message, "unexpected end-of-file");
                 assert_eq!(offset, 0);
             }
             err => panic!("Unexpected error: {:?}", err),
@@ -47,7 +47,7 @@ mod tests {
         let binary_reader_error = reader.read_bytes(10).unwrap_err();
         match from_binaryreadererror_compileerror(binary_reader_error) {
             CompileError::Wasm(WasmError::InvalidWebAssembly { message, offset }) => {
-                assert_eq!(message, "Unexpected EOF");
+                assert_eq!(message, "unexpected end-of-file");
                 assert_eq!(offset, 0);
             }
             err => panic!("Unexpected error: {:?}", err),

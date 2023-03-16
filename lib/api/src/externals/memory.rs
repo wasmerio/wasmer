@@ -74,7 +74,7 @@ impl Memory {
 
     /// Creates a view into the memory that then allows for
     /// read and write
-    pub fn view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a> {
+    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 

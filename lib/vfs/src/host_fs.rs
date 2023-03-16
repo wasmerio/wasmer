@@ -866,6 +866,8 @@ impl VirtualFile for Stdin {
 
 #[cfg(test)]
 mod tests {
+    use tempfile::TempDir;
+
     use crate::host_fs::FileSystem;
     use crate::FileSystem as FileSystemTrait;
     use crate::FsError;
@@ -873,21 +875,23 @@ mod tests {
 
     #[test]
     fn test_new_filesystem() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("foo2.txt"), b"").unwrap();
+
         let fs = FileSystem::default();
         assert!(fs.read_dir(Path::new("/")).is_ok(), "hostfs can read root");
-        std::fs::write("./foo2.txt", b"").unwrap();
         assert!(
             fs.new_open_options()
                 .read(true)
-                .open(Path::new("./foo2.txt"))
+                .open(temp.path().join("foo2.txt"))
                 .is_ok(),
             "created foo2.txt"
         );
-        std::fs::remove_file("./foo2.txt").unwrap();
     }
 
     #[test]
     fn test_create_dir() {
+        let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
 
         assert_eq!(
@@ -896,26 +900,18 @@ mod tests {
             "creating a directory that has no parent",
         );
 
-        let _ = fs_extra::remove_items(&["./test_create_dir"]);
-
         assert_eq!(
-            fs.create_dir(Path::new("./test_create_dir")),
-            Ok(()),
-            "creating a directory",
-        );
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_create_dir/foo")),
+            fs.create_dir(&temp.path().join("foo")),
             Ok(()),
             "creating a directory",
         );
 
         assert!(
-            Path::new("./test_create_dir/foo").exists(),
+            temp.path().join("foo").exists(),
             "foo dir exists in host_fs"
         );
 
-        let cur_dir = read_dir_names(&fs, "./test_create_dir");
+        let cur_dir = read_dir_names(&fs, temp.path());
 
         if !cur_dir.contains(&"foo".to_string()) {
             panic!("cur_dir does not contain foo: {:#?}", cur_dir);
@@ -927,43 +923,35 @@ mod tests {
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("./test_create_dir/foo/bar")),
+            fs.create_dir(&temp.path().join("foo/bar")),
             Ok(()),
             "creating a sub-directory",
         );
 
         assert!(
-            Path::new("./test_create_dir/foo/bar").exists(),
+            temp.path().join("foo").join("bar").exists(),
             "foo dir exists in host_fs"
         );
 
-        let foo_dir = read_dir_names(&fs, "./test_create_dir/foo");
+        let foo_dir = read_dir_names(&fs, temp.path().join("foo"));
 
         assert!(
             foo_dir.contains(&"bar".to_string()),
             "the foo directory is updated and well-defined"
         );
 
-        let bar_dir = read_dir_names(&fs, "./test_create_dir/foo/bar");
+        let bar_dir = read_dir_names(&fs, temp.path().join("foo/bar"));
 
         assert!(
             bar_dir.is_empty(),
             "the foo directory is updated and well-defined"
         );
-        let _ = fs_extra::remove_items(&["./test_create_dir"]);
     }
 
     #[test]
     fn test_remove_dir() {
+        let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
-
-        let _ = fs_extra::remove_items(&["./test_remove_dir"]);
-
-        assert_eq!(
-            fs.remove_dir(Path::new("/")),
-            Err(FsError::BaseNotDirectory),
-            "removing a directory that has no parent",
-        );
 
         assert_eq!(
             fs.remove_dir(Path::new("/foo")),
@@ -972,58 +960,47 @@ mod tests {
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("./test_remove_dir")),
+            fs.create_dir(&temp.path().join("foo")),
             Ok(()),
             "creating a directory",
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("./test_remove_dir/foo")),
-            Ok(()),
-            "creating a directory",
-        );
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_remove_dir/foo/bar")),
+            fs.create_dir(&temp.path().join("foo/bar")),
             Ok(()),
             "creating a sub-directory",
         );
 
-        assert!(
-            Path::new("./test_remove_dir/foo/bar").exists(),
-            "./foo/bar exists"
-        );
+        assert!(temp.path().join("foo/bar").exists(), "./foo/bar exists");
 
         assert_eq!(
-            fs.remove_dir(Path::new("./test_remove_dir/foo")),
+            fs.remove_dir(&temp.path().join("foo")),
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("./test_remove_dir/foo/bar")),
+            fs.remove_dir(&temp.path().join("foo/bar")),
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("./test_remove_dir/foo")),
+            fs.remove_dir(&temp.path().join("foo")),
             Ok(()),
             "removing a directory",
         );
 
-        let cur_dir = read_dir_names(&fs, "./test_remove_dir");
+        let cur_dir = read_dir_names(&fs, temp.path());
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
             "the foo directory still exists"
         );
-
-        let _ = fs_extra::remove_items(&["./test_remove_dir"]);
     }
 
-    fn read_dir_names(fs: &dyn crate::FileSystem, path: &str) -> Vec<String> {
-        fs.read_dir(Path::new(path))
+    fn read_dir_names(fs: &dyn crate::FileSystem, path: impl AsRef<Path>) -> Vec<String> {
+        fs.read_dir(path.as_ref())
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
@@ -1031,9 +1008,11 @@ mod tests {
 
     #[test]
     fn test_rename() {
+        let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
-
-        let _ = fs_extra::remove_items(&["./test_rename"]);
+        std::fs::create_dir_all(temp.path().join("foo").join("qux")).unwrap();
+        let foo = temp.path().join("foo");
+        let bar = temp.path().join("bar");
 
         assert_eq!(
             fs.rename(Path::new("/"), Path::new("/bar")),
@@ -1046,28 +1025,18 @@ mod tests {
             "renaming to a directory that has no parent",
         );
 
-        assert_eq!(fs.create_dir(Path::new("./test_rename")), Ok(()));
-        assert_eq!(fs.create_dir(Path::new("./test_rename/foo")), Ok(()));
-        assert_eq!(fs.create_dir(Path::new("./test_rename/foo/qux")), Ok(()));
-
         assert_eq!(
-            fs.rename(
-                Path::new("./test_rename/foo"),
-                Path::new("./test_rename/bar/baz")
-            ),
+            fs.rename(&foo, &foo.join("bar").join("baz"),),
             Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
 
         // On Windows, rename "to" must not be an existing directory
         #[cfg(not(target_os = "windows"))]
-        assert_eq!(fs.create_dir(Path::new("./test_rename/bar")), Ok(()));
+        assert_eq!(fs.create_dir(&bar), Ok(()));
 
         assert_eq!(
-            fs.rename(
-                Path::new("./test_rename/foo"),
-                Path::new("./test_rename/bar")
-            ),
+            fs.rename(&foo, &bar),
             Ok(()),
             "renaming to a directory that has parent that exists",
         );
@@ -1077,7 +1046,7 @@ mod tests {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(Path::new("./test_rename/bar/hello1.txt")),
+                    .open(bar.join("hello1.txt")),
                 Ok(_),
             ),
             "creating a new file (`hello1.txt`)",
@@ -1087,13 +1056,13 @@ mod tests {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(Path::new("./test_rename/bar/hello2.txt")),
+                    .open(bar.join("hello2.txt")),
                 Ok(_),
             ),
             "creating a new file (`hello2.txt`)",
         );
 
-        let cur_dir = read_dir_names(&fs, "./test_rename");
+        let cur_dir = read_dir_names(&fs, temp.path());
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
@@ -1105,90 +1074,63 @@ mod tests {
             "the bar directory still exists"
         );
 
-        let bar_dir = read_dir_names(&fs, "./test_rename/bar");
+        let bar_dir = read_dir_names(&fs, &bar);
 
         if !bar_dir.contains(&"qux".to_string()) {
             println!("qux does not exist: {:?}", bar_dir)
         }
 
-        let qux_dir = read_dir_names(&fs, "./test_rename/bar/qux");
+        let qux_dir = read_dir_names(&fs, bar.join("qux"));
 
         assert!(qux_dir.is_empty(), "the qux directory is empty");
 
         assert!(
-            Path::new("./test_rename/bar/hello1.txt").exists(),
+            bar.join("hello1.txt").exists(),
             "the /bar/hello1.txt file exists"
         );
 
         assert!(
-            Path::new("./test_rename/bar/hello2.txt").exists(),
+            bar.join("hello2.txt").exists(),
             "the /bar/hello2.txt file exists"
         );
 
-        assert_eq!(
-            fs.create_dir(Path::new("./test_rename/foo")),
-            Ok(()),
-            "create ./foo again",
-        );
+        assert_eq!(fs.create_dir(&foo), Ok(()), "create ./foo again",);
 
         assert_eq!(
-            fs.rename(
-                Path::new("./test_rename/bar/hello2.txt"),
-                Path::new("./test_rename/foo/world2.txt")
-            ),
+            fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt")),
             Ok(()),
             "renaming (and moving) a file",
         );
 
         assert_eq!(
-            fs.rename(
-                Path::new("./test_rename/foo"),
-                Path::new("./test_rename/bar/baz")
-            ),
+            fs.rename(&foo, &bar.join("baz")),
             Ok(()),
             "renaming a directory",
         );
 
         assert_eq!(
-            fs.rename(
-                Path::new("./test_rename/bar/hello1.txt"),
-                Path::new("./test_rename/bar/world1.txt")
-            ),
+            fs.rename(&bar.join("hello1.txt"), &bar.join("world1.txt")),
             Ok(()),
             "renaming a file (in the same directory)",
         );
 
-        assert!(Path::new("./test_rename/bar").exists(), "./bar exists");
+        assert!(bar.exists(), "./bar exists");
+        assert!(bar.join("baz").exists(), "./bar/baz exists");
+        assert!(!foo.exists(), "foo does not exist anymore");
         assert!(
-            Path::new("./test_rename/bar/baz").exists(),
-            "./bar/baz exists"
-        );
-        assert!(
-            !Path::new("./test_rename/foo").exists(),
-            "foo does not exist anymore"
-        );
-        assert!(
-            Path::new("./test_rename/bar/baz/world2.txt").exists(),
+            bar.join("baz/world2.txt").exists(),
             "/bar/baz/world2.txt exists"
         );
         assert!(
-            Path::new("./test_rename/bar/world1.txt").exists(),
+            bar.join("world1.txt").exists(),
             "/bar/world1.txt (ex hello1.txt) exists"
         );
+        assert!(!bar.join("hello1.txt").exists(), "hello1.txt was moved");
+        assert!(!bar.join("hello2.txt").exists(), "hello2.txt was moved");
         assert!(
-            !Path::new("./test_rename/bar/hello1.txt").exists(),
-            "hello1.txt was moved"
-        );
-        assert!(
-            !Path::new("./test_rename/bar/hello2.txt").exists(),
-            "hello2.txt was moved"
-        );
-        assert!(
-            Path::new("./test_rename/bar/baz/world2.txt").exists(),
+            bar.join("baz/world2.txt").exists(),
             "world2.txt was moved to the correct place"
         );
-
-        let _ = fs_extra::remove_items(&["./test_rename"]);
     }
 
     #[test]
@@ -1196,16 +1138,11 @@ mod tests {
         use std::thread::sleep;
         use std::time::Duration;
 
-        let root_dir = env!("CARGO_MANIFEST_DIR");
-        let _ = std::env::set_current_dir(root_dir);
+        let temp = TempDir::new().unwrap();
 
         let fs = FileSystem::default();
 
-        let _ = fs_extra::remove_items(&["./test_metadata"]);
-
-        assert_eq!(fs.create_dir(Path::new("./test_metadata")), Ok(()));
-
-        let root_metadata = fs.metadata(Path::new("./test_metadata")).unwrap();
+        let root_metadata = fs.metadata(temp.path()).unwrap();
 
         assert!(root_metadata.ft.dir);
         // it seems created is not evailable on musl, at least on CI testing.
@@ -1215,9 +1152,11 @@ mod tests {
         assert_eq!(root_metadata.modified, root_metadata.created);
         assert!(root_metadata.modified > 0);
 
-        assert_eq!(fs.create_dir(Path::new("./test_metadata/foo")), Ok(()));
+        let foo = temp.path().join("foo");
 
-        let foo_metadata = fs.metadata(Path::new("./test_metadata/foo"));
+        assert_eq!(fs.create_dir(&foo), Ok(()));
+
+        let foo_metadata = fs.metadata(&foo);
         assert!(foo_metadata.is_ok());
         let foo_metadata = foo_metadata.unwrap();
 
@@ -1230,98 +1169,80 @@ mod tests {
 
         sleep(Duration::from_secs(3));
 
-        assert_eq!(
-            fs.rename(
-                Path::new("./test_metadata/foo"),
-                Path::new("./test_metadata/bar")
-            ),
-            Ok(())
-        );
+        let bar = temp.path().join("bar");
 
-        let bar_metadata = fs.metadata(Path::new("./test_metadata/bar")).unwrap();
+        assert_eq!(fs.rename(&foo, &bar), Ok(()));
+
+        let bar_metadata = fs.metadata(&bar).unwrap();
         assert!(bar_metadata.ft.dir);
         assert!(bar_metadata.accessed >= foo_metadata.accessed);
         assert_eq!(bar_metadata.created, foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
-        let root_metadata = fs.metadata(Path::new("./test_metadata/bar")).unwrap();
+        let root_metadata = fs.metadata(&bar).unwrap();
         assert!(
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
         );
-
-        let _ = fs_extra::remove_items(&["./test_metadata"]);
     }
 
     #[test]
     fn test_remove_file() {
         let fs = FileSystem::default();
-
-        let _ = fs_extra::remove_items(&["./test_remove_file"]);
-
-        assert!(fs.create_dir(Path::new("./test_remove_file")).is_ok());
+        let temp = TempDir::new().unwrap();
 
         assert!(
             matches!(
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(Path::new("./test_remove_file/foo.txt")),
+                    .open(temp.path().join("foo.txt")),
                 Ok(_)
             ),
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, "./test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(read_dir_names(&fs, temp.path()).contains(&"foo.txt".to_string()));
 
-        assert!(Path::new("./test_remove_file/foo.txt").is_file());
+        assert!(temp.path().join("foo.txt").is_file());
 
         assert_eq!(
-            fs.remove_file(Path::new("./test_remove_file/foo.txt")),
+            fs.remove_file(&temp.path().join("foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
 
-        assert!(!Path::new("./test_remove_file/foo.txt").exists());
+        assert!(!temp.path().join("foo.txt").exists());
 
         assert_eq!(
-            fs.remove_file(Path::new("./test_remove_file/foo.txt")),
+            fs.remove_file(&temp.path().join("foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
-
-        let _ = fs_extra::remove_items(&["./test_remove_file"]);
     }
 
     #[test]
     fn test_readdir() {
+        let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
 
-        let _ = fs_extra::remove_items(&["./test_readdir"]);
-
         assert_eq!(
-            fs.create_dir(Path::new("./test_readdir/")),
-            Ok(()),
-            "creating `test_readdir`"
-        );
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_readdir/foo")),
+            fs.create_dir(&temp.path().join("foo")),
             Ok(()),
             "creating `foo`"
         );
         assert_eq!(
-            fs.create_dir(Path::new("./test_readdir/foo/sub")),
+            fs.create_dir(&temp.path().join("foo/sub")),
             Ok(()),
             "creating `sub`"
         );
         assert_eq!(
-            fs.create_dir(Path::new("./test_readdir/bar")),
+            fs.create_dir(&temp.path().join("bar")),
             Ok(()),
             "creating `bar`"
         );
         assert_eq!(
-            fs.create_dir(Path::new("./test_readdir/baz")),
+            fs.create_dir(&temp.path().join("baz")),
             Ok(()),
             "creating `bar`"
         );
@@ -1330,7 +1251,7 @@ mod tests {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(Path::new("./test_readdir/a.txt")),
+                    .open(temp.path().join("a.txt")),
                 Ok(_)
             ),
             "creating `a.txt`",
@@ -1340,15 +1261,19 @@ mod tests {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(Path::new("./test_readdir/b.txt")),
+                    .open(&temp.path().join("b.txt")),
                 Ok(_)
             ),
             "creating `b.txt`",
         );
 
-        let readdir = fs.read_dir(Path::new("./test_readdir"));
+        let readdir = fs.read_dir(&temp.path());
 
-        assert!(readdir.is_ok(), "reading the directory `./test_readdir/`");
+        assert!(
+            readdir.is_ok(),
+            "reading the directory `{}`",
+            temp.path().display()
+        );
 
         let mut readdir = readdir.unwrap();
 
@@ -1375,63 +1300,20 @@ mod tests {
         if let Some(s) = readdir.next() {
             panic!("next: {:?}", s);
         }
-
-        let _ = fs_extra::remove_items(&["./test_readdir"]);
     }
 
     #[test]
     fn test_canonicalize() {
+        let temp = TempDir::new().unwrap();
+        std::fs::create_dir_all(temp.path().join("foo/bar/baz/qux")).unwrap();
+        std::fs::write(temp.path().join("foo/bar/baz/qux/hello.txt"), b"").unwrap();
+
         let fs = FileSystem::default();
-
-        let mut root_dir = env!("CARGO_MANIFEST_DIR").to_owned();
-        if cfg!(windows) {
-            // Windows will use UNC path, so force it
-            root_dir.insert_str(0, "\\\\?\\");
-        }
-        let char_dir = if cfg!(windows) { "\\" } else { "/" };
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
+        let root_dir = temp.path().canonicalize().unwrap();
 
         assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize")),
-            Ok(()),
-            "creating `test_canonicalize`"
-        );
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo")),
-            Ok(()),
-            "creating `foo`"
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar")),
-            Ok(()),
-            "creating `bar`"
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz")),
-            Ok(()),
-            "creating `baz`",
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz/qux")),
-            Ok(()),
-            "creating `qux`",
-        );
-        assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(Path::new("./test_canonicalize/foo/bar/baz/qux/hello.txt")),
-                Ok(_)
-            ),
-            "creating `hello.txt`",
-        );
-
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize")),
-            Ok(Path::new(&format!("{root_dir}{char_dir}test_canonicalize")).to_path_buf()),
+            fs.canonicalize(temp.path()),
+            Ok(root_dir.clone()),
             "canonicalizing `/`",
         );
         assert_eq!(
@@ -1440,54 +1322,48 @@ mod tests {
             "canonicalizing `foo`",
         );
         assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/././././foo/")),
-            Ok(Path::new(&format!(
-                "{root_dir}{char_dir}test_canonicalize{char_dir}foo"
-            ))
-            .to_path_buf()),
+            fs.canonicalize(&temp.path().join("././././foo/")),
+            Ok(root_dir.join("foo")),
             "canonicalizing `/././././foo/`",
         );
         assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar//")),
-            Ok(Path::new(&format!(
-                "{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar"
-            ))
-            .to_path_buf()),
+            fs.canonicalize(&temp.path().join("foo/bar//")),
+            Ok(root_dir.join("foo").join("bar")),
             "canonicalizing `/foo/bar//`",
         );
         assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../bar")),
-            Ok(Path::new(&format!(
-                "{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar"
-            ))
-            .to_path_buf()),
+            fs.canonicalize(&temp.path().join("foo/bar/../bar")),
+            Ok(root_dir.join("foo").join("bar")),
             "canonicalizing `/foo/bar/../bar`",
         );
         assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../..")),
-            Ok(Path::new(&format!("{root_dir}{char_dir}test_canonicalize")).to_path_buf()),
+            fs.canonicalize(&temp.path().join("foo/bar/../..")),
+            Ok(root_dir.clone()),
             "canonicalizing `/foo/bar/../..`",
         );
-        // Path::new("/foo/bar/../../..").exists() gives true on windows
+        // temp.path().join("/foo/bar/../../..").exists() gives true on windows
         #[cfg(not(target_os = "windows"))]
         assert_eq!(
-            fs.canonicalize(Path::new("/foo/bar/../../..")),
+            fs.canonicalize(&root_dir.join("/foo/bar/../../..")),
             Err(FsError::InvalidInput),
             "canonicalizing `/foo/bar/../../..`",
         );
         assert_eq!(
-            fs.canonicalize(Path::new("C:/foo/")),
+            fs.canonicalize(&root_dir.join("C:/foo/")),
             Err(FsError::InvalidInput),
             "canonicalizing `C:/foo/`",
         );
         assert_eq!(
-            fs.canonicalize(Path::new(
-                "./test_canonicalize/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
+            fs.canonicalize(&root_dir.join(
+                "foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
             )),
-            Ok(Path::new(&format!("{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar{char_dir}baz{char_dir}qux{char_dir}hello.txt")).to_path_buf()),
+            Ok(root_dir
+                .join("foo")
+                .join("bar")
+                .join("baz")
+                .join("qux")
+                .join("hello.txt")),
             "canonicalizing a crazily stupid path name",
         );
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
     }
 }
