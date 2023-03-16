@@ -78,11 +78,10 @@ impl VirtualTaskManager for TokioTaskManager {
         match spawn_type {
             SpawnType::CreateWithType(mut mem) => {
                 mem.ty.shared = true;
-                Memory::new(store, mem.ty)
-                    .map_err(|err| {
-                        tracing::error!("could not create memory: {err}");
-                        WasiThreadError::MemoryCreateFailed
-                    })
+                Memory::new(store, mem.ty).map_err(|err| {
+                    tracing::error!("could not create memory: {err}");
+                    WasiThreadError::MemoryCreateFailed
+                })
             }
             SpawnType::NewThread(mem) => Ok(Some(mem)),
             SpawnType::Create => Ok(None),
