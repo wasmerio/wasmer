@@ -180,7 +180,7 @@ impl AsJs for Extern {
 
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JSValue {
         match self {
-            Self::Memory(memory) => memory.0.handle.memory.clone(),
+            Self::Memory(memory) => memory.0.handle.memory.clone().to_jsvalue(),
             Self::Function(function) => function.0.handle.function.clone().to_jsvalue(),
             Self::Table(table) => table.0.handle.table.clone().to_jsvalue(),
             Self::Global(global) => global.0.handle.global.clone().to_jsvalue(),
@@ -205,73 +205,28 @@ impl AsJs for Extern {
                     VMFunction::new(obj_val, function_type.clone()),
                 )))
             }
-            _ => {
-                unimplemented!();
+            ExternType::Global(global_type) => {
+                let obj_val = val.to_object(&context);
+                Ok(Self::Global(Global::from_vm_extern(
+                    store,
+                    VMGlobal::new(obj_val, global_type.clone()),
+                )))
+            }
+            ExternType::Memory(memory_type) => {
+                let obj_val = val.to_object(&context);
+                Ok(Self::Memory(Memory::from_vm_extern(
+                    store,
+                    VMMemory::new(obj_val, memory_type.clone()),
+                )))
+            }
+            ExternType::Table(table_type) => {
+                let obj_val = val.to_object(&context);
+                Ok(Self::Table(Table::from_vm_extern(
+                    store,
+                    VMTable::new(obj_val, table_type.clone()),
+                )))
             }
         }
-        // match extern_type {
-        //     ExternType::Memory(memory_type) => {
-        //         if val.is_instance_of::<JsMemory>() {
-        //             Ok(Self::Memory(Memory::from_vm_extern(
-        //                 store,
-        //                 VMMemory::new(
-        //                     val.clone().unchecked_into::<JsMemory>(),
-        //                     memory_type.clone(),
-        //                 ),
-        //             )))
-        //         } else {
-        //             Err(JsError::new(&format!(
-        //                 "Extern expect to be of type Memory, but received {:?}",
-        //                 val
-        //             )))
-        //         }
-        //     }
-        //     ExternType::Global(global_type) => {
-        //         if val.is_instance_of::<JsGlobal>() {
-        //             Ok(Self::Global(Global::from_vm_extern(
-        //                 store,
-        //                 VMGlobal::new(
-        //                     val.clone().unchecked_into::<JsGlobal>(),
-        //                     global_type.clone(),
-        //                 ),
-        //             )))
-        //         } else {
-        //             Err(JsError::new(&format!(
-        //                 "Extern expect to be of type Global, but received {:?}",
-        //                 val
-        //             )))
-        //         }
-        //     }
-        //     ExternType::Function(function_type) => {
-        //         if val.is_instance_of::<JsFunction>() {
-        //             Ok(Self::Function(Function::from_vm_extern(
-        //                 store,
-        //                 VMFunction::new(
-        //                     val.clone().unchecked_into::<JsFunction>(),
-        //                     function_type.clone(),
-        //                 ),
-        //             )))
-        //         } else {
-        //             Err(JsError::new(&format!(
-        //                 "Extern expect to be of type Function, but received {:?}",
-        //                 val
-        //             )))
-        //         }
-        //     }
-        //     ExternType::Table(table_type) => {
-        //         if val.is_instance_of::<JsTable>() {
-        //             Ok(Self::Table(Table::from_vm_extern(
-        //                 store,
-        //                 VMTable::new(val.clone().unchecked_into::<JsTable>(), table_type.clone()),
-        //             )))
-        //         } else {
-        //             Err(JsError::new(&format!(
-        //                 "Extern expect to be of type Table, but received {:?}",
-        //                 val
-        //             )))
-        //         }
-        //     }
-        // }
     }
 }
 

@@ -89,8 +89,8 @@ impl Global {
         let context = engine.0.context();
         self.handle
             .global
-            .set_property(&context, "value".into(), new_value);
-        Ok(())
+            .set_property(&context, "value".into(), new_value)
+            .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {

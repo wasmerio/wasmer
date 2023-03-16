@@ -17,7 +17,7 @@ use wasmer_types::{
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
-    pub(crate) memory: JSValue,
+    pub(crate) memory: JSObject,
     pub(crate) ty: MemoryType,
 }
 
@@ -26,7 +26,7 @@ unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
     /// Creates a new memory directly from a WebAssembly javascript object
-    pub fn new(memory: JSValue, ty: MemoryType) -> Self {
+    pub fn new(memory: JSObject, ty: MemoryType) -> Self {
         Self { memory, ty }
     }
 
