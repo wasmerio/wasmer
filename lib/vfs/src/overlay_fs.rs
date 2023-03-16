@@ -120,7 +120,14 @@ where
                     }
                     had_at_least_one_success = true;
                 }
-                Err(e) if should_continue(e) => continue,
+                Err(e)
+                    if {
+                        let e = e;
+                        matches!(e, FsError::EntryNotFound)
+                    } =>
+                {
+                    continue
+                }
                 Err(e) => return Err(e),
             }
         }
@@ -141,7 +148,11 @@ where
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.create_dir(path) {
-            Err(e) if should_continue(e) => {}
+            Err(e)
+                if {
+                    let e = e;
+                    matches!(e, FsError::EntryNotFound)
+                } => {}
             other => return other,
         }
 
@@ -150,7 +161,11 @@ where
 
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.remove_dir(path) {
-            Err(e) if should_continue(e) => {}
+            Err(e)
+                if {
+                    let e = e;
+                    matches!(e, FsError::EntryNotFound)
+                } => {}
             other => return other,
         }
 
@@ -159,7 +174,11 @@ where
 
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
         match self.primary.rename(from, to) {
-            Err(e) if should_continue(e) => {}
+            Err(e)
+                if {
+                    let e = e;
+                    matches!(e, FsError::EntryNotFound)
+                } => {}
             other => return other,
         }
 
@@ -169,13 +188,24 @@ where
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         match self.primary.metadata(path) {
             Ok(meta) => return Ok(meta),
-            Err(e) if should_continue(e) => {}
+            Err(e)
+                if {
+                    let e = e;
+                    matches!(e, FsError::EntryNotFound)
+                } => {}
             Err(e) => return Err(e),
         }
 
         for fs in self.secondaries.filesystems() {
             match fs.metadata(path) {
-                Err(e) if should_continue(e) => continue,
+                Err(e)
+                    if {
+                        let e = e;
+                        matches!(e, FsError::EntryNotFound)
+                    } =>
+                {
+                    continue
+                }
                 other => return other,
             }
         }
@@ -185,7 +215,11 @@ where
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.remove_file(path) {
-            Err(e) if should_continue(e) => {}
+            Err(e)
+                if {
+                    let e = e;
+                    matches!(e, FsError::EntryNotFound)
+                } => {}
             other => return other,
         }
 
@@ -213,7 +247,11 @@ where
             .options(conf.clone())
             .open(path)
         {
-            Err(e) if should_continue(e) => {}
+            Err(e)
+                if {
+                    let e = e;
+                    matches!(e, FsError::EntryNotFound)
+                } => {}
             other => return other,
         }
 
@@ -246,7 +284,14 @@ where
 
         for fs in self.secondaries.filesystems() {
             match fs.new_open_options().options(conf.clone()).open(path) {
-                Err(e) if should_continue(e) => continue,
+                Err(e)
+                    if {
+                        let e = e;
+                        matches!(e, FsError::EntryNotFound)
+                    } =>
+                {
+                    continue
+                }
                 other => return other,
             }
         }
@@ -304,16 +349,11 @@ where
             }
         }
 
-        f.debug_struct("FileSystem")
+        f.debug_struct("OverlayFileSystem")
             .field("primary", &self.primary)
             .field("secondaries", &IterFilesystems(&self.secondaries))
             .finish()
     }
-}
-
-/// Is it okay to use a fallback filesystem to deal with this particular error?
-fn should_continue(e: FsError) -> bool {
-    matches!(e, FsError::EntryNotFound)
 }
 
 #[cfg(test)]

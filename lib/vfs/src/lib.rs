@@ -30,7 +30,7 @@ pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
 mod filesystems;
-pub mod ops;
+pub(crate) mod ops;
 mod overlay_fs;
 pub mod pipe;
 #[cfg(feature = "static-fs")]

@@ -1,4 +1,5 @@
 //! Common [`FileSystem`] operations.
+#![allow(dead_code)] // Most of these helpers are used during testing
 
 use std::{collections::VecDeque, path::Path};
 
