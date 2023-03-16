@@ -501,17 +501,12 @@ macro_rules! impl_host_function {
                                         // if !results.is_array(&context) {
                                         //     panic!("Expected results to be an array.")
                                         // }
-                                        println!("Number: {}",  _n);
-                                        unimplemented!();
-                                        // let results = results.into();
-                                        // for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
-                                        //     let ret = results.get(i as u32);
-                                        //     unsafe {
-                                        //         let val = param_from_js(&ret_type, &ret);
-                                        //         let slot = mut_rets.add(i);
-                                        //         *slot = val.as_raw(&mut store);
-                                        //     }
-                                        // }
+                                        let mut arr = result.into_array(&mut store);
+                                        let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
+                                            let raw = arr.as_mut()[i];
+                                            Value::from_raw(&mut store, *ret_type, raw).as_jsvalue(&mut store)
+                                        }).collect::<Vec<_>>();
+                                        Ok(JSObject::new_array(&ctx, &result_values).to_jsvalue())
                                     }
                                 }
                             },
