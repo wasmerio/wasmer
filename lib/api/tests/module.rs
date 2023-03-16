@@ -176,7 +176,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 (import "host" "host_func8" (func (param i32)))
 
 (func (export "call_host_func1")
-      (call 0 (i64.const 1)))
+      (call 0 (i64.const -1)))
 (func (export "call_host_func2")
       (call 1 (i32.const -1)))
 (func (export "call_host_func3")

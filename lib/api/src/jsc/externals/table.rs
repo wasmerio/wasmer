@@ -4,7 +4,7 @@ use crate::value::Value;
 use crate::vm::VMExternTable;
 use crate::vm::{VMExtern, VMFunction, VMTable};
 use crate::{FunctionType, TableType};
-use rusty_jsc::JSObject;
+use rusty_jsc::{JSObject, JSValue};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
@@ -38,25 +38,36 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        unimplemented!();
-        // let mut store = store;
-        // let descriptor = js_sys::Object::new();
-        // js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.into())?;
-        // if let Some(max) = ty.maximum {
-        //     js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.into())?;
-        // }
-        // js_sys::Reflect::set(&descriptor, &"element".into(), &"anyfunc".into())?;
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
 
-        // let js_table = js_sys::WebAssembly::Table::new(&descriptor)?;
-        // let table = VMTable::new(js_table, ty);
+        let mut descriptor = JSObject::new(&context);
+        descriptor.set_property(
+            &context,
+            "initial".into(),
+            JSValue::number(&context, ty.minimum.into()),
+        );
+        if let Some(max) = ty.maximum {
+            descriptor.set_property(
+                &context,
+                "maximum".into(),
+                JSValue::number(&context, max.into()),
+            );
+        }
+        descriptor.set_property(
+            &context,
+            "element".into(),
+            JSValue::string(&context, "anyfunc".into()).unwrap(),
+        );
 
-        // let num_elements = table.table.length();
-        // let func = get_function(&mut store, init)?;
-        // for i in 0..num_elements {
-        //     set_table_item(&table, i, &func)?;
-        // }
-
-        // Ok(Self { handle: table })
+        let js_table = engine
+            .0
+            .wasm_table_type()
+            .construct(&context, &[descriptor.to_jsvalue()])
+            .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))?;
+        let vm_table = VMTable::new(js_table, ty);
+        Ok(Self::from_vm_extern(store, vm_table))
     }
 
     pub fn to_vm_extern(&self) -> VMExtern {
@@ -90,18 +101,38 @@ impl Table {
         // set_table_item(&self.handle, index, &item)
     }
 
-    pub fn size(&self, _store: &impl AsStoreRef) -> u32 {
-        unimplemented!();
-        // self.handle.table.length()
+    pub fn size(&self, store: &impl AsStoreRef) -> u32 {
+        let store_mut = store.as_store_ref();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        self.handle
+            .table
+            .get_property(&context, "length".into())
+            .to_number(&context) as _
     }
 
     pub fn grow(
         &self,
-        _store: &mut impl AsStoreMut,
-        _delta: u32,
+        store: &mut impl AsStoreMut,
+        delta: u32,
         _init: Value,
     ) -> Result<u32, RuntimeError> {
-        unimplemented!();
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        let func = self
+            .handle
+            .table
+            .get_property(&context, "grow".into())
+            .to_object(&context);
+        match func.call(
+            &context,
+            self.handle.table.clone(),
+            &[JSValue::number(&context, delta as _)],
+        ) {
+            Ok(val) => Ok(val.to_number(&context) as _),
+            Err(e) => Err(<JSValue as Into<RuntimeError>>::into(e)),
+        }
     }
 
     pub fn copy(

@@ -30,6 +30,7 @@ pub fn param_from_js(context: &JSContext, ty: &Type, js_val: &JSValue) -> Value 
     match ty {
         Type::I32 => Value::I32(js_val.to_number(&context) as _),
         Type::I64 => {
+            // TODO: use to_number as error
             // let number = js_val.as_f64().map(|f| f as i64).unwrap_or_else(|| {
             //     if js_val.is_bigint() {
             //         // To support BigInt
@@ -39,15 +40,23 @@ pub fn param_from_js(context: &JSContext, ty: &Type, js_val: &JSValue) -> Value 
             //         (js_sys::Number::from(js_val.clone()).as_f64().unwrap()) as i64
             //     }
             // });
-            let number = js_val.to_number(&context) as _;
+            // println!("Param from js: {}, {}", ty, js_val.to_string(&context));
+            let number = if js_val.is_number(&context) {
+                js_val.to_number(&context) as _
+            } else {
+                js_val.to_string(&context).parse().unwrap()
+            };
             Value::I64(number)
         }
         Type::F32 => Value::F32(js_val.to_number(&context) as _),
         Type::F64 => Value::F64(js_val.to_number(&context)),
         Type::V128 => {
-            unimplemented!();
-            // let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
-            // Value::V128(big_num)
+            let number = if js_val.is_number(&context) {
+                js_val.to_number(&context) as _
+            } else {
+                js_val.to_string(&context).parse().unwrap()
+            };
+            Value::V128(number)
         }
         Type::ExternRef | Type::FuncRef => unimplemented!(
             "The type `{:?}` is not yet supported in the JS Function API",

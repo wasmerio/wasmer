@@ -1,4 +1,6 @@
 use crate::errors::RuntimeError;
+use crate::jsc::as_js::param_from_js;
+use crate::jsc::as_js::AsJs;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::vm::{VMExtern, VMGlobal};
@@ -73,68 +75,22 @@ impl Global {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
-        // unsafe {
-        //     let value = self.handle.global.value();
-        //     let ty = self.handle.ty;
-        //     let raw = match ty.ty {
-        //         Type::I32 => RawValue {
-        //             i32: value.as_f64().unwrap() as _,
-        //         },
-        //         Type::I64 => RawValue {
-        //             i64: value.as_f64().unwrap() as _,
-        //         },
-        //         Type::F32 => RawValue {
-        //             f32: value.as_f64().unwrap() as _,
-        //         },
-        //         Type::F64 => RawValue {
-        //             f64: value.as_f64().unwrap(),
-        //         },
-        //         Type::V128 => RawValue {
-        //             u128: value.as_f64().unwrap() as _,
-        //         },
-        //         Type::FuncRef => {
-        //             unimplemented!();
-        //             // Self::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f)))
-        //         }
-        //         Type::ExternRef => {
-        //             unimplemented!();
-        //             // Self::ExternRef(
-        //             //     VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
-        //             // )
-        //         }
-        //     };
-        //     Value::from_raw(store, ty.ty, raw)
-        // }
-        unimplemented!();
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        let value = self.handle.global.get_property(&context, "value".into());
+        param_from_js(&context, &self.handle.ty.ty, &value)
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
-        // if !val.is_from_store(store) {
-        //     return Err(RuntimeError::new(
-        //         "cross-`WasmerEnv` values are not supported",
-        //     ));
-        // }
-        // let global_ty = self.ty(&store);
-        // if global_ty.mutability == Mutability::Const {
-        //     return Err(RuntimeError::new("The global is immutable".to_owned()));
-        // }
-        // if val.ty() != global_ty.ty {
-        //     return Err(RuntimeError::new("The types don't match".to_owned()));
-        // }
-        // let new_value = match val {
-        //     Value::I32(i) => JSValue::from_f64(i as _),
-        //     Value::I64(i) => JSValue::from_f64(i as _),
-        //     Value::F32(f) => JSValue::from_f64(f as _),
-        //     Value::F64(f) => JSValue::from_f64(f),
-        //     _ => {
-        //         return Err(RuntimeError::new(
-        //             "The type is not yet supported in the JS Global API".to_owned(),
-        //         ))
-        //     }
-        // };
-        // self.handle.global.set_value(&new_value);
-        // Ok(())
-        unimplemented!();
+        let store_mut = store.as_store_mut();
+        let new_value = val.as_jsvalue(&store_mut);
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        self.handle
+            .global
+            .set_property(&context, "value".into(), new_value);
+        Ok(())
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {

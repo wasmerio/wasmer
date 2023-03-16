@@ -430,7 +430,7 @@ macro_rules! impl_host_function {
                         ctx: JSContext,
                         function: JSObject,
                         this_object: JSObject,
-                        arguments: &[JSValue; count_idents!( $( $x ),* )],
+                        arguments: &[JSValue],
                     ) -> Result<JSValue, JSValue>
                     where
                         $( $x: FromToNativeWasmType, )*
@@ -440,12 +440,15 @@ macro_rules! impl_host_function {
                         // $( $x: NativeWasmTypeInto, )*
                     {
                         use std::convert::TryInto;
+                        // dbg!(arguments.len());
+                        dbg!(arguments[0].to_string(&ctx));
+                        // dbg!(arguments[0].to_object(&ctx).get_property(&ctx, "prototype".into()).to_string(&ctx));
+                        // dbg!(arguments[0].to_number(&ctx) as usize);
+                        println!("CALLING 0");
+
                         let func: &Func = &*(&() as *const () as *const Func);
                         let global = ctx.get_global_object();
                         let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx);
-                        // dbg!(arguments.len());
-                        // let store_ptr = dbg!(arguments[0].to_number(&ctx) as usize);
-                        println!("CALLING 0");
 
                         let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
                         println!("CALLING 1");
@@ -460,7 +463,16 @@ macro_rules! impl_host_function {
                             // let ABI = <$x::Native as NativeWasmType>::Abi
                             // let r: ($( $x , )*) = ($( $x::from_raw(&mut store, RawValue { i32: $x.to_number(&ctx) as _ }) ),*);
                             // func($( FromToNativeWasmType::from_native($x.to_number(&ctx) as <$x::Native as NativeWasmType>::Abi) ),* ).into_result()
-                            func($( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { i32: dbg!($x.to_number(&ctx) as _) }) ) ),* ).into_result()
+                            func($( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
+                                // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
+                                // so the only thing we can do is parse from the string repr
+                                if $x.is_number(&ctx) {
+                                    $x.to_number(&ctx) as _
+                                }
+                                else {
+                                    $x.to_string(&ctx).parse::<u128>().unwrap()
+                                }
+                            } }) ) ),* ).into_result()
                         }));
                         println!("CALLING 3");
 
