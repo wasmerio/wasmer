@@ -8,9 +8,6 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
 use crate::{http::DynHttpClient, os::TtyBridge};
 
-#[cfg(feature = "sys")]
-pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
-
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
 #[allow(unused_variables)]
