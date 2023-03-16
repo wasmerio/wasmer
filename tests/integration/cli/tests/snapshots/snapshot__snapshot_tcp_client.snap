@@ -12,7 +12,8 @@ expression: snapshot
     "cli_args": [],
     "stdin": null,
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "http_request": null
   },
   "result": {
     "Success": {

@@ -36,7 +36,8 @@ expression: snapshot
     ],
     "debug_output": false,
     "enable_threads": true,
-    "enable_network": false
+    "enable_network": false,
+    "http_request": null
   },
   "result": {
     "Success": {

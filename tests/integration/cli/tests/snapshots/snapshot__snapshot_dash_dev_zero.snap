@@ -1,24 +1,36 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 477
+assertion_line: 622
 expression: snapshot
 ---
 {
   "spec": {
-    "name": "snapshot::test_snapshot_bash_ls",
+    "name": "snapshot::test_snapshot_dash_dev_zero",
     "use_packages": [
       "sharrattj/coreutils"
     ],
     "cli_args": [],
     "stdin": [
-      108,
-      115,
-      10,
+      104,
       101,
-      120,
-      105,
-      116,
-      10
+      97,
+      100,
+      32,
+      45,
+      99,
+      32,
+      49,
+      48,
+      32,
+      47,
+      100,
+      101,
+      118,
+      47,
+      122,
+      101,
+      114,
+      111
     ],
     "debug_output": false,
     "enable_threads": true,
@@ -27,8 +39,8 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "bin\ndev\netc\ntmp\nusr\n",
-      "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
+      "stdout": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
+      "stderr": "# # \n",
       "exit_code": 0
     }
   }

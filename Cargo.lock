@@ -5212,6 +5212,7 @@ dependencies = [
  "derivative",
  "filetime",
  "fs_extra",
+ "getrandom",
  "indexmap",
  "lazy_static",
  "libc",

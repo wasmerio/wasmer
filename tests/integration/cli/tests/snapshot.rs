@@ -11,6 +11,15 @@ use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+pub struct TestSpecHttp {
+    pub url: String,
+    pub port: u16,
+    pub http_code: u16,
+    #[serde(skip_serializing)]
+    pub expected_response: Vec<u8>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub struct TestSpec {
     pub name: Option<String>,
     // Uses a hex-encoded String for better review output.
@@ -23,6 +32,7 @@ pub struct TestSpec {
     pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
+    pub http_request: Option<TestSpecHttp>,
 }
 
 impl std::fmt::Debug for TestSpec {
@@ -75,6 +85,7 @@ impl TestBuilder {
                 debug_output: false,
                 enable_threads: true,
                 enable_network: false,
+                http_request: None,
             },
         }
     }
@@ -397,7 +408,14 @@ fn test_snapshot_execve() {
 fn test_snapshot_web_server() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .run_wasm(include_bytes!("./wasm/web-server.wasm"));
+        .enable_network(true)
+        .use_coreutils()
+        .use_pkg("sharrattj/wasmer-sh")
+        .stdin_str(r#"
+rm -f /cfg/config.toml
+/bin/webserver --log-level info --root /public --port 7777
+"#)
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 */
@@ -577,6 +595,26 @@ fn test_snapshot_dash_python() {
         .with_name(function!())
         .use_coreutils()
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'")
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_dash_dev_zero() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .stdin_str("head -c 10 /dev/zero")
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_dash_dev_urandom() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .stdin_str("head -c 10 /dev/urandom | wc -c")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }

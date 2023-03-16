@@ -20,6 +20,7 @@ pub mod host_fs;
 pub mod mem_fs;
 pub mod null_file;
 pub mod passthru_fs;
+pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
 pub mod union_fs;
