@@ -1,7 +1,7 @@
 use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
-use crate::jsc::as_js::AsJs;
+use crate::jsc::as_js::{param_from_js, AsJs};
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
 use crate::jsc::vm::{
     VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionCallback, VMFunctionEnvironment,
@@ -213,64 +213,64 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        unimplemented!();
-        // // Annotation is here to prevent spurious IDE warnings.
-        // let arr = js_sys::Array::new_with_length(params.len() as u32);
-
-        // // let raw_env = env.as_raw() as *mut u8;
-        // // let mut env = unsafe { FunctionEnvMut::from_raw(raw_env as *mut StoreInner<()>) };
-
-        // for (i, param) in params.iter().enumerate() {
-        //     let js_value = param.as_jsvalue(&store.as_store_ref());
-        //     arr.set(i as u32, js_value);
-        // }
-
-        // let result = {
-        //     let mut r;
-        //     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-        //     loop {
-        //         r = js_sys::Reflect::apply(
-        //             &self.handle.function,
-        //             &wasm_bindgen::JSValue::NULL,
-        //             &arr,
-        //         );
-        //         let store_mut = store.as_store_mut();
-        //         if let Some(callback) = store_mut.inner.on_called.take() {
-        //             match callback(store_mut) {
-        //                 Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
-        //                     continue;
-        //                 }
-        //                 Ok(wasmer_types::OnCalledAction::Finish) => {
-        //                     break;
-        //                 }
-        //                 Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-        //                     return Err(RuntimeError::user(trap))
-        //                 }
-        //                 Err(trap) => return Err(RuntimeError::user(trap)),
-        //             }
-        //         }
-        //         break;
-        //     }
-        //     r?
-        // };
-
-        // let result_types = self.handle.ty.results();
-        // match result_types.len() {
-        //     0 => Ok(Box::new([])),
-        //     1 => {
-        //         let value = param_from_js(&result_types[0], &result);
-        //         Ok(vec![value].into_boxed_slice())
-        //     }
-        //     _n => {
-        //         let result_array: Array = result.into();
-        //         Ok(result_array
-        //             .iter()
-        //             .enumerate()
-        //             .map(|(i, js_val)| param_from_js(&result_types[i], &js_val))
-        //             .collect::<Vec<_>>()
-        //             .into_boxed_slice())
-        //     }
-        // }
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        let params_list = params
+            .iter()
+            .map(|v| v.as_jsvalue(&store_mut))
+            .collect::<Vec<_>>();
+        let result = {
+            let mut r;
+            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+            loop {
+                let store_mut = store.as_store_mut();
+                let engine = store_mut.engine();
+                let context = engine.0.context();
+                r = self.handle.function.call(
+                    &context,
+                    JSValue::undefined(&context).to_object(&context),
+                    &params_list,
+                );
+                if let Some(callback) = store_mut.inner.on_called.take() {
+                    match callback(store_mut) {
+                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
+                            continue;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Finish) => {
+                            break;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
+                            return Err(RuntimeError::user(trap))
+                        }
+                        Err(trap) => return Err(RuntimeError::user(trap)),
+                    }
+                }
+                break;
+            }
+            r?
+        };
+        let result_types = self.handle.ty.results();
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        match result_types.len() {
+            0 => Ok(Box::new([])),
+            1 => {
+                let value = param_from_js(&context, &result_types[0], &result);
+                Ok(vec![value].into_boxed_slice())
+            }
+            n => {
+                let result = result.to_object(&context);
+                Ok((0..n)
+                    .map(|i| {
+                        let js_val = result.get_property_at_index(&context, i as _).unwrap();
+                        param_from_js(&context, &result_types[i], &js_val)
+                    })
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice())
+            }
+        }
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMFunction) -> Self {
