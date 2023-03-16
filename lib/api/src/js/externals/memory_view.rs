@@ -26,7 +26,7 @@ pub struct MemoryView<'a> {
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &Memory, _store: &impl AsStoreRef) -> Self {
+    pub(crate) fn new(memory: &Memory, _store: &'a impl AsStoreRef) -> Self {
         Self::new_raw(&memory.handle.memory)
     }
 
