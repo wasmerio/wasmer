@@ -69,7 +69,7 @@ impl CompilerOptions {
                 if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
                     Ok(CompilerType::Cranelift)
                 }
-                else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
+                else if #[cfg(all(feature = "singlepass", any(target_arch = "x86_64", target_arch = "aarch64")))] {
                     Ok(CompilerType::Singlepass)
                 }
                 else if #[cfg(feature = "llvm")] {
