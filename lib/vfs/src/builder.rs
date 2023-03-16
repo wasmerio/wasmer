@@ -138,7 +138,7 @@ mod test_builder {
             .unwrap();
         assert_eq!(dev_zero.write(b"hello").await.unwrap(), 5);
         let mut buf = vec![1; 10];
-        dev_zero.read(&mut buf[..]).await.unwrap();
+        dev_zero.read_exact(&mut buf[..]).await.unwrap();
         assert_eq!(buf, vec![0; 10]);
         assert!(dev_zero.get_special_fd().is_none());
 

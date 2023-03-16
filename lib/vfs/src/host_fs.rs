@@ -1365,7 +1365,5 @@ mod tests {
                 .join("hello.txt")),
             "canonicalizing a crazily stupid path name",
         );
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
     }
 }
