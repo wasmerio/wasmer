@@ -148,6 +148,7 @@ impl WcgiRunner {
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
             module,
+            container: ctx.container.clone(),
             dialect,
             callbacks: Arc::clone(&self.config.callbacks),
         };
@@ -225,8 +226,8 @@ impl RunnerContext<'_> {
         &self.store
     }
 
-    fn volume(&self, _name: &str) -> Option<Box<dyn FileSystem>> {
-        todo!("Implement a read-only filesystem backed by a volume");
+    fn container_fs(&self) -> Box<dyn FileSystem + Send + Sync> {
+        self.container.container_fs()
     }
 
     fn get_atom(&self, name: &str) -> Option<&[u8]> {

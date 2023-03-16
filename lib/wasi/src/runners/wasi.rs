@@ -132,12 +132,16 @@ impl WasiRunner {
         container: &WapmContainer,
         command: &str,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let root_fs = unioned_filesystem(&self.mapped_dirs, container)?;
+        let fs = unioned_filesystem(&self.mapped_dirs, container)?;
+        let fs = container.container_fs();
 
         let mut builder = WasiEnv::builder(command)
             .args(&self.args)
-            .fs(Box::new(root_fs))
             .preopen_dir("/")?;
+
+        preopen(&fs, "/".as_ref(), &mut builder)?;
+
+        builder.set_fs(Box::new(fs));
 
         if self.forward_host_env {
             for (k, v) in std::env::vars() {
@@ -192,7 +196,7 @@ impl crate::runners::Runner for WasiRunner {
 
 /// Create a [`FileSystem`] which merges the WAPM container's volumes with any
 /// directories that were mapped from the host.
-fn unioned_filesystem(
+pub(crate) fn unioned_filesystem(
     mapped_dirs: &[MappedDirectory],
     container: &WapmContainer,
 ) -> Result<impl FileSystem, Error> {
@@ -236,6 +240,19 @@ fn unioned_filesystem(
     Ok(OverlayFileSystem::new(primary, [container.container_fs()]))
 }
 
+fn preopen(fs: &dyn FileSystem, path: &Path, builder: &mut WasiEnvBuilder) -> Result<(), Error> {
+    for result in fs.read_dir(path)? {
+        let entry = result?;
+
+        if entry.file_type()?.is_dir() {
+            builder.add_preopen_dir(&entry.path)?;
+            preopen(fs, &entry.path, builder)?;
+        }
+    }
+
+    Ok(())
+}
+
 fn create_dir_all(fs: &(impl FileSystem + ?Sized), path: &Path) -> Result<(), Error> {
     match fs.metadata(path) {
         Ok(meta) if meta.is_dir() => return Ok(()),
@@ -257,7 +274,6 @@ fn create_dir_all(fs: &(impl FileSystem + ?Sized), path: &Path) -> Result<(), Er
 mod tests {
     use tempfile::TempDir;
     use tokio::io::AsyncReadExt;
-    use wasmer_vfs::host_fs;
 
     use super::*;
 
@@ -313,6 +329,9 @@ mod tests {
             ]
         );
         let abc = read_file(&fs, "/lib/python3.6/collections/abc.py").await;
-        assert_eq!(abc, "from _collections_abc import *");
+        assert_eq!(
+            abc,
+            "from _collections_abc import *\nfrom _collections_abc import __all__\n"
+        );
     }
 }

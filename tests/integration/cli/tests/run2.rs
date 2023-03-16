@@ -15,6 +15,7 @@ use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 const RUST_LOG: &str = "info,wasmer_wasi::runners=debug";
+// const RUST_LOG: &str = "info,wasmer_wasi=trace";
 
 mod webc_on_disk {
     use super::*;
@@ -81,12 +82,14 @@ mod webc_on_disk {
         let assert = Command::new(get_wasmer_path())
             .arg("run2")
             .arg(fixtures::python())
-            .arg("--env")
-            .arg("SOME_VAR=Hello, World!")
+            .arg("--env=SOME_VAR=Hello, World!")
             .arg("--")
             .arg("-c")
             .arg("import os; print(os.environ['SOME_VAR'])")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
+
+        panic!("{}", String::from_utf8_lossy(&assert.get_output().stderr));
 
         assert.success().stdout(contains("Hello, World!"));
     }

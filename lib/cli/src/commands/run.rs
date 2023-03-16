@@ -409,7 +409,7 @@ impl RunWithPathBuf {
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.clone());
-        if self.wcgi.forward_host_env {
+        if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
         if runner.can_run_command(id, command).unwrap_or(false) {
@@ -706,16 +706,12 @@ pub(crate) struct WcgiOptions {
     /// The address to serve on.
     #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
     pub(crate) addr: SocketAddr,
-    /// Forward all host env variables to the wcgi task.
-    #[clap(long)]
-    pub(crate) forward_host_env: bool,
 }
 
 impl Default for WcgiOptions {
     fn default() -> Self {
         Self {
             addr: ([127, 0, 0, 1], 8000).into(),
-            forward_host_env: false,
         }
     }
 }

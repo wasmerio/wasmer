@@ -197,8 +197,7 @@ where
         let start: usize = self.cursor.try_into().unwrap();
         let remaining = &bytes[start..];
         let bytes_read = remaining.len().min(buf.remaining());
-        let end = start + bytes_read;
-        let bytes = &bytes[start..end];
+        let bytes = &remaining[..bytes_read];
 
         buf.put_slice(bytes);
         self.cursor += u64::try_from(bytes_read).unwrap();

@@ -23,7 +23,7 @@ use wcgi_host::CgiDialect;
 use crate::{
     capabilities::Capabilities,
     http::HttpClientCapabilityV1,
-    runners::{wcgi::Callbacks, MappedDirectory},
+    runners::{wcgi::Callbacks, MappedDirectory, WapmContainer},
     Pipe, PluggableRuntime, VirtualTaskManager, WasiEnv,
 };
 
@@ -134,37 +134,8 @@ impl Handler {
         Ok(response)
     }
 
-    fn fs(&self) -> Result<TmpFileSystem, Error> {
-        let root_fs = RootFileSystemBuilder::new().build();
-
-        if !self.mapped_dirs.is_empty() {
-            let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
-
-            for MappedDirectory { host, guest } in self.mapped_dirs.iter() {
-                let guest = match guest.starts_with('/') {
-                    true => PathBuf::from(guest),
-                    false => Path::new("/").join(guest),
-                };
-                tracing::debug!(
-                    host=%host.display(),
-                    guest=%guest.display(),
-                    "mounting host directory",
-                );
-
-                root_fs
-                    .mount(guest.clone(), &fs_backing, host.clone())
-                    .with_context(|| {
-                        format!(
-                            "Unable to mount \"{}\" to \"{}\"",
-                            host.display(),
-                            guest.display()
-                        )
-                    })
-                    .unwrap();
-            }
-        }
-        Ok(root_fs)
+    fn fs(&self) -> Result<impl FileSystem, Error> {
+        crate::runners::wasi::unioned_filesystem(&self.mapped_dirs, &self.container)
     }
 }
 
@@ -255,6 +226,7 @@ pub(crate) struct SharedState {
     pub(crate) env: HashMap<String, String>,
     pub(crate) args: Vec<String>,
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
+    pub(crate) container: WapmContainer,
     pub(crate) module: Module,
     pub(crate) dialect: CgiDialect,
     pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
