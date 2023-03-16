@@ -19,7 +19,7 @@ use crate::sys::externals::memory_view as memory_view_impl;
 pub struct MemoryView<'a>(pub(crate) memory_view_impl::MemoryView<'a>);
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &'a Memory, store: &impl AsStoreRef) -> Self {
+    pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
         MemoryView(memory_view_impl::MemoryView::new(&memory.0, store))
     }
 
