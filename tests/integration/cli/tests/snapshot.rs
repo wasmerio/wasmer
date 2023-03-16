@@ -7,6 +7,7 @@ use std::{
 #[cfg(test)]
 use insta::assert_json_snapshot;
 
+use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
@@ -102,6 +103,16 @@ impl TestBuilder {
         self.use_pkg("sharrattj/coreutils")
     }
 
+    pub fn use_dash(self) -> Self {
+        // TODO: use custom compiled dash
+        self.use_pkg("sharrattj/dash")
+    }
+
+    pub fn use_bash(self) -> Self {
+        // TODO: use custom compiled bash
+        self.use_pkg("sharrattj/bash")
+    }
+
     pub fn debug_output(mut self, show_debug: bool) -> Self {
         self.spec.debug_output = show_debug;
         self
@@ -146,21 +157,12 @@ fn wasmer_path() -> PathBuf {
     path
 }
 
-fn build_test_file(contents: &[u8]) -> PathBuf {
-    // TODO: use TmpFile crate that auto-deletes files.
-    let dir = std::env::temp_dir().join("wasmer-snapshot-tests");
-    std::fs::create_dir_all(&dir).unwrap();
-    let hash = format!("{:x}.wasm", md5::compute(contents));
-    let path = dir.join(hash);
-
-    {
-        std::fs::remove_file(&path).ok();
-        let mut file = std::fs::File::create(&path).unwrap();
-        file.write_all(contents).unwrap();
-        file.flush().unwrap();
-    }
-
-    path
+fn build_test_file(contents: &[u8]) -> NamedTempFile {
+    let mut named_file = NamedTempFile::new().unwrap();
+    let file = named_file.as_file_mut();
+    file.write_all(contents).unwrap();
+    file.flush().unwrap();
+    named_file
 }
 
 fn bytes_to_hex_string(bytes: Vec<u8>) -> String {
@@ -198,7 +200,7 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
     cmd.env("RUST_LOG", log_level);
     cmd.env("RUST_BACKTRACE", "1");
 
-    cmd.arg(wasm_path);
+    cmd.arg(wasm_path.path());
     if !spec.cli_args.is_empty() {
         cmd.arg("--").args(&spec.cli_args);
     }
@@ -251,6 +253,33 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
 
     let stdout = bytes_to_hex_string(stdout_thread.join().unwrap().unwrap());
     let stderr = bytes_to_hex_string(stderr_thread.join().unwrap().unwrap());
+
+    // we do some post processing to replace the temporary random name of the binary
+    // with a fixed name as otherwise the results are not comparable. this occurs
+    // because bash (and others) use the process name in the printf on stdout
+    let stdout = stdout
+        .replace(
+            wasm_path
+                .path()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .as_ref(),
+            "test.wasm",
+        )
+        .to_string();
+    let stderr = stderr
+        .replace(
+            wasm_path
+                .path()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .as_ref(),
+            "test.wasm",
+        )
+        .to_string();
+
     TestResult::Success(TestOutput {
         stdout,
         stderr,
@@ -513,6 +542,26 @@ fn test_snapshot_dash_python() {
 }
 
 #[test]
+fn test_snapshot_dash_dash() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_dash()
+        .stdin_str("/bin/dash\necho hi\nexit\necho hi2\n")
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_dash_bash() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_bash()
+        .stdin_str("/bin/bash\necho hi\nexit\necho hi2\n")
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
 fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -540,7 +589,6 @@ fn test_snapshot_bash_pipe() {
         .stdin_str("echo hello | cat\nexit\n")
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
-    // TODO: more tests!
     assert_json_snapshot!(snapshot);
 }
 
@@ -550,6 +598,26 @@ fn test_snapshot_bash_python() {
         .with_name(function!())
         .use_coreutils()
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'\n")
+        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_bash_bash() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .stdin_str("/bin/bash\necho hi\nexit\necho hi2\n")
+        .use_bash()
+        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_bash_dash() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_dash()
+        .stdin_str("/bin/dash\necho hi\nexit\necho hi2\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
