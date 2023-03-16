@@ -13,7 +13,7 @@
 
 use std::io::{Read, Write};
 use wasmer::{Module, Store};
-use wasmer_wasi::{Pipe, WasiEnv};
+use wasmer_wasix::{Pipe, WasiEnv};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(

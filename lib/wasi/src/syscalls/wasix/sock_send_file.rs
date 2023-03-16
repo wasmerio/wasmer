@@ -1,4 +1,4 @@
-use wasmer_vfs::AsyncReadExt;
+use virtual_fs::AsyncReadExt;
 
 use super::*;
 use crate::{syscalls::*, WasiInodes};
@@ -130,7 +130,7 @@ pub fn sock_send_file<M: MemorySize>(
                                             // TODO: optimize with MaybeUninit
                                             let mut buf = vec![0u8; sub_count as usize];
                                             let amt =
-                                                wasmer_vfs::AsyncReadExt::read(pipe, &mut buf[..])
+                                                virtual_fs::AsyncReadExt::read(pipe, &mut buf[..])
                                                     .await
                                                     .map_err(map_io_err)?;
                                             buf.truncate(amt);

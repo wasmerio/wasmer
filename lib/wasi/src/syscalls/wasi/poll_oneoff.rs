@@ -1,6 +1,6 @@
 use std::f32::consts::E;
 
-use wasmer_wasi_types::wasi::SubscriptionClock;
+use wasmer_wasix_types::wasi::SubscriptionClock;
 
 use super::*;
 use crate::{

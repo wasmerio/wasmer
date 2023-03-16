@@ -7,8 +7,8 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use wasmer_vfs::{Pipe, VirtualFile};
-use wasmer_wasi_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
+use virtual_fs::{Pipe, VirtualFile};
+use wasmer_wasix_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
 

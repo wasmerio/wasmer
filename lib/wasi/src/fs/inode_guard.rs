@@ -9,9 +9,9 @@ use std::{
 };
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::NetworkError;
-use wasmer_wasi_types::{
+use virtual_fs::{FsError, VirtualFile};
+use virtual_net::NetworkError;
+use wasmer_wasix_types::{
     types::Eventtype,
     wasi,
     wasi::{Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription},

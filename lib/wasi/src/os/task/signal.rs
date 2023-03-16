@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use wasmer_wasi_types::types::Signal;
+use wasmer_wasix_types::types::Signal;
 
 #[derive(thiserror::Error, Debug)]
 #[error("Signal could not be delivered")]

@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use wasmer_wasi_types::wasi::{Errno, ExitCode};
+use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::WasiRuntimeError;
 

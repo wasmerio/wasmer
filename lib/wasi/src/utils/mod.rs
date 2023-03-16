@@ -8,7 +8,7 @@ pub use self::dummy_waker::WasiDummyWaker;
 use std::collections::BTreeSet;
 
 use wasmer::Module;
-use wasmer_wasi_types::wasi::Errno;
+use wasmer_wasix_types::wasi::Errno;
 
 pub use self::thread_parker::WasiParkingLot;
 pub(crate) use owned_mutex_guard::{
