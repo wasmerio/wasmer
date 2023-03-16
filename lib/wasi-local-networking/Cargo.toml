@@ -14,7 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-virtnet = { version = "0.1.0", path = "../vnet" }
+virtual-net = { version = "0.1.0", path = "../vnet" }
 tracing = "0.1"
 bytes = "1.1"
 tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false }

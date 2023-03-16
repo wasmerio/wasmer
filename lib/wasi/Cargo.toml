@@ -19,8 +19,8 @@ wasmer-wasix-types = { path = "../wasi-types", version = "0.1.0" }
 wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default-features = false }
 wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
 wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
-virtfs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
-virtnet = { path = "../vnet", version = "0.1.0", default-features = false }
+virtual-fs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
+virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
 virtnet-native = { path = "../wasi-local-networking", version = "0.1.0", default-features = false, optional = true }
 wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }
 typetag = { version = "0.1", optional = true }
@@ -108,14 +108,14 @@ sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
 compiler = [ "wasmer/compiler", "wasmer-compiler"]
 
-js = ["wasmer/js", "virtfs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
+js = ["wasmer/js", "virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
 host-vnet = [ "virtnet-native" ]
 host-threads = []
 host-reqwest = ["reqwest"]
-host-fs = ["virtfs/host-fs"]
+host-fs = ["virtual-fs/host-fs"]
 host-termios = ["termios", "term_size"]
 
 logging = ["tracing/log"]
@@ -125,7 +125,7 @@ disable-all-logging = [
 ]
 enable-serde = [
     "typetag",
-    "virtfs/enable-serde",
+    "virtual-fs/enable-serde",
     "wasmer-wasix-types/enable-serde",
 ]
 

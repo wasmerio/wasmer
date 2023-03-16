@@ -1,5 +1,5 @@
 [package]
-name = "virtnet"
+name = "virtual-net"
 version = "0.1.0"
 description = "Wasmer Virtual Networking"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]

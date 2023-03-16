@@ -16,7 +16,7 @@ use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-use virtfs::{
+use virtual_fs::{
     ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
     PipeRx, PipeTx, RootFileSystemBuilder, VirtualFile,
 };
@@ -209,7 +209,7 @@ impl Console {
             } else {
                 let mut stderr = self.stderr.clone();
                 tasks.block_on(async {
-                    virtfs::AsyncWriteExt::write_all(
+                    virtual_fs::AsyncWriteExt::write_all(
                         &mut stderr,
                         format!("package not found [{}]\r\n", webc).as_bytes(),
                     )
@@ -229,7 +229,7 @@ impl Console {
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             tasks.block_on(async {
-                virtfs::AsyncWriteExt::write_all(&mut stderr, format!("{}\r\n", err).as_bytes())
+                virtual_fs::AsyncWriteExt::write_all(&mut stderr, format!("{}\r\n", err).as_bytes())
                     .await
                     .ok();
             });
@@ -265,7 +265,7 @@ impl Console {
         data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
 
         let mut stderr = self.stderr.clone();
-        virtfs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
+        virtual_fs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
             .await
             .ok();
     }

@@ -1,4 +1,4 @@
-use virtfs::Pipe;
+use virtual_fs::Pipe;
 
 use super::*;
 use crate::syscalls::*;

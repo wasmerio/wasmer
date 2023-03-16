@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use virtnet::{IpCidr, IpRoute, NetworkError};
+use virtual_net::{IpCidr, IpRoute, NetworkError};
 use wasmer::{MemoryView, WasmPtr};
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::{

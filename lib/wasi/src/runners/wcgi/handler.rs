@@ -15,7 +15,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt},
     runtime::Handle,
 };
-use virtfs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
+use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Module;
 use wcgi_host::CgiDialect;
 

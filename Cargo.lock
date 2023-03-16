@@ -4370,7 +4370,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
-name = "virtfs"
+name = "virtnet-native"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "libc",
+ "tokio",
+ "tracing",
+ "virtual-net",
+]
+
+[[package]]
+name = "virtual-fs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4393,25 +4405,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "virtnet"
+name = "virtual-net"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "bytes",
  "thiserror",
  "tracing",
-]
-
-[[package]]
-name = "virtnet-native"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "libc",
- "tokio",
- "tracing",
- "virtnet",
 ]
 
 [[package]]
@@ -4843,7 +4843,7 @@ dependencies = [
  "paste",
  "thiserror",
  "typetag",
- "virtfs",
+ "virtual-fs",
  "wasmer",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -4938,9 +4938,9 @@ dependencies = [
  "tracing-subscriber 0.3.16",
  "unix_mode",
  "url",
- "virtfs",
- "virtnet",
  "virtnet-native",
+ "virtual-fs",
+ "virtual-net",
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
@@ -5313,9 +5313,9 @@ dependencies = [
  "tracing-wasm",
  "typetag",
  "urlencoding",
- "virtfs",
- "virtnet",
  "virtnet-native",
+ "virtual-fs",
+ "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",
@@ -5390,7 +5390,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "virtfs",
+ "virtual-fs",
  "wasmer",
  "wasmer-wasix",
  "wast 38.0.1",

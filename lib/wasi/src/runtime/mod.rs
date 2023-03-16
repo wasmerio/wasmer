@@ -4,7 +4,7 @@ pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
 use std::{fmt, sync::Arc};
 
-use virtnet::{DynVirtualNetworking, VirtualNetworking};
+use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
 use crate::{http::DynHttpClient, os::TtyBridge};
 
@@ -85,7 +85,7 @@ impl PluggableRuntimeImplementation {
             if #[cfg(feature = "host-vnet")] {
                 let networking = Arc::new(virtnet_native::LocalNetworking::default());
             } else {
-                let networking = Arc::new(virtnet::UnsupportedVirtualNetworking::default());
+                let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
         cfg_if::cfg_if! {

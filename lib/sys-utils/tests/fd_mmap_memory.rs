@@ -4,7 +4,7 @@
 // use wasmer::{BaseTunables, Engine, Module, Store, Tunables};
 // use wasmer_vm::VMMemory;
 // use wasmer_wasix::{
-//     bin_factory::spawn_exec_module, virtfs::host_fs::File, BusSpawnedProcessJoin,
+//     bin_factory::spawn_exec_module, virtual_fs::host_fs::File, BusSpawnedProcessJoin,
 //     PluggableRuntimeImplementation, WasiControlPlane, WasiEnv, WasiRuntime,
 //     WasiState,
 // };

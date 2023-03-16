@@ -8,7 +8,7 @@ use std::{
 
 use rand::Rng;
 use thiserror::Error;
-use virtfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
+use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module};
 
 use crate::{
@@ -480,19 +480,19 @@ impl WasiEnvBuilder {
 
     /// Sets the FileSystem to be used with this WASI instance.
     ///
-    /// This is usually used in case a custom `virtfs::FileSystem` is needed.
-    pub fn fs(mut self, fs: Box<dyn virtfs::FileSystem + Send + Sync>) -> Self {
+    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
+    pub fn fs(mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) -> Self {
         self.set_fs(fs);
         self
     }
 
-    pub fn set_fs(&mut self, fs: Box<dyn virtfs::FileSystem + Send + Sync>) {
+    pub fn set_fs(&mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) {
         self.fs = Some(WasiFsRoot::Backing(Arc::new(fs)));
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
     ///
-    /// This is usually used in case a custom `virtfs::FileSystem` is needed.
+    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
         self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
         self

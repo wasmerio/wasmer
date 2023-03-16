@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use virtfs::{AsyncReadExt, FileSystem};
+use virtual_fs::{AsyncReadExt, FileSystem};
 
 mod binary_package;
 mod exec;

@@ -311,7 +311,7 @@ impl FileSystem for UnionFileSystem {
                 Err(err) => {
                     // This fixes a bug when attempting to create the directory /usr when it does not exist
                     // on the x86 version of memfs
-                    // TODO: patch virtfs and remove
+                    // TODO: patch virtual-fs and remove
                     if let FsError::NotAFile = &err {
                         ret_error = FsError::EntryNotFound;
                     } else {
@@ -335,7 +335,7 @@ impl FileSystem for UnionFileSystem {
                 Err(err) => {
                     // This fixes a bug when attempting to create the directory /usr when it does not exist
                     // on the x86 version of memfs
-                    // TODO: patch virtfs and remove
+                    // TODO: patch virtual-fs and remove
                     if let FsError::NotAFile = &err {
                         ret_error = FsError::EntryNotFound;
                     } else {

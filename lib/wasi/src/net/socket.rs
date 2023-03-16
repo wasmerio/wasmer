@@ -10,7 +10,7 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtnet::{
+use virtual_net::{
     VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket,
     VirtualUdpSocket,
 };
@@ -1213,7 +1213,7 @@ impl InodeSocketProtected {
     pub fn poll_read_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<virtnet::Result<usize>> {
+    ) -> std::task::Poll<virtual_net::Result<usize>> {
         match &mut self.kind {
             InodeSocketKind::TcpListener { socket, .. } => socket.poll_accept_ready(cx),
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_read_ready(cx),
@@ -1221,7 +1221,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
-                std::task::Poll::Ready(Err(virtnet::NetworkError::IOError))
+                std::task::Poll::Ready(Err(virtual_net::NetworkError::IOError))
             }
         }
     }
@@ -1229,7 +1229,7 @@ impl InodeSocketProtected {
     pub fn poll_write_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<virtnet::Result<usize>> {
+    ) -> std::task::Poll<virtual_net::Result<usize>> {
         match &mut self.kind {
             InodeSocketKind::TcpListener { .. } => std::task::Poll::Pending,
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_write_ready(cx),
@@ -1237,7 +1237,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
-                std::task::Poll::Ready(Err(virtnet::NetworkError::IOError))
+                std::task::Poll::Ready(Err(virtual_net::NetworkError::IOError))
             }
         }
     }

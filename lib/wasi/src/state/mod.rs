@@ -32,7 +32,7 @@ use std::{
 use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use virtfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer::Store;
 use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
@@ -61,8 +61,8 @@ impl FileOpener for WasiStateOpener {
     fn open(
         &self,
         path: &Path,
-        conf: &virtfs::OpenOptionsConfig,
-    ) -> virtfs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         let mut new_options = self.root_fs.new_open_options();
         new_options.options(conf.clone());
         new_options.open(path)
@@ -177,7 +177,7 @@ impl WasiState {
 
 // Implementations of direct to FS calls so that we can easily change their implementation
 impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(&self, path: P) -> Result<virtfs::ReadDir, Errno> {
+    pub(crate) fn fs_read_dir<P: AsRef<Path>>(&self, path: P) -> Result<virtual_fs::ReadDir, Errno> {
         self.fs
             .root_fs
             .read_dir(path.as_ref())

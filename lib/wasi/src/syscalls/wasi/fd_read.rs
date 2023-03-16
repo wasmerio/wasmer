@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, task::Waker};
 
-use virtfs::{AsyncReadExt, ReadBuf};
+use virtual_fs::{AsyncReadExt, ReadBuf};
 
 use super::*;
 use crate::{fs::NotificationInner, syscalls::*};
@@ -280,7 +280,7 @@ fn fd_read_internal<M: MemorySize>(
                                     .map_err(mem_error_to_wasi)?;
 
                                 total_read +=
-                                    virtfs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
+                                    virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
                             }
                             Ok(total_read)
                         }

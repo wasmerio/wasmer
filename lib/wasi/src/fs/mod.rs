@@ -18,7 +18,7 @@ use crate::state::{Stderr, Stdin, Stdout};
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use virtfs::{FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -261,48 +261,48 @@ impl Default for WasiInodes {
 
 #[derive(Debug, Clone)]
 pub enum WasiFsRoot {
-    Sandbox(Arc<virtfs::tmp_fs::TmpFileSystem>),
+    Sandbox(Arc<virtual_fs::tmp_fs::TmpFileSystem>),
     Backing(Arc<Box<dyn FileSystem>>),
 }
 
 impl FileSystem for WasiFsRoot {
-    fn read_dir(&self, path: &Path) -> virtfs::Result<virtfs::ReadDir> {
+    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.read_dir(path),
             WasiFsRoot::Backing(fs) => fs.read_dir(path),
         }
     }
-    fn create_dir(&self, path: &Path) -> virtfs::Result<()> {
+    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.create_dir(path),
             WasiFsRoot::Backing(fs) => fs.create_dir(path),
         }
     }
-    fn remove_dir(&self, path: &Path) -> virtfs::Result<()> {
+    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.remove_dir(path),
             WasiFsRoot::Backing(fs) => fs.remove_dir(path),
         }
     }
-    fn rename(&self, from: &Path, to: &Path) -> virtfs::Result<()> {
+    fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.rename(from, to),
             WasiFsRoot::Backing(fs) => fs.rename(from, to),
         }
     }
-    fn metadata(&self, path: &Path) -> virtfs::Result<virtfs::Metadata> {
+    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.metadata(path),
             WasiFsRoot::Backing(fs) => fs.metadata(path),
         }
     }
-    fn symlink_metadata(&self, path: &Path) -> virtfs::Result<virtfs::Metadata> {
+    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.symlink_metadata(path),
             WasiFsRoot::Backing(fs) => fs.symlink_metadata(path),
         }
     }
-    fn remove_file(&self, path: &Path) -> virtfs::Result<()> {
+    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.remove_file(path),
             WasiFsRoot::Backing(fs) => fs.remove_file(path),
@@ -1763,12 +1763,12 @@ impl std::fmt::Debug for WasiFs {
 }
 
 /// Returns the default filesystem backing
-pub fn default_fs_backing() -> Box<dyn virtfs::FileSystem + Send + Sync> {
+pub fn default_fs_backing() -> Box<dyn virtual_fs::FileSystem + Send + Sync> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::new(virtfs::host_fs::FileSystem::default())
+            Box::new(virtual_fs::host_fs::FileSystem::default())
         } else if #[cfg(not(feature = "host-fs"))] {
-            Box::new(virtfs::mem_fs::FileSystem::default())
+            Box::new(virtual_fs::mem_fs::FileSystem::default())
         } else {
             Box::new(FallbackFileSystem::default())
         }
@@ -1785,7 +1785,7 @@ impl FallbackFileSystem {
 }
 
 impl FileSystem for FallbackFileSystem {
-    fn read_dir(&self, _path: &Path) -> Result<virtfs::ReadDir, FsError> {
+    fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
         Self::fail();
     }
     fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
@@ -1797,21 +1797,21 @@ impl FileSystem for FallbackFileSystem {
     fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn metadata(&self, _path: &Path) -> Result<virtfs::Metadata, FsError> {
+    fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn symlink_metadata(&self, _path: &Path) -> Result<virtfs::Metadata, FsError> {
+    fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
     fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn new_open_options(&self) -> virtfs::OpenOptions {
+    fn new_open_options(&self) -> virtual_fs::OpenOptions {
         Self::fail();
     }
 }
 
-pub fn virtual_file_type_to_wasi_file_type(file_type: virtfs::FileType) -> Filetype {
+pub fn virtual_file_type_to_wasi_file_type(file_type: virtual_fs::FileType) -> Filetype {
     // TODO: handle other file types
     if file_type.is_dir() {
         Filetype::Directory

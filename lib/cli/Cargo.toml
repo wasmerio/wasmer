@@ -40,8 +40,8 @@ wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache", optional = true 
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.2.0-alpha.1", path = "../object", optional = true }
-virtfs  = { version = "0.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
-virtnet  = { version = "0.1.0", path = "../vnet" }
+virtual-fs  = { version = "0.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
+virtual-net  = { version = "0.1.0", path = "../vnet" }
 wasmer-wasm-interface = { version = "3.2.0-alpha.1", path = "../wasm-interface" }
 wasmparser = "0.51.4"
 atty = "0.2"

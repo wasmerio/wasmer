@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use virtfs::{AsyncReadExt, AsyncWriteExt};
+use virtual_fs::{AsyncReadExt, AsyncWriteExt};
 use wasmer::{Module, Store};
 use wasmer_wasix::{Pipe, PluggableRuntimeImplementation, WasiEnv};
 

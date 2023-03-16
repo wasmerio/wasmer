@@ -1,5 +1,5 @@
 [package]
-name = "virtfs"
+name = "virtual-fs"
 version = "0.1.0"
 description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]

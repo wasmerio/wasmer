@@ -11,9 +11,9 @@ use crate::VirtualBusError;
 
 cfg_if! {
     if #[cfg(feature = "host-fs")] {
-        pub use virtfs::host_fs::{Stderr, Stdin, Stdout};
+        pub use virtual_fs::host_fs::{Stderr, Stdin, Stdout};
     } else {
-        pub use virtfs::mem_fs::{Stderr, Stdin, Stdout};
+        pub use virtual_fs::mem_fs::{Stderr, Stdin, Stdout};
     }
 }
 

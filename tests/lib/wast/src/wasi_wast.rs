@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{mpsc, Arc, Mutex};
 use std::task::{Context, Poll};
-use virtfs::{
+use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
@@ -20,22 +20,22 @@ use wast::parser::{self, Parse, ParseBuffer, Parser};
 /// The kind of filesystem `WasiTest` is going to use.
 #[derive(Debug)]
 pub enum WasiFileSystemKind {
-    /// Instruct the test runner to use `virtfs::host_fs`.
+    /// Instruct the test runner to use `virtual_fs::host_fs`.
     Host,
 
-    /// Instruct the test runner to use `virtfs::mem_fs`.
+    /// Instruct the test runner to use `virtual_fs::mem_fs`.
     InMemory,
 
-    /// Instruct the test runner to use `virtfs::tmp_fs`
+    /// Instruct the test runner to use `virtual_fs::tmp_fs`
     Tmp,
 
-    /// Instruct the test runner to use `virtfs::passtru_fs`
+    /// Instruct the test runner to use `virtual_fs::passtru_fs`
     PassthruMemory,
 
-    /// Instruct the test runner to use `virtfs::union_fs<host_fs, mem_fs>`
+    /// Instruct the test runner to use `virtual_fs::union_fs<host_fs, mem_fs>`
     UnionHostMemory,
 
-    /// Instruct the test runner to use the TempFs returned by `virtfs::builder::RootFileSystemBuilder`
+    /// Instruct the test runner to use the TempFs returned by `virtual_fs::builder::RootFileSystemBuilder`
     RootFileSystemBuilder,
 }
 
@@ -690,7 +690,7 @@ impl AsyncRead for OutputCapturerer {
     }
 }
 
-/// When using `virtfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
+/// When using `virtual_fs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
 fn map_host_fs_to_mem_fs<'a>(

@@ -6,7 +6,7 @@ use std::{
 };
 
 use derivative::*;
-use virtfs::{FileSystem, TmpFileSystem};
+use virtual_fs::{FileSystem, TmpFileSystem};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
 use super::hash_of_binary;

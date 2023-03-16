@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::BTreeSet, path::Path};
-use virtfs::FileSystem;
-use virtfs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
+use virtual_fs::FileSystem;
+use virtual_fs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_wasix::types::__WASI_STDIN_FILENO;
 use wasmer_wasix::{
@@ -123,7 +123,7 @@ impl Wasi {
         if self.networking {
             rt.set_networking_implementation(virtnet_native::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(virtnet::UnsupportedVirtualNetworking::default());
+            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }
 
         let engine = store.as_store_mut().engine().clone();

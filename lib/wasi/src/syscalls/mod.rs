@@ -63,10 +63,10 @@ pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
-pub(crate) use virtfs::{
+pub(crate) use virtual_fs::{
     AsyncSeekExt, AsyncWriteExt, DuplexPipe, FileSystem, FsError, VirtualFile,
 };
-pub(crate) use virtnet::StreamSecurity;
+pub(crate) use virtual_net::StreamSecurity;
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
