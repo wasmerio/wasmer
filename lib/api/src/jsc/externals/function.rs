@@ -441,7 +441,6 @@ macro_rules! impl_host_function {
                     {
                         use std::convert::TryInto;
                         // dbg!(arguments.len());
-                        dbg!(arguments[0].to_string(&ctx));
                         // dbg!(arguments[0].to_object(&ctx).get_property(&ctx, "prototype".into()).to_string(&ctx));
                         // dbg!(arguments[0].to_number(&ctx) as usize);
                         println!("CALLING 0");
@@ -518,10 +517,16 @@ macro_rules! impl_host_function {
                             },
                             #[cfg(feature = "std")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Err(trap)) => {
+                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
+                                // RuntimeError::raise(Box::new(trap))
+                            },
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Err(trap)) => {
+                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
+                                // RuntimeError::raise(Box::new(trap))
+                            },
                             Err(panic) => {
                                 Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
                                 // We can't just resume the unwind, because it will put
@@ -538,18 +543,6 @@ macro_rules! impl_host_function {
             }
         };
     }
-
-// Black-magic to count the number of identifiers at compile-time.
-macro_rules! count_idents_plus_one {
-    ( $($idents:ident),* ) => {
-        {
-            #[allow(dead_code, non_camel_case_types)]
-            enum Idents { $( $idents, )* __CountIdentsLast }
-            const COUNT: usize = Idents::__CountIdentsLast as usize;
-            COUNT+1
-        }
-    };
-}
 
 // Black-magic to count the number of identifiers at compile-time.
 macro_rules! count_idents {
