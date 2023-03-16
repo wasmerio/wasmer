@@ -55,7 +55,6 @@ impl NativeWasmTypeInto for i32 {
     }
 }
 
-
 impl NativeWasmTypeInto for u32 {
     #[inline]
     unsafe fn from_abi(_store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
@@ -99,7 +98,6 @@ impl NativeWasmTypeInto for i64 {
         raw.i64
     }
 }
-
 
 impl NativeWasmTypeInto for u64 {
     #[inline]

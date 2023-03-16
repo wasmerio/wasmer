@@ -138,28 +138,25 @@ impl Memory {
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        unimplemented!();
-        // // Create the new memory using the parameters of the existing memory
-        // let view = self.view(store);
-        // let ty = self.ty(store);
-        // let amount = view.data_size() as usize;
+        let view = self.view(store);
+        let ty = self.ty(store);
+        let amount = view.data_size() as usize;
 
-        // let new_memory = Self::new(new_store, ty)?;
-        // let mut new_view = new_memory.view(&new_store);
-        // let new_view_size = new_view.data_size() as usize;
-        // if amount > new_view_size {
-        //     let delta = amount - new_view_size;
-        //     let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
-        //     new_memory.grow(new_store, Pages(pages as u32))?;
-        //     new_view = new_memory.view(&new_store);
-        // }
+        let new_memory = Self::new(new_store, ty)?;
+        let mut new_view = new_memory.view(&new_store);
+        let new_view_size = new_view.data_size() as usize;
+        if amount > new_view_size {
+            let delta = amount - new_view_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
+            new_memory.grow(new_store, Pages(pages as u32))?;
+            new_view = new_memory.view(&new_store);
+        }
 
-        // // Copy the bytes
-        // view.copy_to_memory(amount as u64, &new_view)
-        //     .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
+        // Copy the bytes
+        view.copy_to_memory(amount as u64, &new_view)
+            .map_err(|err| MemoryError::Generic(err.to_string()))?;
         // // Return the new memory
-        // Ok(new_memory)
+        Ok(new_memory)
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
