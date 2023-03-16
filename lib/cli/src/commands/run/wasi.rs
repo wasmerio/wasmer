@@ -44,6 +44,11 @@ pub struct Wasi {
     #[clap(long = "use", name = "USE")]
     uses: Vec<String>,
 
+    /// List of webc packages that are explicitely included for execution
+    /// Note: these packages will be used instead of those in the registry
+    #[clap(long = "include-webc", name = "WEBC")]
+    include_webcs: Vec<String>,
+
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
     map_commands: Vec<String>,
@@ -148,6 +153,7 @@ impl Wasi {
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
+            .include_webcs(self.include_webcs.clone())
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasi::is_wasix_module(module) {
