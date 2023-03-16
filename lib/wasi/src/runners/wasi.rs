@@ -132,14 +132,13 @@ impl WasiRunner {
         container: &WapmContainer,
         command: &str,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let fs = unioned_filesystem(&self.mapped_dirs, container)?;
-        let fs = container.container_fs();
+        let (fs, preopen_dirs) = unioned_filesystem(&self.mapped_dirs, container)?;
 
-        let mut builder = WasiEnv::builder(command)
-            .args(&self.args)
-            .preopen_dir("/")?;
+        let mut builder = WasiEnv::builder(command).args(&self.args);
 
-        preopen(&fs, "/".as_ref(), &mut builder)?;
+        for dir in preopen_dirs {
+            builder.add_preopen_dir(dir)?;
+        }
 
         builder.set_fs(Box::new(fs));
 
@@ -199,9 +198,11 @@ impl crate::runners::Runner for WasiRunner {
 pub(crate) fn unioned_filesystem(
     mapped_dirs: &[MappedDirectory],
     container: &WapmContainer,
-) -> Result<impl FileSystem, Error> {
+) -> Result<(impl FileSystem, Vec<PathBuf>), Error> {
     // We start with the root filesystem so we get things like "/dev/"
     let primary = RootFileSystemBuilder::new().build();
+
+    let mut preopen_dirs = Vec::new();
 
     // Now, let's merge in the host volumes.
     if !mapped_dirs.is_empty() {
@@ -232,25 +233,20 @@ pub(crate) fn unioned_filesystem(
                         guest.display()
                     )
                 })?;
+
+            preopen_dirs.push(guest);
         }
     }
+
+    let (container_fs, top_level_dirs) = container.container_fs();
+
+    preopen_dirs.extend(top_level_dirs.into_iter().map(|p| Path::new("/").join(p)));
 
     // Once we've set up the primary filesystem, make sure it is overlayed with
     // the WEBC container's files
-    Ok(OverlayFileSystem::new(primary, [container.container_fs()]))
-}
+    let fs = OverlayFileSystem::new(primary, [container_fs]);
 
-fn preopen(fs: &dyn FileSystem, path: &Path, builder: &mut WasiEnvBuilder) -> Result<(), Error> {
-    for result in fs.read_dir(path)? {
-        let entry = result?;
-
-        if entry.file_type()?.is_dir() {
-            builder.add_preopen_dir(&entry.path)?;
-            preopen(fs, &entry.path, builder)?;
-        }
-    }
-
-    Ok(())
+    Ok((fs, preopen_dirs))
 }
 
 fn create_dir_all(fs: &(impl FileSystem + ?Sized), path: &Path) -> Result<(), Error> {
@@ -307,7 +303,7 @@ mod tests {
             host: temp.path().to_path_buf(),
         }];
 
-        let fs = unioned_filesystem(&mapped_dirs, &container).unwrap();
+        let (fs, _) = unioned_filesystem(&mapped_dirs, &container).unwrap();
 
         // Files that were mounted on the host
         let path_contents = read_dir(&fs, "/path/to/");

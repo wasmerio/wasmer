@@ -7,7 +7,7 @@ use std::{
     task::Poll,
 };
 
-use anyhow::{Context, Error};
+use anyhow::Error;
 use futures::{Future, FutureExt, StreamExt, TryFutureExt};
 use http::{Request, Response};
 use hyper::{service::Service, Body};
@@ -16,7 +16,7 @@ use tokio::{
     runtime::Handle,
 };
 use tracing::Instrument;
-use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
+use virtual_fs::FileSystem;
 use wasmer::Module;
 use wcgi_host::CgiDialect;
 
@@ -54,6 +54,8 @@ impl Handler {
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
+        let (fs, preopen_dirs) = self.fs()?;
+
         let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
         let mut builder = builder
             .envs(self.env.iter())
@@ -68,11 +70,11 @@ impl Handler {
                 threading: Default::default(),
             })
             .runtime(Arc::new(rt))
-            .fs(Box::new(self.fs()?))
+            .fs(Box::new(fs))
             .preopen_dir(Path::new("/"))?;
 
-        for dir in &self.mapped_dirs {
-            builder.add_preopen_dir(&dir.guest)?;
+        for dir in preopen_dirs {
+            builder.add_preopen_dir(dir)?;
         }
 
         let module = self.module.clone();
@@ -134,7 +136,7 @@ impl Handler {
         Ok(response)
     }
 
-    fn fs(&self) -> Result<impl FileSystem, Error> {
+    fn fs(&self) -> Result<(impl FileSystem, Vec<PathBuf>), Error> {
         crate::runners::wasi::unioned_filesystem(&self.mapped_dirs, &self.container)
     }
 }

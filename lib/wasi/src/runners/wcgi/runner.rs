@@ -7,7 +7,6 @@ use hyper::Body;
 use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
-use virtual_fs::FileSystem;
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
 use webc::metadata::{
@@ -224,10 +223,6 @@ impl RunnerContext<'_> {
 
     fn store(&self) -> &Store {
         &self.store
-    }
-
-    fn container_fs(&self) -> Box<dyn FileSystem + Send + Sync> {
-        self.container.container_fs()
     }
 
     fn get_atom(&self, name: &str) -> Option<&[u8]> {
