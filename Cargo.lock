@@ -5334,7 +5334,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",
- "wasmer-compiler",
  "wasmer-emscripten",
  "wasmer-types",
  "wasmer-vfs",

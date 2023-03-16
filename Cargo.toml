@@ -191,10 +191,10 @@ name = "exported-global"
 path = "examples/exports_global.rs"
 required-features = []
 
-# [[example]]
-# name = "exported-memory"
-# path = "examples/exports_memory.rs"
-# required-features = []
+[[example]]
+name = "exported-memory"
+path = "examples/exports_memory.rs"
+required-features = []
 
 [[example]]
 name = "imported-function"
@@ -231,10 +231,10 @@ name = "table"
 path = "examples/table.rs"
 required-features = []
 
-# [[example]]
-# name = "memory"
-# path = "examples/memory.rs"
-# required-features = []
+[[example]]
+name = "memory"
+path = "examples/memory.rs"
+required-features = []
 
 [[example]]
 name = "instance"

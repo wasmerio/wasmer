@@ -169,12 +169,22 @@ mod native {
         const WASM_TYPE: Type;
     }
 
+    impl NativeWasmType for u32 {
+        const WASM_TYPE: Type = Type::I32;
+        type Abi = Self;
+    }
+
     impl NativeWasmType for i32 {
         const WASM_TYPE: Type = Type::I32;
         type Abi = Self;
     }
 
     impl NativeWasmType for i64 {
+        const WASM_TYPE: Type = Type::I64;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for u64 {
         const WASM_TYPE: Type = Type::I64;
         type Abi = Self;
     }
