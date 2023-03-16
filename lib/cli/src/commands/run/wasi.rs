@@ -198,14 +198,13 @@ impl Wasi {
     }
 
     /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(&self, result: Result<Box<[Value]>, RuntimeError>) -> Result<()> {
+    pub fn handle_result(&self, result: Result<Box<[Value]>, RuntimeError>) -> Result<i32> {
         match result {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(0),
             Err(err) => {
                 let err: anyhow::Error = match err.downcast::<WasiError>() {
                     Ok(WasiError::Exit(exit_code)) => {
-                        // We should exit with the provided exit code
-                        std::process::exit(exit_code.into());
+                        return Ok(exit_code.raw());
                     }
                     Ok(err) => err.into(),
                     Err(err) => err.into(),
