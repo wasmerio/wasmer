@@ -2,10 +2,7 @@ use std::{pin::Pin, time::Duration};
 
 use futures::Future;
 use tokio::runtime::Handle;
-use wasmer::{
-    vm::{VMMemory, VMSharedMemory},
-    Module, Store,
-};
+use wasmer::{AsStoreMut, Memory, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -73,15 +70,20 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 
 #[async_trait::async_trait]
 impl VirtualTaskManager for TokioTaskManager {
-    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError> {
+    fn build_memory(
+        &self,
+        store: &mut StoreMut,
+        spawn_type: SpawnType,
+    ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
-            SpawnType::CreateWithType(mem) => VMSharedMemory::new(&mem.ty, &mem.style)
-                .map_err(|err| {
+            SpawnType::CreateWithType(mut mem) => {
+                mem.ty.shared = true;
+                Memory::new(store, mem.ty).map_err(|err| {
                     tracing::error!("could not create memory: {err}");
                     WasiThreadError::MemoryCreateFailed
-                })
-                .map(|m| Some(m.into())),
-            SpawnType::NewThread(mem, _) => Ok(Some(mem)),
+                }).map(|mem| Some(mem))
+            }
+            SpawnType::NewThread(mem) => Ok(Some(mem)),
             SpawnType::Create => Ok(None),
         }
     }
@@ -125,12 +127,12 @@ impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
-        store: Store,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
+        mut store: Store,
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
-        let memory = self.build_memory(spawn_type)?;
+        let memory = self.build_memory(&mut store.as_store_mut(), spawn_type)?;
         self.0.spawn_blocking(move || {
             // Invoke the callback
             task(store, module, memory);
