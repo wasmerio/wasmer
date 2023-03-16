@@ -2,8 +2,10 @@ use crate::jsc::vm::{VMExtern, VMMemory};
 use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
 use crate::MemoryType;
+use rusty_jsc::{JSObject, JSValue};
+use std::convert::TryInto;
 use std::marker::PhantomData;
-use std::mem::MaybeUninit;
+use std::mem::{self, MaybeUninit};
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
@@ -36,28 +38,52 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        unimplemented!();
-        // let vm_memory = VMMemory::new(Self::js_memory_from_type(&ty)?, ty);
-        // Ok(Self::from_vm_extern(store, vm_memory))
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+
+        let mut descriptor = JSObject::new(&context);
+        descriptor.set_property(
+            &context,
+            "initial".into(),
+            JSValue::number(&context, ty.minimum.0.into()),
+        );
+        if let Some(max) = ty.maximum {
+            descriptor.set_property(
+                &context,
+                "maximum".into(),
+                JSValue::number(&context, max.0.into()),
+            );
+        }
+        descriptor.set_property(
+            &context,
+            "shared".into(),
+            JSValue::boolean(&context, ty.shared),
+        );
+
+        let js_memory = engine
+            .0
+            .wasm_memory_type()
+            .construct(&context, &[descriptor.to_jsvalue()])
+            .map_err(|e| MemoryError::Generic(format!("{:?}", e)))?;
+        let vm_memory = VMMemory::new(js_memory, ty);
+        Ok(Self::from_vm_extern(store, vm_memory))
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        unimplemented!();
-        // Self::from_vm_extern(new_store, memory)
+        Self::from_vm_extern(new_store, memory)
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        unimplemented!();
-        // VMExtern::Memory(self.handle.clone())
+        VMExtern::Memory(self.handle.clone())
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
         self.handle.ty
     }
 
-    pub fn view(&self, store: &impl AsStoreRef) -> MemoryView {
-        unimplemented!();
-        // MemoryView::new(self, store)
+    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+        MemoryView::new(self, store)
     }
 
     pub fn grow<IntoPages>(
@@ -68,8 +94,30 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        unimplemented!();
-        // let pages = delta.into();
+        let pages = delta.into();
+
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
+        let func = self
+            .handle
+            .memory
+            .get_property(&context, "grow".into())
+            .to_object(&context);
+        match func.call(
+            &context,
+            self.handle.memory.clone(),
+            &[JSValue::number(&context, pages.0 as _)],
+        ) {
+            Ok(val) => Ok(Pages(val.to_number(&context) as _)),
+            Err(e) => {
+                let old_pages = pages;
+                Err(MemoryError::CouldNotGrow {
+                    current: old_pages,
+                    attempted_delta: pages,
+                })
+            }
+        }
         // let js_memory = &self.handle.memory;
         // let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
         // let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
@@ -138,33 +186,35 @@ impl std::cmp::PartialEq for Memory {
     }
 }
 
+impl std::cmp::Eq for Memory {}
+
 /// Underlying buffer for a memory.
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug, Copy, Clone)]
 pub(crate) struct MemoryBuffer<'a> {
-    // pub(crate) base: *mut js_sys::Uint8Array,
-    pub(crate) marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
+    pub(crate) base: *mut u8,
+    pub(crate) len: usize,
+    pub(crate) marker: PhantomData<&'a MemoryView<'a>>,
 }
 
 impl<'a> MemoryBuffer<'a> {
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        unimplemented!();
-        // let end = offset
-        //     .checked_add(buf.len() as u64)
-        //     .ok_or(MemoryAccessError::Overflow)?;
-        // let view = unsafe { &*(self.base) };
-        // if end > view.length().into() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
-        //         buf.len(),
-        //         end,
-        //         view.length()
-        //     );
-        //     return Err(MemoryAccessError::HeapOutOfBounds);
-        // }
-        // view.subarray(offset as _, end as _)
-        //     .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) });
-        // Ok(())
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > self.len.try_into().unwrap() {
+            #[cfg(feature = "tracing")]
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                self.len
+            );
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        unsafe {
+            volatile_memcpy_read(self.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
+        }
+        Ok(())
     }
 
     pub(crate) fn read_uninit<'b>(
@@ -172,46 +222,104 @@ impl<'a> MemoryBuffer<'a> {
         offset: u64,
         buf: &'b mut [MaybeUninit<u8>],
     ) -> Result<&'b mut [u8], MemoryAccessError> {
-        unimplemented!();
-        // let end = offset
-        //     .checked_add(buf.len() as u64)
-        //     .ok_or(MemoryAccessError::Overflow)?;
-        // let view = unsafe { &*(self.base) };
-        // if end > view.length().into() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
-        //         buf.len(),
-        //         end,
-        //         view.length()
-        //     );
-        //     return Err(MemoryAccessError::HeapOutOfBounds);
-        // }
-        // let buf_ptr = buf.as_mut_ptr() as *mut u8;
-        // view.subarray(offset as _, end as _)
-        //     .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf_ptr, buf.len()) });
+        let end = offset
+            .checked_add(buf.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > self.len.try_into().unwrap() {
+            #[cfg(feature = "tracing")]
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                buf.len(),
+                end,
+                self.len
+            );
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        let buf_ptr = buf.as_mut_ptr() as *mut u8;
+        unsafe {
+            volatile_memcpy_read(self.base.add(offset as usize), buf_ptr, buf.len());
+        }
 
-        // Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
+        Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
     }
 
     pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        unimplemented!();
-        // let end = offset
-        //     .checked_add(data.len() as u64)
-        //     .ok_or(MemoryAccessError::Overflow)?;
-        // let view = unsafe { &mut *(self.base) };
-        // if end > view.length().into() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
-        //         data.len(),
-        //         end,
-        //         view.length()
-        //     );
-        //     return Err(MemoryAccessError::HeapOutOfBounds);
-        // }
-        // view.subarray(offset as _, end as _).copy_from(data);
+        let end = offset
+            .checked_add(data.len() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > self.len.try_into().unwrap() {
+            #[cfg(feature = "tracing")]
+            warn!(
+                "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
+                data.len(),
+                end,
+                self.len
+            );
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        unsafe {
+            volatile_memcpy_write(data.as_ptr(), self.base.add(offset as usize), data.len());
+        }
+        Ok(())
+    }
+}
 
-        // Ok(())
+// We can't use a normal memcpy here because it has undefined behavior if the
+// memory is being concurrently modified. So we need to write our own memcpy
+// implementation which uses volatile operations.
+//
+// The implementation of these functions can optimize very well when inlined
+// with a fixed length: they should compile down to a single load/store
+// instruction for small (8/16/32/64-bit) copies.
+#[inline]
+unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
+    #[inline]
+    unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
+        #[repr(packed)]
+        struct Unaligned<T>(T);
+        let val = (*src as *const Unaligned<T>).read_volatile();
+        (*dst as *mut Unaligned<T>).write(val);
+        *src = src.add(mem::size_of::<T>());
+        *dst = dst.add(mem::size_of::<T>());
+        *len -= mem::size_of::<T>();
+    }
+
+    while len >= 8 {
+        copy_one::<u64>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 4 {
+        copy_one::<u32>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 2 {
+        copy_one::<u16>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 1 {
+        copy_one::<u8>(&mut src, &mut dst, &mut len);
+    }
+}
+#[inline]
+unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
+    #[inline]
+    unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
+        #[repr(packed)]
+        struct Unaligned<T>(T);
+        let val = (*src as *const Unaligned<T>).read();
+        (*dst as *mut Unaligned<T>).write_volatile(val);
+        *src = src.add(mem::size_of::<T>());
+        *dst = dst.add(mem::size_of::<T>());
+        *len -= mem::size_of::<T>();
+    }
+
+    while len >= 8 {
+        copy_one::<u64>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 4 {
+        copy_one::<u32>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 2 {
+        copy_one::<u16>(&mut src, &mut dst, &mut len);
+    }
+    if len >= 1 {
+        copy_one::<u8>(&mut src, &mut dst, &mut len);
     }
 }

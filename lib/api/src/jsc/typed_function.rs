@@ -95,16 +95,17 @@ macro_rules! impl_native_traits {
                         if !results.is_array(&context) {
                             panic!("Expected results to be an array.")
                         }
-                        unimplemented!();
-                        // let results = results.into();
-                        // for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
-                        //     let ret = results.get(i as u32);
-                        //     unsafe {
-                        //         let val = param_from_js(&ret_type, &ret);
-                        //         let slot = mut_rets.add(i);
-                        //         *slot = val.as_raw(&mut store);
-                        //     }
-                        // }
+                        let results = results.to_object(&context);
+                        for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
+                            let store_mut = store.as_store_mut();
+                            let context = store_mut.engine().0.context();
+                            let ret = results.get_property_at_index(&context, i as _).unwrap();
+                            unsafe {
+                                let val = param_from_js(&context, &ret_type, &ret);
+                                let slot = mut_rets.add(i);
+                                *slot = val.as_raw(&mut store);
+                            }
+                        }
                     }
                 }
                 Ok(unsafe { Rets::from_array(store, rets_list_array) })

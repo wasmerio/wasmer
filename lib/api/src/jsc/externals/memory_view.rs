@@ -1,12 +1,11 @@
-use crate::mem_access::MemoryAccessError;
 use crate::store::AsStoreRef;
+use crate::MemoryAccessError;
+use rusty_jsc::JSObject;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-#[cfg(feature = "tracing")]
-use tracing::warn;
-
 use wasmer_types::{Bytes, Pages};
 
 use super::memory::{Memory, MemoryBuffer};
@@ -19,47 +18,52 @@ use super::memory::{Memory, MemoryBuffer};
 /// created using the Memory.grow() method.
 #[derive(Debug)]
 pub struct MemoryView<'a> {
-    // view: js_sys::Uint8Array,
-    size: u64,
-    marker: PhantomData<&'a Memory>,
+    pub(crate) buffer: MemoryBuffer<'a>,
+    // pub(crate) size: Pages,
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &Memory, _store: &impl AsStoreRef) -> Self {
-        // Self::new_raw(&memory.handle.memory)
-        unimplemented!();
+    pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
+        let store_ref = store.as_store_ref();
+        let engine = store_ref.engine();
+        let context = engine.0.context();
+
+        let buffer = memory
+            .handle
+            .memory
+            .get_property(&context, "buffer".into())
+            .to_object(&context);
+        let typed_buffer = JSObject::create_typed_array_from_buffer(&context, buffer).unwrap();
+
+        let mut buffer_data = typed_buffer.get_typed_array_buffer(&context).unwrap();
+        // println!("BUFFER DATA {}", buffer_data.to_string(&context));
+
+        // let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
+        // let def = unsafe { definition.as_ref() };
+        Self {
+            buffer: MemoryBuffer {
+                base: buffer_data.as_mut_ptr(),
+                len: buffer_data.len(),
+                marker: PhantomData,
+            },
+            // size,
+        }
     }
 
-    // pub(crate) fn new_raw(memory: &js_sys::WebAssembly::Memory) -> Self {
-    //     let buffer = memory.buffer();
-
-    //     // This also works for SharedArrayBuffer.
-    //     let size = buffer
-    //         .unchecked_ref::<js_sys::ArrayBuffer>()
-    //         .byte_length()
-    //         .into();
-
-    //     let view = js_sys::Uint8Array::new(&buffer);
-
-    //     Self {
-    //         view,
-    //         size,
-    //         marker: PhantomData,
-    //     }
-    // }
-
     /// Returns the pointer to the raw bytes of the `Memory`.
+    //
+    // This used by wasmer-emscripten and wasmer-c-api, but should be treated
+    // as deprecated and not used in future code.
     #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {
-        unimplemented!("direct data pointer access is not possible in JavaScript");
+        self.buffer.base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        self.size
+        self.buffer.len.try_into().unwrap()
     }
 
-    // TODO: do we want a proper implementation here instead?
     /// Retrieve a slice of the memory contents.
     ///
     /// # Safety
@@ -69,10 +73,9 @@ impl<'a> MemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        unimplemented!("direct data pointer access is not possible in JavaScript");
+        self.data_unchecked_mut()
     }
 
-    // TODO: do we want a proper implementation here instead?
     /// Retrieve a mutable slice of the memory contents.
     ///
     /// # Safety
@@ -85,7 +88,7 @@ impl<'a> MemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        unimplemented!("direct data pointer access is not possible in JavaScript");
+        slice::from_raw_parts_mut(self.buffer.base, self.buffer.len)
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -96,21 +99,17 @@ impl<'a> MemoryView<'a> {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
     /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
-    /// assert_eq!(m.size(), Pages(1));
+    /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        Bytes(self.size as usize).try_into().unwrap()
+        Bytes(self.buffer.len).try_into().unwrap()
     }
 
     #[inline]
-    pub(crate) fn buffer(&self) -> MemoryBuffer<'a> {
-        unimplemented!();
-        // MemoryBuffer {
-        //     base: &self.view as *const _ as *mut _,
-        //     marker: PhantomData,
-        // }
+    pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
+        self.buffer
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -120,27 +119,8 @@ impl<'a> MemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read(&self, offset: u64, data: &mut [u8]) -> Result<(), MemoryAccessError> {
-        // let view = &self.view;
-        // let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        // let len: u32 = data
-        //     .len()
-        //     .try_into()
-        //     .map_err(|_| MemoryAccessError::Overflow)?;
-        // let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        // if end > view.length() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
-        //         len,
-        //         end,
-        //         view.length()
-        //     );
-        //     Err(MemoryAccessError::HeapOutOfBounds)?;
-        // }
-        // view.subarray(offset, end).copy_to(data);
-        // Ok(())
-        unimplemented!();
+    pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
+        self.buffer.read(offset, buf)
     }
 
     /// Safely reads a single byte from memory at the given offset
@@ -148,19 +128,9 @@ impl<'a> MemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError> {
-        unimplemented!();
-        // let view = &self.view;
-        // let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        // if offset >= view.length() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to read beyond the bounds of the memory view ({} >= {})",
-        //         offset,
-        //         view.length()
-        //     );
-        //     Err(MemoryAccessError::HeapOutOfBounds)?;
-        // }
-        // Ok(view.get_index(offset))
+        let mut buf = [0u8; 1];
+        self.read(offset, &mut buf)?;
+        Ok(buf[0])
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -178,34 +148,7 @@ impl<'a> MemoryView<'a> {
         offset: u64,
         buf: &'b mut [MaybeUninit<u8>],
     ) -> Result<&'b mut [u8], MemoryAccessError> {
-        unimplemented!();
-        // let view = &self.view;
-        // let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        // let len: u32 = buf
-        //     .len()
-        //     .try_into()
-        //     .map_err(|_| MemoryAccessError::Overflow)?;
-        // let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        // if end > view.length() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
-        //         len,
-        //         end,
-        //         view.length()
-        //     );
-        //     Err(MemoryAccessError::HeapOutOfBounds)?;
-        // }
-
-        // // Zero-initialize the buffer to avoid undefined behavior with
-        // // uninitialized data.
-        // for elem in buf.iter_mut() {
-        //     *elem = MaybeUninit::new(0);
-        // }
-        // let buf = unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, buf.len()) };
-
-        // view.subarray(offset, end).copy_to(buf);
-        // Ok(buf)
+        self.buffer.read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -216,26 +159,7 @@ impl<'a> MemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
     pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        unimplemented!();
-        // let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        // let len: u32 = data
-        //     .len()
-        //     .try_into()
-        //     .map_err(|_| MemoryAccessError::Overflow)?;
-        // let view = &self.view;
-        // let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
-        // if end > view.length() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
-        //         len,
-        //         end,
-        //         view.length()
-        //     );
-        //     Err(MemoryAccessError::HeapOutOfBounds)?;
-        // }
-        // view.subarray(offset, end).copy_from(data);
-        // Ok(())
+        self.buffer.write(offset, data)
     }
 
     /// Safely reads a single byte from memory at the given offset
@@ -243,53 +167,41 @@ impl<'a> MemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
-        unimplemented!();
-        // let view = &self.view;
-        // let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
-        // if offset >= view.length() {
-        //     #[cfg(feature = "tracing")]
-        //     warn!(
-        //         "attempted to write beyond the bounds of the memory view ({} >= {})",
-        //         offset,
-        //         view.length()
-        //     );
-        //     Err(MemoryAccessError::HeapOutOfBounds)?;
-        // }
-        // view.set_index(offset, val);
-        // Ok(())
+        let buf = [val];
+        self.write(offset, &buf)?;
+        Ok(())
     }
 
-    /// Copies the memory and returns it as a vector of bytes
     #[allow(unused)]
+    /// Copies the memory and returns it as a vector of bytes
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
-        unimplemented!();
-        // let mut new_memory = Vec::new();
-        // let mut offset = 0;
-        // let mut chunk = [0u8; 40960];
-        // while offset < self.data_size() {
-        //     let remaining = self.data_size() - offset;
-        //     let sublen = remaining.min(chunk.len() as u64) as usize;
-        //     self.read(offset, &mut chunk[..sublen])?;
-        //     new_memory.extend_from_slice(&chunk[..sublen]);
-        //     offset += sublen as u64;
-        // }
-        // Ok(new_memory)
+        let mut new_memory = Vec::new();
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < self.data_size() {
+            let remaining = self.data_size() - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+            new_memory.extend_from_slice(&chunk[..sublen]);
+            offset += sublen as u64;
+        }
+        Ok(new_memory)
     }
 
+    #[allow(unused)]
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
-        unimplemented!();
-        // let mut offset = 0;
-        // let mut chunk = [0u8; 40960];
-        // while offset < amount {
-        //     let remaining = amount - offset;
-        //     let sublen = remaining.min(chunk.len() as u64) as usize;
-        //     self.read(offset, &mut chunk[..sublen])?;
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < amount {
+            let remaining = amount - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
 
-        //     new_memory.write(offset, &chunk[..sublen])?;
+            new_memory.write(offset, &chunk[..sublen])?;
 
-        //     offset += sublen as u64;
-        // }
-        // Ok(())
+            offset += sublen as u64;
+        }
+        Ok(())
     }
 }
