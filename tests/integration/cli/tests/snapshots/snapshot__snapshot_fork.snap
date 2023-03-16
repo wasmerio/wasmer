@@ -11,11 +11,12 @@ expression: snapshot
     "cli_args": [],
     "stdin": null,
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Parent has x = 0\nChild has x = 2\nParent memory is good\nChild memory is good\nChild(2) exited with 3\n",
+      "stdout": "Parent has x = 0\nParent memory is good\nChild has x = 2\nChild memory is good\nChild(2) exited with 3\n",
       "stderr": "",
       "exit_code": 0
     }

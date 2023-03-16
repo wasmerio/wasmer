@@ -9,7 +9,8 @@ expression: snapshot
     "cli_args": [],
     "stdin": null,
     "debug_output": true,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {

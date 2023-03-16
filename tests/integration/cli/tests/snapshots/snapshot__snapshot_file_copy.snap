@@ -1,20 +1,29 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 374
 expression: snapshot
 ---
 {
   "spec": {
-    "name": "snapshot::test_snapshot_sleep",
-    "use_packages": [],
-    "cli_args": [],
-    "stdin": null,
+    "name": "snapshot::test_snapshot_file_copy",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [
+      "/dev/stdin",
+      "/dev/stdout"
+    ],
+    "stdin": [
+      104,
+      105
+    ],
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "",
+      "stdout": "hi",
       "stderr": "",
       "exit_code": 0
     }

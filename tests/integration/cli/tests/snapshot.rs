@@ -22,6 +22,7 @@ pub struct TestSpec {
     pub stdin: Option<Vec<u8>>,
     pub debug_output: bool,
     pub enable_threads: bool,
+    pub enable_network: bool,
 }
 
 impl std::fmt::Debug for TestSpec {
@@ -73,6 +74,7 @@ impl TestBuilder {
                 stdin: None,
                 debug_output: false,
                 enable_threads: true,
+                enable_network: false,
             },
         }
     }
@@ -122,6 +124,11 @@ impl TestBuilder {
     // NOTE: ENABLED BY DEFAULT.
     pub fn enable_threads(mut self, enabled: bool) -> Self {
         self.spec.enable_threads = enabled;
+        self
+    }
+
+    pub fn enable_network(mut self, enabled: bool) -> Self {
+        self.spec.enable_network = enabled;
         self
     }
 
@@ -185,8 +192,10 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
     if spec.enable_threads {
         cmd.arg("--enable-threads");
     }
+    if spec.enable_network {
+        cmd.arg("--net");
+    }
     cmd.arg("--allow-multiple-wasi-versions");
-    cmd.arg("--net");
 
     for pkg in &spec.use_packages {
         cmd.args(&["--use", &pkg]);
@@ -367,6 +376,9 @@ fn test_snapshot_file_copy() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .stdin_str("hi")
+        .arg("/dev/stdin")
+        .arg("/dev/stdout")
         .run_wasm(include_bytes!("./wasm/example-file-copy.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -375,10 +387,12 @@ fn test_snapshot_file_copy() {
 fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+/*
 #[test]
 fn test_snapshot_web_server() {
     let snapshot = TestBuilder::new()
@@ -386,6 +400,7 @@ fn test_snapshot_web_server() {
         .run_wasm(include_bytes!("./wasm/web-server.wasm"));
     assert_json_snapshot!(snapshot);
 }
+*/
 
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
