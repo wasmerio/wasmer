@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["opening_would_require_mutations",""]],"struct":[["OverlayFileSystem","A primary filesystem and chain of secondary filesystems that are overlayed on top of each other."]]};

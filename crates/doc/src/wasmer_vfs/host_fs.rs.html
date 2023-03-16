@@ -1367,8 +1367,6 @@
 <span id="1367">1367</span>
 <span id="1368">1368</span>
 <span id="1369">1369</span>
-<span id="1370">1370</span>
-<span id="1371">1371</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">DirEntry</span>, <span class="ident">FileType</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>, <span class="ident">ReadDir</span>, <span class="prelude-ty">Result</span>,
     <span class="ident">VirtualFile</span>,
@@ -2736,8 +2734,6 @@
                 .<span class="ident">join</span>(<span class="string">&quot;hello.txt&quot;</span>)),
             <span class="string">&quot;canonicalizing a crazily stupid path name&quot;</span>,
         );
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_canonicalize&quot;</span>]);
     }
 }
 </code></pre></div>

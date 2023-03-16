@@ -1074,6 +1074,35 @@
 <span id="1074">1074</span>
 <span id="1075">1075</span>
 <span id="1076">1076</span>
+<span id="1077">1077</span>
+<span id="1078">1078</span>
+<span id="1079">1079</span>
+<span id="1080">1080</span>
+<span id="1081">1081</span>
+<span id="1082">1082</span>
+<span id="1083">1083</span>
+<span id="1084">1084</span>
+<span id="1085">1085</span>
+<span id="1086">1086</span>
+<span id="1087">1087</span>
+<span id="1088">1088</span>
+<span id="1089">1089</span>
+<span id="1090">1090</span>
+<span id="1091">1091</span>
+<span id="1092">1092</span>
+<span id="1093">1093</span>
+<span id="1094">1094</span>
+<span id="1095">1095</span>
+<span id="1096">1096</span>
+<span id="1097">1097</span>
+<span id="1098">1098</span>
+<span id="1099">1099</span>
+<span id="1100">1100</span>
+<span id="1101">1101</span>
+<span id="1102">1102</span>
+<span id="1103">1103</span>
+<span id="1104">1104</span>
+<span id="1105">1105</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,</span>
 <span class="doccomment">//! its not as simple as TmpFs. not currently used but was used by</span>
 <span class="doccomment">//! the previoulsy implementation of Deploy - now using TmpFs</span>
@@ -1536,14 +1565,13 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::Path</span>, <span class="ident">sync::Arc</span>};
+
     <span class="kw">use</span> <span class="ident">tokio::io::AsyncWriteExt</span>;
 
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::host_fs::FileSystem</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mem_fs</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span> <span class="kw">as</span> <span class="ident">FileSystemTrait</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FsError</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::UnionFileSystem</span>;
-    <span class="kw">use</span> <span class="ident">std::path::Path</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::{
+        <span class="ident">host_fs::FileSystem</span>, <span class="ident">mem_fs</span>, <span class="ident">ops</span>, <span class="ident">FileSystem</span> <span class="kw">as</span> <span class="ident">FileSystemTrait</span>, <span class="ident">FsError</span>, <span class="ident">UnionFileSystem</span>,
+    };
 
     <span class="kw">fn</span> <span class="ident">gen_filesystem</span>() -&gt; <span class="ident">UnionFileSystem</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">union</span> <span class="op">=</span> <span class="ident">UnionFileSystem::new</span>();
@@ -2149,6 +2177,36 @@
         let _ = fs_extra::remove_items(&amp;[&quot;./test_canonicalize&quot;]);
     }
     */</span>
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="attribute">#[<span class="ident">ignore</span> <span class="op">=</span> <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]</span>
+    <span class="kw">fn</span> <span class="ident">mount_to_overlapping_directories</span>() {
+        <span class="kw">let</span> <span class="ident">top_level</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">top_level</span>, <span class="string">&quot;/file.txt&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">nested</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">nested</span>, <span class="string">&quot;/another-file.txt&quot;</span>).<span class="ident">unwrap</span>();
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">UnionFileSystem::default</span>();
+        <span class="ident">fs</span>.<span class="ident">mount</span>(
+            <span class="string">&quot;top-level&quot;</span>,
+            <span class="string">&quot;/&quot;</span>,
+            <span class="bool-val">false</span>,
+            <span class="ident">Box::new</span>(<span class="ident">top_level</span>),
+            <span class="prelude-val">Some</span>(<span class="string">&quot;/top-level&quot;</span>),
+        );
+        <span class="ident">fs</span>.<span class="ident">mount</span>(
+            <span class="string">&quot;nested&quot;</span>,
+            <span class="string">&quot;/&quot;</span>,
+            <span class="bool-val">false</span>,
+            <span class="ident">Box::new</span>(<span class="ident">nested</span>),
+            <span class="prelude-val">Some</span>(<span class="string">&quot;/top-level/nested&quot;</span>),
+        );
+
+        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level&quot;</span>));
+        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/nested&quot;</span>));
+        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/nested/another-file.txt&quot;</span>));
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vfs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

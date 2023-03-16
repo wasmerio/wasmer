@@ -569,7 +569,60 @@
 <span id="569">569</span>
 <span id="570">570</span>
 <span id="571">571</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::any::Any</span>;
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">pretty_assertions</span>;
+
+<span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::OsString</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>;
@@ -596,6 +649,9 @@
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">union_fs</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">zero_file</span>;
 <span class="comment">// tty_file -&gt; see wasmer_wasi::tty_file</span>
+<span class="kw">mod</span> <span class="ident">filesystems</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">ops</span>;
+<span class="kw">mod</span> <span class="ident">overlay_fs</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">pipe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">static_fs</span>;
@@ -609,7 +665,9 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">combine_file</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">dual_write_file</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">empty_fs</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">filesystems::FileSystems</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">null_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">overlay_fs::OverlayFileSystem</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">passthru_fs</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">pipe</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">special_file</span>::<span class="kw-2">*</span>;
@@ -709,6 +767,20 @@
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">truncate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">truncate</span>
     }
+
+    <span class="doccomment">/// Would a file opened with this [`OpenOptionsConfig`] change files on the</span>
+    <span class="doccomment">/// filesystem.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">would_mutate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="kw">let</span> <span class="ident">OpenOptionsConfig</span> {
+            <span class="ident">read</span>: <span class="kw">_</span>,
+            <span class="ident">write</span>,
+            <span class="ident">create_new</span>,
+            <span class="ident">create</span>,
+            <span class="ident">append</span>,
+            <span class="ident">truncate</span>,
+        } <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>;
+        <span class="ident">append</span> <span class="op">|</span><span class="op">|</span> <span class="ident">write</span> <span class="op">|</span><span class="op">|</span> <span class="ident">create</span> <span class="op">|</span><span class="op">|</span> <span class="ident">create_new</span> <span class="op">|</span><span class="op">|</span> <span class="ident">truncate</span>
+    }
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">OpenOptions</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
@@ -741,36 +813,62 @@
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">clone</span>()
     }
 
+    <span class="doccomment">/// Use an existing [`OpenOptionsConfig`] to configure this [`OpenOptions`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">options</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">options</span>: <span class="ident">OpenOptionsConfig</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span> <span class="op">=</span> <span class="ident">options</span>;
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Sets the option for read access.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This option, when true, will indicate that the file should be</span>
+    <span class="doccomment">/// `read`-able if opened.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">read</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">read</span> <span class="op">=</span> <span class="ident">read</span>;
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Sets the option for write access.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This option, when true, will indicate that the file should be</span>
+    <span class="doccomment">/// `write`-able if opened.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If the file already exists, any write calls on it will overwrite its</span>
+    <span class="doccomment">/// contents, without truncating it.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">write</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">write</span> <span class="op">=</span> <span class="ident">write</span>;
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Sets the option for the append mode.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This option, when true, means that writes will append to a file instead</span>
+    <span class="doccomment">/// of overwriting previous contents.</span>
+    <span class="doccomment">/// Note that setting `.write(true).append(true)` has the same effect as</span>
+    <span class="doccomment">/// setting only `.append(true)`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">append</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">append</span> <span class="op">=</span> <span class="ident">append</span>;
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Sets the option for truncating a previous file.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// If a file is successfully opened with this option set it will truncate</span>
+    <span class="doccomment">/// the file to 0 length if it already exists.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The file must be opened with write access for truncate to work.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">truncate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">truncate</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">truncate</span> <span class="op">=</span> <span class="ident">truncate</span>;
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Sets the option to create a new file, or open it if it already exists.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">create</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">create</span> <span class="op">=</span> <span class="ident">create</span>;
         <span class="self">self</span>
     }
 
+    <span class="doccomment">/// Sets the option to create a new file, failing if it already exists.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">create_new</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">create_new</span> <span class="op">=</span> <span class="ident">create_new</span>;
         <span class="self">self</span>

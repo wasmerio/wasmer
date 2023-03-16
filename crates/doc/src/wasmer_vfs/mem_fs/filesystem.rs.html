@@ -1703,6 +1703,27 @@
 <span id="1703">1703</span>
 <span id="1704">1704</span>
 <span id="1705">1705</span>
+<span id="1706">1706</span>
+<span id="1707">1707</span>
+<span id="1708">1708</span>
+<span id="1709">1709</span>
+<span id="1710">1710</span>
+<span id="1711">1711</span>
+<span id="1712">1712</span>
+<span id="1713">1713</span>
+<span id="1714">1714</span>
+<span id="1715">1715</span>
+<span id="1716">1716</span>
+<span id="1717">1717</span>
+<span id="1718">1718</span>
+<span id="1719">1719</span>
+<span id="1720">1720</span>
+<span id="1721">1721</span>
+<span id="1722">1722</span>
+<span id="1723">1723</span>
+<span id="1724">1724</span>
+<span id="1725">1725</span>
+<span id="1726">1726</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
@@ -1717,9 +1738,8 @@
 
 <span class="doccomment">/// The in-memory file system!</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// It&#39;s a thin wrapper around [`FileSystemInner`]. This `FileSystem`</span>
-<span class="doccomment">/// type can be cloned, it&#39;s a light copy of the `FileSystemInner`</span>
-<span class="doccomment">/// (which is behind a `Arc` + `RwLock`.</span>
+<span class="doccomment">/// This `FileSystem` type can be cloned, it&#39;s a light copy of the</span>
+<span class="doccomment">/// `FileSystemInner` (which is behind a `Arc` + `RwLock`).</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FileSystem</span> {
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">FileSystemInner</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -2642,9 +2662,25 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span> <span class="comment">// The `No` variant.</span>
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">enum</span> <span class="ident">DirectoryMustBeEmpty</span> {
+    <span class="ident">Yes</span>,
+    <span class="ident">No</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">DirectoryMustBeEmpty</span> {
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">yes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::Yes</span>)
+    }
+
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">no</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="op">!</span><span class="self">self</span>.<span class="ident">yes</span>()
+    }
+}
+
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_filesystem</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mem_fs</span>::<span class="kw-2">*</span>, <span class="ident">DirEntry</span>, <span class="ident">FileSystem</span> <span class="kw">as</span> <span class="ident">FS</span>, <span class="ident">FileType</span>, <span class="ident">FsError</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mem_fs</span>::<span class="kw-2">*</span>, <span class="ident">ops</span>, <span class="ident">DirEntry</span>, <span class="ident">FileSystem</span> <span class="kw">as</span> <span class="ident">FS</span>, <span class="ident">FileType</span>, <span class="ident">FsError</span>};
 
     <span class="macro">macro_rules!</span> <span class="ident">path</span> {
         (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">path</span>:<span class="ident">expr</span>) =&gt; {
@@ -3391,21 +3427,27 @@
             <span class="string">&quot;canonicalizing a crazily stupid path name&quot;</span>,
         );
     }
-}
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span> <span class="comment">// The `No` variant.</span>
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">enum</span> <span class="ident">DirectoryMustBeEmpty</span> {
-    <span class="ident">Yes</span>,
-    <span class="ident">No</span>,
-}
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="attribute">#[<span class="ident">ignore</span> <span class="op">=</span> <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]</span>
+    <span class="kw">fn</span> <span class="ident">mount_to_overlapping_directories</span>() {
+        <span class="kw">let</span> <span class="ident">top_level</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
+        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">top_level</span>, <span class="string">&quot;/file.txt&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">nested</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
+        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">nested</span>, <span class="string">&quot;/another-file.txt&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">top_level</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">top_level</span>);
+        <span class="kw">let</span> <span class="ident">nested</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">nested</span>);
 
-<span class="kw">impl</span> <span class="ident">DirectoryMustBeEmpty</span> {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">yes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::Yes</span>)
-    }
+        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
+        <span class="ident">fs</span>.<span class="ident">mount</span>(<span class="string">&quot;/top-level&quot;</span>.<span class="ident">into</span>(), <span class="kw-2">&amp;</span><span class="ident">top_level</span>, <span class="string">&quot;/&quot;</span>.<span class="ident">into</span>())
+            .<span class="ident">unwrap</span>();
+        <span class="ident">fs</span>.<span class="ident">mount</span>(<span class="string">&quot;/top-level/nested&quot;</span>.<span class="ident">into</span>(), <span class="kw-2">&amp;</span><span class="ident">nested</span>, <span class="string">&quot;/&quot;</span>.<span class="ident">into</span>())
+            .<span class="ident">unwrap</span>();
 
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">no</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="op">!</span><span class="self">self</span>.<span class="ident">yes</span>()
+        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level&quot;</span>));
+        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/nested&quot;</span>));
+        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/nested/another-file.txt&quot;</span>));
     }
 }
 </code></pre></div>
