@@ -21,7 +21,6 @@ wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false
 wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
 virtual-fs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
-virtnet-native = { path = "../wasi-local-networking", version = "0.1.0", default-features = false, optional = true }
 wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -112,7 +111,7 @@ js = ["wasmer/js", "virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
-host-vnet = [ "virtnet-native" ]
+host-vnet = [ "virtual-net/host-net" ]
 host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["virtual-fs/host-fs"]

@@ -83,7 +83,7 @@ impl PluggableRuntimeImplementation {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
-                let networking = Arc::new(virtnet_native::LocalNetworking::default());
+                let networking = Arc::new(virtual_net::host::LocalNetworking::default());
             } else {
                 let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }

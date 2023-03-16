@@ -121,7 +121,7 @@ impl Wasi {
         let mut rt = PluggableRuntimeImplementation::default();
 
         if self.networking {
-            rt.set_networking_implementation(virtnet_native::LocalNetworking::default());
+            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }

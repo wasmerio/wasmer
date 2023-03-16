@@ -34,7 +34,6 @@ wasmer-emscripten = { version = "=3.2.0-alpha.1", path = "../emscripten", option
 wasmer-vm = { version = "=3.2.0-alpha.1", path = "../vm" }
 wasmer-wasix = { version = "0.1.0", path = "../wasi", optional = true }
 wasmer-wasix-experimental-io-devices = { version = "0.1.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
-virtnet-native = { version = "0.1.0", path = "../wasi-local-networking", optional = true }
 wasmer-wast = { version = "=3.2.0-alpha.1", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache", optional = true }
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = ["enable-serde"] }
@@ -116,7 +115,8 @@ default = [
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
 wast = ["wasmer-wast"]
-wasi = ["wasmer-wasix", "virtnet-native"]
+wasi = ["wasmer-wasix", "host-net"]
+host-net = [ "virtual-net/host-net" ]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 webc_runner = [

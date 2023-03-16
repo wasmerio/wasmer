@@ -177,7 +177,10 @@ impl WasiState {
 
 // Implementations of direct to FS calls so that we can easily change their implementation
 impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(&self, path: P) -> Result<virtual_fs::ReadDir, Errno> {
+    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<virtual_fs::ReadDir, Errno> {
         self.fs
             .root_fs
             .read_dir(path.as_ref())

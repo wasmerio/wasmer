@@ -4370,18 +4370,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
-name = "virtnet-native"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "libc",
- "tokio",
- "tracing",
- "virtual-net",
-]
-
-[[package]]
 name = "virtual-fs"
 version = "0.1.0"
 dependencies = [
@@ -4410,7 +4398,9 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "libc",
  "thiserror",
+ "tokio",
  "tracing",
 ]
 
@@ -4938,7 +4928,6 @@ dependencies = [
  "tracing-subscriber 0.3.16",
  "unix_mode",
  "url",
- "virtnet-native",
  "virtual-fs",
  "virtual-net",
  "walkdir",
@@ -5313,7 +5302,6 @@ dependencies = [
  "tracing-wasm",
  "typetag",
  "urlencoding",
- "virtnet-native",
  "virtual-fs",
  "virtual-net",
  "wai-bindgen-wasmer",

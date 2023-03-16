@@ -229,9 +229,12 @@ impl Console {
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             tasks.block_on(async {
-                virtual_fs::AsyncWriteExt::write_all(&mut stderr, format!("{}\r\n", err).as_bytes())
-                    .await
-                    .ok();
+                virtual_fs::AsyncWriteExt::write_all(
+                    &mut stderr,
+                    format!("{}\r\n", err).as_bytes(),
+                )
+                .await
+                .ok();
             });
             tracing::debug!("failed to load used dependency - {}", err);
             return Err(VirtualBusError::BadRequest);
