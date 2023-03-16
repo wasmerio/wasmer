@@ -103,7 +103,7 @@ impl ModuleCache {
                      */
                     let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
                         .unwrap() as u128;
-                    let delta = now.wrapping_sub(*when_cached); //wrapping sub for delta to prevent panic
+                    let delta = now.saturating_sub(*when_cached); //saturating sub for delta and  to prevent panic
                     if delta <= self.cache_time.as_nanos() {
                         return Some(data.clone());
                     }
