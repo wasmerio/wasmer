@@ -460,14 +460,13 @@ impl FileOpener for UnionFileSystem {
 
 #[cfg(test)]
 mod tests {
+    use std::{path::Path, sync::Arc};
+
     use tokio::io::AsyncWriteExt;
 
-    use crate::host_fs::FileSystem;
-    use crate::mem_fs;
-    use crate::FileSystem as FileSystemTrait;
-    use crate::FsError;
-    use crate::UnionFileSystem;
-    use std::path::Path;
+    use crate::{
+        host_fs::FileSystem, mem_fs, ops, FileSystem as FileSystemTrait, FsError, UnionFileSystem,
+    };
 
     fn gen_filesystem() -> UnionFileSystem {
         let mut union = UnionFileSystem::new();
@@ -1073,4 +1072,34 @@ mod tests {
         let _ = fs_extra::remove_items(&["./test_canonicalize"]);
     }
     */
+
+    #[test]
+    #[ignore = "Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678"]
+    fn mount_to_overlapping_directories() {
+        let top_level = mem_fs::FileSystem::default();
+        ops::touch(&top_level, "/file.txt").unwrap();
+        let nested = mem_fs::FileSystem::default();
+        ops::touch(&nested, "/another-file.txt").unwrap();
+
+        let mut fs = UnionFileSystem::default();
+        fs.mount(
+            "top-level",
+            "/",
+            false,
+            Box::new(top_level),
+            Some("/top-level"),
+        );
+        fs.mount(
+            "nested",
+            "/",
+            false,
+            Box::new(nested),
+            Some("/top-level/nested"),
+        );
+
+        assert!(ops::is_dir(&fs, "/top-level"));
+        assert!(ops::is_file(&fs, "/top-level/file.txt"));
+        assert!(ops::is_dir(&fs, "/top-level/nested"));
+        assert!(ops::is_file(&fs, "/top-level/nested/another-file.txt"));
+    }
 }
