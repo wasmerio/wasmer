@@ -30,6 +30,7 @@ macro_rules! impl_native_traits {
             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
             {
+                // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
                 #[allow(unused_unsafe)]
                 let params_list: Vec<_> = unsafe {
                     vec![ $( {
@@ -38,6 +39,13 @@ macro_rules! impl_native_traits {
                         value.as_jsvalue(store)
                     } ),* ]
                 };
+
+                let store_mut = store.as_store_mut();
+                let context = store_mut.engine().0.context();
+
+                let mut global = context.get_global_object();
+                let store_ptr = store_mut.as_raw() as usize;
+                global.set_property(&context, "__store_ptr".to_string(), JSValue::number(&context, store_ptr as _));
 
                 let results = {
                     let mut r;

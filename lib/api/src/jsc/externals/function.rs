@@ -430,7 +430,7 @@ macro_rules! impl_host_function {
                         ctx: JSContext,
                         function: JSObject,
                         this_object: JSObject,
-                        arguments: &[JSValue; count_idents_plus_one!( $( $x ),* )],
+                        arguments: &[JSValue; count_idents!( $( $x ),* )],
                     ) -> Result<JSValue, JSValue>
                     where
                         $( $x: FromToNativeWasmType, )*
@@ -442,16 +442,17 @@ macro_rules! impl_host_function {
                         use std::convert::TryInto;
                         let func: &Func = &*(&() as *const () as *const Func);
                         let global = ctx.get_global_object();
-                        dbg!(arguments.len());
-                        let store_ptr = dbg!(arguments[0].to_number(&ctx) as usize);
+                        let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx);
+                        // dbg!(arguments.len());
+                        // let store_ptr = dbg!(arguments[0].to_number(&ctx) as usize);
                         println!("CALLING 0");
 
-                        let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                        let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
                         println!("CALLING 1");
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
                             // let list =
                             type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
-                            println!("CALLING 1.1 {}, idents+1: {}, idents: {}", arguments.len(), count_idents_plus_one!( $( $x ),* ), count_idents!( $( $x ),* ));
+                            // println!("CALLING 1.1 {}, idents+1: {}, idents: {}", arguments.len(), count_idents_plus_one!( $( $x ),* ), count_idents!( $( $x ),* ));
                             let args_without_store: JSArray = arguments.try_into().unwrap();
                             println!("CALLING 1.2");
                             let [ $( $x ),* ] = args_without_store;
@@ -481,6 +482,7 @@ macro_rules! impl_host_function {
                                         let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
                                         println!("RETURNED: {:?}", val);
                                         let value: JSValue = val.as_jsvalue(&store);
+                                        println!("AS JS");
                                         Ok(value)
                                         // *mut_rets = val.as_raw(&mut store);
                                     }
