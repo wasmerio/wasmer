@@ -734,13 +734,13 @@
 <span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">mpsc</span>, <span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">std::task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{
+<span class="kw">use</span> <span class="ident">virtual_fs</span>::{
     <span class="ident">host_fs</span>, <span class="ident">mem_fs</span>, <span class="ident">passthru_fs</span>, <span class="ident">tmp_fs</span>, <span class="ident">union_fs</span>, <span class="ident">AsyncRead</span>, <span class="ident">AsyncSeek</span>, <span class="ident">AsyncWrite</span>,
     <span class="ident">AsyncWriteExt</span>, <span class="ident">FileSystem</span>, <span class="ident">Pipe</span>, <span class="ident">ReadBuf</span>, <span class="ident">RootFileSystemBuilder</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_wasi::types::wasi</span>::{<span class="ident">Filesize</span>, <span class="ident">Timestamp</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasix::types::wasi</span>::{<span class="ident">Filesize</span>, <span class="ident">Timestamp</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasix</span>::{
     <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">FsError</span>, <span class="ident">PluggableRuntimeImplementation</span>,
     <span class="ident">VirtualFile</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiEnvBuilder</span>, <span class="ident">WasiRuntime</span>, <span class="ident">WasiVersion</span>,
 };
@@ -749,22 +749,22 @@
 <span class="doccomment">/// The kind of filesystem `WasiTest` is going to use.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WasiFileSystemKind</span> {
-    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::host_fs`.</span>
+    <span class="doccomment">/// Instruct the test runner to use `virtual_fs::host_fs`.</span>
     <span class="ident">Host</span>,
 
-    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::mem_fs`.</span>
+    <span class="doccomment">/// Instruct the test runner to use `virtual_fs::mem_fs`.</span>
     <span class="ident">InMemory</span>,
 
-    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::tmp_fs`</span>
+    <span class="doccomment">/// Instruct the test runner to use `virtual_fs::tmp_fs`</span>
     <span class="ident">Tmp</span>,
 
-    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::passtru_fs`</span>
+    <span class="doccomment">/// Instruct the test runner to use `virtual_fs::passtru_fs`</span>
     <span class="ident">PassthruMemory</span>,
 
-    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::union_fs&lt;host_fs, mem_fs&gt;`</span>
+    <span class="doccomment">/// Instruct the test runner to use `virtual_fs::union_fs&lt;host_fs, mem_fs&gt;`</span>
     <span class="ident">UnionHostMemory</span>,
 
-    <span class="doccomment">/// Instruct the test runner to use the TempFs returned by `wasmer_vfs::builder::RootFileSystemBuilder`</span>
+    <span class="doccomment">/// Instruct the test runner to use the TempFs returned by `virtual_fs::builder::RootFileSystemBuilder`</span>
     <span class="ident">RootFileSystemBuilder</span>,
 }
 
@@ -1419,7 +1419,7 @@
     }
 }
 
-<span class="doccomment">/// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`</span>
+<span class="doccomment">/// When using `virtual_fs::mem_fs`, we cannot rely on `BASE_TEST_DIR`</span>
 <span class="doccomment">/// because the host filesystem cannot be used. Instead, we are</span>
 <span class="doccomment">/// copying `BASE_TEST_DIR` to the `mem_fs`.</span>
 <span class="kw">fn</span> <span class="ident">map_host_fs_to_mem_fs</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(

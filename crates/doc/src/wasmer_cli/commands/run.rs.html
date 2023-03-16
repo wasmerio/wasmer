@@ -746,7 +746,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_cache</span>::{<span class="ident">Cache</span>, <span class="ident">FileSystemCache</span>, <span class="ident">Hash</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::Type</span> <span class="kw">as</span> <span class="ident">ValueType</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_wasi::runners</span>::{<span class="ident">Runner</span>, <span class="ident">WapmContainer</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasix::runners</span>::{<span class="ident">Runner</span>, <span class="ident">WapmContainer</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">wasi</span>;
@@ -1013,7 +1013,7 @@
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> {
             <span class="kw">use</span> <span class="ident">std::collections::BTreeSet</span>;
-            <span class="kw">use</span> <span class="ident">wasmer_wasi::WasiVersion</span>;
+            <span class="kw">use</span> <span class="ident">wasmer_wasix::WasiVersion</span>;
 
             <span class="kw">let</span> <span class="ident">wasi_versions</span> <span class="op">=</span> <span class="ident">Wasi::get_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>);
             <span class="kw">match</span> <span class="ident">wasi_versions</span> {
@@ -1112,14 +1112,14 @@
             .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;No metadata found for the command, \&quot;{id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::wasi::WasiRunner::new</span>(<span class="ident">store</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::wasi::WasiRunner::new</span>(<span class="ident">store</span>);
         <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
         <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
             <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WASI runner failed&quot;</span>);
         }
 
         <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::emscripten::EmscriptenRunner::new</span>(<span class="ident">store</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::emscripten::EmscriptenRunner::new</span>(<span class="ident">store</span>);
         <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
         <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
             <span class="kw">return</span> <span class="ident">runner</span>
@@ -1127,7 +1127,7 @@
                 .<span class="ident">context</span>(<span class="string">&quot;Emscripten runner failed&quot;</span>);
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::wcgi::WcgiRunner::new</span>(<span class="ident">id</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::wcgi::WcgiRunner::new</span>(<span class="ident">id</span>);
         <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
         <span class="ident">runner</span>
             .<span class="ident">config</span>()

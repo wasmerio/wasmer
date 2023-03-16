@@ -1,4 +1,4 @@
 (function() {var implementors = {};
-implementors["wasmer_vfs"] = [];
-implementors["wasmer_wasi"] = [];
+implementors["virtual_fs"] = [];
+implementors["wasmer_wasix"] = [];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

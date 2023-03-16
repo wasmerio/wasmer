@@ -216,19 +216,17 @@
 <span id="214">214</span>
 <span id="215">215</span>
 <span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils</span>::{<span class="ident">parse_envvar</span>, <span class="ident">parse_mapdir</span>};
 <span class="kw">use</span> <span class="ident">anyhow::Result</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::BTreeSet</span>, <span class="ident">path::Path</span>};
+<span class="kw">use</span> <span class="ident">virtual_fs::FileSystem</span>;
+<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">DeviceFile</span>, <span class="ident">PassthruFileSystem</span>, <span class="ident">RootFileSystemBuilder</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vfs::FileSystem</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">DeviceFile</span>, <span class="ident">PassthruFileSystem</span>, <span class="ident">RootFileSystemBuilder</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi::types::__WASI_STDIN_FILENO</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
+<span class="kw">use</span> <span class="ident">wasmer_wasix::types::__WASI_STDIN_FILENO</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasix</span>::{
     <span class="ident">default_fs_backing</span>, <span class="ident">get_wasi_versions</span>, <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>,
     <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiVersion</span>,
 };
@@ -341,11 +339,9 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntimeImplementation::default</span>();
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">networking</span> {
-            <span class="ident">rt</span>.<span class="ident">set_networking_implementation</span>(
-                <span class="ident">wasmer_wasi_local_networking::LocalNetworking::default</span>(),
-            );
+            <span class="ident">rt</span>.<span class="ident">set_networking_implementation</span>(<span class="ident">virtual_net::host::LocalNetworking::default</span>());
         } <span class="kw">else</span> {
-            <span class="ident">rt</span>.<span class="ident">set_networking_implementation</span>(<span class="ident">wasmer_vnet::UnsupportedVirtualNetworking::default</span>());
+            <span class="ident">rt</span>.<span class="ident">set_networking_implementation</span>(<span class="ident">virtual_net::UnsupportedVirtualNetworking::default</span>());
         }
 
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">engine</span>().<span class="ident">clone</span>();
@@ -358,7 +354,7 @@
             .<span class="ident">uses</span>(<span class="self">self</span>.<span class="ident">uses</span>.<span class="ident">clone</span>())
             .<span class="ident">map_commands</span>(<span class="ident">map_commands</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">wasmer_wasi::is_wasix_module</span>(<span class="ident">module</span>) {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">wasmer_wasix::is_wasix_module</span>(<span class="ident">module</span>) {
             <span class="comment">// If we preopen anything from the host then shallow copy it over</span>
             <span class="kw">let</span> <span class="ident">root_fs</span> <span class="op">=</span> <span class="ident">RootFileSystemBuilder::new</span>()
                 .<span class="ident">with_tty</span>(<span class="ident">Box::new</span>(<span class="ident">DeviceFile::new</span>(<span class="ident">__WASI_STDIN_FILENO</span>)))
@@ -389,7 +385,7 @@
         };
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">http_client</span> {
-            <span class="kw">let</span> <span class="ident">caps</span> <span class="op">=</span> <span class="ident">wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all</span>();
+            <span class="kw">let</span> <span class="ident">caps</span> <span class="op">=</span> <span class="ident">wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all</span>();
             <span class="ident">builder</span>.<span class="ident">capabilities_mut</span>().<span class="ident">http_client</span> <span class="op">=</span> <span class="ident">caps</span>;
         }
 
