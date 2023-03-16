@@ -19,8 +19,7 @@ expression: snapshot
     ],
     "debug_output": false,
     "enable_threads": true,
-    "enable_network": false,
-    "http_request": null
+    "enable_network": false
   },
   "result": {
     "Success": {

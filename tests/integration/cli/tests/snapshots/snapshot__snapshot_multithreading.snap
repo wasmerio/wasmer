@@ -10,8 +10,7 @@ expression: snapshot
     "stdin": null,
     "debug_output": true,
     "enable_threads": true,
-    "enable_network": false,
-    "http_request": null
+    "enable_network": false
   },
   "result": {
     "Success": {

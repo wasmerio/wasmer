@@ -1,7 +1,7 @@
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
-    process::Stdio,
+    process::{Child, Stdio},
 };
 
 #[cfg(test)]
@@ -9,15 +9,6 @@ use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
-pub struct TestSpecHttp {
-    pub url: String,
-    pub port: u16,
-    pub http_code: u16,
-    #[serde(skip_serializing)]
-    pub expected_response: Vec<u8>,
-}
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub struct TestSpec {
@@ -32,7 +23,6 @@ pub struct TestSpec {
     pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
-    pub http_request: Option<TestSpecHttp>,
 }
 
 impl std::fmt::Debug for TestSpec {
@@ -73,6 +63,8 @@ pub struct TestBuilder {
     spec: TestSpec,
 }
 
+type RunWith = Box<dyn FnOnce(Child) -> Result<i32, anyhow::Error> + 'static>;
+
 impl TestBuilder {
     pub fn new() -> Self {
         Self {
@@ -85,7 +77,6 @@ impl TestBuilder {
                 debug_output: false,
                 enable_threads: true,
                 enable_network: false,
-                http_request: None,
             },
         }
     }
@@ -155,6 +146,10 @@ impl TestBuilder {
     pub fn run_wasm(self, code: &[u8]) -> TestSnapshot {
         build_snapshot(self.spec, code)
     }
+
+    pub fn run_wasm_with(self, code: &[u8], with: RunWith) -> TestSnapshot {
+        build_snapshot_with(self.spec, code, with)
+    }
 }
 
 pub fn wasm_dir() -> PathBuf {
@@ -191,7 +186,7 @@ fn bytes_to_hex_string(bytes: Vec<u8>) -> String {
     }
 }
 
-pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
+pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     let wasm_path = build_test_file(code);
 
     let mut cmd = std::process::Command::new(wasmer_path());
@@ -258,7 +253,9 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
         proc.stdin.take().unwrap().write_all(stdin).unwrap();
     }
 
-    let status = match proc.wait() {
+    let status = with(proc);
+
+    let status = match status {
         Ok(status) => status,
         Err(err) => {
             let stdout = stdout_thread.join().unwrap().unwrap();
@@ -303,14 +300,31 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
     TestResult::Success(TestOutput {
         stdout,
         stderr,
-        exit_code: status.code().unwrap_or_default(),
+        exit_code: status,
     })
 }
 
 pub fn build_snapshot(mut spec: TestSpec, code: &[u8]) -> TestSnapshot {
     spec.wasm_hash = format!("{:x}", md5::compute(code));
 
-    let result = run_test(spec.clone(), code);
+    let result = run_test_with(
+        spec.clone(),
+        code,
+        Box::new(|mut child| {
+            child
+                .wait()
+                .map_err(|err| err.into())
+                .map(|status| status.code().unwrap_or_default())
+        }),
+    );
+    let snapshot = TestSnapshot { spec, result };
+    snapshot
+}
+
+pub fn build_snapshot_with(mut spec: TestSpec, code: &[u8], with: RunWith) -> TestSnapshot {
+    spec.wasm_hash = format!("{:x}", md5::compute(code));
+
+    let result = run_test_with(spec.clone(), code, with);
     let snapshot = TestSnapshot { spec, result };
     snapshot
 }
@@ -403,22 +417,96 @@ fn test_snapshot_execve() {
     assert_json_snapshot!(snapshot);
 }
 
-/*
 #[test]
 fn test_snapshot_web_server() {
+    let with_inner = || {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+
+        let http_get = |url, max_retries| {
+            rt.block_on(async move {
+                for n in 0..(max_retries+1) {
+                    println!("http request: {}", url);
+                    tokio::select! {
+                        resp = reqwest::get(url) => {
+                            let resp = match resp {
+                                Ok(a) => a,
+                                Err(_) if n < max_retries => {
+                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                    continue;
+                                }
+                                Err(err) => return Err(err.into())
+                            };
+                            if resp.status().is_success() == false {
+                                return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
+                            }
+                            return Ok(resp.bytes().await?);
+                        }
+                        _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
+                            eprintln!("retrying request... ({} attempts)", n);
+                            continue;
+                        }
+                    }
+                }
+                Err(anyhow::format_err!("timeout while performing HTTP request"))
+            })
+        };
+
+        let expected_size = usize::from_str_radix(
+            String::from_utf8_lossy(http_get("http://localhost:7777/main.js.size", 50)?.as_ref())
+                .trim(),
+            10,
+        )?;
+        if expected_size == 0 {
+            return Err(anyhow::format_err!("There was no data returned"));
+        }
+        println!("expected_size: {}", expected_size);
+
+        let reference_data = http_get("http://localhost:7777/main.js", 0)?;
+        for _ in 0..20 {
+            let test_data = http_get("http://localhost:7777/main.js", 0)?;
+            println!("actual_size: {}", test_data.len());
+
+            if expected_size != test_data.len() {
+                return Err(anyhow::format_err!(
+                    "The actual size and expected size does not match {} vs {}",
+                    test_data.len(),
+                    expected_size
+                ));
+            }
+            if test_data
+                .iter()
+                .zip(reference_data.iter())
+                .any(|(a, b)| a != b)
+            {
+                return Err(anyhow::format_err!("The returned data is inconsistent"));
+            }
+        }
+
+        Ok(0)
+    };
+
+    let with = move |mut child: Child| {
+        let ret = with_inner();
+        child.kill().ok();
+        ret
+    };
+
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .enable_network(true)
         .use_coreutils()
         .use_pkg("sharrattj/wasmer-sh")
-        .stdin_str(r#"
+        .stdin_str(
+            r#"
+cat /public/main.js | wc -c > /public/main.js.size
 rm -f /cfg/config.toml
-/bin/webserver --log-level info --root /public --port 7777
-"#)
-        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+/bin/webserver --log-level warn --root /public --port 7777"#,
+        )
+        .run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
     assert_json_snapshot!(snapshot);
 }
-*/
 
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
