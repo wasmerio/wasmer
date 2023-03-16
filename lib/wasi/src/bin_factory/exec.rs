@@ -177,11 +177,12 @@ pub fn spawn_exec_module(
                 } else {
                     Errno::Success.into()
                 };
-                debug!("wasi[{pid}]::main() has exited with {code}");
-                thread.thread.set_status_finished(ret.map(|a| a.into()));
 
                 // Cleanup the environment
                 wasi_env.data(&store).blocking_cleanup(Some(code));
+
+                debug!("wasi[{pid}]::main() has exited with {code}");
+                thread.thread.set_status_finished(ret.map(|a| a.into()));
             }
         };
 

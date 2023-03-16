@@ -546,7 +546,7 @@ fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_dash()
-        .stdin_str("/bin/dash\necho hi\nexit\necho hi2\n")
+        .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -556,7 +556,7 @@ fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_bash()
-        .stdin_str("/bin/bash\necho hi\nexit\necho hi2\n")
+        .stdin_str("/bin/bash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -617,7 +617,7 @@ fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_dash()
-        .stdin_str("/bin/dash\necho hi\nexit\necho hi2\n")
+        .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }

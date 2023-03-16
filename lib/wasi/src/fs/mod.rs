@@ -373,6 +373,10 @@ impl WasiFs {
     pub async fn close_all(&self) {
         // TODO: this should close all uniquely owned files instead of just flushing.
 
+        // Make sure the STDOUT and STDERR are explicitely flushed
+        self.flush(__WASI_STDOUT_FILENO).await.ok();
+        self.flush(__WASI_STDERR_FILENO).await.ok();
+
         let to_close = {
             if let Ok(map) = self.fd_map.read() {
                 map.keys().copied().collect::<Vec<_>>()
