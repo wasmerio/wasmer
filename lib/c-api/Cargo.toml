@@ -58,6 +58,7 @@ default = [
     "wasi",
     "middlewares",
 ]
+sys = ["wasmer-api/sys"]
 jsc = ["wasmer-api/jsc", "wasmer-api/std"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasi"]
@@ -66,7 +67,7 @@ middlewares = [
     "wasmer-middlewares",
 ]
 compiler = [
-    "wasmer-api/sys",
+    "sys",
     "wasmer-api/compiler",
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",

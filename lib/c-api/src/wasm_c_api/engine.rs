@@ -9,6 +9,9 @@ use super::unstable::middlewares::wasmer_middleware_t;
 use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::update_last_error;
 use cfg_if::cfg_if;
+#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
+use wasmer_api::Engine;
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_compiler::{Engine, EngineBuilder};
 
 /// Kind of compilers that can be used by the engines.
@@ -358,6 +361,7 @@ pub extern "C" fn wasm_engine_new_with_config(
         None
     }
 
+    #[allow(unused)]
     let config = config?;
     #[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
     return return_with_error("Wasmer has not been compiled with the `compiler` feature.");
@@ -419,6 +423,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         };
             Some(Box::new(wasm_engine_t { inner }))
         } else {
+            #[cfg(feature = "compiler-headless")]
             let inner: Engine =
                      {
                             let mut builder = EngineBuilder::headless();
@@ -433,6 +438,9 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             builder.engine()
                     };
+            #[cfg(not(any(feature = "compiler-headless", feature="compiler")))]
+            let inner: Engine = Engine::default();
+
             Some(Box::new(wasm_engine_t { inner }))
         }
     }

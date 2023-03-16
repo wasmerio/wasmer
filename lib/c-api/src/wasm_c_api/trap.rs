@@ -1,5 +1,7 @@
 use super::store::wasm_store_t;
-use super::types::{wasm_byte_vec_t, wasm_frame_t, wasm_frame_vec_t, wasm_message_t};
+use super::types::{wasm_byte_vec_t, wasm_message_t};
+#[cfg(feature = "sys")]
+use super::types::{wasm_frame_t, wasm_frame_vec_t};
 use std::ffi::CString;
 use wasmer_api::RuntimeError;
 
@@ -121,12 +123,14 @@ pub unsafe extern "C" fn wasm_trap_message(
 }
 
 /// Gets the origin frame attached to the trap.
+#[cfg(feature = "sys")]
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_origin(trap: &wasm_trap_t) -> Option<Box<wasm_frame_t>> {
     trap.inner.trace().first().map(Into::into).map(Box::new)
 }
 
 /// Gets the trace (as a list of frames) attached to the trap.
+#[cfg(feature = "sys")]
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_trace(
     trap: &wasm_trap_t,

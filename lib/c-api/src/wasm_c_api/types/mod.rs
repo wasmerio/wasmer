@@ -1,5 +1,6 @@
 mod export;
 mod extern_;
+#[cfg(feature = "sys")]
 mod frame;
 mod function;
 mod global;
@@ -11,6 +12,7 @@ mod value;
 
 pub use export::*;
 pub use extern_::*;
+#[cfg(feature = "sys")]
 pub use frame::*;
 pub use function::*;
 pub use global::*;
