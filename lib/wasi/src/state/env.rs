@@ -6,7 +6,7 @@ use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module, StoreMut,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,
 };
 use wasmer_wasix_types::{

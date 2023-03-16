@@ -122,7 +122,7 @@ pub fn proc_fork<M: MemorySize>(
             .duplicate_in_store(&ctx, &mut fork_store)
             .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
         {
-            Ok(memory) => memory.into(),
+            Ok(memory) => memory,
             Err(err) => {
                 warn!(
                     %err

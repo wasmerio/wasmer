@@ -83,7 +83,6 @@ impl VirtualTaskManager for TokioTaskManager {
                         tracing::error!("could not create memory: {err}");
                         WasiThreadError::MemoryCreateFailed
                     })
-                    .map(|m| Some(m))
             }
             SpawnType::NewThread(mem) => Ok(Some(mem)),
             SpawnType::Create => Ok(None),
