@@ -354,12 +354,38 @@ fn test_snapshot_cowsay() {
     assert_json_snapshot!(snapshot);
 }
 
-// FIXME: output contains timestamps - cant create snapshot
-// #[test]
-// fn test_snapshot_epoll() {
-//     let snapshot = TestBuilder::new().run_file(wasm_dir().join("example-epoll.wasm"));
-//     assert_json_snapshot!(snapshot);
-// }
+#[test]
+fn test_snapshot_epoll() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-epoll.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_file_copy() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .run_wasm(include_bytes!("./wasm/example-file-copy.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_execve() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_web_server() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/web-server.wasm"));
+    assert_json_snapshot!(snapshot);
+}
 
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
@@ -502,13 +528,13 @@ fn test_snapshot_vfork() {
     assert_json_snapshot!(snapshot);
 }
 
-// Tests that signals can be received and processed by WASM applications
-// Note: This test requires that a signal is sent to the process asynchronously
-// #[test]
-// fn test_snapshot_signals() {
-//     let snapshot = TestBuilder::new().with_name(function!()).run_file(wasm_dir().join("example-signal.wasm"));
-//     assert_json_snapshot!(snapshot);
-// }
+#[test]
+fn test_snapshot_signals() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-signal.wasm"));
+    assert_json_snapshot!(snapshot);
+}
 
 #[cfg(target_os = "linux")]
 #[test]
@@ -517,7 +543,6 @@ fn test_snapshot_dash_echo() {
         .with_name(function!())
         .stdin_str("echo 2")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
-    // TODO: more tests!
     assert_json_snapshot!(snapshot);
 }
 
@@ -567,7 +592,6 @@ fn test_snapshot_bash_echo() {
         .with_name(function!())
         .stdin_str("echo hello\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
-    // TODO: more tests!
     assert_json_snapshot!(snapshot);
 }
 
@@ -578,7 +602,6 @@ fn test_snapshot_bash_ls() {
         .stdin_str("ls\nexit\n")
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
-    // TODO: more tests!
     assert_json_snapshot!(snapshot);
 }
 

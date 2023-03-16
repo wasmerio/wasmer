@@ -228,9 +228,17 @@ impl WasiProcess {
     }
 
     /// Signals a particular thread in the process
-    pub fn signal_thread(&self, tid: &WasiThreadId, signal: Signal) {
+    pub fn signal_thread(&self, tid: &WasiThreadId, signal: Signal)
+    {
+        // Sometimes we will signal the process rather than the thread hence this libc hardcoded value
+        let mut tid = tid.raw();
+        if tid == 1073741823 {
+            tid = self.pid().raw();
+        }
+        let tid: WasiThreadId = tid.into();
+
         let inner = self.inner.read().unwrap();
-        if let Some(thread) = inner.threads.get(tid) {
+        if let Some(thread) = inner.threads.get(&tid) {
             thread.signal(signal);
         } else {
             trace!(
