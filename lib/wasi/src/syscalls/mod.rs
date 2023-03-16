@@ -1,7 +1,7 @@
 #![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 pub mod types {
-    pub use wasmer_wasi_types::{types::*, wasi};
+    pub use wasmer_wasix_types::{types::*, wasi};
 }
 
 #[cfg(any(
@@ -63,16 +63,16 @@ pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
+pub(crate) use virtual_fs::{
+    AsyncSeekExt, AsyncWriteExt, DuplexPipe, FileSystem, FsError, VirtualFile,
+};
+pub(crate) use virtual_net::StreamSecurity;
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
-pub(crate) use wasmer_vfs::{
-    AsyncSeekExt, AsyncWriteExt, DuplexPipe, FileSystem, FsError, VirtualFile,
-};
-pub(crate) use wasmer_vnet::StreamSecurity;
-pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
+pub(crate) use wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
 #[cfg(any(target_os = "windows"))]
 pub use windows::*;
 

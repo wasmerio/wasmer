@@ -4516,6 +4516,43 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
+name = "virtual-fs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "derivative",
+ "filetime",
+ "fs_extra",
+ "getrandom",
+ "indexmap",
+ "lazy_static",
+ "libc",
+ "pin-project-lite",
+ "pretty_assertions",
+ "slab",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "typetag",
+ "webc",
+]
+
+[[package]]
+name = "virtual-net"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "libc",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4944,6 +4981,7 @@ dependencies = [
  "paste",
  "thiserror",
  "typetag",
+ "virtual-fs",
  "wasmer",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -4953,8 +4991,7 @@ dependencies = [
  "wasmer-inline-c",
  "wasmer-middlewares",
  "wasmer-types",
- "wasmer-vfs",
- "wasmer-wasi",
+ "wasmer-wasix",
  "webc",
 ]
 
@@ -5039,6 +5076,8 @@ dependencies = [
  "tracing-subscriber 0.3.16",
  "unix_mode",
  "url",
+ "virtual-fs",
+ "virtual-net",
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
@@ -5052,12 +5091,9 @@ dependencies = [
  "wasmer-registry",
  "wasmer-toml",
  "wasmer-types",
- "wasmer-vfs",
  "wasmer-vm",
- "wasmer-vnet",
- "wasmer-wasi",
- "wasmer-wasi-experimental-io-devices",
- "wasmer-wasi-local-networking",
+ "wasmer-wasix",
+ "wasmer-wasix-experimental-io-devices",
  "wasmer-wasm-interface",
  "wasmer-wast",
  "wasmparser 0.51.4",
@@ -5305,7 +5341,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "3.2.0-alpha.1"
+version = "0.1.0"
 dependencies = [
  "libc",
  "region",
@@ -5314,7 +5350,7 @@ dependencies = [
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
- "wasmer-wasi",
+ "wasmer-wasix",
 ]
 
 [[package]]
@@ -5351,31 +5387,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-vfs"
-version = "3.2.0-alpha.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "derivative",
- "filetime",
- "fs_extra",
- "getrandom",
- "indexmap",
- "lazy_static",
- "libc",
- "pin-project-lite",
- "pretty_assertions",
- "slab",
- "tempfile",
- "thiserror",
- "tokio",
- "tracing",
- "typetag",
- "webc",
-]
-
-[[package]]
 name = "wasmer-vm"
 version = "3.2.0-alpha.1"
 dependencies = [
@@ -5401,18 +5412,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-vnet"
-version = "3.2.0-alpha.1"
-dependencies = [
- "async-trait",
- "bytes",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "wasmer-wasi"
-version = "3.2.0-alpha.1"
+name = "wasmer-wasix"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5451,6 +5452,8 @@ dependencies = [
  "tracing-wasm",
  "typetag",
  "urlencoding",
+ "virtual-fs",
+ "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",
@@ -5459,11 +5462,8 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-emscripten",
  "wasmer-types",
- "wasmer-vfs",
  "wasmer-vm",
- "wasmer-vnet",
- "wasmer-wasi-local-networking",
- "wasmer-wasi-types",
+ "wasmer-wasix-types",
  "wcgi",
  "wcgi-host",
  "webc",
@@ -5472,8 +5472,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-wasi-experimental-io-devices"
-version = "3.2.0-alpha.1"
+name = "wasmer-wasix-experimental-io-devices"
+version = "0.1.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -5481,25 +5481,13 @@ dependencies = [
  "serde",
  "tracing",
  "typetag",
- "wasmer-wasi",
- "wasmer-wasi-types",
+ "wasmer-wasix",
+ "wasmer-wasix-types",
 ]
 
 [[package]]
-name = "wasmer-wasi-local-networking"
-version = "3.2.0-alpha.1"
-dependencies = [
- "async-trait",
- "bytes",
- "libc",
- "tokio",
- "tracing",
- "wasmer-vnet",
-]
-
-[[package]]
-name = "wasmer-wasi-types"
-version = "3.2.0-alpha.1"
+name = "wasmer-wasix-types"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -5540,9 +5528,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "virtual-fs",
  "wasmer",
- "wasmer-vfs",
- "wasmer-wasi",
+ "wasmer-wasix",
  "wast 38.0.1",
 ]
 
@@ -5574,7 +5562,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-middlewares",
  "wasmer-types",
- "wasmer-wasi",
+ "wasmer-wasix",
  "wasmer-wast",
 ]
 

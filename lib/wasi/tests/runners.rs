@@ -4,13 +4,13 @@ use std::{path::Path, time::Duration};
 
 use once_cell::sync::Lazy;
 use reqwest::Client;
-use wasmer_wasi::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::{Runner, WapmContainer};
 
 #[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
     use tokio::runtime::Handle;
     use wasmer::Store;
-    use wasmer_wasi::{
+    use wasmer_wasix::{
         runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, WasiError,
     };
 
@@ -88,7 +88,7 @@ mod wcgi {
     use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
-    use wasmer_wasi::{runners::wcgi::WcgiRunner, runtime::task_manager::tokio::TokioTaskManager};
+    use wasmer_wasix::{runners::wcgi::WcgiRunner, runtime::task_manager::tokio::TokioTaskManager};
 
     use super::*;
 
@@ -162,7 +162,7 @@ mod wcgi {
         handle: Handle,
     }
 
-    impl wasmer_wasi::runners::wcgi::Callbacks for Callbacks {
+    impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
         fn started(&self, abort: futures::stream::AbortHandle) {
             let mut sender = self.sender.clone();
             self.handle.spawn(async move {

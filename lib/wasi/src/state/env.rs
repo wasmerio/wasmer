@@ -3,15 +3,15 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Dura
 use derivative::Derivative;
 use rand::Rng;
 use tracing::{trace, warn};
+use virtual_fs::{FsError, VirtualFile};
+use virtual_net::DynVirtualNetworking;
 #[cfg(feature = "sys")]
 use wasmer::NativeEngineExt;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,
 };
-use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::DynVirtualNetworking;
-use wasmer_wasi_types::{
+use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
@@ -771,7 +771,7 @@ impl WasiEnv {
         use std::{borrow::Cow, collections::VecDeque};
 
         #[allow(unused_imports)]
-        use wasmer_vfs::FileSystem;
+        use virtual_fs::FileSystem;
 
         let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
 
@@ -864,7 +864,7 @@ impl WasiEnv {
         use std::path::Path;
 
         #[allow(unused_imports)]
-        use wasmer_vfs::FileSystem;
+        use virtual_fs::FileSystem;
 
         #[cfg(feature = "sys")]
         for (command, target) in map_commands.iter() {

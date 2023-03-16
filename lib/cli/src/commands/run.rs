@@ -21,7 +21,7 @@ use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
-use wasmer_wasi::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::{Runner, WapmContainer};
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -288,7 +288,7 @@ impl RunWithPathBuf {
         #[cfg(feature = "wasi")]
         let ret = {
             use std::collections::BTreeSet;
-            use wasmer_wasi::WasiVersion;
+            use wasmer_wasix::WasiVersion;
 
             let wasi_versions = Wasi::get_versions(&module);
             match wasi_versions {
@@ -393,14 +393,14 @@ impl RunWithPathBuf {
             .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
         let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(store);
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
         runner.set_args(args.to_vec());
         if runner.can_run_command(id, command).unwrap_or(false) {
             return runner.run_cmd(&container, id).context("WASI runner failed");
         }
 
         let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
+        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
         runner.set_args(args.to_vec());
         if runner.can_run_command(id, command).unwrap_or(false) {
             return runner
@@ -408,7 +408,7 @@ impl RunWithPathBuf {
                 .context("Emscripten runner failed");
         }
 
-        let mut runner = wasmer_wasi::runners::wcgi::WcgiRunner::new(id);
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
         let (store, _compiler_type) = self.store.get_store()?;
         runner
             .config()

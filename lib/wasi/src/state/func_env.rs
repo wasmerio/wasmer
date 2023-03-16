@@ -1,6 +1,6 @@
 use tracing::trace;
 use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module};
-use wasmer_wasi_types::wasi::ExitCode;
+use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
     state::WasiInstanceHandles,

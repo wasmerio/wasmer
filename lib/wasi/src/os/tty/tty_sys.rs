@@ -3,9 +3,9 @@ use crate::WasiTtyState;
 
 /// [`TtyBridge`] implementation for Unix systems.
 #[derive(Debug, Default, Clone)]
-pub struct SysTyy;
+pub struct SysTty;
 
-impl TtyBridge for SysTyy {
+impl TtyBridge for SysTty {
     fn reset(&self) {
         sys::reset().ok();
     }

@@ -1,14 +1,16 @@
 pub mod task_manager;
 
+use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
+
 pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
-use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
-use derivative::Derivative;
 use std::{
     fmt,
     sync::{Arc, Mutex},
 };
-use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
+
+use derivative::Derivative;
+use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
@@ -116,9 +118,9 @@ impl PluggableRuntimeImplementation {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
-                let networking = Arc::new(wasmer_wasi_local_networking::LocalNetworking::default());
+                let networking = Arc::new(virtual_net::host::LocalNetworking::default());
             } else {
-                let networking = Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default());
+                let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
         cfg_if::cfg_if! {

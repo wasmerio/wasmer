@@ -2,7 +2,7 @@ use super::*;
 use crate::syscalls::*;
 
 use wasmer::vm::VMMemory;
-use wasmer_wasi_types::wasi::ThreadStart;
+use wasmer_wasix_types::wasi::ThreadStart;
 
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same

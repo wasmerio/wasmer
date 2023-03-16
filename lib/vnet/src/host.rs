@@ -1,4 +1,10 @@
 #![allow(unused_variables)]
+#[allow(unused_imports)]
+use crate::{
+    IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
+    VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+};
 use std::future::Future;
 use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
@@ -10,12 +16,6 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-#[allow(unused_imports)]
-use wasmer_vnet::{
-    IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
-    VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
-    VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
-};
 
 #[derive(Debug)]
 pub struct LocalNetworking {

@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use wasmer_wasi_types::{
+use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
 };

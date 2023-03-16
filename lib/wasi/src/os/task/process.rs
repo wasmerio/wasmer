@@ -10,7 +10,7 @@ use std::{
 
 use crate::WasiRuntimeError;
 use tracing::trace;
-use wasmer_wasi_types::{
+use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal},
 };

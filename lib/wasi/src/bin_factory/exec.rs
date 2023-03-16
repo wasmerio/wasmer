@@ -9,7 +9,7 @@ use tracing::*;
 #[cfg(feature = "sys")]
 use wasmer::NativeEngineExt;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
-use wasmer_wasi_types::wasi::Errno;
+use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{

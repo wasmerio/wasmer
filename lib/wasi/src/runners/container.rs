@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use bytes::Bytes;
-use wasmer_vfs::{webc_fs::WebcFileSystem, FileSystem};
+use virtual_fs::{webc_fs::WebcFileSystem, FileSystem};
 use webc::{
     metadata::Manifest,
     v1::{ParseOptions, WebC, WebCMmap, WebCOwned},
