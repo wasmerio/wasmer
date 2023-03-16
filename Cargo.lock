@@ -4383,6 +4383,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "pin-project-lite",
+ "pretty_assertions",
  "slab",
  "tempfile",
  "thiserror",
