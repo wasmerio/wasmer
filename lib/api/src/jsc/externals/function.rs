@@ -3,18 +3,15 @@ use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, Withou
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::jsc::as_js::{param_from_js, AsJs};
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
-use crate::jsc::vm::{
-    VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionCallback, VMFunctionEnvironment,
-};
+use crate::jsc::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
 use std::fmt;
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::panic::{self, AssertUnwindSafe};
 
-use wasmer_types::{FunctionType, NativeWasmType, RawValue};
+use wasmer_types::{FunctionType, RawValue};
 
 use rusty_jsc::{
     callback, callback_closure, JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue,
@@ -131,61 +128,6 @@ impl Function {
         Self {
             handle: vm_function,
         }
-
-        // let mut store = store.as_store_mut();
-        // let func_ty = function_type.clone();
-        // let raw_store = store.as_raw() as *mut u8;
-        // let raw_env = env.clone();
-        // let wrapped_func: JSValue = match function_type.results().len() {
-        //     0 => Closure::wrap(Box::new(move |args: &JSValue| {
-        //         let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-        //         let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-        //         let wasm_arguments = function_type
-        //             .params()
-        //             .iter()
-        //             .enumerate()
-        //             .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-        //             .collect::<Vec<_>>();
-        //         let _results = func(env, &wasm_arguments)?;
-        //         Ok(())
-        //     })
-        //         as Box<dyn FnMut(&Array) -> Result<(), JSValue>>)
-        //     .into_js_value(),
-        //     1 => Closure::wrap(Box::new(move |args: &Array| {
-        //         let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-        //         let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-        //         let wasm_arguments = function_type
-        //             .params()
-        //             .iter()
-        //             .enumerate()
-        //             .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-        //             .collect::<Vec<_>>();
-        //         let results = func(env, &wasm_arguments)?;
-        //         return Ok(result_to_js(&results[0]));
-        //     })
-        //         as Box<dyn FnMut(&Array) -> Result<JSValue, JSValue>>)
-        //     .into_js_value(),
-        //     _n => Closure::wrap(Box::new(move |args: &Array| {
-        //         let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-        //         let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-        //         let wasm_arguments = function_type
-        //             .params()
-        //             .iter()
-        //             .enumerate()
-        //             .map(|(i, param)| param_from_js(param, &args.get(i as u32)))
-        //             .collect::<Vec<_>>();
-        //         let results = func(env, &wasm_arguments)?;
-        //         return Ok(results_to_js_array(&results));
-        //     })
-        //         as Box<dyn FnMut(&Array) -> Result<Array, JSValue>>)
-        //     .into_js_value(),
-        // };
-
-        // let dyn_func =
-        //     JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
-        // let binded_func = dyn_func.bind1(&JSValue::UNDEFINED, &wrapped_func);
-        // let vm_function = VMFunction::new(binded_func, func_ty);
-        // Self::from_vm_extern(&mut store, vm_function)
     }
 
     /// Creates a new host `Function` from a native function.
@@ -195,7 +137,6 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        // unimplemented!();
         let store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
@@ -203,10 +144,6 @@ impl Function {
         let function = WasmFunction::<Args, Rets>::new(func);
         let callback = function.callback(store.engine().0.context());
 
-        // let binded_func = func.bind1(
-        //     &JSValue::UNDEFINED,
-        //     &JSValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
-        // );
         let ty = function.ty();
         let vm_function = VMFunction::new(callback, ty);
         Self {
@@ -224,28 +161,34 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        unimplemented!();
-        // let store = store.as_store_mut();
-        // if std::mem::size_of::<F>() != 0 {
-        //     Self::closures_unsupported_panic();
-        // }
-        // let function = WasmFunction::<Args, Rets>::new(func);
-        // let address = function.address() as usize as u32;
+        let store = store.as_store_mut();
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
+        let context = store.engine().0.context();
+        let function = WasmFunction::<Args, Rets>::new(func);
+        let callback = function.callback(store.engine().0.context());
 
-        // let ft = wasm_bindgen::function_table();
-        // let as_table = ft.unchecked_ref::<js_sys::WebAssembly::Table>();
-        // let func = as_table.get(address).unwrap();
+        let bind = callback
+            .get_property(&context, "bind".into())
+            .to_object(&context);
+        let callback_with_env = bind
+            .call(
+                &context,
+                callback,
+                &[
+                    JSValue::undefined(&context),
+                    JSValue::number(&context, env.handle.internal_handle().index() as f64),
+                ],
+            )
+            .unwrap()
+            .to_object(&context);
 
-        // let binded_func = func.bind2(
-        //     &JSValue::UNDEFINED,
-        //     &JSValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
-        //     &JSValue::from_f64(env.handle.internal_handle().index() as f64),
-        // );
-        // let ty = function.ty();
-        // let vm_function = VMFunction::new(binded_func, ty);
-        // Self {
-        //     handle: vm_function,
-        // }
+        let ty = function.ty();
+        let vm_function = VMFunction::new(callback_with_env, ty);
+        Self {
+            handle: vm_function,
+        }
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
@@ -423,44 +366,122 @@ macro_rules! impl_host_function {
             {
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
-                    unimplemented!();
-                    // /// This is a function that wraps the real host
-                    // /// function. Its address will be used inside the
-                    // /// runtime.
-                    // unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
-                    // where
-                    //     $( $x: FromToNativeWasmType, )*
-                    //     Rets: WasmTypeList,
-                    //     RetsAsResult: IntoResult<Rets>,
-                    //     T: Send + 'static,
-                    //     Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
-                    // {
-                    //     let mut store = StoreMut::from_raw(store_ptr as *mut _);
-                    //     let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
+                    #[callback]
+                    fn fn_callback<T, $( $x, )* Rets, RetsAsResult, Func>(
+                        ctx: JSContext,
+                        function: JSObject,
+                        this_object: JSObject,
+                        arguments: &[JSValue],
+                    ) -> Result<JSValue, JSValue>
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                        T: Send + 'static,
+                        // $( $x: NativeWasmTypeInto, )*
+                    {
+                        use std::convert::TryInto;
+                        // dbg!(arguments.len());
+                        // dbg!(arguments[0].to_object(&ctx).get_property(&ctx, "prototype".into()).to_string(&ctx));
+                        // dbg!(arguments[0].to_number(&ctx) as usize);
+                        println!("CALLING 0");
 
-                    //     let result = {
-                    //         // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
-                    //         let func: &Func = &*(&() as *const () as *const Func);
-                    //         panic::catch_unwind(AssertUnwindSafe(|| {
-                    //             let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store2.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
-                    //             let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                    //             func(env, $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
-                    //         }))
-                    //     };
+                        let func: &Func = &*(&() as *const () as *const Func);
+                        let global = ctx.get_global_object();
+                        let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx);
 
-                    //     match result {
-                    //         Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    //         #[allow(deprecated)]
-                    //         #[cfg(feature = "std")]
-                    //         Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                    //         #[cfg(feature = "core")]
-                    //         #[allow(deprecated)]
-                    //         Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                    //         Err(_panic) => unimplemented!(),
-                    //     }
-                    // }
+                        let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
 
-                    // func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                        let handle_index = arguments[0].to_number(&ctx) as usize;
+                        let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
+                        let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store);
+
+                        println!("CALLING 1");
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            // let list =
+                            type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
+                            // println!("CALLING 1.1 {}, idents+1: {}, idents: {}", arguments.len(), count_idents_plus_one!( $( $x ),* ), count_idents!( $( $x ),* ));
+                            let args_without_store: JSArray = arguments.try_into().unwrap();
+                            println!("CALLING 1.2");
+                            let [ $( $x ),* ] = args_without_store;
+                            println!("CALLING 2");
+                            // let ABI = <$x::Native as NativeWasmType>::Abi
+                            // let r: ($( $x , )*) = ($( $x::from_raw(&mut store, RawValue { i32: $x.to_number(&ctx) as _ }) ),*);
+                            // func($( FromToNativeWasmType::from_native($x.to_number(&ctx) as <$x::Native as NativeWasmType>::Abi) ),* ).into_result()
+                            let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+                            func(env, $( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
+                                // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
+                                // so the only thing we can do is parse from the string repr
+                                if $x.is_number(&ctx) {
+                                    $x.to_number(&ctx) as _
+                                }
+                                else {
+                                    $x.to_string(&ctx).parse::<u128>().unwrap()
+                                }
+                            } }) ) ),* ).into_result()
+                        }));
+                        println!("CALLING 3");
+
+                        // println!("Result {:?}", result.unwrap().unwrap().into_c_struct(&mut store));
+                        // println!("Result {}", result.unwrap().unwrap().into_array(&mut store));
+
+
+                        match result {
+                            Ok(Ok(result)) => {
+                                println!("RESULT");
+                                match Rets::size() {
+                                    0 => {Ok(JSValue::undefined(&ctx))},
+                                    1 => {
+                                        // unimplemented!();
+
+                                        let ty = Rets::wasm_types()[0];
+                                        let mut arr = result.into_array(&mut store);
+                                        // Value::from_raw(&store, ty, arr[0])
+                                        let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
+                                        println!("RETURNED: {:?}", val);
+                                        let value: JSValue = val.as_jsvalue(&store);
+                                        println!("AS JS");
+                                        Ok(value)
+                                        // *mut_rets = val.as_raw(&mut store);
+                                    }
+                                    _n => {
+                                        // if !results.is_array(&context) {
+                                        //     panic!("Expected results to be an array.")
+                                        // }
+                                        let mut arr = result.into_array(&mut store);
+                                        let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
+                                            let raw = arr.as_mut()[i];
+                                            Value::from_raw(&mut store, *ret_type, raw).as_jsvalue(&mut store)
+                                        }).collect::<Vec<_>>();
+                                        Ok(JSObject::new_array(&ctx, &result_values).to_jsvalue())
+                                    }
+                                }
+                            },
+                            #[cfg(feature = "std")]
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => {
+                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
+                                // RuntimeError::raise(Box::new(trap))
+                            },
+                            #[cfg(feature = "core")]
+                            #[allow(deprecated)]
+                            Ok(Err(trap)) => {
+                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
+                                // RuntimeError::raise(Box::new(trap))
+                            },
+                            Err(panic) => {
+                                Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
+                                // We can't just resume the unwind, because it will put
+                                // JavacriptCore in a bad state, so we need to transform
+                                // the error
+
+                                // std::panic::resume_unwind(panic)
+                            },
+                        }
+
+                    }
+                    Some(fn_callback::<T, $( $x, )* Rets, RetsAsResult, Self > as _)
                 }
             }
 
