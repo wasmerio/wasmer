@@ -16,7 +16,9 @@ use std::panic::{self, AssertUnwindSafe};
 
 use wasmer_types::{FunctionType, NativeWasmType, RawValue};
 
-use rusty_jsc::{JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue};
+use rusty_jsc::{
+    callback, callback_closure, JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue,
+};
 
 #[inline]
 fn result_to_js(val: &Value) -> JSValue {
@@ -75,9 +77,62 @@ impl Function {
             + Send
             + Sync,
     {
-        unimplemented!();
+        let store = store.as_store_mut();
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
+        // let function = WasmFunction::<Args, Rets>::new(func);
+        let context = store.engine().0.context();
+        // let callback = function.callback(&context);
+        let function_type = ty.into();
+
+        let new_function_type = function_type.clone();
+        let raw_env = env.clone();
+
+        let callback = callback_closure!(&context, move |ctx: JSContext,
+                                                         function: JSObject,
+                                                         this: JSObject,
+                                                         args: &[JSValue]|
+              -> Result<JSValue, JSValue> {
+            let global = ctx.get_global_object();
+            let store_ptr = global
+                .get_property(&ctx, "__store_ptr".to_string())
+                .to_number(&ctx);
+
+            let mut store = unsafe { StoreMut::from_raw(store_ptr as usize as *mut _) };
+
+            let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+
+            let wasm_arguments = new_function_type
+                .params()
+                .iter()
+                .enumerate()
+                .map(|(i, param)| param_from_js(&ctx, param, &args[i]))
+                .collect::<Vec<_>>();
+            let results = func(env, &wasm_arguments).map_err(|e| {
+                let value = format!("{}", e);
+                JSValue::string(&ctx, value).unwrap()
+            })?;
+            match new_function_type.results().len() {
+                0 => Ok(JSValue::undefined(&ctx)),
+                1 => Ok(results[0].as_jsvalue(&mut store)),
+                _ => Ok(JSObject::new_array(
+                    &ctx,
+                    &results
+                        .into_iter()
+                        .map(|result| result.as_jsvalue(&mut store))
+                        .collect::<Vec<_>>(),
+                )
+                .to_jsvalue()),
+            }
+        });
+
+        let vm_function = VMFunction::new(callback.to_object(&context), function_type);
+        Self {
+            handle: vm_function,
+        }
+
         // let mut store = store.as_store_mut();
-        // let function_type = ty.into();
         // let func_ty = function_type.clone();
         // let raw_store = store.as_raw() as *mut u8;
         // let raw_env = env.clone();
@@ -423,7 +478,6 @@ macro_rules! impl_host_function {
             {
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
-                    use rusty_jsc::{JSContext, JSObject, JSValue, callback};
 
                     #[callback]
                     fn fn_callback<$( $x, )* Rets, RetsAsResult, Func>(
