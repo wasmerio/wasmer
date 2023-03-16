@@ -1,4 +1,4 @@
-use wasmer_vfs::Pipe;
+use virtual_fs::Pipe;
 
 use super::*;
 use crate::syscalls::*;

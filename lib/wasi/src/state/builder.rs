@@ -8,8 +8,8 @@ use std::{
 
 use rand::Rng;
 use thiserror::Error;
+use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module};
-use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
@@ -27,7 +27,7 @@ use super::env::WasiEnvInit;
 ///
 /// Usage:
 /// ```no_run
-/// # use wasmer_wasi::{WasiEnv, WasiStateCreationError};
+/// # use wasmer_wasix::{WasiEnv, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
 /// let mut state_builder = WasiEnv::builder("wasi-prog-name");
 /// state_builder
@@ -340,7 +340,7 @@ impl WasiEnvBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::{WasiEnv, WasiStateCreationError};
+    /// # use wasmer_wasix::{WasiEnv, WasiStateCreationError};
     /// # fn main() -> Result<(), WasiStateCreationError> {
     /// WasiEnv::builder("program_name")
     ///    .preopen_build(|p| p.directory("src").read(true).write(true).create(true))?
@@ -362,7 +362,7 @@ impl WasiEnvBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::{WasiEnv, WasiStateCreationError};
+    /// # use wasmer_wasix::{WasiEnv, WasiStateCreationError};
     /// # fn main() -> Result<(), WasiStateCreationError> {
     /// WasiEnv::builder("program_name")
     ///    .preopen_build(|p| p.directory("src").read(true).write(true).create(true))?
@@ -480,19 +480,19 @@ impl WasiEnvBuilder {
 
     /// Sets the FileSystem to be used with this WASI instance.
     ///
-    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
-    pub fn fs(mut self, fs: Box<dyn wasmer_vfs::FileSystem + Send + Sync>) -> Self {
+    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
+    pub fn fs(mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) -> Self {
         self.set_fs(fs);
         self
     }
 
-    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem + Send + Sync>) {
+    pub fn set_fs(&mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) {
         self.fs = Some(WasiFsRoot::Backing(Arc::new(fs)));
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
     ///
-    /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
+    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
         self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
         self

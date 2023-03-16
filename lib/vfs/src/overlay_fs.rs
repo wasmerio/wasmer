@@ -26,7 +26,7 @@ use crate::{
 /// might do something like this:
 ///
 /// ```rust
-/// use wasmer_vfs::{
+/// use virtual_fs::{
 ///     mem_fs::FileSystem as MemFS,
 ///     host_fs::FileSystem as HostFS,
 ///     OverlayFileSystem,

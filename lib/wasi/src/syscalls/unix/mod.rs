@@ -5,7 +5,7 @@ use libc::{
     CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
 };
 use wasmer::WasmRef;
-use wasmer_wasi_types::wasi::{Errno, Snapshot0Clockid, Timestamp};
+use wasmer_wasix_types::wasi::{Errno, Snapshot0Clockid, Timestamp};
 
 use crate::syscalls::types::*;
 

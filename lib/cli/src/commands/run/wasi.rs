@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::BTreeSet, path::Path};
+use virtual_fs::FileSystem;
+use virtual_fs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
-use wasmer_vfs::FileSystem;
-use wasmer_vfs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
-use wasmer_wasi::types::__WASI_STDIN_FILENO;
-use wasmer_wasi::{
+use wasmer_wasix::types::__WASI_STDIN_FILENO;
+use wasmer_wasix::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
     WasiFunctionEnv, WasiVersion,
 };
@@ -121,11 +121,9 @@ impl Wasi {
         let mut rt = PluggableRuntimeImplementation::default();
 
         if self.networking {
-            rt.set_networking_implementation(
-                wasmer_wasi_local_networking::LocalNetworking::default(),
-            );
+            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(wasmer_vnet::UnsupportedVirtualNetworking::default());
+            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }
 
         let engine = store.as_store_mut().engine().clone();
@@ -138,7 +136,7 @@ impl Wasi {
             .uses(self.uses.clone())
             .map_commands(map_commands);
 
-        let mut builder = if wasmer_wasi::is_wasix_module(module) {
+        let mut builder = if wasmer_wasix::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
@@ -169,7 +167,7 @@ impl Wasi {
         };
 
         if self.http_client {
-            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
+            let caps = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
             builder.capabilities_mut().http_client = caps;
         }
 

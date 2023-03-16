@@ -109,7 +109,7 @@ pub fn path_open<M: MemorySize>(
                 (false, false, false)
             };
 
-            wasmer_vfs::OpenOptionsConfig {
+            virtual_fs::OpenOptionsConfig {
                 read: fs_rights_base.contains(Rights::FD_READ),
                 write: write_permission,
                 create_new: create_permission && o_flags.contains(Oflags::EXCL),
@@ -118,7 +118,7 @@ pub fn path_open<M: MemorySize>(
                 truncate: truncate_permission,
             }
         }
-        Err(_) => wasmer_vfs::OpenOptionsConfig {
+        Err(_) => virtual_fs::OpenOptionsConfig {
             append: fs_flags.contains(Fdflags::APPEND),
             write: fs_rights_base.contains(Rights::FD_WRITE),
             read: fs_rights_base.contains(Rights::FD_READ),
@@ -128,7 +128,7 @@ pub fn path_open<M: MemorySize>(
         },
     };
 
-    let parent_rights = wasmer_vfs::OpenOptionsConfig {
+    let parent_rights = virtual_fs::OpenOptionsConfig {
         read: working_dir.rights.contains(Rights::FD_READ),
         write: working_dir.rights.contains(Rights::FD_WRITE),
         // The parent is a directory, which is why these options
