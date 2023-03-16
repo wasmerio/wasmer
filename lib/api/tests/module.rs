@@ -112,7 +112,7 @@ fn exports() -> Result<(), String> {
 )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(
-        module.exports(&store).collect::<Vec<_>>(),
+        module.exports().collect::<Vec<_>>(),
         vec![
             ExportType::new(
                 "func",
@@ -135,25 +135,25 @@ fn exports() -> Result<(), String> {
 
     // Now we test the iterators
     assert_eq!(
-        module.exports(&store).functions().collect::<Vec<_>>(),
+        module.exports().functions().collect::<Vec<_>>(),
         vec![ExportType::new("func", FunctionType::new(vec![], vec![])),]
     );
     assert_eq!(
-        module.exports(&store).memories().collect::<Vec<_>>(),
+        module.exports().memories().collect::<Vec<_>>(),
         vec![ExportType::new(
             "memory",
             MemoryType::new(Pages(1), None, false)
         ),]
     );
     assert_eq!(
-        module.exports(&store).tables().collect::<Vec<_>>(),
+        module.exports().tables().collect::<Vec<_>>(),
         vec![ExportType::new(
             "table",
             TableType::new(Type::FuncRef, 1, None)
         ),]
     );
     assert_eq!(
-        module.exports(&store).globals().collect::<Vec<_>>(),
+        module.exports().globals().collect::<Vec<_>>(),
         vec![ExportType::new(
             "global",
             GlobalType::new(Type::I32, Mutability::Const)

@@ -36,7 +36,7 @@ impl Instance {
         externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
         let mut imports = Imports::new();
-        for (import_ty, extern_ty) in module.imports(&store.as_store_ref()).zip(externs.iter()) {
+        for (import_ty, extern_ty) in module.imports().zip(externs.iter()) {
             imports.define(import_ty.module(), import_ty.name(), extern_ty.clone());
         }
         Self::new(store, module, &imports)
@@ -54,7 +54,7 @@ impl Instance {
             .get_property(&context, "exports".to_string())
             .to_object(&context);
 
-        let exports_ty = module.exports(&store.as_store_mut()).collect::<Vec<_>>();
+        let exports_ty = module.exports().collect::<Vec<_>>();
 
         let exports = exports_ty
             .iter()

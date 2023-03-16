@@ -56,6 +56,12 @@ pub struct Engine {
     inner: Arc<InnerEngine>,
 }
 
+impl From<&crate::engine::Engine> for Engine {
+    fn from(engine: &crate::engine::Engine) -> Self {
+        engine.0.clone()
+    }
+}
+
 impl Engine {
     pub(crate) fn deterministic_id(&self) -> &str {
         // All js engines have the same id

@@ -341,9 +341,9 @@ impl Module {
     /// ```
     pub fn imports<'a>(
         &'a self,
-        engine: &'a impl AsEngineRef,
+        // engine: &'a impl AsEngineRef,
     ) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
-        self.0.imports(engine)
+        self.0.imports()
     }
 
     /// Returns an iterator over the exported types in the Module.
@@ -371,9 +371,9 @@ impl Module {
     /// ```
     pub fn exports<'a>(
         &'a self,
-        engine: &'a impl AsEngineRef,
+        // engine: &'a impl AsEngineRef,
     ) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
-        self.0.exports(engine)
+        self.0.exports()
     }
 
     /// Get the custom sections of the module given a `name`.
