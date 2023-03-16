@@ -27,37 +27,45 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        unimplemented!();
-        // if !val.is_from_store(store) {
-        //     return Err(RuntimeError::new(
-        //         "cross-`WasmerEnv` values are not supported",
-        //     ));
-        // }
-        // let global_ty = GlobalType {
-        //     mutability,
-        //     ty: val.ty(),
-        // };
-        // let descriptor = js_sys::Object::new();
-        // let (type_str, value) = match val {
-        //     Value::I32(i) => ("i32", JSValue::from_f64(i as _)),
-        //     Value::I64(i) => ("i64", JSValue::from_f64(i as _)),
-        //     Value::F32(f) => ("f32", JSValue::from_f64(f as _)),
-        //     Value::F64(f) => ("f64", JSValue::from_f64(f)),
-        //     _ => unimplemented!("The type is not yet supported in the JS Global API"),
-        // };
-        // // This is the value type as string, even though is incorrectly called "value"
-        // // in the JS API.
-        // js_sys::Reflect::set(&descriptor, &"value".into(), &type_str.into())?;
-        // js_sys::Reflect::set(
-        //     &descriptor,
-        //     &"mutable".into(),
-        //     &mutability.is_mutable().into(),
-        // )?;
+        if !val.is_from_store(store) {
+            return Err(RuntimeError::new("cross-`Store` values are not supported"));
+        }
+        let global_ty = GlobalType {
+            mutability,
+            ty: val.ty(),
+        };
+        let store_mut = store.as_store_mut();
+        let engine = store_mut.engine();
+        let context = engine.0.context();
 
-        // let js_global = JSGlobal::new(&descriptor, &value).unwrap();
-        // let vm_global = VMGlobal::new(js_global, global_ty);
+        let mut descriptor = JSObject::new(&context);
+        let (type_str, value) = match val {
+            Value::I32(i) => ("i32", JSValue::number(&context, i as _)),
+            Value::I64(i) => ("i64", JSValue::number(&context, i as _)),
+            Value::F32(f) => ("f32", JSValue::number(&context, f as _)),
+            Value::F64(f) => ("f64", JSValue::number(&context, f)),
+            _ => unimplemented!("The type is not yet supported in the JS Global API"),
+        };
+        // This is the value type as string, even though is incorrectly called "value"
+        // in the JS API.
+        descriptor.set_property(
+            &context,
+            "value".into(),
+            JSValue::string(&context, type_str.into()).unwrap(),
+        );
+        descriptor.set_property(
+            &context,
+            "mutable".into(),
+            JSValue::boolean(&context, mutability.is_mutable()),
+        );
 
-        // Ok(Self::from_vm_extern(store, vm_global))
+        let js_global = engine
+            .0
+            .wasm_global_type()
+            .construct(&context, &[descriptor.to_jsvalue(), value])
+            .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))?;
+        let vm_global = VMGlobal::new(js_global, global_ty);
+        Ok(Self::from_vm_extern(store, vm_global))
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> GlobalType {
@@ -130,10 +138,9 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {
-        unimplemented!();
-        // use crate::jsc::store::StoreObject;
-        // VMGlobal::list_mut(store.objects_mut()).push(vm_global.clone());
-        // Self { handle: vm_global }
+        use crate::jsc::store::StoreObject;
+        VMGlobal::list_mut(store.objects_mut()).push(vm_global.clone());
+        Self { handle: vm_global }
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
