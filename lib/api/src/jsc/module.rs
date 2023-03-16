@@ -73,30 +73,11 @@ impl Module {
         let engine = engine.as_engine_ref();
         let context = engine.engine().0.context();
         let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
-        println!("Bytes {}", bytes.to_jsvalue().to_string(&context));
-
-        // let mut global = context.get_global_object();
-        // let mut global_wasm = global.get_property(&context, "WebAssembly".to_string()).to_object(&context);
-
-        // let mut module_type = global_wasm
-        //     .get_property(&context, "Module".to_string())
-        //     .to_object(&context);
-        // let mut instance = wasm
-        //     .get_property(&context, "Instance".to_string())
-        //     .to_object(&context);
         let module_type = engine.engine().0.wasm_module_type();
         let module = module_type
             .construct(&context, &[bytes.to_jsvalue()])
             .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context))))?;
-        // println!("MODULE ERR {}", module.unwrap_err().to_string(&context));
-        // unimplemented!();
-        // let module = module.unwrap();
-        // let mut wasm = global
-        //     .get_property(&context, "WebAssembly".to_string())
-        //     .to_object(&context);
 
-        // let js_bytes = Uint8Array::view(binary);
-        // let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
         Ok(Self::from_js_module(module, binary))
     }
 

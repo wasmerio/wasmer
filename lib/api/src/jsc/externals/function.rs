@@ -1,6 +1,7 @@
 use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
+use crate::jsc::as_js::AsJs;
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
 use crate::jsc::vm::{
     VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionCallback, VMFunctionEnvironment,
@@ -469,30 +470,37 @@ macro_rules! impl_host_function {
                         match result {
                             Ok(Ok(result)) => {
                                 println!("RESULT");
-                                unimplemented!();
-                                // match Rets::size() {
-                                //     0 => {JSValue::undefined(&ctx)},
-                                //     1 => unsafe {
-                                //         // let ty = Rets::wasm_types()[0];
-                                //         // let value: JSValue = Value::
-                                //         // *mut_rets = val.as_raw(&mut store);
-                                //     }
-                                //     _n => {
-                                //         if !results.is_array(&context) {
-                                //             panic!("Expected results to be an array.")
-                                //         }
-                                //         unimplemented!();
-                                //         // let results = results.into();
-                                //         // for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
-                                //         //     let ret = results.get(i as u32);
-                                //         //     unsafe {
-                                //         //         let val = param_from_js(&ret_type, &ret);
-                                //         //         let slot = mut_rets.add(i);
-                                //         //         *slot = val.as_raw(&mut store);
-                                //         //     }
-                                //         // }
-                                //     }
-                                // }
+                                match Rets::size() {
+                                    0 => {Ok(JSValue::undefined(&ctx))},
+                                    1 => {
+                                        // unimplemented!();
+
+                                        let ty = Rets::wasm_types()[0];
+                                        let mut arr = result.into_array(&mut store);
+                                        // Value::from_raw(&store, ty, arr[0])
+                                        let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
+                                        println!("RETURNED: {:?}", val);
+                                        let value: JSValue = val.as_jsvalue(&store);
+                                        Ok(value)
+                                        // *mut_rets = val.as_raw(&mut store);
+                                    }
+                                    _n => {
+                                        // if !results.is_array(&context) {
+                                        //     panic!("Expected results to be an array.")
+                                        // }
+                                        println!("Number: {}",  _n);
+                                        unimplemented!();
+                                        // let results = results.into();
+                                        // for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
+                                        //     let ret = results.get(i as u32);
+                                        //     unsafe {
+                                        //         let val = param_from_js(&ret_type, &ret);
+                                        //         let slot = mut_rets.add(i);
+                                        //         *slot = val.as_raw(&mut store);
+                                        //     }
+                                        // }
+                                    }
+                                }
                             },
                             #[cfg(feature = "std")]
                             #[allow(deprecated)]
@@ -500,7 +508,14 @@ macro_rules! impl_host_function {
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
                             Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
-                            Err(_panic) => unimplemented!(),
+                            Err(panic) => {
+                                Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
+                                // We can't just resume the unwind, because it will put
+                                // JavacriptCore in a bad state, so we need to transform
+                                // the error
+
+                                // std::panic::resume_unwind(panic)
+                            },
                         }
 
                     }

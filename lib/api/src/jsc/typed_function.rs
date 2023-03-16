@@ -34,11 +34,11 @@ macro_rules! impl_native_traits {
                 let params_list: Vec<_> = unsafe {
                     vec![ $( {
                         let raw = $x.into_raw(store);
-                        let value = Value::from_raw(&mut store, $x::WASM_TYPE, dbg!(raw));
+                        let value = Value::from_raw(&mut store, $x::WASM_TYPE, raw);
                         value.as_jsvalue(store)
                     } ),* ]
                 };
-                println!("TYPED FUNCTION CALL: {}", params_list.len());
+
                 let results = {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451

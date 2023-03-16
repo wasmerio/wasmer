@@ -197,7 +197,7 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
         "host" => {
             "host_func1" => Function::new_typed(&mut store, |p: u64| {
                 println!("host_func1: Found number {}", p);
-                // assert_eq!(p, u64::max_value());
+                assert_eq!(p, u64::max_value());
             }),
             "host_func2" => Function::new_typed(&mut store, |p: u32| {
                 println!("host_func2: Found number {}", p);
