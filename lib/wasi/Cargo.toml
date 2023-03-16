@@ -105,7 +105,7 @@ sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 # Deprecated. Kept it for compatibility
 compiler = []
 
-js = ["virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
+js = ["virtual-fs/no-time", "getrandom/js", "chrono"]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
 
