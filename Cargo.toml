@@ -129,7 +129,7 @@ test-universal = ["test-generator/test-universal"]
 # that raise signals because that interferes with tarpaulin.
 coverage = []
 
-[profile.dev]
+[target.'cfg(not(target_os = "windows"))'.profile.dev]
 split-debuginfo = "unpacked"
 
 #[profile.release]
