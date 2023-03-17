@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use virtual_fs::{AsyncReadExt, AsyncWriteExt};
 use wasmer::{Module, Store};
-use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{Pipe, PluggableRuntimeImplementation, WasiEnv};
+use wasmer_wasix::{Pipe, PluggableRuntimeImplementation, WasiEnv};
 
 mod sys {
     #[tokio::test]

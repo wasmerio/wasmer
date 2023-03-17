@@ -10,20 +10,13 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// * `fd` - Socket descriptor
 /// * `opt` - Socket option to be set
 /// * `size` - Buffer size
+#[instrument(level = "debug", skip_all, fields(sock, opt, size), ret)]
 pub fn sock_set_opt_size(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     size: Filesize,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_set_opt_size(fd={}, ty={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        opt
-    );
-
     let ty = match opt {
         Sockoption::RecvTimeout => TimeType::ReadTimeout,
         Sockoption::SendTimeout => TimeType::WriteTimeout,

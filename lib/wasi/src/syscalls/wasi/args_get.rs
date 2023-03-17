@@ -10,12 +10,12 @@ use crate::syscalls::*;
 /// - `char *argv_buf`
 ///     A pointer to a buffer to write the argument string data.
 ///
+#[instrument(level = "debug", skip_all, ret)]
 pub fn args_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     argv: WasmPtr<WasmPtr<u8, M>, M>,
     argv_buf: WasmPtr<u8, M>,
 ) -> Errno {
-    debug!("wasi[{}:{}]::args_get", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
@@ -27,7 +27,7 @@ pub fn args_get<M: MemorySize>(
     let result = write_buffer_array(&memory, &args, argv, argv_buf);
 
     debug!(
-        "=> args:\n{}",
+        "args:\n{}",
         state
             .args
             .iter()

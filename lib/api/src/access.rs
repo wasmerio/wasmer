@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use crate::{WasmRef, WasmSlice};
+use crate::mem_access::{WasmRef, WasmSlice};
 
 pub(super) enum SliceCow<'a, T> {
     #[allow(dead_code)]
@@ -164,30 +164,6 @@ where
 {
     fn as_mut(&mut self) -> &mut T {
         self.buf.as_mut()
-    }
-}
-
-impl<'a, T> WasmRefAccess<'a, T>
-where
-    T: wasmer_types::ValueType,
-{
-    /// Reads the address pointed to by this `WasmPtr` in a memory.
-    #[inline]
-    #[allow(clippy::clone_on_copy)]
-    pub fn read(&self) -> T
-    where
-        T: Clone,
-    {
-        self.as_ref().clone()
-    }
-
-    /// Writes to the address pointed to by this `WasmPtr` in a memory.
-    #[inline]
-    pub fn write(&mut self, val: T) {
-        // Note: Zero padding is not required here as its a typed copy which does
-        //       not leak the bytes into the memory
-        // https://stackoverflow.com/questions/61114026/does-stdptrwrite-transfer-the-uninitialized-ness-of-the-bytes-it-writes
-        *(self.as_mut()) = val;
     }
 }
 

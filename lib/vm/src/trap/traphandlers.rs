@@ -86,21 +86,6 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
     }
 }
 
-/// A package of functionality needed by `catch_traps` to figure out what to do
-/// when handling a trap.
-///
-/// # Safety
-///
-/// Note that this is an `unsafe` trait at least because it's being run in the
-/// context of a synchronous signal handler, so it needs to be careful to not
-/// access too much state in answering these queries.
-pub unsafe trait TrapHandler {
-    /// Uses `call` to call a custom signal handler, if one is specified.
-    ///
-    /// Returns `true` if `call` returns true, otherwise returns `false`.
-    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool;
-}
-
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         static mut PREV_SIGSEGV: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();

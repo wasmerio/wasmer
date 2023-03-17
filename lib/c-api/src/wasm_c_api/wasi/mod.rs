@@ -18,8 +18,8 @@ use std::os::raw::c_char;
 use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
-use wasmer_wasi::{
-    default_fs_backing, get_wasi_version, wasmer_vfs::AsyncReadExt, Pipe, VirtualTaskManager,
+use wasmer_wasix::{
+    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, Pipe, VirtualTaskManager,
     WasiEnv, WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
 };
 
@@ -248,11 +248,11 @@ fn prepare_webc_env(
     len: usize,
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
-    use wasmer_vfs::static_fs::StaticFileSystem;
-    use webc::FsEntryType;
+    use virtual_fs::static_fs::StaticFileSystem;
+    use webc::v1::{FsEntryType, WebC};
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
-    let volumes = webc::WebC::parse_volumes_from_fileblock(slice).ok()?;
+    let volumes = WebC::parse_volumes_from_fileblock(slice).ok()?;
     let top_level_dirs = volumes
         .into_iter()
         .flat_map(|(_, volume)| {

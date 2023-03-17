@@ -9,6 +9,7 @@ use crate::syscalls::*;
 /// * `network` - Fully qualified identifier for the network
 /// * `token` - Access token used to authenticate with the network
 /// * `security` - Level of encryption to encapsulate the network connection with
+#[instrument(level = "debug", skip_all, fields(network = field::Empty, security), ret, err)]
 pub fn port_bridge<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     network: WasmPtr<u8, M>,
@@ -17,14 +18,12 @@ pub fn port_bridge<M: MemorySize>(
     token_len: M::Offset,
     security: Streamsecurity,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::port_bridge",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+
     let network = unsafe { get_input_str_ok!(&memory, network, network_len) };
+    Span::current().record("network", network.as_str());
+
     let token = unsafe { get_input_str_ok!(&memory, token, token_len) };
     let security = match security {
         Streamsecurity::Unencrypted => StreamSecurity::Unencrypted,

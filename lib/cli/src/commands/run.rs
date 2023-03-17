@@ -8,12 +8,12 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use std::fs::File;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
 #[cfg(feature = "cache")]
 use std::str::FromStr;
+use std::{fs::File, net::SocketAddr};
 #[cfg(feature = "emscripten")]
 use wasmer::FunctionEnv;
 use wasmer::*;
@@ -21,7 +21,7 @@ use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
-use wasmer_wasi::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::{Runner, WapmContainer};
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -90,6 +90,10 @@ pub struct RunWithoutFile {
     #[cfg(feature = "debug")]
     #[clap(long = "verbose")]
     pub(crate) verbose: Option<u8>,
+
+    #[cfg(feature = "webc_runner")]
+    #[clap(flatten)]
+    pub(crate) wcgi: WcgiOptions,
 
     /// Enable coredump generation after a WebAssembly trap.
     #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
@@ -189,7 +193,7 @@ impl RunWithPathBuf {
         }
     }
 
-    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<()> {
+    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
@@ -212,25 +216,19 @@ impl RunWithPathBuf {
             let start: Function = self.try_find_function(&instance, "_start", &[])?;
             let result = start.call(store, &[]);
             #[cfg(feature = "wasi")]
-            self.wasi.handle_result(result)?;
+            return self.wasi.handle_result(result);
             #[cfg(not(feature = "wasi"))]
-            result?;
+            return Ok(result?);
         }
 
-        Ok(())
+        Ok(0)
     }
 
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
-            if let Ok(pf) = WapmContainer::new(self.path.clone()) {
-                return self
-                    .run_container(
-                        pf,
-                        &self.command_name.clone().unwrap_or_default(),
-                        &self.args,
-                    )
-                    .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
+            if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
+                return self.run_container(pf, self.command_name.as_deref(), &self.args);
             }
         }
         let (mut store, module) = self.get_store_module()?;
@@ -290,7 +288,7 @@ impl RunWithPathBuf {
         #[cfg(feature = "wasi")]
         let ret = {
             use std::collections::BTreeSet;
-            use wasmer_wasi::WasiVersion;
+            use wasmer_wasix::WasiVersion;
 
             let wasi_versions = Wasi::get_versions(&module);
             match wasi_versions {
@@ -328,6 +326,7 @@ impl RunWithPathBuf {
                     let res = self.inner_module_run(&mut store, instance);
 
                     ctx.cleanup(&mut store, None);
+
                     res
                 }
                 // not WASI
@@ -336,7 +335,12 @@ impl RunWithPathBuf {
                     self.inner_module_run(&mut store, instance)
                 }
             }
-        };
+        }.map(|exit_code| {
+            std::io::stdout().flush().ok();
+            std::io::stderr().flush().ok();
+            std::process::exit(exit_code);
+        });
+
         #[cfg(not(feature = "wasi"))]
         let ret = {
             let instance = Instance::new(&module, &imports! {})?;
@@ -376,48 +380,54 @@ impl RunWithPathBuf {
     fn run_container(
         &self,
         container: WapmContainer,
-        id: &str,
+        id: Option<&str>,
         args: &[String],
     ) -> Result<(), anyhow::Error> {
-        let mut result = None;
+        let id = id
+            .or_else(|| container.manifest().entrypoint.as_deref())
+            .context("No command specified")?;
+        let command = container
+            .manifest()
+            .commands
+            .get(id)
+            .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
-        #[cfg(feature = "wasi")]
-        {
-            if let Some(r) = result {
-                return r;
-            }
-
-            let (store, _compiler_type) = self.store.get_store()?;
-            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(store);
-            runner.set_args(args.to_vec());
-            result = Some(if id.is_empty() {
-                runner.run(&container).map_err(|e| anyhow::anyhow!("{e}"))
-            } else {
-                runner
-                    .run_cmd(&container, id)
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            });
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
+        runner.set_args(args.to_vec());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            return runner.run_cmd(&container, id).context("WASI runner failed");
         }
 
-        #[cfg(feature = "emscripten")]
-        {
-            if let Some(r) = result {
-                return r;
-            }
-
-            let (store, _compiler_type) = self.store.get_store()?;
-            let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
-            runner.set_args(args.to_vec());
-            result = Some(if id.is_empty() {
-                runner.run(&container).map_err(|e| anyhow::anyhow!("{e}"))
-            } else {
-                runner
-                    .run_cmd(&container, id)
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            });
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(args.to_vec());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            return runner
+                .run_cmd(&container, id)
+                .context("Emscripten runner failed");
         }
 
-        result.unwrap_or_else(|| Err(anyhow::anyhow!("neither emscripten or wasi file")))
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
+        let (store, _compiler_type) = self.store.get_store()?;
+        runner
+            .config()
+            .args(args)
+            .store(store)
+            .addr(self.wcgi.addr)
+            .envs(self.wasi.env_vars.clone())
+            .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
+        if self.wcgi.forward_host_env {
+            runner.config().forward_host_env();
+        }
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            return runner.run_cmd(&container, id).context("WCGI runner failed");
+        }
+
+        anyhow::bail!(
+            "Unable to find a runner that supports \"{}\"",
+            command.runner
+        );
     }
 
     fn get_store_module(&self) -> Result<(Store, Module)> {
@@ -697,4 +707,23 @@ fn generate_coredump(
     })?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Parser)]
+pub(crate) struct WcgiOptions {
+    /// The address to serve on.
+    #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
+    pub(crate) addr: SocketAddr,
+    /// Forward all host env variables to the wcgi task.
+    #[clap(long)]
+    pub(crate) forward_host_env: bool,
+}
+
+impl Default for WcgiOptions {
+    fn default() -> Self {
+        Self {
+            addr: ([127, 0, 0, 1], 8000).into(),
+            forward_host_env: false,
+        }
+    }
 }

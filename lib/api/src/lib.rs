@@ -142,7 +142,7 @@
 //! module.
 //!
 //! To import an extern, simply give it a namespace and a name with the
-//! [`imports`] macro:
+//! [`imports!`] macro:
 //!
 //! ```
 //! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
@@ -192,7 +192,7 @@
 //!
 //! Thus WebAssembly modules by themselves cannot do anything but computation
 //! on the core types in [`Value`]. In order to make them more useful we
-//! give them access to the outside world with [`imports`].
+//! give them access to the outside world with [`imports!`].
 //!
 //! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
 //! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
@@ -428,6 +428,25 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
+mod access;
+mod engine;
+mod errors;
+mod exports;
+mod extern_ref;
+mod externals;
+mod function_env;
+mod imports;
+mod instance;
+mod into_bytes;
+mod mem_access;
+mod module;
+mod native_type;
+mod ptr;
+mod store;
+mod typed_function;
+mod value;
+pub mod vm;
+
 #[cfg(feature = "sys")]
 mod sys;
 
@@ -440,7 +459,51 @@ mod js;
 #[cfg(feature = "js")]
 pub use js::*;
 
-mod access;
-mod into_bytes;
+pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
 pub use access::WasmSliceAccess;
+pub use engine::{AsEngineRef, Engine};
+pub use errors::{InstantiationError, LinkError, RuntimeError};
+pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
+pub use extern_ref::ExternRef;
+pub use function_env::{FunctionEnv, FunctionEnvMut};
+pub use imports::Imports;
+pub use instance::Instance;
 pub use into_bytes::IntoBytes;
+pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
+pub use module::{IoCompileError, Module};
+pub use native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
+pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
+pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
+#[cfg(feature = "sys")]
+pub use store::{TrapHandlerFn, Tunables};
+pub use typed_function::TypedFunction;
+pub use value::Value;
+
+// Reexport from other modules
+
+pub use wasmer_derive::ValueType;
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+pub use wasmer_types::{
+    is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
+    ExternType, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError,
+    MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError,
+    SerializeError, TableType, Target, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES,
+    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
+#[cfg(feature = "wat")]
+pub use wat::parse_bytes as wat2wasm;
+
+#[cfg(feature = "wasmparser")]
+pub use wasmparser;
+
+// Deprecated types
+
+/// This type is deprecated, it has been replaced by TypedFunction.
+#[deprecated(
+    since = "3.0.0",
+    note = "NativeFunc has been replaced by TypedFunction"
+)]
+pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;
+
+/// Version number of this crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

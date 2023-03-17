@@ -4,12 +4,15 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use wasmer_vfs::FileSystem;
+use virtual_fs::FileSystem;
 
 use tracing::*;
 #[allow(unused_imports)]
 use tracing::{error, warn};
-use webc::{Annotation, UrlOrManifest, WebC};
+use webc::{
+    metadata::{Annotation, UrlOrManifest},
+    v1::WebC,
+};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
@@ -125,8 +128,8 @@ fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> 
 }
 
 pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> {
-    let options = webc::ParseOptions::default();
-    match webc::WebCOwned::parse(data, &options) {
+    let options = webc::v1::ParseOptions::default();
+    match webc::v1::WebCOwned::parse(data, &options) {
         Ok(webc) => unsafe {
             let webc = Arc::new(webc);
             return parse_webc(webc.as_webc_ref(), webc.clone())
@@ -164,14 +167,14 @@ async fn download_webc(
     };
 
     // build the parse options
-    let options = webc::ParseOptions::default();
+    let options = webc::v1::ParseOptions::default();
 
     // fast path
     let path = compute_path(cache_dir, name);
 
     #[cfg(feature = "sys")]
     if path.exists() {
-        match webc::WebCMmap::parse(path.clone(), &options) {
+        match webc::v1::WebCMmap::parse(path.clone(), &options) {
             Ok(webc) => unsafe {
                 let webc = Arc::new(webc);
                 return parse_webc(webc.as_webc_ref(), webc.clone()).with_context(|| {
@@ -230,7 +233,7 @@ async fn download_webc(
             );
         }
 
-        match webc::WebCMmap::parse(path.clone(), &options) {
+        match webc::v1::WebCMmap::parse(path.clone(), &options) {
             Ok(webc) => unsafe {
                 let webc = Arc::new(webc);
                 return parse_webc(webc.as_webc_ref(), webc.clone())
@@ -242,7 +245,7 @@ async fn download_webc(
         }
     }
 
-    let webc_raw = webc::WebCOwned::parse(data, &options)
+    let webc_raw = webc::v1::WebCOwned::parse(data, &options)
         .with_context(|| format!("Failed to parse downloaded from '{pirita_download_url}'"))?;
     let webc = Arc::new(webc_raw);
     // FIXME: add SAFETY comment
@@ -275,7 +278,7 @@ async fn download_package(
 }
 
 // TODO: should return Result<_, anyhow::Error>
-unsafe fn parse_webc<'a, T>(webc: webc::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
+unsafe fn parse_webc<'a, T>(webc: webc::v1::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
@@ -361,7 +364,7 @@ where
     }
 
     // Add the file system from the webc
-    let webc_fs = wasmer_vfs::webc_fs::WebcFileSystem::init_all(ownership.clone());
+    let webc_fs = virtual_fs::webc_fs::WebcFileSystem::init_all(ownership.clone());
     let top_level_dirs = webc_fs.top_level_dirs().clone();
     pck.webc_fs = Some(Arc::new(webc_fs));
     pck.webc_top_level_dirs = top_level_dirs;

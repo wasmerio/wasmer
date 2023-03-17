@@ -3,8 +3,8 @@
 
 // use wasmer::{BaseTunables, Engine, Module, Store, Tunables};
 // use wasmer_vm::VMMemory;
-// use wasmer_wasi::{
-//     bin_factory::spawn_exec_module, wasmer_vfs::host_fs::File, BusSpawnedProcessJoin,
+// use wasmer_wasix::{
+//     bin_factory::spawn_exec_module, virtual_fs::host_fs::File, BusSpawnedProcessJoin,
 //     PluggableRuntimeImplementation, WasiControlPlane, WasiEnv, WasiRuntime,
 //     WasiState,
 // };
@@ -101,9 +101,9 @@
 //     //     .clone();
 
 //     // Generate an `ImportObject`.
-//     // let instance = wasmer_wasi::build_wasi_instance(&module, &mut wasi_env, &mut store).unwrap();
+//     // let instance = wasmer_wasix::build_wasi_instance(&module, &mut wasi_env, &mut store).unwrap();
 
-//     let config = wasmer_wasi::wasmer_vbus::SpawnOptionsConfig {
+//     let config = wasmer_wasix::wasmer_vbus::SpawnOptionsConfig {
 //         reuse: false,
 //         env: wasi_env.data(&store).clone(),
 //         remote_instance: None,

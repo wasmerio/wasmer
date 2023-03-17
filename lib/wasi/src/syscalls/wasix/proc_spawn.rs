@@ -1,4 +1,4 @@
-use wasmer_vfs::Pipe;
+use virtual_fs::Pipe;
 
 use super::*;
 use crate::syscalls::*;
@@ -22,6 +22,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
+#[instrument(level = "debug", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret, err)]
 pub fn proc_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -45,19 +46,13 @@ pub fn proc_spawn<M: MemorySize>(
     let args = unsafe { get_input_str_bus_ok!(&memory, args, args_len) };
     let preopen = unsafe { get_input_str_bus_ok!(&memory, preopen, preopen_len) };
     let working_dir = unsafe { get_input_str_bus_ok!(&memory, working_dir, working_dir_len) };
-    debug!(
-        "wasi[{}:{}]::process_spawn (name={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        name
-    );
+
+    Span::current()
+        .record("name", name.as_str())
+        .record("working_dir", working_dir.as_str());
 
     if chroot == Bool::True {
-        warn!(
-            "wasi[{}:{}]::chroot is not currently supported",
-            ctx.data().pid(),
-            ctx.data().tid()
-        );
+        warn!("chroot is not currently supported",);
         return Ok(BusErrno::Unsupported);
     }
 
@@ -118,6 +113,7 @@ pub fn proc_spawn_internal(
             return Ok(Err(BusErrno::Denied));
         }
     };
+    let child_process = child_env.process.clone();
     if let Some(args) = args {
         let mut child_state = env.state.fork();
         child_state.args = args;
@@ -133,9 +129,7 @@ pub fn proc_spawn_internal(
         if !preopen.is_empty() {
             for preopen in preopen {
                 warn!(
-                    "wasi[{}:{}]::preopens are not yet supported for spawned processes [{}]",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
+                    "preopens are not yet supported for spawned processes [{}]",
                     preopen
                 );
             }
@@ -181,13 +175,7 @@ pub fn proc_spawn_internal(
                         .create_fd_ext(rights, rights, Fdflags::empty(), 0, inode2, fd)
                         .map_err(|_| BusErrno::Internal)?;
 
-                    trace!(
-                        "wasi[{}:{}]::fd_pipe (fd1={}, fd2={})",
-                        ctx.data().pid(),
-                        ctx.data().tid(),
-                        pipe,
-                        fd
-                    );
+                    trace!("fd_pipe (fd1={}, fd2={})", pipe, fd);
                     Ok(OptionFd {
                         tag: OptionTag::Some,
                         fd: pipe,
@@ -234,12 +222,7 @@ pub fn proc_spawn_internal(
             Ok(a) => a,
             Err(err) => {
                 if err != VirtualBusError::NotFound {
-                    error!(
-                        "wasi[{}:{}]::proc_spawn - builtin failed - {}",
-                        ctx.data().pid(),
-                        ctx.data().tid(),
-                        err
-                    );
+                    error!("builtin failed - {}", err);
                 }
                 // Now we actually spawn the process
                 let child_work =
@@ -259,16 +242,11 @@ pub fn proc_spawn_internal(
 
     // Add the process to the environment state
     {
-        let mut children = ctx.data().process.children.write().unwrap();
-        children.push(child_pid);
+        let mut inner = ctx.data().process.inner.write().unwrap();
+        inner.children.push(child_process);
     }
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-
-    {
-        let mut guard = env.process.write();
-        guard.bus_processes.insert(child_pid, process);
-    };
 
     let handles = BusHandles {
         bid: child_pid.raw(),

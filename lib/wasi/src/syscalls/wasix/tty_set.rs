@@ -3,12 +3,11 @@ use crate::syscalls::*;
 
 /// ### `tty_set()`
 /// Updates the properties of the rect
+#[instrument(level = "debug", skip_all, ret)]
 pub fn tty_set<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     tty_state: WasmPtr<Tty, M>,
 ) -> Errno {
-    debug!("wasi::tty_set");
-
     let env = ctx.data();
     let bridge = if let Some(t) = env.runtime.tty() {
         t
@@ -22,12 +21,9 @@ pub fn tty_set<M: MemorySize>(
     let line_buffered = state.line_buffered;
     let line_feeds = true;
     debug!(
-        "wasi[{}:{}]::tty_set(echo={}, line_buffered={}, line_feeds={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        echo,
-        line_buffered,
-        line_feeds
+        %echo,
+        %line_buffered,
+        %line_feeds
     );
 
     let state = crate::os::tty::WasiTtyState {

@@ -8,6 +8,7 @@ use crate::EngineInner;
 use crate::Features;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
+use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
@@ -57,7 +58,7 @@ impl ArtifactBuild {
         middlewares.apply_on_module_info(&mut module);
 
         let compile_info = CompileModuleInfo {
-            module,
+            module: Arc::new(module),
             features,
             memory_styles,
             table_styles,
@@ -195,8 +196,19 @@ impl ArtifactBuild {
 }
 
 impl ArtifactCreate for ArtifactBuild {
-    fn create_module_info(&self) -> ModuleInfo {
+    fn create_module_info(&self) -> Arc<ModuleInfo> {
         self.serializable.compile_info.module.clone()
+    }
+
+    fn set_module_info_name(&mut self, name: String) -> bool {
+        Arc::get_mut(&mut self.serializable.compile_info.module).map_or(false, |mut module_info| {
+            module_info.name = Some(name.to_string());
+            true
+        })
+    }
+
+    fn module_info(&self) -> &ModuleInfo {
+        &self.serializable.compile_info.module
     }
 
     fn features(&self) -> &Features {

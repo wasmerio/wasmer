@@ -17,6 +17,7 @@ use crate::syscalls::*;
 ///     Pointer to characters containing the path that the symlink points to
 /// - `u32 buf_used`
 ///     The number of bytes written to `buf`
+#[instrument(level = "debug", skip_all, fields(dir_fd, path = field::Empty), ret)]
 pub fn path_readlink<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     dir_fd: WasiFd,
@@ -26,11 +27,6 @@ pub fn path_readlink<M: MemorySize>(
     buf_len: M::Offset,
     buf_used: WasmPtr<M::Offset, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::path_readlink",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
@@ -39,15 +35,13 @@ pub fn path_readlink<M: MemorySize>(
         return Errno::Access;
     }
     let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };
+    Span::current().record("path", path_str.as_str());
 
     // Convert relative paths into absolute paths
     if path_str.starts_with("./") {
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
         trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            path_str
+            %path_str
         );
     }
 
@@ -57,7 +51,6 @@ pub fn path_readlink<M: MemorySize>(
         let guard = inode.read();
         if let Kind::Symlink { relative_path, .. } = guard.deref() {
             let rel_path_str = relative_path.to_string_lossy();
-            debug!("Result => {:?}", rel_path_str);
             let buf_len: u64 = buf_len.into();
             let bytes = rel_path_str.bytes();
             if bytes.len() as u64 >= buf_len {

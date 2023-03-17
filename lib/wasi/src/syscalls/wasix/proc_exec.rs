@@ -15,6 +15,7 @@ use crate::{
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
+#[instrument(level = "debug", skip_all, fields(name = field::Empty, args_len), ret, err)]
 pub fn proc_exec<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -25,18 +26,12 @@ pub fn proc_exec<M: MemorySize>(
     let memory = ctx.data().memory_view(&ctx);
     let mut name = name.read_utf8_string(&memory, name_len).map_err(|err| {
         warn!("failed to execve as the name could not be read - {}", err);
-        WasiError::Exit(Errno::Fault as ExitCode)
+        WasiError::Exit(Errno::Inval.into())
     })?;
-    trace!(
-        "wasi[{}:{}]::proc_exec (name={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        name
-    );
-
+    Span::current().record("name", name.as_str());
     let args = args.read_utf8_string(&memory, args_len).map_err(|err| {
         warn!("failed to execve as the args could not be read - {}", err);
-        WasiError::Exit(Errno::Fault as ExitCode)
+        WasiError::Exit(Errno::Inval.into())
     })?;
     let args: Vec<_> = args
         .split(&['\n', '\r'])
@@ -47,13 +42,8 @@ pub fn proc_exec<M: MemorySize>(
     // Convert relative paths into absolute paths
     if name.starts_with("./") {
         name = ctx.data().state.fs.relative_path_to_absolute(name);
-        trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            name
-        );
     }
+    trace!(name);
 
     // Convert the preopen directories
     let preopen = ctx.data().state.preopen.clone();
@@ -65,7 +55,7 @@ pub fn proc_exec<M: MemorySize>(
             Ok(a) => a,
             Err(err) => {
                 warn!("failed to create subprocess for fork - {}", err);
-                return Err(WasiError::Exit(Errno::Fault as ExitCode));
+                return Err(WasiError::Exit(err.into()));
             }
         }
     };
@@ -76,7 +66,9 @@ pub fn proc_exec<M: MemorySize>(
     // with the forked WasiEnv, then do a longjmp back to the vfork point.
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
         // We will need the child pid later
-        let child_pid = ctx.data().process.pid();
+        let child_process = ctx.data().process.clone();
+        let child_pid = child_process.pid();
+        let child_finished = child_process.finished;
 
         // Restore the WasiEnv to the point when we vforked
         std::mem::swap(&mut vfork.env.inner, &mut ctx.data_mut().inner);
@@ -86,13 +78,13 @@ pub fn proc_exec<M: MemorySize>(
         _prepare_wasi(&mut wasi_env, Some(args));
 
         // Recrod the stack offsets before we give up ownership of the wasi_env
-        let stack_base = wasi_env.stack_base;
+        let stack_base = wasi_env.stack_end;
         let stack_start = wasi_env.stack_start;
 
         // Spawn a new process with this current execution environment
-        let mut err_exit_code = -2i32 as u32;
+        let mut err_exit_code: ExitCode = Errno::Success.into();
 
-        let mut process = {
+        {
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
             let tasks = wasi_env.tasks().clone();
 
@@ -100,21 +92,16 @@ pub fn proc_exec<M: MemorySize>(
             let mut config = Some(wasi_env);
 
             match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut config) {
-                Ok(a) => Some(a),
+                Ok(a) => {}
                 Err(err) => {
                     if err != VirtualBusError::NotFound {
-                        error!(
-                            "wasi[{}:{}]::proc_exec - builtin failed - {}",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            err
-                        );
+                        error!("builtin failed - {}", err);
                     }
 
                     let new_store = new_store.take().unwrap();
                     let env = config.take().unwrap();
 
-                    let (process, c) = tasks.block_on(async move {
+                    tasks.block_on(async {
                         let name_inner = name.clone();
                         let ret = bin_factory.spawn(
                                 name_inner,
@@ -123,9 +110,15 @@ pub fn proc_exec<M: MemorySize>(
                             )
                             .await;
                         match ret {
-                            Ok(ret) => (Some(ret), ctx),
+                            Ok(ret) => {
+                                trace!(%child_pid, "spawned sub-process");
+                            },
                             Err(err) => {
                                 err_exit_code = conv_bus_err_to_exit_code(err);
+
+                                debug!(%child_pid, "process failed with (err={})", err_exit_code);
+                                child_finished.set_finished(Ok(err_exit_code));
+
                                 warn!(
                                     "failed to execve as the process could not be spawned (vfork) - {}",
                                     err
@@ -135,44 +128,12 @@ pub fn proc_exec<M: MemorySize>(
                                     format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
                                         .as_bytes(),
                                 ).await;
-                                (None, ctx)
                             }
                         }
-                    });
-                    ctx = c;
-                    process
+                    })
                 }
             }
         };
-
-        // If no process was created then we create a dummy one so that an
-        // exit code can be processed
-        let process = match process {
-            Some(a) => {
-                trace!(
-                    "wasi[{}:{}]::spawned sub-process (pid={})",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    child_pid.raw()
-                );
-                a
-            }
-            None => {
-                debug!(
-                    "wasi[{}:{}]::process failed with (err={})",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    err_exit_code
-                );
-                OwnedTaskStatus::new(TaskStatus::Finished(Ok(err_exit_code))).handle()
-            }
-        };
-
-        // Add the process to the environment state
-        {
-            let mut inner = ctx.data().process.write();
-            inner.bus_processes.insert(child_pid, process);
-        }
 
         let mut memory_stack = vfork.memory_stack;
         let rewind_stack = vfork.rewind_stack;
@@ -185,7 +146,11 @@ pub fn proc_exec<M: MemorySize>(
             // Make sure its within the "active" part of the memory stack
             let offset = stack_base - pid_offset;
             if offset as usize > memory_stack.len() {
-                warn!("vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})", offset, memory_stack.len());
+                warn!(
+                    "vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
+                    offset,
+                    memory_stack.len()
+                );
             } else {
                 // Update the memory stack with the new PID
                 let val_bytes = child_pid.raw().to_ne_bytes();
@@ -195,7 +160,9 @@ pub fn proc_exec<M: MemorySize>(
                 pbytes.clone_from_slice(&val_bytes);
             }
         } else {
-            warn!("vfork failed - the return value (pid) is not being returned on the stack - which is not supported");
+            warn!(
+                "vfork failed - the return value (pid) is not being returned on the stack - which is not supported",
+            );
         }
 
         // Jump back to the vfork point and current on execution
@@ -210,7 +177,7 @@ pub fn proc_exec<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("fork failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                 }
             }
         })?;
@@ -245,12 +212,7 @@ pub fn proc_exec<M: MemorySize>(
                 Ok(a) => Ok(Ok(a)),
                 Err(err) => {
                     if err != VirtualBusError::NotFound {
-                        error!(
-                            "wasi[{}:{}]::proc_exec - builtin failed - {}",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            err
-                        );
+                        error!("builtin failed - {}", err);
                     }
 
                     let new_store = new_store.take().unwrap();
@@ -273,25 +235,28 @@ pub fn proc_exec<M: MemorySize>(
                     let (tx, rx) = std::sync::mpsc::channel();
                     let tasks_inner = tasks.clone();
                     tasks.block_on(Box::pin(async move {
-                        let code = process.wait_finished().await.unwrap_or(Errno::Child as u32);
+                        let code = process
+                            .wait_finished()
+                            .await
+                            .unwrap_or_else(|_| Errno::Child.into());
                         tx.send(code);
                     }));
                     let exit_code = rx.recv().unwrap();
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code)))
                 }
                 Ok(Err(err)) => {
                     warn!(
                         "failed to execve as the process could not be spawned (fork)[0] - {}",
                         err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
                 }
                 Err(err) => {
                     warn!(
                         "failed to execve as the process could not be spawned (fork)[1] - {}",
                         err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
                 }
             }
         })?;

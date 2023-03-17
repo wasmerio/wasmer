@@ -8,6 +8,7 @@
 ///
 /// Note: This is similar to `size_t` in POSIX.
 // TODO: This is defined as `usize` in the original witx file. Should verify that this type is good as it is defined here
+// TODO: This is not good as it breaks 64bit builds - it will need to be externalized
 type size = u32
 
 /// Non-negative file size or length of a region within a file.
@@ -247,6 +248,10 @@ enum errno {
     notcapable,
     /// Cannot send after socket shutdown.
     shutdown,
+    /// Memory access violation.
+    memviolation,
+    /// An unknown error has occured
+    unknown,
 }
 
 enum bus-errno {
@@ -813,12 +818,17 @@ record option-cid {
     cid: cid
 }
 
+record option-pid {
+    tag: option-tag,
+    pid: pid
+}
+
 record option-fd {
     tag: option-tag,
     fd: fd
 }
 
-type exit-code = u32
+type exit-code = errno
 
 type event-fd-flags = u16
 
@@ -1132,6 +1142,7 @@ record option-timestamp {
 }
 
 enum signal {
+    sigunknown,
     sighup,
     sigint,
     sigquit,
@@ -1147,6 +1158,7 @@ enum signal {
     sigpipe,
     sigalrm,
     sigterm,
+    sigstkflt,
     sigchld,
     sigcont,
     sigstop,
@@ -1204,4 +1216,65 @@ enum timeout {
     write,
     connect,
     accept,
+}
+
+/// join flags.
+flags join-flags {
+    /// Non-blocking join on the process
+    non-blocking,
+    /// Return if a process is stopped
+    wake-stopped
+}
+
+/// What has happened with the proccess when we joined on it
+enum join-status-type {
+    /// Nothing has happened
+    nothing,
+    /// The process has exited by a normal exit code
+    exit-normal,
+    /// The process was terminated by a signal
+    exit-signal,
+    /// The process was stopped by a signal and can be resumed with SIGCONT
+    stopped
+}
+
+/// Represents an errno and a signal
+record errno-signal {
+    /// The exit code that was returned
+    exit-code: errno,
+    /// The signal that was returned
+    signal: signal
+}
+
+/// The contents of an `event`.
+variant join-status {
+   // TODO: wit appears to not have support for tag type
+   //(@witx tag $join_status_type)
+   nothing(u8),
+   exit-normal(errno),
+   exit-signal(errno-signal),
+   stopped(signal)
+}
+
+/// thread state flags
+flags thread-state-flags {
+    // TODO: wit doesnt appear to support repr
+    // flags (@witx repr u16)
+  
+    // tsd_used
+    tsd-used,
+    // dlerror_flag
+    dlerror-flag
+}
+
+/// Represents the thread start object
+record thread-start {
+    // Address where the stack starts
+    stack: size,
+    // Address where the TLS starts
+    tls-base: size,
+    // Function that will be invoked when the thread starts
+    start-funct: size,
+    // Arguments to pass the callback function
+    start-args: size,
 }

@@ -39,12 +39,15 @@ pub mod net;
 // TODO: should this be pub?
 pub mod fs;
 pub mod http;
+#[cfg(feature = "webc_runner")]
 pub mod runners;
 pub mod runtime;
 mod state;
 mod syscalls;
 mod utils;
 pub mod wapm;
+
+pub mod capabilities;
 
 /// WAI based bindings.
 mod bindings;
@@ -62,27 +65,27 @@ use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
-pub use wasmer_wasi_types;
+pub use wasmer_wasix_types;
 
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
     MemorySize, RuntimeError,
 };
 
-pub use wasmer_vfs;
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
-pub use wasmer_vfs::FsError as WasiFsError;
-#[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
-pub use wasmer_vfs::VirtualFile as WasiFile;
-pub use wasmer_vfs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
-pub use wasmer_vnet;
-pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
+pub use virtual_fs;
+#[deprecated(since = "2.1.0", note = "Please use `virtual_fs::FsError`")]
+pub use virtual_fs::FsError as WasiFsError;
+#[deprecated(since = "2.1.0", note = "Please use `virtual_fs::VirtualFile`")]
+pub use virtual_fs::VirtualFile as WasiFile;
+pub use virtual_fs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
+pub use virtual_net;
+pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "host-vnet")]
-pub use wasmer_wasi_local_networking::{
+pub use virtual_net::host::{
     io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
 };
-use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
+use wasmer_wasix_types::wasi::{BusErrno, Errno, ExitCode};
 
 pub use crate::{
     fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},
@@ -105,7 +108,7 @@ pub use crate::utils::is_wasix_module;
 
 pub use crate::{
     state::{
-        Capabilities, WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
+        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
@@ -243,6 +246,12 @@ impl WasiRuntimeError {
     pub fn as_exit_code(&self) -> Option<ExitCode> {
         if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
             Some(*code)
+        } else if let WasiRuntimeError::Runtime(err) = self {
+            if let Some(WasiError::Exit(code)) = err.downcast_ref() {
+                Some(*code)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -820,10 +829,10 @@ fn generate_import_object_wasix64_v1(
 
 fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
+        MemoryAccessError::HeapOutOfBounds => Errno::Memviolation,
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
-        _ => Errno::Inval,
+        _ => Errno::Unknown,
     }
 }
 
@@ -839,5 +848,5 @@ fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
 #[cfg(all(feature = "sys"))]
 pub fn build_test_engine(features: Option<wasmer::Features>) -> wasmer::Engine {
     let _ = features;
-    wasmer::Store::default().engine().cloned()
+    wasmer::Store::default().engine().clone()
 }

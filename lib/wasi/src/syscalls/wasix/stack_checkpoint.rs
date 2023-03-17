@@ -4,6 +4,7 @@ use crate::syscalls::*;
 /// ### `stack_checkpoint()`
 /// Creates a snapshot of the current stack which allows it to be restored
 /// later using its stack hash.
+#[instrument(level = "trace", skip_all, ret, err)]
 pub fn stack_checkpoint<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     snapshot_ptr: WasmPtr<StackSnapshot, M>,
@@ -15,26 +16,13 @@ pub fn stack_checkpoint<M: MemorySize>(
         let memory = env.memory_view(&ctx);
         let ret_val = wasi_try_mem_ok!(ret_val.read(&memory));
         if ret_val == 0 {
-            trace!(
-                "wasi[{}:{}]::stack_checkpoint - execution resumed",
-                ctx.data().pid(),
-                ctx.data().tid(),
-            );
+            trace!("execution resumed",);
         } else {
-            trace!(
-                "wasi[{}:{}]::stack_checkpoint - restored - (ret={})",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                ret_val
-            );
+            trace!("restored - (ret={})", ret_val);
         }
         return Ok(Errno::Success);
     }
-    trace!(
-        "wasi[{}:{}]::stack_checkpoint - capturing",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
+    trace!("capturing",);
 
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
@@ -54,10 +42,7 @@ pub fn stack_checkpoint<M: MemorySize>(
     // it correctly hashes
     if let Err(err) = snapshot_ptr.write(&memory, StackSnapshot { hash: 0, user: 0 }) {
         warn!(
-            "wasi[{}:{}]::failed to write to stack snapshot return variable - {}",
-            env.pid(),
-            env.tid(),
-            err
+            %err
         );
     }
 
@@ -108,10 +93,10 @@ pub fn stack_checkpoint<M: MemorySize>(
         let mut memory_stack_corrected = memory_stack.clone();
         {
             let snapshot_offset: u64 = snapshot_offset.into();
-            if snapshot_offset >= env.stack_start && snapshot_offset < env.stack_base {
+            if snapshot_offset >= env.stack_start && snapshot_offset < env.stack_end {
                 // Make sure its within the "active" part of the memory stack
                 // (note - the area being written to might not go past the memory pointer)
-                let offset = env.stack_base - snapshot_offset;
+                let offset = env.stack_end - snapshot_offset;
                 if (offset as usize) < memory_stack_corrected.len() {
                     let left = memory_stack_corrected.len() - (offset as usize);
                     let end = offset + (val_bytes.len().min(left) as u64);
@@ -133,26 +118,15 @@ pub fn stack_checkpoint<M: MemorySize>(
             &rewind_stack[..],
             &store_data[..],
         );
-        trace!(
-            "wasi[{}:{}]::stack_recorded (hash={}, user={})",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            snapshot.hash,
-            snapshot.user
-        );
+        trace!(hash = snapshot.hash, user = snapshot.user);
 
         // Save the stack snapshot
         let env = ctx.data();
         let memory = env.memory_view(&ctx);
         let snapshot_ptr: WasmPtr<StackSnapshot, M> = WasmPtr::new(snapshot_offset);
         if let Err(err) = snapshot_ptr.write(&memory, snapshot) {
-            warn!(
-                "wasi[{}:{}]::failed checkpoint - could not save stack snapshot - {}",
-                env.pid(),
-                env.tid(),
-                err
-            );
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+            warn!("could not save stack snapshot - {}", err);
+            return OnCalledAction::Trap(Box::new(WasiError::Exit(mem_error_to_wasi(err).into())));
         }
 
         // Rewind the stack and carry on
@@ -167,10 +141,10 @@ pub fn stack_checkpoint<M: MemorySize>(
             Errno::Success => OnCalledAction::InvokeAgain,
             err => {
                 warn!(
-                    "wasi[{}:{}]::failed checkpoint - could not rewind the stack - errno={}",
-                    pid, tid, err
+                    "failed checkpoint - could not rewind the stack - errno={}",
+                    err
                 );
-                OnCalledAction::Trap(Box::new(WasiError::Exit(err as u32)))
+                OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
             }
         }
     })

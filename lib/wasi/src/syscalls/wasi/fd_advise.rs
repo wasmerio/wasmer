@@ -12,6 +12,7 @@ use crate::syscalls::*;
 ///     The length from the offset to which the advice applies
 /// - `__wasi_advice_t advice`
 ///     The advice to give
+#[instrument(level = "debug", skip_all, fields(fd, offset, len, advice), ret)]
 pub fn fd_advise(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -19,13 +20,6 @@ pub fn fd_advise(
     len: Filesize,
     advice: Advice,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::fd_advise: fd={}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd
-    );
-
     // this is used for our own benefit, so just returning success is a valid
     // implementation for now
     Errno::Success

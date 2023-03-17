@@ -1,3 +1,4 @@
+use crate::random_file::RandomFile;
 use crate::{FileSystem, VirtualFile};
 use std::path::{Path, PathBuf};
 use tracing::*;
@@ -82,6 +83,10 @@ impl RootFileSystemBuilder {
                 .new_open_options_ext()
                 .insert_device_file(PathBuf::from("/dev/zero"), Box::new(ZeroFile::default()));
             let _ = tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from("/dev/urandom"),
+                Box::new(RandomFile::default()),
+            );
+            let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/stdin"),
                 self.stdin
                     .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDIN))),
@@ -133,7 +138,7 @@ mod test_builder {
             .unwrap();
         assert_eq!(dev_zero.write(b"hello").await.unwrap(), 5);
         let mut buf = vec![1; 10];
-        dev_zero.read(&mut buf[..]).await.unwrap();
+        dev_zero.read_exact(&mut buf[..]).await.unwrap();
         assert_eq!(buf, vec![0; 10]);
         assert!(dev_zero.get_special_fd().is_none());
 

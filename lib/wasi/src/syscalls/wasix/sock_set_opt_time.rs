@@ -9,20 +9,13 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be set
 /// * `time` - Value to set the time to
+#[instrument(level = "debug", skip_all, fields(sock, opt, time = field::Empty), ret)]
 pub fn sock_set_opt_time<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     time: WasmPtr<OptionTimestamp, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_set_opt_time(fd={}, ty={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        opt
-    );
-
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let time = wasi_try_mem!(time.read(&memory));
@@ -31,6 +24,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
         OptionTag::Some => Some(Duration::from_nanos(time.u)),
         _ => return Errno::Inval,
     };
+    Span::current().record("time", &format!("{:?}", time));
 
     let ty = match opt {
         Sockoption::RecvTimeout => TimeType::ReadTimeout,

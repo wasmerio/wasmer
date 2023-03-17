@@ -1,43 +1,22 @@
-#[cfg(feature = "wat")]
-use crate::js::error::WasmError;
-use crate::js::error::{CompileError, InstantiationError};
-#[cfg(feature = "js-serializable-module")]
-use crate::js::error::{DeserializeError, SerializeError};
-use crate::js::externals::Extern;
-use crate::js::imports::Imports;
-use crate::js::store::AsStoreMut;
-use crate::js::types::{AsJs, ExportType, ImportType};
-use crate::js::vm::VMInstance;
-use crate::js::RuntimeError;
-use crate::AsStoreRef;
+use crate::errors::InstantiationError;
+use crate::errors::RuntimeError;
+use crate::imports::Imports;
+use crate::js::AsJs;
+use crate::store::AsStoreMut;
+use crate::vm::VMInstance;
+use crate::Extern;
 use crate::IntoBytes;
-#[cfg(feature = "js-serializable-module")]
+use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
-use std::fmt;
-use std::io;
 use std::path::Path;
-#[cfg(feature = "std")]
-use thiserror::Error;
 #[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
-    ExportsIterator, ExternType, FunctionType, GlobalType, ImportsIterator, MemoryType, Mutability,
-    Pages, TableType, Type,
+    CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
+    ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
 };
-
-/// IO Error on a Module Compilation
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(Error))]
-pub enum IoCompileError {
-    /// An IO error
-    #[cfg_attr(feature = "std", error(transparent))]
-    Io(io::Error),
-    /// A compilation error
-    #[cfg_attr(feature = "std", error(transparent))]
-    Compile(CompileError),
-}
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types
 /// corresponding to each extern (import and export).
@@ -48,7 +27,7 @@ pub enum IoCompileError {
 ///
 /// Until that happens, we annotate the module with the expected
 /// types so we can built on top of them at runtime.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ModuleTypeHints {
     /// The type hints for the imported types
     pub imports: Vec<ExternType>,
@@ -56,15 +35,7 @@ pub struct ModuleTypeHints {
     pub exports: Vec<ExternType>,
 }
 
-/// A WebAssembly Module contains stateless WebAssembly
-/// code that has already been compiled and can be instantiated
-/// multiple times.
-///
-/// ## Cloning a module
-///
-/// Cloning a module is cheap: it does a shallow copy of the compiled
-/// contents rather than a deep copy.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Module {
     module: WebAssembly::Module,
     name: Option<String>,
@@ -74,123 +45,46 @@ pub struct Module {
     raw_bytes: Option<Bytes>,
 }
 
+// Module implements `structuredClone` in js, so it's safe it to make it Send.
+// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
+// ```js
+// const module = new WebAssembly.Module(new Uint8Array([
+//   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00
+// ]));
+// structuredClone(module)
+// ```
+unsafe impl Send for Module {}
+unsafe impl Sync for Module {}
+
+impl From<Module> for JsValue {
+    fn from(val: Module) -> Self {
+        Self::from(val.module)
+    }
+}
+
 impl Module {
-    /// Creates a new WebAssembly Module given the configuration
-    /// in the store.
-    ///
-    /// If the provided bytes are not WebAssembly-like (start with `b"\0asm"`),
-    /// and the "wat" feature is enabled for this crate, this function will try to
-    /// to convert the bytes assuming they correspond to the WebAssembly text
-    /// format.
-    ///
-    /// ## Security
-    ///
-    /// Before the code is compiled, it will be validated using the store
-    /// features.
-    ///
-    /// ## Errors
-    ///
-    /// Creating a WebAssembly module from bytecode can result in a
-    /// [`CompileError`] since this operation requires to transorm the Wasm
-    /// bytecode into code the machine can easily execute.
-    ///
-    /// ## Example
-    ///
-    /// Reading from a WAT file.
-    ///
-    /// ```
-    /// use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = "(module)";
-    /// let module = Module::new(&store, wat)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// Reading from bytes:
-    ///
-    /// ```
-    /// use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// // The following is the same as:
-    /// // (module
-    /// //   (type $t0 (func (param i32) (result i32)))
-    /// //   (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
-    /// //     get_local $p0
-    /// //     i32.const 1
-    /// //     i32.add)
-    /// // )
-    /// let bytes: Vec<u8> = vec![
-    ///     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,
-    ///     0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,
-    ///     0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,
-    ///     0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,
-    ///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
-    ///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
-    /// ];
-    /// let module = Module::new(&store, bytes)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[allow(unreachable_code)]
-    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
-        let bytes = bytes.as_ref();
-        #[cfg(feature = "wat")]
-        if bytes.starts_with(b"\0asm") == false {
-            let parsed_bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-                CompileError::Wasm(WasmError::Generic(format!(
-                    "Error when converting wat: {}",
-                    e
-                )))
-            })?;
-            return Self::from_binary(_store, parsed_bytes.as_ref());
-        }
-        Self::from_binary(_store, bytes)
+    pub(crate) fn from_binary(
+        _engine: &impl AsEngineRef,
+        binary: &[u8],
+    ) -> Result<Self, CompileError> {
+        unsafe { Self::from_binary_unchecked(_engine, binary) }
     }
 
-    /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(
-        _store: &impl AsStoreRef,
-        _file: impl AsRef<Path>,
-    ) -> Result<Self, IoCompileError> {
-        unimplemented!();
-    }
-
-    /// Creates a new WebAssembly module from a binary.
-    ///
-    /// Opposed to [`Module::new`], this function is not compatible with
-    /// the WebAssembly text format (if the "wat" feature is enabled for
-    /// this crate).
-    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
-        // Self::validate(store, binary)?;
-        unsafe { Self::from_binary_unchecked(_store, binary) }
-    }
-
-    /// Creates a new WebAssembly module skipping any kind of validation.
-    ///
-    /// # Safety
-    ///
-    /// This is safe since the JS vm should be safe already.
-    /// We maintain the `unsafe` to preserve the same API as Wasmer
-    pub unsafe fn from_binary_unchecked(
-        store: &impl AsStoreRef,
+    pub(crate) unsafe fn from_binary_unchecked(
+        _engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
-
-        Self::from_js_module(store, module, binary)
+        Ok(Self::from_js_module(module, binary))
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
     ///
-    pub unsafe fn from_js_module(
-        _store: &impl AsStoreRef,
+    pub(crate) unsafe fn from_js_module(
         module: WebAssembly::Module,
         binary: impl IntoBytes,
-    ) -> Result<Self, CompileError> {
+    ) -> Self {
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
@@ -216,22 +110,16 @@ impl Module {
         #[cfg(not(feature = "wasm-types-polyfill"))]
         let (type_hints, name) = (None, None);
 
-        Ok(Self {
+        Self {
             module,
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary.into_bytes()),
-        })
+        }
     }
 
-    /// Validates a new WebAssembly Module given the configuration
-    /// in the Store.
-    ///
-    /// This validation is normally pretty fast and checks the enabled
-    /// WebAssembly features in the Store Engine to assure deterministic
-    /// validation of the Module.
-    pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
+    pub fn validate(_engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
         let js_bytes = unsafe { Uint8Array::view(binary) };
         // Annotation is here to prevent spurious IDE warnings.
         #[allow(unused_unsafe)]
@@ -328,98 +216,43 @@ impl Module {
             .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
     }
 
-    /// Returns the name of the current module.
-    ///
-    /// This name is normally set in the WebAssembly bytecode by some
-    /// compilers, but can be also overwritten using the [`Module::set_name`] method.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = "(module $moduleName)";
-    /// let module = Module::new(&store, wat)?;
-    /// assert_eq!(module.name(), Some("moduleName"));
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|s| s.as_ref())
-        // self.artifact.module_ref().name.as_deref()
     }
 
-    /// Serializes a module into a binary representation that the `Engine`
-    /// can later process via [`Module::deserialize`].
-    ///
-    #[cfg(feature = "js-serializable-module")]
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        self.raw_bytes.clone().ok_or(SerializeError::Generic(
+        #[cfg(feature = "js-serializable-module")]
+        return self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
-        ))
+        ));
+
+        #[cfg(not(feature = "js-serializable-module"))]
+        return Err(SerializeError::Generic(
+            "You need to enable the `js-serializable-module` feature flag to serialize a `Module`"
+                .to_string(),
+        ));
     }
 
-    /// Deserializes a serialized Module binary into a `Module`.
-    ///
-    /// This is safe since deserialization under `js` is essentially same as reconstructing `Module`.
-    /// We maintain the `unsafe` to preserve the same API as Wasmer
-    #[cfg(feature = "js-serializable-module")]
     pub unsafe fn deserialize(
-        _store: &impl AsStoreRef,
-        bytes: impl IntoBytes,
+        _engine: &impl AsEngineRef,
+        _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        let bytes = bytes.into_bytes();
-        Self::new(_store, bytes).map_err(|e| DeserializeError::Compiler(e))
+        #[cfg(feature = "js-serializable-module")]
+        return Self::from_binary(_engine, &_bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
+
+        #[cfg(not(feature = "js-serializable-module"))]
+        return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
     }
 
-    #[cfg(feature = "compiler")]
-    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
-    ///
-    /// # Safety
-    ///
-    /// Please check [`Module::deserialize`].
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # let mut store = Store::default();
-    /// # fn main() -> anyhow::Result<()> {
-    /// let module = Module::deserialize_from_file(&store, path)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub unsafe fn deserialize_from_file(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = std::fs::read(path.as_ref())?;
-        Ok(Self::new(store, bytes).map_err(|e| DeserializeError::Compiler(e)))
+        let bytes = std::fs::read(path.as_ref())?;
+        Self::deserialize(engine, bytes)
     }
 
-    /// Sets the name of the current module.
-    /// This is normally useful for stacktraces and debugging.
-    ///
-    /// It will return `true` if the module name was changed successfully,
-    /// and return `false` otherwise (in case the module is already
-    /// instantiated).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = "(module)";
-    /// let mut module = Module::new(&store, wat)?;
-    /// assert_eq!(module.name(), None);
-    /// module.set_name("foo");
-    /// assert_eq!(module.name(), Some("foo"));
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn set_name(&mut self, name: &str) -> bool {
         self.name = Some(name.to_string());
         true
@@ -436,30 +269,6 @@ impl Module {
         //     .unwrap_or(false)
     }
 
-    /// Returns an iterator over the imported types in the Module.
-    ///
-    /// The order of the imports is guaranteed to be the same as in the
-    /// WebAssembly bytecode.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = r#"(module
-    ///     (import "host" "func1" (func))
-    ///     (import "host" "func2" (func))
-    /// )"#;
-    /// let module = Module::new(&store, wat)?;
-    /// for import in module.imports() {
-    ///     assert_eq!(import.module(), "host");
-    ///     assert!(import.name().contains("func"));
-    ///     import.ty();
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         let imports = WebAssembly::Module::imports(&self.module);
         let iter = imports
@@ -522,6 +331,7 @@ impl Module {
     ///
     /// Returns an error if the hints doesn't match the shape of
     /// import or export types of the module.
+    #[allow(unused)]
     pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
         let exports = WebAssembly::Module::exports(&self.module);
         // Check exports
@@ -553,29 +363,6 @@ impl Module {
         Ok(())
     }
 
-    /// Returns an iterator over the exported types in the Module.
-    ///
-    /// The order of the exports is guaranteed to be the same as in the
-    /// WebAssembly bytecode.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let wat = r#"(module
-    ///     (func (export "namedfunc"))
-    ///     (memory (export "namedmemory") 1)
-    /// )"#;
-    /// let module = Module::new(&store, wat)?;
-    /// for export_ in module.exports() {
-    ///     assert!(export_.name().contains("named"));
-    ///     export_.ty();
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
         let exports = WebAssembly::Module::exports(&self.module);
         let iter = exports
@@ -633,13 +420,6 @@ impl Module {
         ExportsIterator::new(iter, exports.length() as usize)
     }
 
-    /// Get the custom sections of the module given a `name`.
-    ///
-    /// # Important
-    ///
-    /// Following the WebAssembly spec, one name can have multiple
-    /// custom sections. That's why an iterator (rather than one element)
-    /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         WebAssembly::Module::custom_sections(&self.module, name)
             .iter()
@@ -650,13 +430,9 @@ impl Module {
             .collect::<Vec<Box<[u8]>>>()
             .into_iter()
     }
-}
 
-impl fmt::Debug for Module {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Module")
-            .field("name", &self.name())
-            .finish()
+    pub(crate) fn info(&self) -> &ModuleInfo {
+        unimplemented!()
     }
 }
 
@@ -669,5 +445,17 @@ impl From<WebAssembly::Module> for Module {
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: None,
         }
+    }
+}
+
+impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
+    fn from((module, binary): (WebAssembly::Module, T)) -> crate::module::Module {
+        unsafe { crate::module::Module(Module::from_js_module(module, binary.into_bytes())) }
+    }
+}
+
+impl From<WebAssembly::Module> for crate::module::Module {
+    fn from(module: WebAssembly::Module) -> crate::module::Module {
+        crate::module::Module(module.into())
     }
 }

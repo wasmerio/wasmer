@@ -18,6 +18,7 @@ use crate::syscalls::*;
 ///     String containing the new file path
 /// - `u32 old_path_len`
 ///     Length of the `new_path` string
+#[instrument(level = "debug", skip_all, fields(old_fd, new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = false), ret)]
 pub fn path_link<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,
@@ -28,20 +29,17 @@ pub fn path_link<M: MemorySize>(
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
 ) -> Errno {
-    debug!("wasi[{}:{}]::path_link", ctx.data().pid(), ctx.data().tid());
     if old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
-        debug!("  - will follow symlinks when opening path");
+        Span::current().record("follow_symlinks", true);
     }
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let mut old_path_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
+    Span::current().record("old_path", old_path_str.as_str());
     let mut new_path_str = unsafe { get_input_str!(&memory, new_path, new_path_len) };
+    Span::current().record("new_path", new_path_str.as_str());
     let source_fd = wasi_try!(state.fs.get_fd(old_fd));
     let target_fd = wasi_try!(state.fs.get_fd(new_fd));
-    debug!(
-        "=> source_fd: {}, source_path: {}, target_fd: {}, target_path: {}",
-        old_fd, &old_path_str, new_fd, new_path_str
-    );
 
     if !source_fd.rights.contains(Rights::PATH_LINK_SOURCE)
         || !target_fd.rights.contains(Rights::PATH_LINK_TARGET)

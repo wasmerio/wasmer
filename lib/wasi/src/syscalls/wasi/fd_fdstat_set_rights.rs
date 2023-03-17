@@ -10,17 +10,13 @@ use crate::syscalls::*;
 ///     The rights to apply to `fd`
 /// - `Rights fs_rights_inheriting`
 ///     The inheriting rights to apply to `fd`
+#[instrument(level = "debug", skip_all, fields(fd), ret)]
 pub fn fd_fdstat_set_rights(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::fd_fdstat_set_rights",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let mut fd_map = state.fs.fd_map.write().unwrap();

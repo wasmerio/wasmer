@@ -15,6 +15,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `__wasi_file_stat_t *buf`
 ///     The location where the metadata will be stored
+#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty), ret)]
 pub fn path_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -27,24 +28,12 @@ pub fn path_filestat_get<M: MemorySize>(
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
-    trace!(
-        "wasi[{}:{}]::path_filestat_get (fd={}, path={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        path_string
-    );
 
     // Convert relative paths into absolute paths
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
-        trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            path_string
-        );
     }
+    tracing::trace!(path = path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
         &memory,
@@ -87,8 +76,6 @@ pub(crate) fn path_filestat_get_internal(
     if !root_dir.rights.contains(Rights::PATH_FILESTAT_GET) {
         return Err(Errno::Access);
     }
-    debug!("=> base_fd: {}, path: {}", fd, path_string);
-
     let file_inode = state.fs.get_inode_at_path(
         inodes,
         fd,

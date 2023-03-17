@@ -15,6 +15,7 @@ use crate::syscalls::*;
 ///     Number of bytes written
 /// Errors:
 ///
+#[instrument(level = "trace", skip_all, fields(fd, nwritten = field::Empty), ret, err)]
 pub fn fd_write<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -22,13 +23,6 @@ pub fn fd_write<M: MemorySize>(
     iovs_len: M::Offset,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    trace!(
-        "wasi[{}:{}]::fd_write: fd={}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-    );
-
     let offset = {
         let mut env = ctx.data();
         let state = env.state.clone();
@@ -55,6 +49,7 @@ pub fn fd_write<M: MemorySize>(
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
+#[instrument(level = "trace", skip_all, fields(fd, offset, nwritten = field::Empty), ret, err)]
 pub fn fd_pwrite<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -63,14 +58,6 @@ pub fn fd_pwrite<M: MemorySize>(
     offset: Filesize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    trace!(
-        "wasi[{}:{}]::fd_pwrite (fd={}, offset={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        offset,
-    );
-
     fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nwritten, false)
 }
 
@@ -148,8 +135,11 @@ fn fd_write_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    written +=
-                                        handle.write(buf.as_ref()).await.map_err(map_io_err)?;
+                                    written += match handle.write(buf.as_ref()).await {
+                                        Ok(s) => s,
+                                        Err(_) if written > 0 => break,
+                                        Err(err) => return Err(map_io_err(err)),
+                                    };
                                 }
                                 Ok(written)
                             }
@@ -260,6 +250,7 @@ fn fd_write_internal<M: MemorySize>(
         }
         bytes_written
     };
+    Span::current().record("nwritten", bytes_written);
 
     let memory = env.memory_view(&ctx);
     let nwritten_ref = nwritten.deref(&memory);

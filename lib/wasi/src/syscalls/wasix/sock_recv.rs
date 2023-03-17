@@ -16,6 +16,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
+#[instrument(level = "trace", skip_all, fields(sock, nread = field::Empty), ret, err)]
 pub fn sock_recv<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -41,30 +42,21 @@ pub fn sock_recv<M: MemorySize>(
     let mut ret = Errno::Success;
     let bytes_read = match res {
         Ok(bytes_read) => {
-            debug!(
+            trace!(
                 %bytes_read,
-                "wasi[{}:{}]::sock_recv (fd={}, flags={:?})",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                sock,
-                ri_flags
             );
             bytes_read
         }
         Err(err) => {
             let socket_err = err.name();
-            debug!(
+            trace!(
                 %socket_err,
-                "wasi[{}:{}]::sock_recv (fd={}, flags={:?})",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                sock,
-                ri_flags
             );
             ret = err;
             0
         }
     };
+    Span::current().record("nread", bytes_read);
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -121,9 +113,14 @@ fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
-                total_read += socket
+                total_read += match socket
                     .recv(env.tasks().deref(), buf.as_mut_uninit(), fd.flags)
-                    .await?;
+                    .await
+                {
+                    Ok(s) => s,
+                    Err(_) if total_read > 0 => break,
+                    Err(err) => return Err(err),
+                };
             }
             Ok(total_read)
         },

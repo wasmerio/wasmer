@@ -13,18 +13,12 @@ use crate::syscalls::*;
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
+#[instrument(level = "debug", skip_all, fields(sock, backlog), ret)]
 pub fn sock_listen<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     backlog: M::Offset,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_listen (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     let env = ctx.data();
     let net = env.net().clone();
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));

@@ -1,0 +1,53 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 487
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_bash_pipe",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "stdin": [
+      101,
+      99,
+      104,
+      111,
+      32,
+      104,
+      101,
+      108,
+      108,
+      111,
+      32,
+      124,
+      32,
+      99,
+      97,
+      116,
+      10,
+      101,
+      120,
+      105,
+      116,
+      10
+    ],
+    "debug_output": false,
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hello\n",
+      "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

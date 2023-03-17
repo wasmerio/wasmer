@@ -16,7 +16,6 @@
 #![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 
 mod builder;
-mod capabilities;
 mod env;
 mod func_env;
 mod types;
@@ -33,13 +32,12 @@ use std::{
 use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer::Store;
-use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
+use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
-    capabilities::Capabilities,
     env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
     func_env::WasiFunctionEnv,
     types::*,
@@ -63,8 +61,8 @@ impl FileOpener for WasiStateOpener {
     fn open(
         &self,
         path: &Path,
-        conf: &wasmer_vfs::OpenOptionsConfig,
-    ) -> wasmer_vfs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         let mut new_options = self.root_fs.new_open_options();
         new_options.options(conf.clone());
         new_options.open(path)
@@ -182,7 +180,7 @@ impl WasiState {
     pub(crate) fn fs_read_dir<P: AsRef<Path>>(
         &self,
         path: P,
-    ) -> Result<wasmer_vfs::ReadDir, Errno> {
+    ) -> Result<virtual_fs::ReadDir, Errno> {
         self.fs
             .root_fs
             .read_dir(path.as_ref())

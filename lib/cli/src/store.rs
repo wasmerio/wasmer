@@ -83,8 +83,11 @@ impl CompilerOptions {
 
     /// Get the enaled Wasm features.
     pub fn get_features(&self, mut features: Features) -> Result<Features> {
-        if self.features.threads || self.features.all {
+        if !self.features.disable_threads || self.features.all {
             features.threads(true);
+        }
+        if self.features.disable_threads && !self.features.all {
+            features.threads(false);
         }
         if self.features.multi_value || self.features.all {
             features.multi_value(true);
@@ -107,6 +110,13 @@ impl CompilerOptions {
         let engine = self.get_engine(target, compiler_config)?;
         let store = Store::new(engine);
         Ok((store, compiler_type))
+    }
+
+    /// Gets the Engine for a given target.
+    pub fn get_engine_for_target(&self, target: Target) -> Result<(Engine, CompilerType)> {
+        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let engine = self.get_engine(target, compiler_config)?;
+        Ok((engine, compiler_type))
     }
 
     #[cfg(feature = "compiler")]

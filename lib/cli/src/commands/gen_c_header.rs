@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use wasmer_compiler::Artifact;
 use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 use wasmer_types::{CpuFeature, MetadataHeader, Triple};
-use webc::WebC;
+use webc::v1::WebC;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer gen-c-header` subcommand
@@ -57,7 +57,7 @@ impl GenCHeader {
             None => crate::commands::PrefixMapCompilation::hash_for_bytes(&file),
         };
 
-        if let Ok(pirita) = WebC::parse(&file, &webc::ParseOptions::default()) {
+        if let Ok(pirita) = WebC::parse(&file, &webc::v1::ParseOptions::default()) {
             let atoms = pirita
                 .manifest
                 .atoms
@@ -91,12 +91,11 @@ impl GenCHeader {
             &target_triple,
             &self.cpu_features,
         );
-        let (store, _) = CompilerOptions::default().get_store_for_target(target.clone())?;
-        let engine = store.engine();
+        let (engine, _) = CompilerOptions::default().get_engine_for_target(target.clone())?;
         let engine_inner = engine.inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
-        let tunables = store.tunables();
+        let tunables = engine.tunables();
         let (metadata, _, _) = Artifact::metadata(
             compiler,
             &file,

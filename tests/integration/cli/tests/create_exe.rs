@@ -571,7 +571,7 @@ fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
     let wasm_path = operating_dir.as_path().join(create_exe_test_wasm_path());
 
     let object_path = operating_dir.as_path().join("wasm");
-    let output: Vec<u8> = WasmerCreateObj {
+    let _output: Vec<u8> = WasmerCreateObj {
         current_dir: operating_dir,
         wasm_path,
         output_object_path: object_path.clone(),

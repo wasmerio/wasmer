@@ -85,7 +85,7 @@ impl CreateObj {
         println!("Target: {}", target.triple());
 
         let atoms = if let Ok(pirita) =
-            webc::WebCMmap::parse(input_path.clone(), &webc::ParseOptions::default())
+            webc::v1::WebCMmap::parse(input_path.clone(), &webc::v1::ParseOptions::default())
         {
             crate::commands::create_exe::compile_pirita_into_directory(
                 &pirita,

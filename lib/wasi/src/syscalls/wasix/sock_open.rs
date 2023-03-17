@@ -20,6 +20,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The file descriptor of the socket that has been opened.
+#[instrument(level = "debug", skip_all, fields(af, ty, pt, sock = field::Empty), ret)]
 pub fn sock_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     af: Addressfamily,
@@ -27,8 +28,6 @@ pub fn sock_open<M: MemorySize>(
     pt: SockProto,
     ro_sock: WasmPtr<WasiFd, M>,
 ) -> Errno {
-    debug!("wasi[{}:{}]::sock_open", ctx.data().pid(), ctx.data().tid());
-
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
@@ -61,6 +60,7 @@ pub fn sock_open<M: MemorySize>(
     let fd = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
+    Span::current().record("sock", fd);
 
     wasi_try_mem!(ro_sock.write(&memory, fd));
 

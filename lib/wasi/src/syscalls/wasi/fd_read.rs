@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, task::Waker};
 
-use wasmer_vfs::{AsyncReadExt, ReadBuf};
+use virtual_fs::{AsyncReadExt, ReadBuf};
 
 use super::*;
 use crate::{fs::NotificationInner, syscalls::*};
@@ -18,6 +18,7 @@ use crate::{fs::NotificationInner, syscalls::*};
 /// - `u32 *nread`
 ///     Number of bytes read
 ///
+#[instrument(level = "trace", skip_all, fields(fd, nread = field::Empty), ret, err)]
 pub fn fd_read<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -41,29 +42,13 @@ pub fn fd_read<M: MemorySize>(
 
     let mut ret = Errno::Success;
     let bytes_read = match res {
-        Ok(bytes_read) => {
-            trace!(
-                %fd,
-                %bytes_read,
-                "wasi[{}:{}]::fd_read",
-                ctx.data().pid(),
-                ctx.data().tid(),
-            );
-            bytes_read
-        }
+        Ok(bytes_read) => bytes_read,
         Err(err) => {
-            let read_err = err.name();
-            trace!(
-                %fd,
-                %read_err,
-                "wasi[{}:{}]::fd_read",
-                ctx.data().pid(),
-                ctx.data().tid(),
-            );
             ret = err;
             0
         }
     };
+    Span::current().record("nread", bytes_read);
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
 
@@ -93,6 +78,7 @@ pub fn fd_read<M: MemorySize>(
 /// Output:
 /// - `size_t nread`
 ///     The number of bytes read
+#[instrument(level = "trace", skip_all, fields(fd, offset, nread), ret, err)]
 pub fn fd_pread<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -108,33 +94,13 @@ pub fn fd_pread<M: MemorySize>(
 
     let mut ret = Errno::Success;
     let bytes_read = match res {
-        Ok(bytes_read) => {
-            trace!(
-                %fd,
-                %offset,
-                %bytes_read,
-                "wasi[{}:{}]::fd_pread - {:?}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                ret
-            );
-            bytes_read
-        }
+        Ok(bytes_read) => bytes_read,
         Err(err) => {
-            let read_err = err.name();
-            trace!(
-                %fd,
-                %offset,
-                %read_err,
-                "wasi[{}:{}]::fd_pread - {:?}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                ret
-            );
             ret = err;
             0
         }
     };
+    Span::current().record("nread", bytes_read);
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
 
@@ -213,7 +179,7 @@ fn fd_read_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?;
 
                                     total_read +=
-                                        handle.read(buf.as_mut()).await.map_err(|err| {
+                                        match handle.read(buf.as_mut()).await.map_err(|err| {
                                             let err = From::<std::io::Error>::from(err);
                                             match err {
                                                 Errno::Again => {
@@ -225,7 +191,11 @@ fn fd_read_internal<M: MemorySize>(
                                                 }
                                                 a => a,
                                             }
-                                        })?;
+                                        }) {
+                                            Ok(s) => s,
+                                            Err(_) if total_read > 0 => break,
+                                            Err(err) => return Err(err),
+                                        };
                                 }
                                 Ok(total_read)
                             }
@@ -310,7 +280,7 @@ fn fd_read_internal<M: MemorySize>(
                                     .map_err(mem_error_to_wasi)?;
 
                                 total_read +=
-                                    wasmer_vfs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
+                                    virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
                             }
                             Ok(total_read)
                         }

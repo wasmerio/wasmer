@@ -1,8 +1,5 @@
 //! The Wasmer Engine.
 
-#[cfg(feature = "translator")]
-#[cfg(not(target_arch = "wasm32"))]
-mod engineref;
 mod error;
 #[cfg(not(target_arch = "wasm32"))]
 mod resolver;
@@ -28,9 +25,6 @@ mod link;
 #[cfg(not(target_arch = "wasm32"))]
 mod unwind;
 
-#[cfg(feature = "translator")]
-#[cfg(not(target_arch = "wasm32"))]
-pub use self::engineref::{AsEngineRef, EngineRef};
 pub use self::error::{InstantiationError, LinkError};
 #[cfg(not(target_arch = "wasm32"))]
 pub use self::resolver::resolve_imports;

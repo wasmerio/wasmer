@@ -1,6 +1,6 @@
 [package]
-name = "wasmer-vfs"
-version = "3.2.0-alpha.1"
+name = "virtual-fs"
+version = "0.1.0"
 description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
@@ -11,8 +11,7 @@ libc = { version = "^0.2", default-features = false, optional = true }
 thiserror = "1"
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
-serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
-webc = { version = "4.0.0", optional = true }
+webc = { version = "5.0.0-rc.5", optional = true }
 slab = { version = "0.4" }
 derivative = "2.2.0"
 anyhow = { version = "1.0.66", optional = true }
@@ -23,8 +22,17 @@ filetime = { version = "0.2.18", optional = true }
 bytes = "1"
 tokio = { version = "1", features = [ "io-util", "sync", "macros" ], default_features = false }
 pin-project-lite = "0.2.9"
+indexmap = "1.9.2"
+
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+getrandom = { version = "0.2" }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = [ "js" ] }
 
 [dev-dependencies]
+pretty_assertions = "1.3.0"
+tempfile = "3.4.0"
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]
@@ -32,8 +40,5 @@ default = ["host-fs", "webc-fs", "static-fs"]
 host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std"]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
-enable-serde = [
-    "serde",
-    "typetag"
-]
+enable-serde = ["typetag"]
 no-time = []
