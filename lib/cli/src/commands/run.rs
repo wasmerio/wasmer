@@ -177,6 +177,7 @@ impl RunWithPathBuf {
         });
 
         if let Err(err) = invoke_res {
+            #[cfg(feature = "coredump")]
             if let Some(coredump_path) = self.coredump_on_trap.as_ref() {
                 let source_name = self.path.to_str().unwrap_or("unknown");
                 if let Err(coredump_err) = generate_coredump(&err, source_name, coredump_path) {
@@ -188,6 +189,9 @@ impl RunWithPathBuf {
             } else {
                 Err(err)
             }
+
+            #[cfg(not(feature = "coredump"))]
+            Err(err)
         } else {
             invoke_res
         }
@@ -432,6 +436,7 @@ impl RunWithPathBuf {
 
     fn get_store_module(&self) -> Result<(Store, Module)> {
         let contents = std::fs::read(self.path.clone())?;
+        #[cfg(not(feature = "jsc"))]
         if wasmer_compiler::Artifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::EngineBuilder::headless();
             let store = Store::new(engine);
@@ -665,6 +670,7 @@ impl Run {
     }
 }
 
+#[cfg(feature = "coredump")]
 fn generate_coredump(
     err: &anyhow::Error,
     source_name: &str,

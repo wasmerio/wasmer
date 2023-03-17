@@ -94,7 +94,7 @@ rpassword = "7.2.0"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
 object = "0.30.0"
-wasm-coredump-builder = { version = "0.1.11" }
+wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ], optional = true }
 
@@ -120,6 +120,9 @@ default = [
     "static-artifact-create",
     "webc_runner",
     "tracing",
+]
+coredump = [
+    "wasm-coredump-builder",
 ]
 sys = [
     "wasmer-compiler",
