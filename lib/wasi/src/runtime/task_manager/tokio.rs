@@ -19,6 +19,8 @@ use super::{SpawnType, VirtualTaskManager};
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager(Handle);
 
+/// This holds the currently set shared runtime which should be accessed via
+/// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()
 static GLOBAL_RUNTIME: Mutex<Option<(Arc<tokio::runtime::Runtime>, Handle)>> = Mutex::new(None);
 
 impl TokioTaskManager {
@@ -30,8 +32,11 @@ impl TokioTaskManager {
         self.0.clone()
     }
 
-    /// Allows the system to set the shared runtime that will be used by other
-    /// processes within Wasmer
+    /// Allows the caller to set the shared runtime that will be used by other
+    /// async processes within Wasmer
+    ///
+    /// The shared runtime must be set before it is used and can only be set once
+    /// otherwise this call will fail with an error.
     pub fn set_shared(rt: Arc<tokio::runtime::Runtime>) -> Result<(), anyhow::Error> {
         let mut guard = GLOBAL_RUNTIME.lock().unwrap();
         if guard.is_some() {
