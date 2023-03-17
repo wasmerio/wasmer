@@ -59,7 +59,7 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
+    pub fn duplicate(&mut self) -> Result<VMMemory, wasmer_types::MemoryError> {
         let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
 
         let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);

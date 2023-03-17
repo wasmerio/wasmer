@@ -711,11 +711,11 @@ impl WasiEnvBuilder {
 
             let mut package_name = package.package_name.to_string();
             module_cache.add_webc(package_name.as_ref(), package.clone());
-            for version_part in package.version.split(".") {
-                if !package_name.contains("@") {
-                    package_name.push_str("@")
+            for version_part in package.version.split('.') {
+                if !package_name.contains('@') {
+                    package_name.push('@');
                 } else {
-                    package_name.push_str(".")
+                    package_name.push('.');
                 }
                 package_name.push_str(version_part);
                 module_cache.add_webc(package_name.as_ref(), package.clone());
