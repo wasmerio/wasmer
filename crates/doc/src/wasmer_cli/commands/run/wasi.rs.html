@@ -216,6 +216,23 @@
 <span id="214">214</span>
 <span id="215">215</span>
 <span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils</span>::{<span class="ident">parse_envvar</span>, <span class="ident">parse_mapdir</span>};
 <span class="kw">use</span> <span class="ident">anyhow::Result</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
@@ -225,6 +242,8 @@
 <span class="kw">use</span> <span class="ident">virtual_fs::FileSystem</span>;
 <span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">DeviceFile</span>, <span class="ident">PassthruFileSystem</span>, <span class="ident">RootFileSystemBuilder</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasix::os::tty_sys::SysTty</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasix::os::TtyBridge</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasix::types::__WASI_STDIN_FILENO</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasix</span>::{
     <span class="ident">default_fs_backing</span>, <span class="ident">get_wasi_versions</span>, <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>,
@@ -260,6 +279,11 @@
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;use&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;USE&quot;</span>)]</span>
     <span class="ident">uses</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
+    <span class="doccomment">/// List of webc packages that are explicitely included for execution</span>
+    <span class="doccomment">/// Note: these packages will be used instead of those in the registry</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;include-webc&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;WEBC&quot;</span>)]</span>
+    <span class="ident">include_webcs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+
     <span class="doccomment">/// List of injected atoms</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;map-command&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;MAPCMD&quot;</span>)]</span>
     <span class="ident">map_commands</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
@@ -277,6 +301,10 @@
     <span class="doccomment">/// Allows WASI modules to open TCP and UDP connections, create sockets, ...</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;net&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">networking</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Disables the TTY bridge</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;no-tty&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">no_tty</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Allow instances to send http requests.</span>
     <span class="doccomment">///</span>
@@ -344,6 +372,12 @@
             <span class="ident">rt</span>.<span class="ident">set_networking_implementation</span>(<span class="ident">virtual_net::UnsupportedVirtualNetworking::default</span>());
         }
 
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">no_tty</span> {
+            <span class="kw">let</span> <span class="ident">tty</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">SysTty::default</span>());
+            <span class="ident">tty</span>.<span class="ident">reset</span>();
+            <span class="ident">rt</span>.<span class="ident">set_tty</span>(<span class="ident">tty</span>)
+        }
+
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">engine</span>().<span class="ident">clone</span>();
         <span class="ident">rt</span>.<span class="ident">set_engine</span>(<span class="prelude-val">Some</span>(<span class="ident">engine</span>));
 
@@ -352,6 +386,7 @@
             .<span class="ident">args</span>(<span class="ident">args</span>)
             .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">env_vars</span>.<span class="ident">clone</span>())
             .<span class="ident">uses</span>(<span class="self">self</span>.<span class="ident">uses</span>.<span class="ident">clone</span>())
+            .<span class="ident">include_webcs</span>(<span class="self">self</span>.<span class="ident">include_webcs</span>.<span class="ident">clone</span>())
             .<span class="ident">map_commands</span>(<span class="ident">map_commands</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">wasmer_wasix::is_wasix_module</span>(<span class="ident">module</span>) {
@@ -402,14 +437,13 @@
     }
 
     <span class="doccomment">/// Helper function for handling the result of a Wasi _start function.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handle_result</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handle_result</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="number">0</span>),
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">err</span>: <span class="ident">anyhow::Error</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">err</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">WasiError</span><span class="op">&gt;</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">exit_code</span>)) =&gt; {
-                        <span class="comment">// We should exit with the provided exit code</span>
-                        <span class="ident">std::process::exit</span>(<span class="ident">exit_code</span> <span class="kw">as</span> <span class="kw">_</span>);
+                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">exit_code</span>.<span class="ident">raw</span>());
                     }
                     <span class="prelude-val">Ok</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">into</span>(),
                     <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">into</span>(),

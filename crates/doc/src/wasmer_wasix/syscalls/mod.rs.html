@@ -1062,6 +1062,8 @@
 <span id="1060">1060</span>
 <span id="1061">1061</span>
 <span id="1062">1062</span>
+<span id="1063">1063</span>
+<span id="1064">1064</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -1754,7 +1756,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_stack_base</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">u64</span> {
-    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">stack_base</span>
+    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">stack_end</span>
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_stack_start</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">u64</span> {
@@ -1833,7 +1835,7 @@
     };
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">stack_offset</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_base</span> <span class="op">-</span> <span class="ident">stack_pointer</span>;
+    <span class="kw">let</span> <span class="ident">stack_offset</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_end</span> <span class="op">-</span> <span class="ident">stack_pointer</span>;
 
     <span class="comment">// Read the memory stack into a vector</span>
     <span class="kw">let</span> <span class="ident">memory_stack_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(
@@ -1902,7 +1904,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
         <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
             <span class="macro">warn!</span>(<span class="string">&quot;unable to get the memory stack - {}&quot;</span>, <span class="ident">err</span>);
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">ExitCode</span>));
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Unknown</span>.<span class="ident">into</span>()));
         }
     };
 
@@ -1916,7 +1918,7 @@
         <span class="ident">unwind_pointer</span> <span class="op">+</span> (<span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">__wasi_asyncify_t</span><span class="op">&lt;</span><span class="ident">M::Offset</span><span class="op">&gt;</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u64</span>);
     <span class="kw">let</span> <span class="ident">unwind_data</span> <span class="op">=</span> <span class="ident">__wasi_asyncify_t</span>::<span class="op">&lt;</span><span class="ident">M::Offset</span><span class="op">&gt;</span> {
         <span class="ident">start</span>: <span class="macro">wasi_try_ok!</span>(<span class="ident">unwind_data_start</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)),
-        <span class="ident">end</span>: <span class="macro">wasi_try_ok!</span>(<span class="ident">env</span>.<span class="ident">stack_base</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)),
+        <span class="ident">end</span>: <span class="macro">wasi_try_ok!</span>(<span class="ident">env</span>.<span class="ident">stack_end</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)),
     };
     <span class="kw">let</span> <span class="ident">unwind_data_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_asyncify_t</span><span class="op">&lt;</span><span class="ident">M::Offset</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span> <span class="op">=</span>
         <span class="ident">WasmPtr::new</span>(<span class="macro">wasi_try_ok!</span>(<span class="ident">unwind_pointer</span>
@@ -1931,20 +1933,22 @@
         <span class="ident">asyncify_start_unwind</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">asyncify_data</span>);
     } <span class="kw">else</span> {
         <span class="macro">warn!</span>(<span class="string">&quot;failed to unwind the stack because the asyncify_start_rewind export is missing&quot;</span>);
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasiError::Exit</span>(<span class="number">128</span>));
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Noexec</span>.<span class="ident">into</span>()));
     }
 
     <span class="comment">// Set callback that will be invoked when this process finishes</span>
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">unwind_stack_begin</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">unwind_data</span>.<span class="ident">start</span>.<span class="ident">into</span>();
-    <span class="kw">let</span> <span class="ident">unwind_space</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_base</span> <span class="op">-</span> <span class="ident">env</span>.<span class="ident">stack_start</span>;
+    <span class="kw">let</span> <span class="ident">total_stack_space</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_end</span> <span class="op">-</span> <span class="ident">env</span>.<span class="ident">stack_start</span>;
     <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">as_ref</span>();
     <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::unwinding (memory_stack_size={} unwind_space={})&quot;</span>,
+        <span class="ident">stack_end</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_end</span>,
+        <span class="ident">stack_start</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_start</span>,
+        <span class="string">&quot;wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})&quot;</span>,
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
         <span class="ident">memory_stack</span>.<span class="ident">len</span>(),
-        <span class="ident">unwind_space</span>
+        <span class="ident">total_stack_space</span>
     );
     <span class="ident">ctx</span>.<span class="ident">as_store_mut</span>().<span class="ident">on_called</span>(<span class="kw">move</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">store</span><span class="op">|</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ctx</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">into_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>);
@@ -2015,7 +2019,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
         <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
             <span class="macro">warn!</span>(<span class="string">&quot;snapshot restore failed - the store snapshot could not be deserialized&quot;</span>);
-            <span class="kw">return</span> <span class="ident">Errno::Fault</span>;
+            <span class="kw">return</span> <span class="ident">Errno::Unknown</span>;
         }
     };
     <span class="ident"><span class="kw">crate</span>::utils::store::restore_snapshot</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>.<span class="ident">as_store_mut</span>(), <span class="kw-2">&amp;</span><span class="ident">store_snapshot</span>);
@@ -2027,16 +2031,16 @@
     <span class="kw">let</span> <span class="ident">rewind_data_start</span> <span class="op">=</span>
         <span class="ident">rewind_pointer</span> <span class="op">+</span> (<span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">__wasi_asyncify_t</span><span class="op">&lt;</span><span class="ident">M::Offset</span><span class="op">&gt;</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u64</span>);
     <span class="kw">let</span> <span class="ident">rewind_data_end</span> <span class="op">=</span> <span class="ident">rewind_data_start</span> <span class="op">+</span> (<span class="ident">rewind_stack</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>);
-    <span class="kw">if</span> <span class="ident">rewind_data_end</span> <span class="op">&gt;</span> <span class="ident">env</span>.<span class="ident">stack_base</span> {
+    <span class="kw">if</span> <span class="ident">rewind_data_end</span> <span class="op">&gt;</span> <span class="ident">env</span>.<span class="ident">stack_end</span> {
         <span class="macro">warn!</span>(
             <span class="string">&quot;attempting to rewind a stack bigger than the allocated stack space ({} &gt; {})&quot;</span>,
-            <span class="ident">rewind_data_end</span>, <span class="ident">env</span>.<span class="ident">stack_base</span>
+            <span class="ident">rewind_data_end</span>, <span class="ident">env</span>.<span class="ident">stack_end</span>
         );
         <span class="kw">return</span> <span class="ident">Errno::Overflow</span>;
     }
     <span class="kw">let</span> <span class="ident">rewind_data</span> <span class="op">=</span> <span class="ident">__wasi_asyncify_t</span>::<span class="op">&lt;</span><span class="ident">M::Offset</span><span class="op">&gt;</span> {
         <span class="ident">start</span>: <span class="macro">wasi_try!</span>(<span class="ident">rewind_data_end</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)),
-        <span class="ident">end</span>: <span class="macro">wasi_try!</span>(<span class="ident">env</span>.<span class="ident">stack_base</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)),
+        <span class="ident">end</span>: <span class="macro">wasi_try!</span>(<span class="ident">env</span>.<span class="ident">stack_end</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)),
     };
     <span class="kw">let</span> <span class="ident">rewind_data_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_asyncify_t</span><span class="op">&lt;</span><span class="ident">M::Offset</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span> <span class="op">=</span>
         <span class="ident">WasmPtr::new</span>(<span class="macro">wasi_try!</span>(<span class="ident">rewind_pointer</span>
@@ -2061,7 +2065,7 @@
         <span class="ident">asyncify_start_rewind</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">asyncify_data</span>);
     } <span class="kw">else</span> {
         <span class="macro">warn!</span>(<span class="string">&quot;failed to rewind the stack because the asyncify_start_rewind export is missing&quot;</span>);
-        <span class="kw">return</span> <span class="ident">Errno::Fault</span>;
+        <span class="kw">return</span> <span class="ident">Errno::Noexec</span>;
     }
 
     <span class="ident">Errno::Success</span>
@@ -2118,10 +2122,10 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">conv_bus_err_to_exit_code</span>(<span class="ident">err</span>: <span class="ident">VirtualBusError</span>) -&gt; <span class="ident">ExitCode</span> {
     <span class="kw">match</span> <span class="ident">err</span> {
-        <span class="ident">VirtualBusError::AccessDenied</span> =&gt; <span class="ident">Errno::Access</span> <span class="kw">as</span> <span class="ident">ExitCode</span>,
-        <span class="ident">VirtualBusError::NotFound</span> =&gt; <span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">ExitCode</span>,
-        <span class="ident">VirtualBusError::Unsupported</span> =&gt; <span class="ident">Errno::Noexec</span> <span class="kw">as</span> <span class="ident">ExitCode</span>,
-        <span class="kw">_</span> =&gt; <span class="ident">Errno::Inval</span> <span class="kw">as</span> <span class="ident">ExitCode</span>,
+        <span class="ident">VirtualBusError::AccessDenied</span> =&gt; <span class="ident">Errno::Access</span>.<span class="ident">into</span>(),
+        <span class="ident">VirtualBusError::NotFound</span> =&gt; <span class="ident">Errno::Noent</span>.<span class="ident">into</span>(),
+        <span class="ident">VirtualBusError::Unsupported</span> =&gt; <span class="ident">Errno::Noexec</span>.<span class="ident">into</span>(),
+        <span class="kw">_</span> =&gt; <span class="ident">Errno::Inval</span>.<span class="ident">into</span>(),
     }
 }
 </code></pre></div>

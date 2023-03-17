@@ -128,6 +128,8 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Pages</span>, <span class="ident">ValueType</span>};
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -200,11 +202,13 @@
         <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>
+        <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>
+        <span class="op">+</span> <span class="ident">TryInto</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">Add</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Offset</span><span class="op">&gt;</span>
         <span class="op">+</span> <span class="ident">Sum</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Offset</span><span class="op">&gt;</span>

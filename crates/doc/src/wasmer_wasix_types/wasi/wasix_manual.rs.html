@@ -177,13 +177,159 @@
 <span id="175">175</span>
 <span id="176">176</span>
 <span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
 
-<span class="kw">use</span> <span class="ident">wasmer::ValueType</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">MemorySize</span>, <span class="ident">ValueType</span>};
 
 <span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">Errno</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventtype</span>, <span class="ident">Snapshot0SubscriptionClock</span>, <span class="ident">SubscriptionClock</span>,
-    <span class="ident">SubscriptionFsReadwrite</span>, <span class="ident">Userdata</span>,
+    <span class="ident">Errno</span>, <span class="ident">ErrnoSignal</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventtype</span>, <span class="ident">JoinStatusType</span>, <span class="ident">Signal</span>,
+    <span class="ident">Snapshot0SubscriptionClock</span>, <span class="ident">SubscriptionClock</span>, <span class="ident">SubscriptionFsReadwrite</span>, <span class="ident">Userdata</span>,
 };
 
 <span class="doccomment">/// Thread local key</span>
@@ -353,6 +499,152 @@
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">StackSnapshot</span> {
     <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+}
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
+<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">JoinStatusUnion</span> {
+    <span class="kw">pub</span> <span class="ident">nothing</span>: <span class="ident">u8</span>,
+    <span class="kw">pub</span> <span class="ident">exit_normal</span>: <span class="ident">Errno</span>,
+    <span class="kw">pub</span> <span class="ident">exit_signal</span>: <span class="ident">ErrnoSignal</span>,
+    <span class="kw">pub</span> <span class="ident">stopped</span>: <span class="ident">Signal</span>,
+}
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">JoinStatus</span> {
+    <span class="kw">pub</span> <span class="ident">tag</span>: <span class="ident">JoinStatusType</span>,
+    <span class="kw">pub</span> <span class="ident">u</span>: <span class="ident">JoinStatusUnion</span>,
+}
+<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">JoinStatus</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">binding</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;JoinStatus&quot;</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">binding</span>.<span class="ident">field</span>(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">tag</span>);
+        <span class="ident">f</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">tag</span> {
+                <span class="ident">JoinStatusType::Nothing</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;pid&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">nothing</span>),
+                <span class="ident">JoinStatusType::ExitNormal</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;exit_normal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">exit_normal</span>),
+                <span class="ident">JoinStatusType::ExitSignal</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;exit_signal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">exit_signal</span>),
+                <span class="ident">JoinStatusType::Stopped</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;stopped&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">stopped</span>),
+            }
+        };
+        <span class="ident">f</span>.<span class="ident">finish</span>()
+    }
+}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">JoinStatus</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+}
+
+<span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; Represents the thread start object&quot;</span>]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="ident">stack_start</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">tls_base</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">start_funct</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">start_args</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">reserved</span>: [<span class="ident">M::Offset</span>; <span class="number">10</span>],
+    <span class="kw">pub</span> <span class="ident">stack_size</span>: <span class="ident">M::Offset</span>,
+    <span class="kw">pub</span> <span class="ident">guard_size</span>: <span class="ident">M::Offset</span>,
+}
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;ThreadStart&quot;</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;stack_start&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stack_start</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;tls-base&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">tls_base</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;start-funct&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">start_funct</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;start-args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">start_args</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;stack_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stack_size</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;guard_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">guard_size</span>)
+            .<span class="ident">finish</span>()
+    }
+}
+
+<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span> {
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExitCode</span> {
+    <span class="ident">Errno</span>(<span class="ident">Errno</span>),
+    <span class="ident">Other</span>(<span class="ident">i32</span>),
+}
+<span class="kw">impl</span> <span class="ident">ExitCode</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">i32</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">ExitCode::Errno</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">to_native</span>(),
+            <span class="ident">ExitCode::Other</span>(<span class="ident">code</span>) =&gt; <span class="kw-2">*</span><span class="ident">code</span>,
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_success</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">raw</span>() <span class="op">==</span> <span class="number">0</span>
+    }
+}
+<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">ExitCode::Errno</span>(<span class="ident">a</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExitCode::{}&quot;</span>, <span class="ident">a</span>),
+            <span class="ident">ExitCode::Other</span>(<span class="ident">a</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExitCode::{}&quot;</span>, <span class="ident">a</span>),
+        }
+    }
+}
+<span class="kw">impl</span> <span class="ident">core::fmt::Display</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
+        <span class="ident">core::fmt::Debug::fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>)
+    }
+}
+
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">wasmer::FromToNativeWasmType</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
+    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
+
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
+        <span class="self">self</span>.<span class="ident">into</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">n</span>.<span class="ident">into</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">wasmer::AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
+        <span class="bool-val">false</span>
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Errno</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">Errno</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::Errno</span>(<span class="ident">val</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="ident">Errno::from_native</span>(<span class="ident">val</span>);
+        <span class="kw">match</span> <span class="ident">err</span> {
+            <span class="ident">Errno::Unknown</span> =&gt; <span class="ident"><span class="self">Self</span>::Other</span>(<span class="ident">val</span>),
+            <span class="ident">err</span> =&gt; <span class="ident"><span class="self">Self</span>::Errno</span>(<span class="ident">err</span>),
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Errno</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">code</span>: <span class="ident">ExitCode</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">match</span> <span class="ident">code</span> {
+            <span class="ident">ExitCode::Errno</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>,
+            <span class="ident">ExitCode::Other</span>(<span class="ident">code</span>) =&gt; <span class="ident">Errno::from_native</span>(<span class="ident">code</span>),
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">i32</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">ExitCode</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">match</span> <span class="ident">val</span> {
+            <span class="ident">ExitCode::Errno</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">to_native</span>(),
+            <span class="ident">ExitCode::Other</span>(<span class="ident">code</span>) =&gt; <span class="ident">code</span>,
+        }
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

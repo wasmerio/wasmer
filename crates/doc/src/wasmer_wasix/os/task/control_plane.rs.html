@@ -232,6 +232,12 @@
 <span id="230">230</span>
 <span id="231">231</span>
 <span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">sync</span>::{
@@ -367,6 +373,12 @@
         <span class="ident">proc</span>.<span class="ident">set_pid</span>(<span class="ident">pid</span>);
         <span class="ident">mutable</span>.<span class="ident">processes</span>.<span class="ident">insert</span>(<span class="ident">pid</span>, <span class="ident">proc</span>.<span class="ident">clone</span>());
         <span class="prelude-val">Ok</span>(<span class="ident">proc</span>)
+    }
+
+    <span class="doccomment">/// Generates a new process ID</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiProcessId</span>, <span class="ident">ControlPlaneError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mutable</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">mutable</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+        <span class="ident">mutable</span>.<span class="ident">next_process_id</span>()
     }
 
     <span class="doccomment">/// Gets a reference to a running process</span>

@@ -137,7 +137,7 @@
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SpawnType</span> {
     <span class="ident">Create</span>,
     <span class="ident">CreateWithType</span>(<span class="ident">SpawnedMemory</span>),
-    <span class="ident">NewThread</span>(<span class="ident">VMMemory</span>),
+    <span class="ident">NewThread</span>(<span class="ident">VMMemory</span>, <span class="ident">MemoryType</span>),
 }
 
 <span class="doccomment">/// An implementation of task management</span>

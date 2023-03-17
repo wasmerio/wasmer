@@ -211,7 +211,7 @@
                 <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, <span class="ident">path</span>).<span class="ident">as_bytes</span>(),
             );
 
-            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">u32</span>)));
+            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span>.<span class="ident">into</span>())));
             <span class="prelude-val">Ok</span>(<span class="ident">res</span>.<span class="ident">handle</span>())
         }
     }

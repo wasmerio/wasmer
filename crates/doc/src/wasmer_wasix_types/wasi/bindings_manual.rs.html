@@ -361,6 +361,23 @@
 <span id="359">359</span>
 <span id="360">360</span>
 <span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasi::bindings</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl</span> <span class="ident">Rights</span> {
@@ -720,6 +737,23 @@
             <span class="ident">ErrorKind::Unsupported</span> =&gt; <span class="ident">Errno::Notsup</span>,
             <span class="kw">_</span> =&gt; <span class="ident">Errno::Io</span>,
         }
+    }
+}
+
+<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen</span>
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">wasmer::FromToNativeWasmType</span> <span class="kw">for</span> <span class="ident">JoinFlags</span> {
+    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
+
+    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
+        <span class="self">self</span>.<span class="ident">bits</span>() <span class="kw">as</span> <span class="ident">i32</span>
+    }
+    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::from_bits_truncate</span>(<span class="ident">n</span> <span class="kw">as</span> <span class="ident">u32</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">wasmer::AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
+        <span class="comment">// TODO: find correct implementation</span>
+        <span class="bool-val">false</span>
     }
 }
 </code></pre></div>

@@ -258,10 +258,6 @@
 <span id="256">256</span>
 <span id="257">257</span>
 <span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">virtual_fs::Pipe</span>;
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
@@ -377,6 +373,7 @@
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">BusErrno::Denied</span>));
         }
     };
+    <span class="kw">let</span> <span class="ident">child_process</span> <span class="op">=</span> <span class="ident">child_env</span>.<span class="ident">process</span>.<span class="ident">clone</span>();
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">args</span>) <span class="op">=</span> <span class="ident">args</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">child_state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">fork</span>();
         <span class="ident">child_state</span>.<span class="ident">args</span> <span class="op">=</span> <span class="ident">args</span>;
@@ -505,16 +502,11 @@
 
     <span class="comment">// Add the process to the environment state</span>
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">children</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">children</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="ident">children</span>.<span class="ident">push</span>(<span class="ident">child_pid</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+        <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">push</span>(<span class="ident">child_process</span>);
     }
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-
-    {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">write</span>();
-        <span class="ident">guard</span>.<span class="ident">bus_processes</span>.<span class="ident">insert</span>(<span class="ident">child_pid</span>, <span class="ident">process</span>);
-    };
 
     <span class="kw">let</span> <span class="ident">handles</span> <span class="op">=</span> <span class="ident">BusHandles</span> {
         <span class="ident">bid</span>: <span class="ident">child_pid</span>.<span class="ident">raw</span>(),

@@ -90,6 +90,10 @@
 <span id="88">88</span>
 <span id="89">89</span>
 <span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::access</span>::{<span class="ident">RefCow</span>, <span class="ident">SliceCow</span>, <span class="ident">WasmRefAccess</span>, <span class="ident">WasmSliceAccess</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>};
 <span class="kw">use</span> <span class="ident">std::mem</span>;
@@ -109,9 +113,11 @@
             .<span class="ident">ok_or</span>(<span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">slice</span>.<span class="ident">buffer</span>.<span class="number">0</span>.<span class="ident">len</span> <span class="kw">as</span> <span class="ident">u64</span> {
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing&quot;</span>)]</span>
-            <span class="macro">warn!</span>(
+            <span class="macro">tracing::warn!</span>(
                 <span class="string">&quot;attempted to read ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
-                <span class="ident">total_len</span>, <span class="ident">end</span>, <span class="ident">slice</span>.<span class="ident">buffer</span>.<span class="number">0</span>.<span class="ident">len</span>
+                <span class="ident">total_len</span>,
+                <span class="ident">end</span>,
+                <span class="ident">slice</span>.<span class="ident">buffer</span>.<span class="number">0</span>.<span class="ident">len</span>
             );
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryAccessError::HeapOutOfBounds</span>);
         }
@@ -139,9 +145,11 @@
             .<span class="ident">ok_or</span>(<span class="ident">MemoryAccessError::Overflow</span>)<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">end</span> <span class="op">&gt;</span> <span class="ident">ptr</span>.<span class="ident">buffer</span>.<span class="number">0</span>.<span class="ident">len</span> <span class="kw">as</span> <span class="ident">u64</span> {
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing&quot;</span>)]</span>
-            <span class="macro">warn!</span>(
+            <span class="macro">tracing::warn!</span>(
                 <span class="string">&quot;attempted to read ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
-                <span class="ident">total_len</span>, <span class="ident">end</span>, <span class="ident">ptr</span>.<span class="ident">buffer</span>.<span class="number">0</span>.<span class="ident">len</span>
+                <span class="ident">total_len</span>,
+                <span class="ident">end</span>,
+                <span class="ident">ptr</span>.<span class="ident">buffer</span>.<span class="number">0</span>.<span class="ident">len</span>
             );
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryAccessError::HeapOutOfBounds</span>);
         }

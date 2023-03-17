@@ -399,6 +399,13 @@
 <span id="397">397</span>
 <span id="398">398</span>
 <span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>;
@@ -796,6 +803,13 @@
         <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Module&quot;</span>)
             .<span class="ident">field</span>(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>())
             .<span class="ident">finish</span>()
+    }
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_bindgen::JsValue</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">Module</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident">wasm_bindgen::JsValue::from</span>(<span class="ident">value</span>.<span class="number">0</span>)
     }
 }
 </code></pre></div>

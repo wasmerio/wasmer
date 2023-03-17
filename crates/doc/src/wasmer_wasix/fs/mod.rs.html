@@ -1880,6 +1880,14 @@
 <span id="1878">1878</span>
 <span id="1879">1879</span>
 <span id="1880">1880</span>
+<span id="1881">1881</span>
+<span id="1882">1882</span>
+<span id="1883">1883</span>
+<span id="1884">1884</span>
+<span id="1885">1885</span>
+<span id="1886">1886</span>
+<span id="1887">1887</span>
+<span id="1888">1888</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">fd</span>;
 <span class="kw">mod</span> <span class="ident">inode_guard</span>;
 <span class="kw">mod</span> <span class="ident">notification</span>;
@@ -1974,6 +1982,9 @@
             <span class="ident">ino</span>: <span class="self">self</span>.<span class="ident">ino</span>,
             <span class="ident">inner</span>: <span class="ident">Arc::downgrade</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>),
         }
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ref_cnt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
+        <span class="ident">Arc::strong_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>)
     }
 }
 <span class="kw">impl</span> <span class="ident">std::ops::Deref</span> <span class="kw">for</span> <span class="ident">InodeGuard</span> {
@@ -2251,6 +2262,10 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::await_holding_lock</span>)]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">close_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// TODO: this should close all uniquely owned files instead of just flushing.</span>
+
+        <span class="comment">// Make sure the STDOUT and STDERR are explicitely flushed</span>
+        <span class="self">self</span>.<span class="ident">flush</span>(<span class="ident">__WASI_STDOUT_FILENO</span>).<span class="kw">await</span>.<span class="ident">ok</span>();
+        <span class="self">self</span>.<span class="ident">flush</span>(<span class="ident">__WASI_STDERR_FILENO</span>).<span class="kw">await</span>.<span class="ident">ok</span>();
 
         <span class="kw">let</span> <span class="ident">to_close</span> <span class="op">=</span> {
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">map</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">fd_map</span>.<span class="ident">read</span>() {
@@ -3622,7 +3637,8 @@
         <span class="kw">match</span> <span class="ident">pfd</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">fd_ref</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fd_ref</span>.<span class="ident">inode</span>.<span class="ident">ino</span>().<span class="ident">as_u64</span>();
-                <span class="macro">trace!</span>(<span class="op">%</span><span class="ident">fd</span>, <span class="op">%</span><span class="ident">inode</span>, <span class="string">&quot;closing file descriptor&quot;</span>);
+                <span class="kw">let</span> <span class="ident">ref_cnt</span> <span class="op">=</span> <span class="ident">fd_ref</span>.<span class="ident">inode</span>.<span class="ident">ref_cnt</span>();
+                <span class="macro">trace!</span>(<span class="op">%</span><span class="ident">fd</span>, <span class="op">%</span><span class="ident">inode</span>, <span class="op">%</span><span class="ident">ref_cnt</span>, <span class="string">&quot;closing file descriptor&quot;</span>);
             }
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
                 <span class="macro">trace!</span>(<span class="op">%</span><span class="ident">fd</span>, <span class="string">&quot;closing file descriptor failed - {}&quot;</span>, <span class="ident">err</span>);

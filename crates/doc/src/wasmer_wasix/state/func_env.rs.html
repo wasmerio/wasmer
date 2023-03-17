@@ -295,7 +295,7 @@
         } <span class="kw">else</span> {
             <span class="ident">DEFAULT_STACK_SIZE</span>
         };
-        <span class="self">self</span>.<span class="ident">data_mut</span>(<span class="ident">store</span>).<span class="ident">stack_base</span> <span class="op">=</span> <span class="ident">stack_base</span>;
+        <span class="self">self</span>.<span class="ident">data_mut</span>(<span class="ident">store</span>).<span class="ident">stack_end</span> <span class="op">=</span> <span class="ident">stack_base</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -371,7 +371,7 @@
         }
 
         <span class="comment">// Cleans up all the open files (if this is the main thread)</span>
-        <span class="self">self</span>.<span class="ident">data</span>(<span class="ident">store</span>).<span class="ident">cleanup</span>(<span class="ident">exit_code</span>);
+        <span class="self">self</span>.<span class="ident">data</span>(<span class="ident">store</span>).<span class="ident">blocking_cleanup</span>(<span class="ident">exit_code</span>);
     }
 }
 </code></pre></div>

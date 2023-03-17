@@ -295,6 +295,7 @@
 <span id="293">293</span>
 <span id="294">294</span>
 <span id="295">295</span>
+<span id="296">296</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">os::task::OwnedTaskStatus</span>, <span class="ident">syscalls</span>::<span class="kw-2">*</span>};
 
@@ -304,7 +305,7 @@
 <span class="doccomment">/// Forks the current process into a new subprocess. If the function</span>
 <span class="doccomment">/// returns a zero then its the new subprocess. If it returns a positive</span>
 <span class="doccomment">/// number then its the current process and the $pid represents the child.</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">copy_memory</span>, <span class="ident">pid</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">pid</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">pid</span>().<span class="ident">raw</span>()), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_fork</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="kw-2">mut</span> <span class="ident">copy_memory</span>: <span class="ident">Bool</span>,
@@ -314,9 +315,16 @@
 
     <span class="comment">// If we were just restored then we need to return the value instead</span>
     <span class="kw">if</span> <span class="ident">handle_rewind</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>) {
+        <span class="kw">let</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+        <span class="kw">let</span> <span class="ident">ret_pid</span> <span class="op">=</span> <span class="ident">pid_ptr</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="ident">view</span>).<span class="ident">unwrap_or</span>(<span class="ident">u32::MAX</span>);
+        <span class="kw">if</span> <span class="ident">ret_pid</span> <span class="op">==</span> <span class="number">0</span> {
+            <span class="macro">trace!</span>(<span class="string">&quot;handle_rewind - i am child&quot;</span>);
+        } <span class="kw">else</span> {
+            <span class="macro">trace!</span>(<span class="string">&quot;handle_rewind - i am parent (child={})&quot;</span>, <span class="ident">ret_pid</span>);
+        }
         <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Success</span>);
     }
-    <span class="macro">trace!</span>(<span class="string">&quot;capturing&quot;</span>,);
+    <span class="macro">trace!</span>(<span class="op">%</span><span class="ident">copy_memory</span>, <span class="string">&quot;capturing&quot;</span>);
 
     <span class="comment">// Fork the environment which will copy all the open file handlers</span>
     <span class="comment">// and associate a new context but otherwise shares things like the</span>
@@ -331,12 +339,13 @@
         }
     };
     <span class="kw">let</span> <span class="ident">child_pid</span> <span class="op">=</span> <span class="ident">child_env</span>.<span class="ident">process</span>.<span class="ident">pid</span>();
+    <span class="kw">let</span> <span class="ident">child_finished</span> <span class="op">=</span> <span class="ident">child_env</span>.<span class="ident">process</span>.<span class="ident">finished</span>.<span class="ident">clone</span>();
 
     <span class="comment">// We write a zero to the PID before we capture the stack</span>
     <span class="comment">// so that this is what will be returned to the child</span>
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">children</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">children</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="ident">children</span>.<span class="ident">push</span>(<span class="ident">child_pid</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+        <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">push</span>(<span class="ident">child_env</span>.<span class="ident">process</span>.<span class="ident">clone</span>());
     }
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
@@ -385,7 +394,7 @@
                 <span class="ident">Errno::Success</span> =&gt; <span class="ident">OnCalledAction::InvokeAgain</span>,
                 <span class="ident">err</span> =&gt; {
                     <span class="macro">warn!</span>(<span class="string">&quot;failed - could not rewind the stack - errno={}&quot;</span>, <span class="ident">err</span>);
-                    <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">u32</span>)))
+                    <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">err</span>.<span class="ident">into</span>())))
                 }
             }
         });
@@ -412,6 +421,7 @@
 
         <span class="comment">// Fork the memory and copy the module (compiled code)</span>
         <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
+        <span class="kw">let</span> <span class="ident">fork_memory_ty</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>().<span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
         <span class="kw">let</span> <span class="ident">fork_memory</span>: <span class="ident">VMMemory</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">env</span>
             .<span class="ident">memory</span>()
             .<span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>)
@@ -423,7 +433,7 @@
                 <span class="macro">warn!</span>(
                     <span class="op">%</span><span class="ident">err</span>
                 );
-                <span class="kw">return</span> <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">u32</span>)));
+                <span class="kw">return</span> <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Memviolation</span>.<span class="ident">into</span>())));
             }
         };
         <span class="kw">let</span> <span class="ident">fork_module</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>().<span class="ident">instance</span>.<span class="ident">module</span>().<span class="ident">clone</span>();
@@ -438,7 +448,6 @@
 
         <span class="comment">// Spawn a new process with this current execution environment</span>
         <span class="kw">let</span> <span class="ident">signaler</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">child_env</span>.<span class="ident">process</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> (<span class="ident">exit_code_tx</span>, <span class="ident">exit_code_rx</span>) <span class="op">=</span> <span class="ident">tokio::sync::mpsc::unbounded_channel</span>();
         {
             <span class="kw">let</span> <span class="ident">store_data</span> <span class="op">=</span> <span class="ident">store_data</span>.<span class="ident">clone</span>();
             <span class="kw">let</span> <span class="ident">runtime</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">clone</span>();
@@ -448,7 +457,7 @@
             <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">fork_store</span>;
             <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">fork_module</span>;
 
-            <span class="kw">let</span> <span class="ident">spawn_type</span> <span class="op">=</span> <span class="ident">SpawnType::NewThread</span>(<span class="ident">fork_memory</span>);
+            <span class="kw">let</span> <span class="ident">spawn_type</span> <span class="op">=</span> <span class="ident">SpawnType::NewThread</span>(<span class="ident">fork_memory</span>, <span class="ident">fork_memory_ty</span>);
             <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">store</span>, <span class="ident">module</span>, <span class="ident">memory</span><span class="op">|</span> {
                 <span class="comment">// Create the WasiFunctionEnv</span>
                 <span class="kw">let</span> <span class="ident">pid</span> <span class="op">=</span> <span class="ident">child_env</span>.<span class="ident">pid</span>();
@@ -504,24 +513,27 @@
                 }
 
                 <span class="comment">// Invoke the start function</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Errno::Success</span>;
-                <span class="kw">if</span> <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">thread</span>.<span class="ident">is_main</span>() {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span>: <span class="ident">ExitCode</span> <span class="op">=</span> <span class="ident">Errno::Success</span>.<span class="ident">into</span>();
+                <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">thread</span>.<span class="ident">is_main</span>() {
                     <span class="macro">trace!</span>(<span class="string">&quot;re-invoking main&quot;</span>);
                     <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">inner</span>().<span class="ident">start</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>);
+                    <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>)
                 } <span class="kw">else</span> {
                     <span class="macro">trace!</span>(<span class="string">&quot;re-invoking thread_spawn&quot;</span>);
                     <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">inner</span>().<span class="ident">thread_spawn</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="number">0</span>, <span class="number">0</span>);
+                    <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="number">0</span>, <span class="number">0</span>)
+                };
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">err</span> {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">exit_code</span>)) <span class="op">=</span> <span class="ident">err</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">WasiError</span><span class="op">&gt;</span>() {
+                        <span class="ident">ret</span> <span class="op">=</span> <span class="ident">exit_code</span>;
+                    }
                 }
-                <span class="macro">trace!</span>(<span class="string">&quot;child exited (code = {})&quot;</span>, <span class="ident">ret</span>);
+                <span class="macro">trace!</span>(<span class="op">%</span><span class="ident">pid</span>, <span class="op">%</span><span class="ident">tid</span>, <span class="string">&quot;child exited (code = {})&quot;</span>, <span class="ident">ret</span>);
 
                 <span class="comment">// Clean up the environment</span>
-                <span class="ident">ctx</span>.<span class="ident">cleanup</span>((<span class="kw-2">&amp;mut</span> <span class="ident">store</span>), <span class="prelude-val">Some</span>(<span class="ident">ret</span> <span class="kw">as</span> <span class="ident">ExitCode</span>));
+                <span class="ident">ctx</span>.<span class="ident">cleanup</span>((<span class="kw-2">&amp;mut</span> <span class="ident">store</span>), <span class="prelude-val">Some</span>(<span class="ident">ret</span>));
 
                 <span class="comment">// Send the result</span>
-                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">exit_code_tx</span>.<span class="ident">send</span>(<span class="ident">ret</span> <span class="kw">as</span> <span class="ident">u32</span>);
-                <span class="ident">drop</span>(<span class="ident">exit_code_tx</span>);
                 <span class="ident">drop</span>(<span class="ident">child_handle</span>);
             };
 
@@ -537,29 +549,19 @@
                 .<span class="ident">ok</span>()
         };
 
-        <span class="comment">// Add the process to the environment state</span>
-
-        <span class="kw">let</span> <span class="ident">process</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::default</span>();
-
-        {
-            <span class="macro">trace!</span>(<span class="string">&quot;spawned sub-process (pid={})&quot;</span>, <span class="ident">child_pid</span>.<span class="ident">raw</span>());
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">write</span>();
-            <span class="ident">inner</span>.<span class="ident">bus_processes</span>.<span class="ident">insert</span>(<span class="ident">child_pid</span>, <span class="ident">process</span>.<span class="ident">handle</span>());
-        }
-
         <span class="comment">// If the return value offset is within the memory stack then we need</span>
         <span class="comment">// to update it here rather than in the real memory</span>
         <span class="kw">let</span> <span class="ident">pid_offset</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">pid_offset</span>.<span class="ident">into</span>();
-        <span class="kw">if</span> <span class="ident">pid_offset</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_start</span> <span class="op">&amp;&amp;</span> <span class="ident">pid_offset</span> <span class="op">&lt;</span> <span class="ident">env</span>.<span class="ident">stack_base</span> {
+        <span class="kw">if</span> <span class="ident">pid_offset</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_start</span> <span class="op">&amp;&amp;</span> <span class="ident">pid_offset</span> <span class="op">&lt;</span> <span class="ident">env</span>.<span class="ident">stack_end</span> {
             <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack</span>
-            <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_base</span> <span class="op">-</span> <span class="ident">pid_offset</span>;
+            <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">stack_end</span> <span class="op">-</span> <span class="ident">pid_offset</span>;
             <span class="kw">if</span> <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">memory_stack</span>.<span class="ident">len</span>() {
                 <span class="macro">warn!</span>(
                         <span class="string">&quot;failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
                         <span class="ident">offset</span>,
                         <span class="ident">memory_stack</span>.<span class="ident">len</span>()
                     );
-                <span class="kw">return</span> <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">u32</span>)));
+                <span class="kw">return</span> <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Memviolation</span>.<span class="ident">into</span>())));
             }
 
             <span class="comment">// Update the memory stack with the new PID</span>
@@ -572,7 +574,7 @@
             <span class="macro">warn!</span>(
                     <span class="string">&quot;failed - the return value (pid) is not being returned on the stack - which is not supported&quot;</span>
                 );
-            <span class="kw">return</span> <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">u32</span>)));
+            <span class="kw">return</span> <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Memviolation</span>.<span class="ident">into</span>())));
         }
 
         <span class="comment">// Rewind the stack and carry on</span>
@@ -585,7 +587,7 @@
             <span class="ident">Errno::Success</span> =&gt; <span class="ident">OnCalledAction::InvokeAgain</span>,
             <span class="ident">err</span> =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;failed - could not rewind the stack - errno={}&quot;</span>, <span class="ident">err</span>);
-                <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">u32</span>)))
+                <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">err</span>.<span class="ident">into</span>())))
             }
         }
     })

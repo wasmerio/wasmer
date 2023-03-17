@@ -846,6 +846,12 @@
 <span id="844">844</span>
 <span id="845">845</span>
 <span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
@@ -1094,6 +1100,12 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_exit_code</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="ident">WasiRuntimeError::Wasi</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">code</span>)) <span class="op">=</span> <span class="self">self</span> {
             <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">code</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">WasiRuntimeError::Runtime</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="self">self</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">code</span>)) <span class="op">=</span> <span class="ident">err</span>.<span class="ident">downcast_ref</span>() {
+                <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">code</span>)
+            } <span class="kw">else</span> {
+                <span class="prelude-val">None</span>
+            }
         } <span class="kw">else</span> {
             <span class="prelude-val">None</span>
         }
@@ -1671,10 +1683,10 @@
 
 <span class="kw">fn</span> <span class="ident">mem_error_to_wasi</span>(<span class="ident">err</span>: <span class="ident">MemoryAccessError</span>) -&gt; <span class="ident">Errno</span> {
     <span class="kw">match</span> <span class="ident">err</span> {
-        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">Errno::Fault</span>,
+        <span class="ident">MemoryAccessError::HeapOutOfBounds</span> =&gt; <span class="ident">Errno::Memviolation</span>,
         <span class="ident">MemoryAccessError::Overflow</span> =&gt; <span class="ident">Errno::Overflow</span>,
         <span class="ident">MemoryAccessError::NonUtf8String</span> =&gt; <span class="ident">Errno::Inval</span>,
-        <span class="kw">_</span> =&gt; <span class="ident">Errno::Inval</span>,
+        <span class="kw">_</span> =&gt; <span class="ident">Errno::Unknown</span>,
     }
 }
 

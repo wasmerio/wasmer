@@ -181,11 +181,6 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">pin::Pin</span>,
     <span class="ident">sync::Arc</span>,
@@ -258,13 +253,19 @@
 <span class="doccomment">/// A handle that allows awaiting the termination of a task, and retrieving its exit code.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OwnedTaskStatus</span> {
-    <span class="ident">watch</span>: <span class="ident">tokio::sync::watch::Sender</span><span class="op">&lt;</span><span class="ident">TaskStatus</span><span class="op">&gt;</span>,
+    <span class="ident">watch_tx</span>: <span class="ident">tokio::sync::watch::Sender</span><span class="op">&lt;</span><span class="ident">TaskStatus</span><span class="op">&gt;</span>,
+    <span class="comment">// Even through unused, without this receive there is a race condition</span>
+    <span class="comment">// where the previously sent values are lost.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+    <span class="ident">watch_rx</span>: <span class="ident">tokio::sync::watch::Receiver</span><span class="op">&lt;</span><span class="ident">TaskStatus</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">OwnedTaskStatus</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">status</span>: <span class="ident">TaskStatus</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">tokio::sync::watch::channel</span>(<span class="ident">status</span>);
         <span class="self">Self</span> {
-            <span class="ident">watch</span>: <span class="ident">tokio::sync::watch::channel</span>(<span class="ident">status</span>).<span class="number">0</span>,
+            <span class="ident">watch_tx</span>: <span class="ident">tx</span>,
+            <span class="ident">watch_rx</span>: <span class="ident">rx</span>,
         }
     }
 
@@ -274,7 +275,7 @@
 
     <span class="doccomment">/// Marks the task as finished.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_running</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">send_modify</span>(<span class="op">|</span><span class="ident">value</span><span class="op">|</span> {
+        <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">send_modify</span>(<span class="op">|</span><span class="ident">value</span><span class="op">|</span> {
             <span class="comment">// Only set to running if task was pending, otherwise the transition would be invalid.</span>
             <span class="kw">if</span> <span class="ident">value</span>.<span class="ident">is_pending</span>() {
                 <span class="kw-2">*</span><span class="ident">value</span> <span class="op">=</span> <span class="ident">TaskStatus::Running</span>;
@@ -283,12 +284,7 @@
     }
 
     <span class="doccomment">/// Marks the task as finished.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">set_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
-        <span class="comment">// Don&#39;t overwrite a previous finished state.</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">status</span>().<span class="ident">is_finished</span>() {
-            <span class="kw">return</span>;
-        }
-
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">set_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
         <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">code</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">code</span>),
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
@@ -299,36 +295,35 @@
                 }
             }
         };
-        <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">send</span>(<span class="ident">TaskStatus::Finished</span>(<span class="ident">inner</span>)).<span class="ident">ok</span>();
+        <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">send_modify</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">old</span><span class="op">|</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">old</span>.<span class="ident">is_finished</span>() {
+                <span class="kw-2">*</span><span class="ident">old</span> <span class="op">=</span> <span class="ident">TaskStatus::Finished</span>(<span class="ident">inner</span>);
+            }
+        });
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskStatus</span> {
-        <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">borrow</span>().<span class="ident">clone</span>()
+        <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">borrow</span>().<span class="ident">clone</span>()
     }
 
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">await_termination</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">subscribe</span>();
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">receiver</span>.<span class="ident">borrow_and_update</span>() {
-            <span class="ident">TaskStatus::Pending</span> <span class="op">|</span> <span class="ident">TaskStatus::Running</span> =&gt; {}
-            <span class="ident">TaskStatus::Finished</span>(<span class="ident">res</span>) =&gt; {
-                <span class="kw">return</span> <span class="ident">res</span>.<span class="ident">clone</span>();
-            }
-        }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">subscribe</span>();
         <span class="kw">loop</span> {
-            <span class="comment">// NOTE: unwrap() is fine, because &amp;self always holds on to the sender.</span>
-            <span class="ident">receiver</span>.<span class="ident">changed</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
-            <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">receiver</span>.<span class="ident">borrow_and_update</span>() {
+            <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">borrow_and_update</span>().<span class="ident">clone</span>();
+            <span class="kw">match</span> <span class="ident">status</span> {
                 <span class="ident">TaskStatus::Pending</span> <span class="op">|</span> <span class="ident">TaskStatus::Running</span> =&gt; {}
                 <span class="ident">TaskStatus::Finished</span>(<span class="ident">res</span>) =&gt; {
-                    <span class="kw">return</span> <span class="ident">res</span>.<span class="ident">clone</span>();
+                    <span class="kw">return</span> <span class="ident">res</span>;
                 }
             }
+            <span class="comment">// NOTE: unwrap() is fine, because &amp;self always holds on to the sender.</span>
+            <span class="ident">receiver</span>.<span class="ident">changed</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
         }
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskJoinHandle</span> {
         <span class="ident">TaskJoinHandle</span> {
-            <span class="ident">watch</span>: <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">subscribe</span>(),
+            <span class="ident">watch</span>: <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">subscribe</span>(),
         }
     }
 }
@@ -353,21 +348,16 @@
 
     <span class="doccomment">/// Wait until the task finishes.</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">wait_finished</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">borrow_and_update</span>() {
-            <span class="ident">TaskStatus::Pending</span> <span class="op">|</span> <span class="ident">TaskStatus::Running</span> =&gt; {}
-            <span class="ident">TaskStatus::Finished</span>(<span class="ident">res</span>) =&gt; {
-                <span class="kw">return</span> <span class="ident">res</span>.<span class="ident">clone</span>();
-            }
-        }
         <span class="kw">loop</span> {
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">changed</span>().<span class="kw">await</span>.<span class="ident">is_err</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">u32</span>);
-            }
-            <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">borrow_and_update</span>() {
+            <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">borrow_and_update</span>().<span class="ident">clone</span>();
+            <span class="kw">match</span> <span class="ident">status</span> {
                 <span class="ident">TaskStatus::Pending</span> <span class="op">|</span> <span class="ident">TaskStatus::Running</span> =&gt; {}
                 <span class="ident">TaskStatus::Finished</span>(<span class="ident">res</span>) =&gt; {
-                    <span class="kw">return</span> <span class="ident">res</span>.<span class="ident">clone</span>();
+                    <span class="kw">return</span> <span class="ident">res</span>;
                 }
+            }
+            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">changed</span>().<span class="kw">await</span>.<span class="ident">is_err</span>() {
+                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span>.<span class="ident">into</span>());
             }
         }
     }

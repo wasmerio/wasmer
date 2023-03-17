@@ -178,7 +178,13 @@
 <span id="178">178</span>
 <span id="179">179</span>
 <span id="180">180</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FileSystem</span>, <span class="ident">VirtualFile</span>};
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::random_file::RandomFile</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FileSystem</span>, <span class="ident">VirtualFile</span>};
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">tracing</span>::<span class="kw-2">*</span>;
 
@@ -261,6 +267,10 @@
             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>
                 .<span class="ident">new_open_options_ext</span>()
                 .<span class="ident">insert_device_file</span>(<span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/zero&quot;</span>), <span class="ident">Box::new</span>(<span class="ident">ZeroFile::default</span>()));
+            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
+                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/urandom&quot;</span>),
+                <span class="ident">Box::new</span>(<span class="ident">RandomFile::default</span>()),
+            );
             <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
                 <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/stdin&quot;</span>),
                 <span class="self">self</span>.<span class="ident">stdin</span>

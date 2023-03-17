@@ -454,6 +454,8 @@
 <span id="452">452</span>
 <span id="453">453</span>
 <span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
@@ -470,7 +472,6 @@
 
 <span class="kw">const</span> <span class="ident">TTY_MOBILE_PAUSE</span>: <span class="ident">u128</span> <span class="op">=</span> <span class="ident">std::time::Duration::from_millis</span>(<span class="number">200</span>).<span class="ident">as_nanos</span>();
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-termios&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">tty_sys</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -902,6 +903,9 @@
 
 <span class="doccomment">/// Provides access to a TTY.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">TtyBridge</span> {
+    <span class="doccomment">/// Resets the values</span>
+    <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>);
+
     <span class="doccomment">/// Retrieve the current TTY state.</span>
     <span class="kw">fn</span> <span class="ident">tty_get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiTtyState</span>;
 

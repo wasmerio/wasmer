@@ -253,25 +253,11 @@
 <span id="251">251</span>
 <span id="252">252</span>
 <span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use</span> <span class="ident">wasmer::vm::VMMemory</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi::ThreadStart</span>;
 
 <span class="doccomment">/// ### `thread_spawn()`</span>
 <span class="doccomment">/// Creates a new thread by spawning that shares the same</span>
@@ -294,10 +280,7 @@
 <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">user_data</span>, <span class="ident">stack_base</span>, <span class="ident">stack_start</span>, <span class="ident">reactor</span>, <span class="ident">tid</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">thread_spawn</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">user_data</span>: <span class="ident">u64</span>,
-    <span class="ident">stack_base</span>: <span class="ident">u64</span>,
-    <span class="ident">stack_start</span>: <span class="ident">u64</span>,
-    <span class="ident">reactor</span>: <span class="ident">Bool</span>,
+    <span class="ident">start_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">ret_tid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tid</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
     <span class="comment">// Now we use the environment and memory references</span>
@@ -306,12 +289,17 @@
     <span class="kw">let</span> <span class="ident">runtime</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">runtime</span>.<span class="ident">clone</span>();
     <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">tasks</span>().<span class="ident">clone</span>();
 
+    <span class="comment">// Read the properties about the stack which we will use for asyncify</span>
+    <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="macro">wasi_try_mem!</span>(<span class="ident">start_ptr</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>));
+    <span class="kw">let</span> <span class="ident">stack_start</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">start</span>.<span class="ident">stack_start</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>));
+    <span class="kw">let</span> <span class="ident">stack_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">start</span>.<span class="ident">stack_size</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>));
+    <span class="kw">let</span> <span class="ident">stack_base</span> <span class="op">=</span> <span class="ident">stack_start</span> <span class="op">-</span> <span class="ident">stack_size</span>;
+
     <span class="comment">// Create the handle that represents this thread</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">thread_handle</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">new_thread</span>() {
         <span class="prelude-val">Ok</span>(<span class="ident">h</span>) =&gt; <span class="ident">h</span>,
         <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
             <span class="macro">error!</span>(
-                <span class="op">%</span><span class="ident">reactor</span>,
                 <span class="op">%</span><span class="ident">stack_base</span>,
                 <span class="ident">caller_id</span> <span class="op">=</span> <span class="ident">current_caller_id</span>().<span class="ident">raw</span>(),
                 <span class="string">&quot;failed to create thread handle&quot;</span>,
@@ -325,6 +313,7 @@
 
     <span class="comment">// We need a copy of the process memory and a packaged store in order to</span>
     <span class="comment">// launch threads and reactors</span>
+    <span class="kw">let</span> <span class="ident">thread_memory_ty</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>().<span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">thread_memory</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>().<span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
         <span class="macro">error!</span>(<span class="string">&quot;failed - the memory could not be cloned&quot;</span>);
         <span class="ident">Errno::Notcapable</span>
@@ -348,7 +337,7 @@
             {
                 <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>);
                 <span class="ident">env</span>.<span class="ident">thread</span> <span class="op">=</span> <span class="ident">thread</span>.<span class="ident">clone</span>();
-                <span class="ident">env</span>.<span class="ident">stack_base</span> <span class="op">=</span> <span class="ident">stack_base</span>;
+                <span class="ident">env</span>.<span class="ident">stack_end</span> <span class="op">=</span> <span class="ident">stack_base</span>;
                 <span class="ident">env</span>.<span class="ident">stack_start</span> <span class="op">=</span> <span class="ident">stack_start</span>;
             }
 
@@ -377,26 +366,25 @@
     };
 
     <span class="comment">// This function calls into the module</span>
+    <span class="kw">let</span> <span class="ident">start_ptr_offset</span> <span class="op">=</span> <span class="ident">start_ptr</span>.<span class="ident">offset</span>();
     <span class="kw">let</span> <span class="ident">call_module</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">WasiFunctionEnv</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span><span class="op">|</span> {
         <span class="comment">// We either call the reactor callback or the thread spawn callback</span>
         <span class="comment">//trace!(&quot;threading: invoking thread callback (reactor={})&quot;, reactor);</span>
-        <span class="kw">let</span> <span class="ident">spawn</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">reactor</span> {
-            <span class="ident">Bool::False</span> =&gt; <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">inner</span>().<span class="ident">thread_spawn</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>(),
-            <span class="ident">Bool::True</span> =&gt; <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">inner</span>().<span class="ident">react</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>(),
-            <span class="kw">_</span> =&gt; {
-                <span class="macro">debug!</span>(<span class="string">&quot;failed as the reactor type is not value&quot;</span>,);
-                <span class="kw">return</span> <span class="ident">Errno::Noexec</span> <span class="kw">as</span> <span class="ident">u32</span>;
-            }
-        };
-
-        <span class="kw">let</span> <span class="ident">user_data_low</span>: <span class="ident">u32</span> <span class="op">=</span> (<span class="ident">user_data</span> <span class="op">&amp;</span> <span class="number">0xFFFFFFFF</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-        <span class="kw">let</span> <span class="ident">user_data_high</span>: <span class="ident">u32</span> <span class="op">=</span> (<span class="ident">user_data</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">32</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-
+        <span class="kw">let</span> <span class="ident">spawn</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">inner</span>().<span class="ident">thread_spawn</span>.<span class="ident">clone</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">tid</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">tid</span>();
+        <span class="kw">let</span> <span class="ident">call_ret</span> <span class="op">=</span> <span class="ident">spawn</span>.<span class="ident">call</span>(
+            <span class="ident">store</span>,
+            <span class="ident">tid</span>.<span class="ident">raw</span>().<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>).<span class="ident">unwrap</span>(),
+            <span class="ident">start_ptr_offset</span>
+                .<span class="ident">try_into</span>()
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>)
+                .<span class="ident">unwrap</span>(),
+        );
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Errno::Success</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">spawn</span>.<span class="ident">call</span>(<span class="ident">store</span>, <span class="ident">user_data_low</span> <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">user_data_high</span> <span class="kw">as</span> <span class="ident">i32</span>) {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">call_ret</span> {
             <span class="kw">match</span> <span class="ident">err</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">WasiError</span><span class="op">&gt;</span>() {
                 <span class="prelude-val">Ok</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">code</span>)) =&gt; {
-                    <span class="ident">ret</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">code</span> <span class="op">==</span> <span class="number">0</span> {
+                    <span class="ident">ret</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">code</span>.<span class="ident">is_success</span>() {
                         <span class="ident">Errno::Success</span>
                     } <span class="kw">else</span> {
                         <span class="ident">Errno::Noexec</span>
@@ -412,13 +400,10 @@
                 }
             }
         }
-        <span class="macro">trace!</span>(<span class="string">&quot;callback finished (reactor={:?}, ret={})&quot;</span>, <span class="ident">reactor</span>, <span class="ident">ret</span>);
+        <span class="macro">trace!</span>(<span class="string">&quot;callback finished (ret={})&quot;</span>, <span class="ident">ret</span>);
 
-        <span class="comment">// If we are NOT a reactor then we will only run once and need to clean up</span>
-        <span class="kw">if</span> <span class="ident">reactor</span> <span class="op">==</span> <span class="ident">Bool::False</span> {
-            <span class="comment">// Clean up the environment</span>
-            <span class="ident">ctx</span>.<span class="ident">cleanup</span>(<span class="ident">store</span>, <span class="prelude-val">Some</span>(<span class="ident">ret</span> <span class="kw">as</span> <span class="ident">ExitCode</span>));
-        }
+        <span class="comment">// Clean up the environment</span>
+        <span class="ident">ctx</span>.<span class="ident">cleanup</span>(<span class="ident">store</span>, <span class="prelude-val">Some</span>(<span class="ident">ret</span>.<span class="ident">into</span>()));
 
         <span class="comment">// Return the result</span>
         <span class="ident">ret</span> <span class="kw">as</span> <span class="ident">u32</span>
@@ -492,44 +477,29 @@
         }
     };
 
-    <span class="comment">// If we are a reactor then instead of launching the thread now</span>
-    <span class="comment">// we store it in the state machine and only launch it whenever</span>
-    <span class="comment">// work arrives that needs to be processed</span>
-    <span class="kw">match</span> <span class="ident">reactor</span> {
-        <span class="ident">Bool::True</span> =&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;thread failed - reactors are not currently supported&quot;</span>);
-            <span class="kw">return</span> <span class="ident">Errno::Notcapable</span>;
-        }
-        <span class="ident">Bool::False</span> =&gt; {
-            <span class="comment">// If the process does not export a thread spawn function then obviously</span>
-            <span class="comment">// we can&#39;t spawn a background thread</span>
-            <span class="kw">if</span> <span class="ident">env</span>.<span class="ident">inner</span>().<span class="ident">thread_spawn</span>.<span class="ident">is_none</span>() {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed - the program does not export a _start_thread function&quot;</span>);
-                <span class="kw">return</span> <span class="ident">Errno::Notcapable</span>;
-            }
-
-            <span class="kw">let</span> <span class="ident">spawn_type</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::runtime::SpawnType::NewThread</span>(<span class="ident">thread_memory</span>);
-
-            <span class="comment">// Now spawn a thread</span>
-            <span class="macro">trace!</span>(<span class="string">&quot;spawning background thread&quot;</span>);
-            <span class="kw">let</span> <span class="ident">thread_module</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>().<span class="ident">instance</span>.<span class="ident">module</span>().<span class="ident">clone</span>();
-            <span class="kw">let</span> <span class="ident">tasks2</span> <span class="op">=</span> <span class="ident">tasks</span>.<span class="ident">clone</span>();
-
-            <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="kw-2">mut</span> <span class="ident">thread_memory</span><span class="op">|</span> {
-                <span class="comment">// FIXME: should not use unwrap() here! (initializiation refactor)</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">store</span>);
-                <span class="ident">execute_module</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="kw-2">&amp;mut</span> <span class="ident">thread_memory</span>);
-            };
-
-            <span class="macro">wasi_try!</span>(<span class="ident">tasks</span>
-                .<span class="ident">task_wasm</span>(<span class="ident">Box::new</span>(<span class="ident">task</span>), <span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="ident">spawn_type</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> { <span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">Errno</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">err</span>) }));
-        }
-        <span class="kw">_</span> =&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;failed - invalid reactor parameter value&quot;</span>);
-            <span class="kw">return</span> <span class="ident">Errno::Notcapable</span>;
-        }
+    <span class="comment">// If the process does not export a thread spawn function then obviously</span>
+    <span class="comment">// we can&#39;t spawn a background thread</span>
+    <span class="kw">if</span> <span class="ident">env</span>.<span class="ident">inner</span>().<span class="ident">thread_spawn</span>.<span class="ident">is_none</span>() {
+        <span class="macro">warn!</span>(<span class="string">&quot;thread failed - the program does not export a `wasi_thread_start` function&quot;</span>);
+        <span class="kw">return</span> <span class="ident">Errno::Notcapable</span>;
     }
+
+    <span class="kw">let</span> <span class="ident">spawn_type</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::runtime::SpawnType::NewThread</span>(<span class="ident">thread_memory</span>, <span class="ident">thread_memory_ty</span>);
+
+    <span class="comment">// Now spawn a thread</span>
+    <span class="macro">trace!</span>(<span class="string">&quot;threading: spawning background thread&quot;</span>);
+    <span class="kw">let</span> <span class="ident">thread_module</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>().<span class="ident">instance</span>.<span class="ident">module</span>().<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">tasks2</span> <span class="op">=</span> <span class="ident">tasks</span>.<span class="ident">clone</span>();
+
+    <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="kw-2">mut</span> <span class="ident">thread_memory</span><span class="op">|</span> {
+        <span class="comment">// FIXME: should not use unwrap() here! (initializiation refactor)</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">store</span>);
+        <span class="ident">execute_module</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="kw-2">&amp;mut</span> <span class="ident">thread_memory</span>);
+    };
+
+    <span class="macro">wasi_try!</span>(<span class="ident">tasks</span>
+        .<span class="ident">task_wasm</span>(<span class="ident">Box::new</span>(<span class="ident">task</span>), <span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="ident">spawn_type</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> { <span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">Errno</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">err</span>) }));
 
     <span class="comment">// Success</span>
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
