@@ -7,6 +7,8 @@ use std::{collections::BTreeSet, path::Path};
 use virtual_fs::FileSystem;
 use virtual_fs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
+use wasmer_wasix::os::tty_sys::SysTty;
+use wasmer_wasix::os::TtyBridge;
 use wasmer_wasix::types::__WASI_STDIN_FILENO;
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
@@ -42,6 +44,11 @@ pub struct Wasi {
     #[clap(long = "use", name = "USE")]
     uses: Vec<String>,
 
+    /// List of webc packages that are explicitely included for execution
+    /// Note: these packages will be used instead of those in the registry
+    #[clap(long = "include-webc", name = "WEBC")]
+    include_webcs: Vec<String>,
+
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
     map_commands: Vec<String>,
@@ -59,6 +66,10 @@ pub struct Wasi {
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
     #[clap(long = "net")]
     pub networking: bool,
+
+    /// Disables the TTY bridge
+    #[clap(long = "no-tty")]
+    pub no_tty: bool,
 
     /// Allow instances to send http requests.
     ///
@@ -126,6 +137,12 @@ impl Wasi {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }
 
+        if !self.no_tty {
+            let tty = Arc::new(SysTty::default());
+            tty.reset();
+            rt.set_tty(tty)
+        }
+
         let engine = store.as_store_mut().engine().clone();
         rt.set_engine(Some(engine));
 
@@ -134,6 +151,7 @@ impl Wasi {
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
+            .include_webcs(self.include_webcs.clone())
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasix::is_wasix_module(module) {
@@ -184,14 +202,13 @@ impl Wasi {
     }
 
     /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(&self, result: Result<Box<[Value]>, RuntimeError>) -> Result<()> {
+    pub fn handle_result(&self, result: Result<Box<[Value]>, RuntimeError>) -> Result<i32> {
         match result {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(0),
             Err(err) => {
                 let err: anyhow::Error = match err.downcast::<WasiError>() {
                     Ok(WasiError::Exit(exit_code)) => {
-                        // We should exit with the provided exit code
-                        std::process::exit(exit_code as _);
+                        return Ok(exit_code.raw());
                     }
                     Ok(err) => err.into(),
                     Err(err) => err.into(),

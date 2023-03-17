@@ -93,10 +93,10 @@ pub fn stack_checkpoint<M: MemorySize>(
         let mut memory_stack_corrected = memory_stack.clone();
         {
             let snapshot_offset: u64 = snapshot_offset.into();
-            if snapshot_offset >= env.stack_start && snapshot_offset < env.stack_base {
+            if snapshot_offset >= env.stack_start && snapshot_offset < env.stack_end {
                 // Make sure its within the "active" part of the memory stack
                 // (note - the area being written to might not go past the memory pointer)
-                let offset = env.stack_base - snapshot_offset;
+                let offset = env.stack_end - snapshot_offset;
                 if (offset as usize) < memory_stack_corrected.len() {
                     let left = memory_stack_corrected.len() - (offset as usize);
                     let end = offset + (val_bytes.len().min(left) as u64);
@@ -126,7 +126,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         let snapshot_ptr: WasmPtr<StackSnapshot, M> = WasmPtr::new(snapshot_offset);
         if let Err(err) = snapshot_ptr.write(&memory, snapshot) {
             warn!("could not save stack snapshot - {}", err);
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+            return OnCalledAction::Trap(Box::new(WasiError::Exit(mem_error_to_wasi(err).into())));
         }
 
         // Rewind the stack and carry on
@@ -144,7 +144,7 @@ pub fn stack_checkpoint<M: MemorySize>(
                     "failed checkpoint - could not rewind the stack - errno={}",
                     err
                 );
-                OnCalledAction::Trap(Box::new(WasiError::Exit(err as u32)))
+                OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
             }
         }
     })

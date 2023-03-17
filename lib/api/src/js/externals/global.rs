@@ -70,19 +70,19 @@ impl Global {
             let ty = self.handle.ty;
             let raw = match ty.ty {
                 Type::I32 => RawValue {
-                    i32: value.as_f64().unwrap() as _,
+                    i32: value.as_f64().unwrap_or_default() as _,
                 },
                 Type::I64 => RawValue {
-                    i64: value.as_f64().unwrap() as _,
+                    i64: value.as_f64().unwrap_or_default() as _,
                 },
                 Type::F32 => RawValue {
-                    f32: value.as_f64().unwrap() as _,
+                    f32: value.as_f64().unwrap_or_default() as _,
                 },
                 Type::F64 => RawValue {
-                    f64: value.as_f64().unwrap(),
+                    f64: value.as_f64().unwrap_or_default(),
                 },
                 Type::V128 => RawValue {
-                    u128: value.as_f64().unwrap() as _,
+                    u128: value.as_f64().unwrap_or_default() as _,
                 },
                 Type::FuncRef => {
                     unimplemented!();

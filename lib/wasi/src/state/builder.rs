@@ -10,12 +10,14 @@ use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module};
+use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
+    parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
@@ -62,6 +64,9 @@ pub struct WasiEnvBuilder {
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<String>,
 
+    /// List ofsupplied webc packages to use instead of downloading from the registry.
+    pub(super) include_webcs: Vec<String>,
+
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
 
@@ -76,6 +81,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
             .field("uses", &self.uses)
+            .field("include_webcs", &self.include_webcs)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
             .field("stdout_override exists", &self.stdout.is_some())
             .field("stderr_override exists", &self.stderr.is_some())
@@ -106,6 +112,8 @@ pub enum WasiStateCreationError {
     FileSystemError(FsError),
     #[error("wasi inherit error: `{0}`")]
     WasiInheritError(String),
+    #[error("wasi include package: `{0}`")]
+    WasiIncludePackageError(String),
     #[error("control plane error")]
     ControlPlane(#[from] ControlPlaneError),
 }
@@ -256,6 +264,26 @@ impl WasiEnvBuilder {
     {
         uses.into_iter().for_each(|inherit| {
             self.uses.push(inherit);
+        });
+        self
+    }
+
+    /// Includes a webc package to use instead of downloading them from the registry
+    pub fn include_webc<Name>(mut self, webc: Name) -> Self
+    where
+        Name: AsRef<str>,
+    {
+        self.include_webcs.push(webc.as_ref().to_string());
+        self
+    }
+
+    /// Adds a list of webc packages to use instead of downloading them from the registry
+    pub fn include_webcs<I>(mut self, webcs: I) -> Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        webcs.into_iter().for_each(|webc| {
+            self.include_webcs.push(webc);
         });
         self
     }
@@ -673,6 +701,27 @@ impl WasiEnvBuilder {
 
         // TODO: this method should not exist - must have unified construction flow!
         let module_cache = self.compiled_modules.unwrap_or_default();
+
+        // Add the supplied webc packages to the module cache
+        for include_webc in self.include_webcs.iter() {
+            let data = std::fs::read(include_webc.as_str())
+                .map_err(|err| WasiStateCreationError::WasiIncludePackageError(err.to_string()))?;
+            let package = parse_static_webc(data)
+                .map_err(|err| WasiStateCreationError::WasiIncludePackageError(err.to_string()))?;
+
+            let mut package_name = package.package_name.to_string();
+            module_cache.add_webc(package_name.as_ref(), package.clone());
+            for version_part in package.version.split(".") {
+                if !package_name.contains("@") {
+                    package_name.push_str("@")
+                } else {
+                    package_name.push_str(".")
+                }
+                package_name.push_str(version_part);
+                module_cache.add_webc(package_name.as_ref(), package.clone());
+            }
+        }
+
         let runtime = self
             .runtime
             .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
@@ -766,8 +815,8 @@ impl WasiEnvBuilder {
         );
 
         let exit_code = match &res {
-            Ok(_) => 0,
-            Err(err) => err.as_exit_code().unwrap_or(1),
+            Ok(_) => Errno::Success.into(),
+            Err(err) => err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into()),
         };
 
         env.cleanup(store, Some(exit_code));

@@ -1,12 +1,16 @@
 pub mod task_manager;
 
+use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
+
 pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
-use std::{fmt, sync::Arc};
+use std::{
+    fmt,
+    sync::{Arc, Mutex},
+};
 
+use derivative::Derivative;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-
-use crate::{http::DynHttpClient, os::TtyBridge};
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
@@ -49,18 +53,45 @@ where
     }
 
     /// Get access to the TTY used by the environment.
-    fn tty(&self) -> Option<&dyn TtyBridge> {
+    fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         None
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Default)]
+pub struct DefaultTty {
+    state: Mutex<WasiTtyState>,
+}
+
+impl TtyBridge for DefaultTty {
+    fn reset(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.echo = false;
+        state.line_buffered = false;
+        state.line_feeds = false
+    }
+
+    fn tty_get(&self) -> WasiTtyState {
+        let state = self.state.lock().unwrap();
+        state.clone()
+    }
+
+    fn tty_set(&self, tty_state: WasiTtyState) {
+        let mut state = self.state.lock().unwrap();
+        *state = tty_state;
+    }
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct PluggableRuntimeImplementation {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
     #[cfg(feature = "sys")]
     pub engine: Option<wasmer::Engine>,
+    #[derivative(Debug = "ignore")]
+    pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -74,6 +105,10 @@ impl PluggableRuntimeImplementation {
     #[cfg(feature = "sys")]
     pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
         self.engine = engine;
+    }
+
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+        self.tty = Some(tty);
     }
 
     pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
@@ -101,6 +136,7 @@ impl PluggableRuntimeImplementation {
             http_client,
             #[cfg(feature = "sys")]
             engine: None,
+            tty: None,
         }
     }
 }
@@ -137,5 +173,9 @@ impl WasiRuntime for PluggableRuntimeImplementation {
 
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {
         &self.rt
+    }
+
+    fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
+        self.tty.as_deref()
     }
 }

@@ -4,9 +4,9 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "a14ec977d28125d9a8a24e5597553a19",
+    "name": "snapshot::test_snapshot_stdin_stdout_stderr",
     "use_packages": [],
+    "include_webcs": [],
     "cli_args": [
       "tee",
       "/dev/stderr"
@@ -18,7 +18,8 @@ expression: snapshot
       104
     ],
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {

@@ -1,3 +1,4 @@
+use crate::random_file::RandomFile;
 use crate::{FileSystem, VirtualFile};
 use std::path::{Path, PathBuf};
 use tracing::*;
@@ -81,6 +82,10 @@ impl RootFileSystemBuilder {
             let _ = tmp
                 .new_open_options_ext()
                 .insert_device_file(PathBuf::from("/dev/zero"), Box::new(ZeroFile::default()));
+            let _ = tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from("/dev/urandom"),
+                Box::new(RandomFile::default()),
+            );
             let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/stdin"),
                 self.stdin

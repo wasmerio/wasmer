@@ -15,7 +15,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `__wasi_file_stat_t *buf`
 ///     The location where the metadata will be stored
-#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty))]
+#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty), ret)]
 pub fn path_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -33,7 +33,7 @@ pub fn path_filestat_get<M: MemorySize>(
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
     }
-    Span::current().record("path", path_string.as_str());
+    tracing::trace!(path = path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
         &memory,

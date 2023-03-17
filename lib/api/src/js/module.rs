@@ -56,6 +56,12 @@ pub struct Module {
 unsafe impl Send for Module {}
 unsafe impl Sync for Module {}
 
+impl From<Module> for JsValue {
+    fn from(val: Module) -> Self {
+        Self::from(val.module)
+    }
+}
+
 impl Module {
     pub(crate) fn from_binary(
         _engine: &impl AsEngineRef,

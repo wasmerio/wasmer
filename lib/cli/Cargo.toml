@@ -111,7 +111,7 @@ default = [
     "wasmer-artifact-create",
     "static-artifact-create",
     "webc_runner",
-    "tracing"
+    "tracing",
 ]
 sys = ["wasmer/sys"]
 cache = ["wasmer-cache"]

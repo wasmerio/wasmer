@@ -106,7 +106,7 @@ impl WasiFunctionEnv {
         } else {
             DEFAULT_STACK_SIZE
         };
-        self.data_mut(store).stack_base = stack_base;
+        self.data_mut(store).stack_end = stack_base;
 
         Ok(())
     }
@@ -182,6 +182,6 @@ impl WasiFunctionEnv {
         }
 
         // Cleans up all the open files (if this is the main thread)
-        self.data(store).cleanup(exit_code);
+        self.data(store).blocking_cleanup(exit_code);
     }
 }

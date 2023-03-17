@@ -7,7 +7,7 @@ use crate::{
 use futures::Future;
 use tracing::*;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
-use wasmer_wasix_types::wasi::{Errno, ExitCode};
+use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{
@@ -40,7 +40,7 @@ pub fn spawn_exec(
                 VirtualBusError::CompileError
             });
             if module.is_err() {
-                env.cleanup(Some(Errno::Noexec as ExitCode));
+                env.blocking_cleanup(Some(Errno::Noexec.into()));
             }
             let module = module?;
             compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
@@ -48,7 +48,7 @@ pub fn spawn_exec(
         }
         (None, None) => {
             error!("package has no entry [{}]", name,);
-            env.cleanup(Some(Errno::Noexec as ExitCode));
+            env.blocking_cleanup(Some(Errno::Noexec.into()));
             return Err(VirtualBusError::CompileError);
         }
     };
@@ -113,7 +113,7 @@ pub fn spawn_exec_module(
                         error!("wasi[{}]::wasm instantiate error ({})", pid, err);
                         wasi_env
                             .data(&store)
-                            .cleanup(Some(Errno::Noexec as ExitCode));
+                            .blocking_cleanup(Some(Errno::Noexec.into()));
                         return;
                     }
                 };
@@ -127,7 +127,7 @@ pub fn spawn_exec_module(
                     error!("wasi[{}]::wasi initialize error ({})", pid, err);
                     wasi_env
                         .data(&store)
-                        .cleanup(Some(Errno::Noexec as ExitCode));
+                        .blocking_cleanup(Some(Errno::Noexec.into()));
                     return;
                 }
 
@@ -137,7 +137,7 @@ pub fn spawn_exec_module(
                         thread.thread.set_status_finished(Err(err.into()));
                         wasi_env
                             .data(&store)
-                            .cleanup(Some(Errno::Noexec as ExitCode));
+                            .blocking_cleanup(Some(Errno::Noexec.into()));
                         return;
                     }
                 }
@@ -155,22 +155,23 @@ pub fn spawn_exec_module(
                     start
                         .call(&mut store, &[])
                         .map_err(WasiRuntimeError::from)
-                        .map(|_| 0)
+                        .map(|_| Errno::Success)
                 } else {
                     debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                    Ok(Errno::Noexec as u32)
+                    Ok(Errno::Noexec)
                 };
-                debug!("wasi[{pid}]::main() has exited with {ret:?}");
 
                 let code = if let Err(err) = &ret {
-                    err.as_exit_code().unwrap_or(Errno::Child as u32)
+                    err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into())
                 } else {
-                    0
+                    Errno::Success.into()
                 };
-                thread.thread.set_status_finished(ret);
 
                 // Cleanup the environment
-                wasi_env.data(&store).cleanup(Some(code));
+                wasi_env.data(&store).blocking_cleanup(Some(code));
+
+                debug!("wasi[{pid}]::main() has exited with {code}");
+                thread.thread.set_status_finished(ret.map(|a| a.into()));
             }
         };
 
@@ -199,7 +200,7 @@ impl BinFactory {
                 .await
                 .ok_or(VirtualBusError::NotFound);
             if binary.is_err() {
-                env.cleanup(Some(Errno::Noent as ExitCode));
+                env.cleanup(Some(Errno::Noent.into())).await;
             }
             let binary = binary?;
 
