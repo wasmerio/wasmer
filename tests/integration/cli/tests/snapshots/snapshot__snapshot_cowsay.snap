@@ -4,9 +4,9 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "e124abdb35b6021a00ae6bf69dfba190",
+    "name": "snapshot::test_snapshot_cowsay",
     "use_packages": [],
+    "include_webcs": [],
     "cli_args": [],
     "stdin": [
       98,
@@ -16,7 +16,8 @@ expression: snapshot
       10
     ],
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {

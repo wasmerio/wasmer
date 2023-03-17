@@ -1,0 +1,82 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 554
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_bash_python",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      },
+      {
+        "name": "syrusakbary/python@0.1.0"
+      }
+    ],
+    "cli_args": [],
+    "stdin": [
+      119,
+      97,
+      115,
+      109,
+      101,
+      114,
+      32,
+      114,
+      117,
+      110,
+      32,
+      115,
+      121,
+      114,
+      117,
+      115,
+      97,
+      107,
+      98,
+      97,
+      114,
+      121,
+      47,
+      112,
+      121,
+      116,
+      104,
+      111,
+      110,
+      32,
+      45,
+      45,
+      32,
+      45,
+      99,
+      32,
+      39,
+      112,
+      114,
+      105,
+      110,
+      116,
+      40,
+      49,
+      48,
+      41,
+      39,
+      10
+    ],
+    "debug_output": false,
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "10\n",
+      "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

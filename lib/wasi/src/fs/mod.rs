@@ -93,6 +93,9 @@ impl InodeGuard {
             inner: Arc::downgrade(&self.inner),
         }
     }
+    pub fn ref_cnt(&self) -> usize {
+        Arc::strong_count(&self.inner)
+    }
 }
 impl std::ops::Deref for InodeGuard {
     type Target = InodeVal;
@@ -369,6 +372,10 @@ impl WasiFs {
     #[allow(clippy::await_holding_lock)]
     pub async fn close_all(&self) {
         // TODO: this should close all uniquely owned files instead of just flushing.
+
+        // Make sure the STDOUT and STDERR are explicitely flushed
+        self.flush(__WASI_STDOUT_FILENO).await.ok();
+        self.flush(__WASI_STDERR_FILENO).await.ok();
 
         let to_close = {
             if let Ok(map) = self.fd_map.read() {
@@ -1740,7 +1747,8 @@ impl WasiFs {
         match pfd {
             Ok(fd_ref) => {
                 let inode = fd_ref.inode.ino().as_u64();
-                trace!(%fd, %inode, "closing file descriptor");
+                let ref_cnt = fd_ref.inode.ref_cnt();
+                trace!(%fd, %inode, %ref_cnt, "closing file descriptor");
             }
             Err(err) => {
                 trace!(%fd, "closing file descriptor failed - {}", err);

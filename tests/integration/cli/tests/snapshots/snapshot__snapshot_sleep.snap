@@ -4,13 +4,14 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "dd97d3f821b4239d3cf905958b613f77",
+    "name": "snapshot::test_snapshot_sleep",
     "use_packages": [],
+    "include_webcs": [],
     "cli_args": [],
     "stdin": null,
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {

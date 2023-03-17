@@ -246,6 +246,12 @@ impl WasiRuntimeError {
     pub fn as_exit_code(&self) -> Option<ExitCode> {
         if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
             Some(*code)
+        } else if let WasiRuntimeError::Runtime(err) = self {
+            if let Some(WasiError::Exit(code)) = err.downcast_ref() {
+                Some(*code)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -823,10 +829,10 @@ fn generate_import_object_wasix64_v1(
 
 fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
+        MemoryAccessError::HeapOutOfBounds => Errno::Memviolation,
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
-        _ => Errno::Inval,
+        _ => Errno::Unknown,
     }
 }
 

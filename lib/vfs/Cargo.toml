@@ -24,6 +24,12 @@ tokio = { version = "1", features = [ "io-util", "sync", "macros" ], default_fea
 pin-project-lite = "0.2.9"
 indexmap = "1.9.2"
 
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+getrandom = { version = "0.2" }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = [ "js" ] }
+
 [dev-dependencies]
 pretty_assertions = "1.3.0"
 tempfile = "3.4.0"

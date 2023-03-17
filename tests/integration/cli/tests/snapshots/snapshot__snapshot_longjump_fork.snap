@@ -4,17 +4,18 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "46528fe586c0a942d8504354b6a2ca48",
+    "name": "snapshot::test_snapshot_longjump_fork",
     "use_packages": [],
+    "include_webcs": [],
     "cli_args": [],
     "stdin": null,
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Parent has x = 0\nChild has x = 2\nChild(2) exited with 5\n",
+      "stdout": "Parent memory is good\nParent memory after longjmp is good\nParent has x = 0\nChild memory is good\nChild memory after longjmp is good\nChild has x = 2\nChild(2) exited with 5\n",
       "stderr": "",
       "exit_code": 0
     }

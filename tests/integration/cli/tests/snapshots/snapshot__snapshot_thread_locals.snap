@@ -4,15 +4,14 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "7f838e4d318a694677b235d35418452a",
-    "use_packages": [
-      "sharrattj/coreutils"
-    ],
+    "name": "snapshot::test_snapshot_thread_locals",
+    "use_packages": [],
+    "include_webcs": [],
     "cli_args": [],
     "stdin": null,
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {
