@@ -54,8 +54,6 @@ distance = "0.4"
 bytesize = "1.0"
 cfg-if = "1.0"
 tempfile = "3.4.0"
-http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
-reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
 serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
@@ -90,6 +88,14 @@ object = "0.30.0"
 wasm-coredump-builder = { version = "0.1.11" }
 tracing = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ], optional = true }
+
+[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
+http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
+reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+http_req  = { version="^0.8", default-features = false, features = ["native-tls"] }
+reqwest = { version = "^0.11", default-features = false, features = ["native-tls", "json", "multipart"] }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }

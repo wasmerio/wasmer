@@ -14,21 +14,24 @@ SHELL=/usr/bin/env bash
 # |------------|----------|--------------|-------|
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
-# | Singlepass | Windows  |              |       |
+# | Singlepass | Windows  | riscv        |       |
 # |------------|----------|--------------|-------|
 #
 # Here is what works and what doesn't:
 #
-# * Cranelift works everywhere,
+# * Cranelift works everywhere except Linux/`riscv`,
 #
 # * LLVM works on Linux+Darwin/`amd64`,
-#   but it doesn't work on */`aarch64` or Windows/*.
+#   and linux+`aarch64`, linux+`riscv`
+#   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
 #
-# * Singlepass works on Linux+Darwin/`amd64`, but
-#   it doesn't work on */`aarch64` or Windows/*.
+# * Singlepass works on Linux+Darwin+Windows/`amd64`, 
+#   and Linux+Darwin/`aarch64`
+#   it doesn't work on */`riscv`.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
 #   working, but it might possibly be.
+# * The Only target for `riscv` familly of processor is the RV64, with the `GC` extensions
 
 
 #####

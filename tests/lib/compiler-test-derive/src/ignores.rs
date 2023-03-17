@@ -111,7 +111,7 @@ impl Ignores {
                             target_env = Some(alias.to_string());
                         }
                         // Chipset architectures
-                        "aarch64" | "x86" | "x64" => {
+                        "aarch64" | "x86" | "x64" | "riscv64" => {
                             arch = Some(alias.to_string());
                         }
                         // Engines
