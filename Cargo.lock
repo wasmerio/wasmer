@@ -5266,6 +5266,7 @@ name = "wasmer-integration-tests-cli"
 version = "3.2.0-alpha.1"
 dependencies = [
  "anyhow",
+ "derivative",
  "dirs",
  "flate2",
  "hex",

@@ -2,29 +2,59 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Child, Stdio},
+    sync::Arc,
 };
 
+use derivative::Derivative;
 #[cfg(test)]
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
+#[derive(Derivative, serde::Serialize, serde::Deserialize, Clone)]
+#[derivative(Debug, PartialEq)]
+pub struct TestIncludeWeb {
+    pub name: String,
+    #[derivative(Debug = "ignore", PartialEq = "ignore")]
+    #[serde(skip, default = "default_include_webc")]
+    pub webc: Arc<NamedTempFile>,
+}
+
+fn default_include_webc() -> Arc<NamedTempFile> {
+    Arc::new(NamedTempFile::new().unwrap())
+}
+impl Eq for TestIncludeWeb {}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub struct TestSpec {
     pub name: Option<String>,
     // Uses a hex-encoded String for better review output.
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub wasm_hash: String,
     /// Name of webc dependencies to inject.
     pub use_packages: Vec<String>,
-    pub include_webcs: Vec<String>,
+    pub include_webcs: Vec<TestIncludeWeb>,
     pub cli_args: Vec<String>,
     pub stdin: Option<Vec<u8>>,
     pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
 }
+
+static WEBC_BASH: &'static [u8] =
+    include_bytes!("./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
+static WEBC_COREUTILS_14: &'static [u8] =
+    include_bytes!("./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
+static WEBC_COREUTILS_11: &'static [u8] =
+    include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
+static WEBC_DASH: &'static [u8] =
+    include_bytes!("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc");
+static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
+static WEBC_WEB_SERVER: &'static [u8] =
+    include_bytes!("./webc/static-web-server-1.0.8-a241658c-e409-4749-872c-ae8eab142ef0.webc");
+static WEBC_WASMER_SH: &'static [u8] =
+    include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
 impl std::fmt::Debug for TestSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -105,39 +135,33 @@ impl TestBuilder {
         self
     }
 
-    pub fn include_static_package(mut self, s: impl Into<String>) -> Self {
-        self.spec.include_webcs.push(s.into());
+    pub fn include_static_package(mut self, name: &str, data: &[u8]) -> Self {
+        let package = build_test_file(data);
+        self.spec.include_webcs.push(TestIncludeWeb {
+            name: name.to_string(),
+            webc: Arc::new(package),
+        });
         self
     }
 
     pub fn use_coreutils(self) -> Self {
         // TODO: use custom compiled coreutils
         self.use_pkg("sharrattj/coreutils")
-    }
-
-    pub fn include_static_packages(self) -> Self {
-        self.include_static_package("./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc")
-            .include_static_package(
-                "./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc",
-            )
-            .include_static_package("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc")
-            .include_static_package("./webc/python-0.1.0.webc")
-            .include_static_package(
-                "./webc/static-web-server-1.0.8-a241658c-e409-4749-872c-ae8eab142ef0.webc",
-            )
-            .include_static_package(
-                "./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc",
-            )
+            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_14)
     }
 
     pub fn use_dash(self) -> Self {
         // TODO: use custom compiled dash
         self.use_pkg("sharrattj/dash")
+            .include_static_package("sharrattj/dash@1.0.16", WEBC_DASH)
+            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
     }
 
     pub fn use_bash(self) -> Self {
         // TODO: use custom compiled bash
         self.use_pkg("sharrattj/bash")
+            .include_static_package("sharrattj/bash@1.0.12", WEBC_BASH)
+            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
     }
 
     pub fn debug_output(mut self, show_debug: bool) -> Self {
@@ -230,11 +254,12 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         cmd.args(&["--use", &pkg]);
     }
 
-    /*
     for pkg in &spec.include_webcs {
-        cmd.args(&["--include-webc", &pkg]);
+        cmd.args(&[
+            "--include-webc",
+            pkg.webc.path().as_os_str().to_string_lossy().as_ref(),
+        ]);
     }
-    */
 
     let log_level = if spec.debug_output {
         "debug"
@@ -376,6 +401,7 @@ macro_rules! function {
     }};
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_condvar() {
     let snapshot = TestBuilder::new()
@@ -386,6 +412,7 @@ fn test_snapshot_condvar() {
 }
 
 // Test that the expected default directories are present.
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_default_file_system_tree() {
     let snapshot = TestBuilder::new()
@@ -397,6 +424,7 @@ fn test_snapshot_default_file_system_tree() {
 
 // TODO: figure out why this hangs on Windows and Mac OS
 #[cfg(target_os = "linux")]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_stdin_stdout_stderr() {
     let snapshot = TestBuilder::new()
@@ -408,6 +436,7 @@ fn test_snapshot_stdin_stdout_stderr() {
 }
 
 // Piping to cowsay should, well.... display a cow that says something
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_cowsay() {
     let snapshot = TestBuilder::new()
@@ -417,6 +446,7 @@ fn test_snapshot_cowsay() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_epoll() {
     let snapshot = TestBuilder::new()
@@ -425,12 +455,12 @@ fn test_snapshot_epoll() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_file_copy() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .stdin_str("hi")
         .arg("/dev/stdin")
         .arg("/dev/stdout")
@@ -438,16 +468,17 @@ fn test_snapshot_file_copy() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_web_server() {
     let with_inner = || {
@@ -527,7 +558,8 @@ fn test_snapshot_web_server() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .enable_network(true)
-        .include_static_packages()
+        .include_static_package("sharrattj/static-web-server@1.0.8", WEBC_WEB_SERVER)
+        .include_static_package("sharrattj/wasmer-sh@1.0.63", WEBC_WASMER_SH)
         .use_coreutils()
         .use_pkg("sharrattj/wasmer-sh")
         .stdin_str(
@@ -543,59 +575,59 @@ rm -f /cfg/config.toml
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
 // longjmp is used by C programs that save and restore the stack at specific
 // points - this functionality is often used for exception handling
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_longjump() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-longjmp.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
 // Another longjump test.
 // This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_longjump2() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-stack.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
 // Simple fork example that is a crude multi-threading implementation - used by `dash`
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_fork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-fork.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
 // Uses the `fd_pipe` syscall to create a bidirection pipe with two file
 // descriptors then forks the process to write and read to this pipe.
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_pipes() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-pipe.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -604,6 +636,7 @@ fn test_snapshot_pipes() {
 // This test ensures that the stacks that have been recorded are preserved
 // after a fork.
 // The behavior is needed for `dash`
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_longjump_fork() {
     let snapshot = TestBuilder::new()
@@ -613,6 +646,7 @@ fn test_snapshot_longjump_fork() {
 }
 
 // full multi-threading with shared memory and shared compiled modules
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_multithreading() {
     let snapshot = TestBuilder::new()
@@ -624,6 +658,7 @@ fn test_snapshot_multithreading() {
 
 // full multi-threading with shared memory and shared compiled modules
 #[cfg(target_os = "linux")]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_sleep() {
     let snapshot = TestBuilder::new()
@@ -634,12 +669,12 @@ fn test_snapshot_sleep() {
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
 #[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -657,6 +692,7 @@ fn test_snapshot_process_spawn() {
 
 // Tests that thread local variables work correctly
 #[cfg(target_os = "linux")]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_thread_locals() {
     let mut snapshot = TestBuilder::new()
@@ -678,16 +714,17 @@ fn test_snapshot_thread_locals() {
 
 // Tests that lightweight forking that does not copy the memory but retains the
 // open file descriptors works correctly.
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_vfork() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_signals() {
     let snapshot = TestBuilder::new()
@@ -697,6 +734,7 @@ fn test_snapshot_signals() {
 }
 
 #[cfg(target_os = "linux")]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_echo() {
     let snapshot = TestBuilder::new()
@@ -706,72 +744,74 @@ fn test_snapshot_dash_echo() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .stdin_str("echo hello | cat")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_python() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
+        .include_static_package("syrusakbary/python@0.1.0", WEBC_PYTHON)
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_dev_zero() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .stdin_str("head -c 10 /dev/zero")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_dev_urandom() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
         .stdin_str("head -c 10 /dev/urandom | wc -c")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_dash()
-        .include_static_packages()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_bash()
-        .include_static_packages()
         .stdin_str("/bin/bash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
@@ -781,61 +821,63 @@ fn test_snapshot_bash_echo() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("ls\nexit\n")
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_pipe() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("echo hello | cat\nexit\n")
         .use_coreutils()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_python() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .include_static_packages()
+        .include_static_package("syrusakbary/python@0.1.0", WEBC_PYTHON)
         .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("/bin/bash\necho hi\nexit\necho hi2\n")
         .use_bash()
-        .include_static_packages()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_dash()
-        .include_static_packages()
         .stdin_str("/bin/dash\necho hi\nexit\nexit\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_catsay() {
     let snapshot = TestBuilder::new()
@@ -845,6 +887,7 @@ fn test_snapshot_catsay() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_quickjs() {
     let snapshot = TestBuilder::new()
