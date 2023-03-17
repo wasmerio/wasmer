@@ -117,11 +117,17 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        builder.finish(self.flags())
+        let is_riscv = if let Architecture::Riscv64(_) = target.triple().architecture {
+            true
+        } else {
+            false
+        };
+
+        builder.finish(self.flags(is_riscv))
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self) -> settings::Flags {
+    pub fn flags(&self, is_riscv: bool) -> settings::Flags {
         let mut flags = settings::builder();
 
         // Enable probestack
@@ -169,9 +175,15 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
-        flags
-            .set("enable_simd", "true")
-            .expect("should be valid flag");
+        if is_riscv {
+            flags
+                .set("enable_simd", "false")
+                .expect("should be valid flag");
+        } else {
+            flags
+                .set("enable_simd", "true")
+                .expect("should be valid flag");
+        }
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {
             "true"
