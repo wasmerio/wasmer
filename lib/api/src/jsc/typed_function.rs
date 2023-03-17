@@ -39,16 +39,13 @@ macro_rules! impl_native_traits {
                         value.as_jsvalue(store)
                     } ),* ]
                 };
-                println!("Native CALL");
 
                 let store_mut = store.as_store_mut();
                 let context = store_mut.engine().0.context();
 
                 let mut global = context.get_global_object();
-                println!("Native 0 ");
                 let store_ptr = store_mut.as_raw() as usize;
                 global.set_property(&context, "__store_ptr".to_string(), JSValue::number(&context, store_ptr as _));
-                println!("Native 1 ");
 
                 let results = {
                     let mut r;
@@ -58,14 +55,12 @@ macro_rules! impl_native_traits {
                         let store_mut = store.as_store_mut();
                         let context = store_mut.engine().0.context();
 
-                        println!("Native 2 ");
                         r = self.func.0.handle.function
                         .call(
                             &context,
                             JSValue::undefined(&context).to_object(&context),
                             &params_list,
                         );
-                        println!("Native 3");
 
                         // let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {
