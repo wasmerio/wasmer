@@ -429,6 +429,7 @@ impl Artifact {
     /// # Safety
     ///
     /// See [`VMInstance::new`].
+    #[allow(clippy::result_large_err)]
     pub unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
@@ -509,6 +510,7 @@ impl Artifact {
     /// # Safety
     ///
     /// See [`VMInstance::finish_instantiation`].
+    #[allow(clippy::result_large_err)]
     pub unsafe fn finish_instantiation(
         &self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,

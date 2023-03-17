@@ -62,7 +62,7 @@ fn make_trampoline(
             });
         }
         Architecture::Riscv64(_) => {
-            code.extend(&RISCV64_TRAMPOLINE);
+            code.extend(RISCV64_TRAMPOLINE);
             relocations.push(Relocation {
                 kind: RelocationKind::Abs8,
                 reloc_target: RelocationTarget::LibCall(libcall),
