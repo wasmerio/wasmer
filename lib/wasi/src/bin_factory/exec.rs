@@ -20,7 +20,7 @@ use crate::{
 pub fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
-    store: Store,
+    mut store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
@@ -42,7 +42,7 @@ pub fn spawn_exec(
                 VirtualBusError::CompileError
             });
             if module.is_err() {
-                env.blocking_cleanup(Some(Errno::Noexec.into()));
+                env.blocking_cleanup(&store, Some(Errno::Noexec.into()));
             }
             let module = module?;
             compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
@@ -50,7 +50,7 @@ pub fn spawn_exec(
         }
         (None, None) => {
             error!("package has no entry [{}]", name,);
-            env.blocking_cleanup(Some(Errno::Noexec.into()));
+            env.blocking_cleanup(&mut store, Some(Errno::Noexec.into()));
             return Err(VirtualBusError::CompileError);
         }
     };
@@ -124,7 +124,7 @@ pub fn spawn_exec_module(
                         error!("wasi[{}]::wasm instantiate error ({})", pid, err);
                         wasi_env
                             .data(&store)
-                            .blocking_cleanup(Some(Errno::Noexec.into()));
+                            .blocking_cleanup(&store, Some(Errno::Noexec.into()));
                         return;
                     }
                 };
@@ -138,7 +138,7 @@ pub fn spawn_exec_module(
                     error!("wasi[{}]::wasi initialize error ({})", pid, err);
                     wasi_env
                         .data(&store)
-                        .blocking_cleanup(Some(Errno::Noexec.into()));
+                        .blocking_cleanup(&store, Some(Errno::Noexec.into()));
                     return;
                 }
 
@@ -148,7 +148,7 @@ pub fn spawn_exec_module(
                         thread.thread.set_status_finished(Err(err.into()));
                         wasi_env
                             .data(&store)
-                            .blocking_cleanup(Some(Errno::Noexec.into()));
+                            .blocking_cleanup(&store, Some(Errno::Noexec.into()));
                         return;
                     }
                 }
@@ -179,7 +179,7 @@ pub fn spawn_exec_module(
                 };
 
                 // Cleanup the environment
-                wasi_env.data(&store).blocking_cleanup(Some(code));
+                wasi_env.data(&store).blocking_cleanup(&store, Some(code));
 
                 debug!("wasi[{pid}]::main() has exited with {code}");
                 thread.thread.set_status_finished(ret.map(|a| a.into()));
@@ -201,7 +201,7 @@ impl BinFactory {
     pub fn spawn<'a>(
         &'a self,
         name: String,
-        store: Store,
+        mut store: Store,
         env: WasiEnv,
     ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, VirtualBusError>> + 'a>> {
         Box::pin(async move {
@@ -211,7 +211,7 @@ impl BinFactory {
                 .await
                 .ok_or(VirtualBusError::NotFound);
             if binary.is_err() {
-                env.cleanup(Some(Errno::Noent.into())).await;
+                env.cleanup(&mut store, Some(Errno::Noent.into())).await;
             }
             let binary = binary?;
 

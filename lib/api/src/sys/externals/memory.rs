@@ -57,6 +57,13 @@ impl Memory {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
+    /// Makes all the memory inaccessible to any reads or writes
+    pub fn make_inaccessable(&self, store: &impl AsStoreRef) -> Result<(), MemoryError> {
+        self.handle
+            .get(store.as_store_ref().objects())
+            .make_inaccessible()
+    }
+
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,

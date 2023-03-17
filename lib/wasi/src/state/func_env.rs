@@ -182,6 +182,6 @@ impl WasiFunctionEnv {
         }
 
         // Cleans up all the open files (if this is the main thread)
-        self.data(store).blocking_cleanup(exit_code);
+        self.data(store).blocking_cleanup(store, exit_code);
     }
 }

@@ -149,6 +149,13 @@ impl WasmMmap {
             size: self.size,
         })
     }
+
+    /// Makes all the memory inaccessible to reads and writes
+    pub fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        self.alloc
+            .make_all_inaccessible()
+            .map_err(MemoryError::Region)
+    }
 }
 
 /// A linear memory instance.
@@ -307,6 +314,11 @@ impl VMOwnedMemory {
             config: self.config.clone(),
         })
     }
+
+    /// Makes all the memory inaccessible to reads and writes
+    fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        self.mmap.make_inaccessible()
+    }
 }
 
 impl LinearMemory for VMOwnedMemory {
@@ -348,6 +360,11 @@ impl LinearMemory for VMOwnedMemory {
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let forked = Self::duplicate(self)?;
         Ok(Box::new(forked))
+    }
+
+    /// Makes all the memory inaccessible to reads and writes
+    fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        Self::make_inaccessible(self)
     }
 }
 
@@ -394,6 +411,12 @@ impl VMSharedMemory {
             mmap: Arc::new(RwLock::new(guard.duplicate()?)),
             config: self.config.clone(),
         })
+    }
+
+    /// Makes all the memory inaccessible to reads and writes
+    pub fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        let guard = self.mmap.write().unwrap();
+        guard.make_inaccessible()
     }
 }
 
@@ -442,6 +465,11 @@ impl LinearMemory for VMSharedMemory {
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let forked = Self::duplicate(self)?;
         Ok(Box::new(forked))
+    }
+
+    /// Makes all the memory inaccessible to reads and writes
+    fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        Self::make_inaccessible(self)
     }
 }
 
@@ -509,6 +537,11 @@ impl LinearMemory for VMMemory {
     /// Copies this memory to a new memory
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.duplicate()
+    }
+
+    /// Makes all the memory inaccessible to reads and writes
+    fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        self.0.make_inaccessible()
     }
 }
 

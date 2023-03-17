@@ -180,6 +180,28 @@ impl FdMmap {
             .map_err(|e| e.to_string())
     }
 
+    /// Make the entire memory inaccessible to both reads and writes.
+    pub fn make_all_inaccessible(&self) -> Result<(), String> {
+        self.make_inaccessible(0, self.len)
+    }
+
+    /// Make the memory starting at `start` and extending for `len` bytes inaccessible
+    /// to both reads and writes.
+    /// `start` and `len` must be native page-size multiples and describe a range within
+    /// `self`'s reserved memory.
+    pub fn make_inaccessible(&self, start: usize, len: usize) -> Result<(), String> {
+        let page_size = region::page::size();
+        assert_eq!(start & (page_size - 1), 0);
+        assert_eq!(len & (page_size - 1), 0);
+        assert!(len <= self.len);
+        assert!(start <= self.len - len);
+
+        // Commit the accessible size.
+        let ptr = self.ptr as *const u8;
+        unsafe { region::protect(ptr.add(start), len, region::Protection::NONE) }
+            .map_err(|e| e.to_string())
+    }
+
     /// Return the allocated memory as a slice of u8.
     pub fn as_slice(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }

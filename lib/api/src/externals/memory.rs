@@ -119,6 +119,11 @@ impl Memory {
         self.0.grow(store, delta)
     }
 
+    /// Makes all the memory inaccessible to any reads or writes
+    pub fn make_inaccessible(&self, store: &impl AsStoreRef) -> Result<(), MemoryError> {
+        self.0.make_inaccessable(store)
+    }
+
     /// Copies the memory to a new store and returns a memory reference to it
     pub fn copy_to_store(
         &self,
