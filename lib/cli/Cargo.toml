@@ -131,6 +131,7 @@ webc_runner = [
     "webc"
 ]
 compiler = [
+    "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
     "wasmer-wasix/compiler"
