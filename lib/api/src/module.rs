@@ -385,10 +385,9 @@ impl Module {
     /// is returned.
     pub fn custom_sections<'a>(
         &'a self,
-        engine: &'a impl AsEngineRef,
         name: &'a str,
     ) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        self.0.custom_sections(engine, name)
+        self.0.custom_sections(name)
     }
 
     /// The ABI of the [`ModuleInfo`] is very unstable, we refactor it very often.

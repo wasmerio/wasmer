@@ -18,29 +18,29 @@ use wasmer_types::{
     ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
 };
 
-/// WebAssembly in the browser doesn't yet output the descriptor/types
-/// corresponding to each extern (import and export).
-///
-/// This should be fixed once the JS-Types Wasm proposal is adopted
-/// by the browsers:
-/// https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
-///
-/// Until that happens, we annotate the module with the expected
-/// types so we can built on top of them at runtime.
-#[derive(Clone, PartialEq, Eq)]
-pub struct ModuleTypeHints {
-    /// The type hints for the imported types
-    pub imports: Vec<ExternType>,
-    /// The type hints for the exported types
-    pub exports: Vec<ExternType>,
-}
+// /// JavascriptCore doesn't yet output the descriptor/types
+// /// corresponding to each extern (import and export).
+// ///
+// /// This should be fixed once the JS-Types Wasm proposal is adopted
+// /// by the browsers:
+// /// https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
+// ///
+// /// Until that happens, we annotate the module with the expected
+// /// types so we can built on top of them at runtime.
+// #[derive(Clone, PartialEq, Eq)]
+// pub struct ModuleTypeHints {
+//     /// The type hints for the imported types
+//     pub imports: Vec<ExternType>,
+//     /// The type hints for the exported types
+//     pub exports: Vec<ExternType>,
+// }
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Module {
     module: JSObject,
     name: Option<String>,
     // WebAssembly type hints
-    type_hints: Option<ModuleTypeHints>,
+    // type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
     info: ModuleInfo,
@@ -69,7 +69,6 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        // unimplemented!();
         let mut binary = binary.to_vec();
         let engine = engine.as_engine_ref();
         let context = engine.engine().0.context();
@@ -87,33 +86,26 @@ impl Module {
     pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
-        #[cfg(feature = "wasm-types-polyfill")]
-        let (type_hints, info) = {
-            let info = crate::jsc::module_info_polyfill::translate_module(&binary[..])
-                .unwrap()
-                .info;
+        let info = crate::jsc::module_info_polyfill::translate_module(&binary[..])
+            .unwrap()
+            .info;
 
-            (
-                Some(ModuleTypeHints {
-                    imports: info
-                        .imports()
-                        .map(|import| import.ty().clone())
-                        .collect::<Vec<_>>(),
-                    exports: info
-                        .exports()
-                        .map(|export| export.ty().clone())
-                        .collect::<Vec<_>>(),
-                }),
-                info,
-            )
-        };
-        #[cfg(not(feature = "wasm-types-polyfill"))]
-        let (type_hints, name) = (None, None);
+        // #[cfg(feature = "wasm-types-polyfill")]
+        // let type_hints = ModuleTypeHints {
+        //     imports: info
+        //         .imports()
+        //         .map(|import| import.ty().clone())
+        //         .collect::<Vec<_>>(),
+        //     exports: info
+        //         .exports()
+        //         .map(|export| export.ty().clone())
+        //         .collect::<Vec<_>>(),
+        // };
 
         Self {
             module,
-            type_hints,
             name: info.name.clone(),
+            type_hints,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary.into_bytes()),
             info,
@@ -147,14 +139,6 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-
-        // TODO: refactor this if possible, after the WASIX merge.
-        // The imported/exported memory does not have the correct properties
-        // (incorrect size and shared flag) hence when using shared memory its
-        // failing - the only way to fix it is to resolve the import and use the
-        // correct memory properties. this regression issue was only found
-        // in WASIX on the browser as the other areas don't mind that they don't match up
-        // sharrattj/dash should be able to reproduce this.
 
         let store = store.as_store_mut();
         let context = store.engine().0.context();
@@ -328,41 +312,41 @@ impl Module {
         // ImportsIterator::new(iter, length as usize)
     }
 
-    /// Set the type hints for this module.
-    ///
-    /// Returns an error if the hints doesn't match the shape of
-    /// import or export types of the module.
-    #[allow(unused)]
-    pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
-        // let exports = WebAssembly::Module::exports(&self.module);
-        // // Check exports
-        // if exports.length() as usize != type_hints.exports.len() {
-        //     return Err("The exports length must match the type hints lenght".to_owned());
-        // }
-        // for (i, val) in exports.iter().enumerate() {
-        //     // Annotation is here to prevent spurious IDE warnings.
-        //     #[allow(unused_unsafe)]
-        //     let kind = unsafe {
-        //         Reflect::get(val.as_ref(), &"kind".into())
-        //             .unwrap()
-        //             .as_string()
-        //             .unwrap()
-        //     };
-        //     // It is safe to unwrap as we have already checked for the exports length
-        //     let type_hint = type_hints.exports.get(i).unwrap();
-        //     let expected_kind = match type_hint {
-        //         ExternType::Function(_) => "function",
-        //         ExternType::Global(_) => "global",
-        //         ExternType::Memory(_) => "memory",
-        //         ExternType::Table(_) => "table",
-        //     };
-        //     if expected_kind != kind.as_str() {
-        //         return Err(format!("The provided type hint for the export {} is {} which doesn't match the expected kind: {}", i, kind.as_str(), expected_kind));
-        //     }
-        // }
-        self.type_hints = Some(type_hints);
-        Ok(())
-    }
+    // /// Set the type hints for this module.
+    // ///
+    // /// Returns an error if the hints doesn't match the shape of
+    // /// import or export types of the module.
+    // #[allow(unused)]
+    // pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
+    //     // let exports = WebAssembly::Module::exports(&self.module);
+    //     // // Check exports
+    //     // if exports.length() as usize != type_hints.exports.len() {
+    //     //     return Err("The exports length must match the type hints lenght".to_owned());
+    //     // }
+    //     // for (i, val) in exports.iter().enumerate() {
+    //     //     // Annotation is here to prevent spurious IDE warnings.
+    //     //     #[allow(unused_unsafe)]
+    //     //     let kind = unsafe {
+    //     //         Reflect::get(val.as_ref(), &"kind".into())
+    //     //             .unwrap()
+    //     //             .as_string()
+    //     //             .unwrap()
+    //     //     };
+    //     //     // It is safe to unwrap as we have already checked for the exports length
+    //     //     let type_hint = type_hints.exports.get(i).unwrap();
+    //     //     let expected_kind = match type_hint {
+    //     //         ExternType::Function(_) => "function",
+    //     //         ExternType::Global(_) => "global",
+    //     //         ExternType::Memory(_) => "memory",
+    //     //         ExternType::Table(_) => "table",
+    //     //     };
+    //     //     if expected_kind != kind.as_str() {
+    //     //         return Err(format!("The provided type hint for the export {} is {} which doesn't match the expected kind: {}", i, kind.as_str(), expected_kind));
+    //     //     }
+    //     // }
+    //     self.type_hints = Some(type_hints);
+    //     Ok(())
+    // }
 
     pub fn exports<'a>(
         &'a self,
@@ -442,54 +426,39 @@ impl Module {
 
     pub fn custom_sections<'a>(
         &'a self,
-        engine: &impl AsEngineRef,
         name: &'a str,
     ) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        // unimplemented!();
-        let engine = engine.as_engine_ref();
-        let context = engine.engine().0.context();
-        let module_type = engine.engine().0.wasm_module_type();
-        let custom_sections_func = module_type.get_property(&context, "customSections".to_string());
-        let name = JSString::from_utf8(name.to_string())
-            .unwrap()
-            .to_jsvalue(&context);
-        let results = custom_sections_func
-            .to_object(&context)
-            .call(
-                &context,
-                module_type.clone(),
-                &[self.module.clone().to_jsvalue(), name],
-            )
-            .unwrap()
-            .to_object(&context);
-        let length = results
-            .get_property(&context, "length".to_string())
-            .to_number(&context) as u32;
+        self.info().custom_sections(name)
+        // let engine = engine.as_engine_ref();
+        // let context = engine.engine().0.context();
+        // let module_type = engine.engine().0.wasm_module_type();
+        // let custom_sections_func = module_type.get_property(&context, "customSections".to_string());
+        // let name = JSString::from_utf8(name.to_string())
+        //     .unwrap()
+        //     .to_jsvalue(&context);
+        // let results = custom_sections_func
+        //     .to_object(&context)
+        //     .call(
+        //         &context,
+        //         module_type.clone(),
+        //         &[self.module.clone().to_jsvalue(), name],
+        //     )
+        //     .unwrap()
+        //     .to_object(&context);
+        // let length = results
+        //     .get_property(&context, "length".to_string())
+        //     .to_number(&context) as u32;
 
-        // println!("CUSTOM SECTION: {} (len: {}, isarr: {})", results.to_string(&context), length, custom_sections.is_array(&context));
-
-        // let custom_sections = results.to_object(&context);
-        let array_buffers = (0..length).map(|i| {
-            let array_buffer = results.get_property_at_index(&context, i).unwrap();
-            // println!("ARRAY BUFFER {}", array_buffer.to_string(&context));
-            array_buffer
-                .to_object(&context)
-                .get_array_buffer(&context)
-                .unwrap()
-                .to_owned()
-                .into_boxed_slice()
-        });
-        // println!("array_buffers: {:?}", array_buffers);
-        // get_property_at_index
-        // WebAssembly::Module::custom_sections(&self.module, name)
-        //     .iter()
-        //     .map(move |buf_val| {
-        //         let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&buf_val);
-        //         typebuf.to_vec().into_boxed_slice()
-        //     })
-        //     .collect::<Vec<Box<[u8]>>>()
-        //     .into_iter()
-        array_buffers.collect::<Vec<Box<[u8]>>>().into_iter()
+        // let array_buffers = (0..length).map(|i| {
+        //     let array_buffer = results.get_property_at_index(&context, i).unwrap();
+        //     array_buffer
+        //         .to_object(&context)
+        //         .get_array_buffer(&context)
+        //         .unwrap()
+        //         .to_owned()
+        //         .into_boxed_slice()
+        // });
+        // array_buffers.collect::<Vec<Box<[u8]>>>().into_iter()
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
