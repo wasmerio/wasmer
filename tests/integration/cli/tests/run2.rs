@@ -51,6 +51,7 @@ mod webc_on_disk {
     }
 
     #[test]
+    #[ignore = "WASI runners only give you access to the webc fs for now"]
     fn wasi_runner_with_mounted_directories_and_webc_volumes() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -88,8 +89,6 @@ mod webc_on_disk {
             .arg("import os; print(os.environ['SOME_VAR'])")
             .env("RUST_LOG", RUST_LOG)
             .assert();
-
-        panic!("{}", String::from_utf8_lossy(&assert.get_output().stderr));
 
         assert.success().stdout(contains("Hello, World!"));
     }

@@ -7,7 +7,7 @@ use std::{
     task::Poll,
 };
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use futures::{Future, FutureExt, StreamExt, TryFutureExt};
 use http::{Request, Response};
 use hyper::{service::Service, Body};
@@ -16,7 +16,7 @@ use tokio::{
     runtime::Handle,
 };
 use tracing::Instrument;
-use virtual_fs::FileSystem;
+use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Module;
 use wcgi_host::CgiDialect;
 
@@ -54,8 +54,6 @@ impl Handler {
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
-        let (fs, preopen_dirs) = self.fs()?;
-
         let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
         let mut builder = builder
             .envs(self.env.iter())
@@ -70,11 +68,13 @@ impl Handler {
                 threading: Default::default(),
             })
             .runtime(Arc::new(rt))
-            .fs(Box::new(fs))
+            .fs(Box::new(self.fs()?))
             .preopen_dir(Path::new("/"))?;
 
-        for dir in preopen_dirs {
-            builder.add_preopen_dir(dir)?;
+        for mapping in &self.mapped_dirs {
+            builder
+                .add_preopen_dir(&mapping.guest)
+                .with_context(|| format!("Unable to preopen \"{}\"", mapping.guest))?;
         }
 
         let module = self.module.clone();
@@ -136,8 +136,43 @@ impl Handler {
         Ok(response)
     }
 
-    fn fs(&self) -> Result<(impl FileSystem, Vec<PathBuf>), Error> {
-        crate::runners::wasi::unioned_filesystem(&self.mapped_dirs, &self.container)
+    fn fs(&self) -> Result<TmpFileSystem, Error> {
+        let root_fs = RootFileSystemBuilder::new().build();
+
+        if !self.mapped_dirs.is_empty() {
+            let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+                Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
+
+            for MappedDirectory { host, guest } in self.mapped_dirs.iter() {
+                let guest = match guest.starts_with('/') {
+                    true => PathBuf::from(guest),
+                    false => Path::new("/").join(guest),
+                };
+                tracing::debug!(
+                    host=%host.display(),
+                    guest=%guest.display(),
+                    "mounting host directory",
+                );
+
+                if let Some(parent) = guest.parent() {
+                    create_dir_all(&root_fs, parent)
+                        .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
+                }
+
+                root_fs
+                    .mount(guest.clone(), &fs_backing, host.clone())
+                    .with_context(|| {
+                        format!(
+                            "Unable to mount \"{}\" to \"{}\"",
+                            host.display(),
+                            guest.display()
+                        )
+                    })
+                    .map_err(|e| dbg!(e))?;
+            }
+        }
+
+        Ok(root_fs)
     }
 }
 
@@ -147,6 +182,20 @@ impl Deref for Handler {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
+}
+
+fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
+    if fs.metadata(path).is_ok() {
+        return Ok(());
+    }
+
+    if let Some(parent) = path.parent() {
+        create_dir_all(fs, parent)?;
+    }
+
+    fs.create_dir(path)?;
+
+    Ok(())
 }
 
 /// Drive the request to completion by streaming the request body to the

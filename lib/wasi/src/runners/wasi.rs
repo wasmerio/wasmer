@@ -1,10 +1,6 @@
 //! WebC container support for running WASI modules
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     runners::{MappedDirectory, WapmContainer},
@@ -13,9 +9,6 @@ use crate::{
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
-use virtual_fs::{
-    FileSystem, FsError, OverlayFileSystem, PassthruFileSystem, RootFileSystemBuilder,
-};
 use wasmer::{Module, Store};
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -132,7 +125,7 @@ impl WasiRunner {
         container: &WapmContainer,
         command: &str,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let (fs, preopen_dirs) = unioned_filesystem(&self.mapped_dirs, container)?;
+        let (fs, preopen_dirs) = container.container_fs();
 
         let mut builder = WasiEnv::builder(command).args(&self.args);
 
@@ -190,144 +183,5 @@ impl crate::runners::Runner for WasiRunner {
         self.prepare_webc_env(container, &atom_name)?.run(module)?;
 
         Ok(())
-    }
-}
-
-/// Create a [`FileSystem`] which merges the WAPM container's volumes with any
-/// directories that were mapped from the host.
-pub(crate) fn unioned_filesystem(
-    mapped_dirs: &[MappedDirectory],
-    container: &WapmContainer,
-) -> Result<(impl FileSystem, Vec<PathBuf>), Error> {
-    // We start with the root filesystem so we get things like "/dev/"
-    let primary = RootFileSystemBuilder::new().build();
-
-    let mut preopen_dirs = Vec::new();
-
-    // Now, let's merge in the host volumes.
-    if !mapped_dirs.is_empty() {
-        let host_fs: Arc<dyn FileSystem + Send + Sync> =
-            Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
-
-        for MappedDirectory { host, guest } in mapped_dirs.iter() {
-            let guest = match guest.starts_with('/') {
-                true => PathBuf::from(guest),
-                false => Path::new("/").join(guest),
-            };
-            tracing::debug!(
-                host=%host.display(),
-                guest=%guest.display(),
-                "mounting host directory",
-            );
-
-            if let Some(parent) = guest.parent() {
-                create_dir_all(&primary, parent.as_ref())?;
-            }
-
-            primary
-                .mount(guest.clone(), &host_fs, host.clone())
-                .with_context(|| {
-                    format!(
-                        "Unable to mount \"{}\" to \"{}\"",
-                        host.display(),
-                        guest.display()
-                    )
-                })?;
-
-            preopen_dirs.push(guest);
-        }
-    }
-
-    let (container_fs, top_level_dirs) = container.container_fs();
-
-    preopen_dirs.extend(top_level_dirs.into_iter().map(|p| Path::new("/").join(p)));
-
-    // Once we've set up the primary filesystem, make sure it is overlayed with
-    // the WEBC container's files
-    let fs = OverlayFileSystem::new(primary, [container_fs]);
-
-    Ok((fs, preopen_dirs))
-}
-
-fn create_dir_all(fs: &(impl FileSystem + ?Sized), path: &Path) -> Result<(), Error> {
-    match fs.metadata(path) {
-        Ok(meta) if meta.is_dir() => return Ok(()),
-        Ok(_) => anyhow::bail!(FsError::BaseNotDirectory),
-        Err(FsError::EntryNotFound) => {}
-        Err(e) => anyhow::bail!(e),
-    }
-
-    if let Some(parent) = path.parent() {
-        create_dir_all(fs, parent)?;
-    }
-
-    fs.create_dir(path)?;
-
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use tempfile::TempDir;
-    use tokio::io::AsyncReadExt;
-
-    use super::*;
-
-    #[track_caller]
-    async fn read_file(fs: &dyn FileSystem, path: impl AsRef<Path>) -> String {
-        let mut f = fs.new_open_options().read(true).open(path).unwrap();
-        let mut contents = String::new();
-        f.read_to_string(&mut contents).await.unwrap();
-
-        contents
-    }
-
-    #[track_caller]
-    fn read_dir(fs: &dyn FileSystem, path: impl AsRef<Path>) -> Vec<PathBuf> {
-        fs.read_dir(path.as_ref())
-            .unwrap()
-            .filter_map(|result| result.ok())
-            .map(|entry| entry.path)
-            .collect()
-    }
-
-    #[tokio::test]
-    async fn construct_the_unioned_fs() {
-        let temp = TempDir::new().unwrap();
-        std::fs::write(temp.path().join("file.txt"), b"Hello, World!").unwrap();
-        let webc: &[u8] =
-            include_bytes!("../../../../lib/c-api/examples/assets/python-0.1.0.wasmer");
-        let container = WapmContainer::from_bytes(webc.into()).unwrap();
-        let mapped_dirs = [MappedDirectory {
-            guest: "/path/to/".to_string(),
-            host: temp.path().to_path_buf(),
-        }];
-
-        let (fs, _) = unioned_filesystem(&mapped_dirs, &container).unwrap();
-
-        // Files that were mounted on the host
-        let path_contents = read_dir(&fs, "/path/to/");
-        // FIXME: We can't use the commented-out version because of a bug in
-        // memfs. For more, see https://github.com/wasmerio/wasmer/issues/3685
-        assert_eq!(path_contents.len(), 1);
-        assert!(path_contents[0].ends_with("file.txt"));
-        // assert_eq!(
-        //     read_dir(&fs, "/path/to/"),
-        //     vec![PathBuf::from("/path/to/file.txt")]
-        // );
-        assert_eq!(read_file(&fs, "/path/to/file.txt").await, "Hello, World!");
-        // Files from the Python WEBC file's volumes
-        assert_eq!(
-            read_dir(&fs, "/lib/python3.6/collections/"),
-            vec![
-                PathBuf::from("/lib/python3.6/collections/__init__.py"),
-                PathBuf::from("/lib/python3.6/collections/abc.py"),
-            ]
-        );
-        let abc = read_file(&fs, "/lib/python3.6/collections/abc.py").await;
-        assert_eq!(
-            abc,
-            "from _collections_abc import *\nfrom _collections_abc import __all__\n"
-        );
     }
 }
