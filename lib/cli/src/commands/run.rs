@@ -193,7 +193,7 @@ impl RunWithPathBuf {
         }
     }
 
-    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<()> {
+    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
@@ -216,12 +216,12 @@ impl RunWithPathBuf {
             let start: Function = self.try_find_function(&instance, "_start", &[])?;
             let result = start.call(store, &[]);
             #[cfg(feature = "wasi")]
-            self.wasi.handle_result(result)?;
+            return self.wasi.handle_result(result);
             #[cfg(not(feature = "wasi"))]
-            result?;
+            return Ok(result?);
         }
 
-        Ok(())
+        Ok(0)
     }
 
     fn inner_execute(&self) -> Result<()> {
@@ -326,6 +326,7 @@ impl RunWithPathBuf {
                     let res = self.inner_module_run(&mut store, instance);
 
                     ctx.cleanup(&mut store, None);
+
                     res
                 }
                 // not WASI
@@ -334,7 +335,12 @@ impl RunWithPathBuf {
                     self.inner_module_run(&mut store, instance)
                 }
             }
-        };
+        }.map(|exit_code| {
+            std::io::stdout().flush().ok();
+            std::io::stderr().flush().ok();
+            std::process::exit(exit_code);
+        });
+
         #[cfg(not(feature = "wasi"))]
         let ret = {
             let instance = Instance::new(&module, &imports! {})?;

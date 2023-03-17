@@ -409,3 +409,10 @@ impl fmt::Debug for Module {
             .finish()
     }
 }
+
+#[cfg(feature = "js")]
+impl From<Module> for wasm_bindgen::JsValue {
+    fn from(value: Module) -> Self {
+        wasm_bindgen::JsValue::from(value.0)
+    }
+}

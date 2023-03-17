@@ -4,9 +4,9 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "6ee0e633eeb4a5caeef73493712870f6",
+    "name": "snapshot::test_snapshot_catsay",
     "use_packages": [],
+    "include_webcs": [],
     "cli_args": [],
     "stdin": [
       109,
@@ -18,7 +18,8 @@ expression: snapshot
       119
     ],
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
+    "enable_network": false
   },
   "result": {
     "Success": {

@@ -1,0 +1,82 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 554
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_bash_python",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      "./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc",
+      "./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc",
+      "./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc",
+      "./webc/python-0.1.0.webc",
+      "./webc/static-web-server-1.0.8-a241658c-e409-4749-872c-ae8eab142ef0.webc",
+      "./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc"
+    ],
+    "cli_args": [],
+    "stdin": [
+      119,
+      97,
+      115,
+      109,
+      101,
+      114,
+      32,
+      114,
+      117,
+      110,
+      32,
+      115,
+      121,
+      114,
+      117,
+      115,
+      97,
+      107,
+      98,
+      97,
+      114,
+      121,
+      47,
+      112,
+      121,
+      116,
+      104,
+      111,
+      110,
+      32,
+      45,
+      45,
+      32,
+      45,
+      99,
+      32,
+      39,
+      112,
+      114,
+      105,
+      110,
+      116,
+      40,
+      49,
+      48,
+      41,
+      39,
+      10
+    ],
+    "debug_output": false,
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "10\n",
+      "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

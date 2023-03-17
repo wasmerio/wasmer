@@ -1,10 +1,10 @@
 use std::mem::MaybeUninit;
 
-use wasmer::ValueType;
+use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
 use super::{
-    Errno, EventFdReadwrite, Eventtype, Snapshot0SubscriptionClock, SubscriptionClock,
-    SubscriptionFsReadwrite, Userdata,
+    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
+    Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite, Userdata,
 };
 
 /// Thread local key
@@ -174,4 +174,150 @@ unsafe impl ValueType for Event {
 unsafe impl ValueType for StackSnapshot {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union JoinStatusUnion {
+    pub nothing: u8,
+    pub exit_normal: Errno,
+    pub exit_signal: ErrnoSignal,
+    pub stopped: Signal,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct JoinStatus {
+    pub tag: JoinStatusType,
+    pub u: JoinStatusUnion,
+}
+impl core::fmt::Debug for JoinStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut binding = f.debug_struct("JoinStatus");
+        let mut f = binding.field("tag", &self.tag);
+        f = unsafe {
+            match self.tag {
+                JoinStatusType::Nothing => f.field("pid", &self.u.nothing),
+                JoinStatusType::ExitNormal => f.field("exit_normal", &self.u.exit_normal),
+                JoinStatusType::ExitSignal => f.field("exit_signal", &self.u.exit_signal),
+                JoinStatusType::Stopped => f.field("stopped", &self.u.stopped),
+            }
+        };
+        f.finish()
+    }
+}
+unsafe impl ValueType for JoinStatus {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[doc = " Represents the thread start object"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ThreadStart<M: MemorySize> {
+    pub stack_start: M::Offset,
+    pub tls_base: M::Offset,
+    pub start_funct: M::Offset,
+    pub start_args: M::Offset,
+    pub reserved: [M::Offset; 10],
+    pub stack_size: M::Offset,
+    pub guard_size: M::Offset,
+}
+impl<M: MemorySize> core::fmt::Debug for ThreadStart<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ThreadStart")
+            .field("stack_start", &self.stack_start)
+            .field("tls-base", &self.tls_base)
+            .field("start-funct", &self.start_funct)
+            .field("start-args", &self.start_args)
+            .field("stack_size", &self.stack_size)
+            .field("guard_size", &self.guard_size)
+            .finish()
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ExitCode {
+    Errno(Errno),
+    Other(i32),
+}
+impl ExitCode {
+    pub fn raw(&self) -> i32 {
+        match self {
+            ExitCode::Errno(err) => err.to_native(),
+            ExitCode::Other(code) => *code,
+        }
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.raw() == 0
+    }
+}
+impl core::fmt::Debug for ExitCode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ExitCode::Errno(a) => write!(f, "ExitCode::{}", a),
+            ExitCode::Other(a) => write!(f, "ExitCode::{}", a),
+        }
+    }
+}
+impl core::fmt::Display for ExitCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+unsafe impl wasmer::FromToNativeWasmType for ExitCode {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.into()
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        n.into()
+    }
+
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        false
+    }
+}
+
+impl From<Errno> for ExitCode {
+    fn from(val: Errno) -> Self {
+        Self::Errno(val)
+    }
+}
+
+impl From<i32> for ExitCode {
+    fn from(val: i32) -> Self {
+        let err = Errno::from_native(val);
+        match err {
+            Errno::Unknown => Self::Other(val),
+            err => Self::Errno(err),
+        }
+    }
+}
+
+impl From<ExitCode> for Errno {
+    fn from(code: ExitCode) -> Self {
+        match code {
+            ExitCode::Errno(err) => err,
+            ExitCode::Other(code) => Errno::from_native(code),
+        }
+    }
+}
+
+impl From<ExitCode> for i32 {
+    fn from(val: ExitCode) -> Self {
+        match val {
+            ExitCode::Errno(err) => err.to_native(),
+            ExitCode::Other(code) => code,
+        }
+    }
 }

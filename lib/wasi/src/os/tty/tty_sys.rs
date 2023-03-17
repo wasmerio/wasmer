@@ -2,19 +2,21 @@ use super::TtyBridge;
 use crate::WasiTtyState;
 
 /// [`TtyBridge`] implementation for Unix systems.
-pub struct SysTyy;
+#[derive(Debug, Default, Clone)]
+pub struct SysTty;
 
-impl TtyBridge for SysTyy {
+impl TtyBridge for SysTty {
+    fn reset(&self) {
+        sys::reset().ok();
+    }
+
     fn tty_get(&self) -> WasiTtyState {
-        let mut echo = false;
-        let mut line_buffered = false;
-        let mut line_feeds = false;
-
-        if let Ok(termios) = termios::Termios::from_fd(0) {
-            echo = (termios.c_lflag & termios::ECHO) != 0;
-            line_buffered = (termios.c_lflag & termios::ICANON) != 0;
-            line_feeds = (termios.c_lflag & termios::ONLCR) != 0;
-        }
+        let echo = sys::is_mode_echo();
+        let line_buffered = sys::is_mode_line_buffering();
+        let line_feeds = sys::is_mode_line_feeds();
+        let stdin_tty = sys::is_stdin_tty();
+        let stdout_tty = sys::is_stdout_tty();
+        let stderr_tty = sys::is_stderr_tty();
 
         if let Some((w, h)) = term_size::dimensions() {
             WasiTtyState {
@@ -22,9 +24,9 @@ impl TtyBridge for SysTyy {
                 rows: h as u32,
                 width: 800,
                 height: 600,
-                stdin_tty: true,
-                stdout_tty: true,
-                stderr_tty: true,
+                stdin_tty,
+                stdout_tty,
+                stderr_tty,
                 echo,
                 line_buffered,
                 line_feeds,
@@ -35,9 +37,9 @@ impl TtyBridge for SysTyy {
                 cols: 25,
                 width: 800,
                 height: 600,
-                stdin_tty: true,
-                stdout_tty: true,
-                stderr_tty: true,
+                stdin_tty,
+                stdout_tty,
+                stderr_tty,
                 echo,
                 line_buffered,
                 line_feeds,
@@ -46,146 +48,229 @@ impl TtyBridge for SysTyy {
     }
 
     fn tty_set(&self, tty_state: WasiTtyState) {
-        #[cfg(unix)]
-        {
-            if tty_state.echo {
-                unix::set_mode_echo();
-            } else {
-                unix::set_mode_no_echo();
-            }
-            if tty_state.line_buffered {
-                unix::set_mode_line_buffered();
-            } else {
-                unix::set_mode_no_line_buffered();
-            }
-            if tty_state.line_feeds {
-                unix::set_mode_line_feeds();
-            } else {
-                unix::set_mode_no_line_feeds();
-            }
+        if tty_state.echo {
+            sys::set_mode_echo().ok();
+        } else {
+            sys::set_mode_no_echo().ok();
+        }
+        if tty_state.line_buffered {
+            sys::set_mode_line_buffered().ok();
+        } else {
+            sys::set_mode_no_line_buffered().ok();
+        }
+        if tty_state.line_feeds {
+            sys::set_mode_line_feeds().ok();
+        } else {
+            sys::set_mode_no_line_feeds().ok();
         }
     }
 }
 
+#[allow(unused_mut)]
 #[cfg(unix)]
-mod unix {
+mod sys {
     #![allow(unused_imports)]
     use {
         libc::{
-            c_int, tcsetattr, termios, ECHO, ECHOE, ECHONL, ICANON, ICRNL, IEXTEN, ISIG, IXON,
-            OPOST, TCSANOW,
+            c_int, tcsetattr, termios, ECHO, ECHOCTL, ECHOE, ECHOK, ECHONL, ICANON, ICRNL, IEXTEN,
+            IGNCR, ISIG, IXON, ONLCR, OPOST, TCSANOW,
         },
         std::mem,
         std::os::unix::io::AsRawFd,
     };
 
-    #[cfg(unix)]
-    pub fn io_result(ret: libc::c_int) -> std::io::Result<()> {
+    fn io_result(ret: libc::c_int) -> std::io::Result<()> {
         match ret {
             0 => Ok(()),
             _ => Err(std::io::Error::last_os_error()),
         }
     }
 
-    #[cfg(unix)]
-    pub fn set_mode_no_echo() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn reset() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
+        let mut termios = unsafe { termios.assume_init() };
+
+        termios.c_lflag |= ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL;
+
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
+    }
+
+    pub fn is_stdin_tty() -> bool {
+        ::termios::Termios::from_fd(0).is_ok()
+    }
+
+    pub fn is_stdout_tty() -> bool {
+        ::termios::Termios::from_fd(1).is_ok()
+    }
+
+    pub fn is_stderr_tty() -> bool {
+        ::termios::Termios::from_fd(2).is_ok()
+    }
+
+    pub fn is_mode_echo() -> bool {
+        if let Ok(termios) = ::termios::Termios::from_fd(0) {
+            (termios.c_lflag & ::termios::ECHO) != 0
+        } else {
+            false
+        }
+    }
+
+    pub fn is_mode_line_buffering() -> bool {
+        if let Ok(termios) = ::termios::Termios::from_fd(0) {
+            (termios.c_lflag & ::termios::ICANON) != 0
+        } else {
+            false
+        }
+    }
+
+    pub fn is_mode_line_feeds() -> bool {
+        if let Ok(termios) = ::termios::Termios::from_fd(0) {
+            (termios.c_lflag & ::termios::ONLCR) != 0
+        } else {
+            false
+        }
+    }
+
+    pub fn set_mode_no_echo() -> Result<(), anyhow::Error> {
+        let mut termios = mem::MaybeUninit::<termios>::uninit();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag &= !ECHO;
         termios.c_lflag &= !ECHOE;
+        termios.c_lflag &= !ECHOK;
+        termios.c_lflag &= !ECHOCTL;
+        termios.c_lflag &= !IEXTEN;
+        /*
         termios.c_lflag &= !ISIG;
         termios.c_lflag &= !IXON;
-        termios.c_lflag &= !IEXTEN;
         termios.c_lflag &= !ICRNL;
         termios.c_lflag &= !OPOST;
+        */
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
     }
 
-    #[cfg(unix)]
-    pub fn set_mode_echo() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_echo() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag |= ECHO;
         termios.c_lflag |= ECHOE;
+        termios.c_lflag |= ECHOK;
+        termios.c_lflag |= ECHOCTL;
+        termios.c_lflag |= IEXTEN;
+        /*
         termios.c_lflag |= ISIG;
         termios.c_lflag |= IXON;
-        termios.c_lflag |= IEXTEN;
         termios.c_lflag |= ICRNL;
         termios.c_lflag |= OPOST;
+        */
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
     }
 
-    #[cfg(unix)]
-    pub fn set_mode_no_line_feeds() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_no_line_buffered() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag &= !ICANON;
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
     }
 
-    #[cfg(unix)]
-    pub fn set_mode_line_feeds() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_line_buffered() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag |= ICANON;
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
     }
 
-    // #[cfg(unix)]
-    // pub fn set_mode_no_line_feeds() -> std::fs::File {
-    //     let tty = std::fs::File::open("/dev/tty").unwrap();
-    //     let fd = tty.as_raw_fd();
+    pub fn set_mode_no_line_feeds() -> Result<(), anyhow::Error> {
+        let mut termios = mem::MaybeUninit::<termios>::uninit();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
+        let mut termios = unsafe { termios.assume_init() };
 
-    //     let mut termios = mem::MaybeUninit::<termios>::uninit();
-    //     io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
-    //     let mut termios = unsafe { termios.assume_init() };
+        termios.c_lflag &= !ONLCR;
 
-    //     termios.c_lflag &= !::termios::ONLCR;
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
+    }
 
-    //     unsafe { tcsetattr(fd, TCSANOW, &termios) };
-    //     tty
-    // }
+    pub fn set_mode_line_feeds() -> Result<(), anyhow::Error> {
+        let mut termios = mem::MaybeUninit::<termios>::uninit();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
+        let mut termios = unsafe { termios.assume_init() };
 
-    // #[cfg(unix)]
-    // pub fn set_mode_line_feeds() -> std::fs::File {
-    //     let tty = std::fs::File::open("/dev/tty").unwrap();
-    //     let fd = tty.as_raw_fd();
+        termios.c_lflag |= ONLCR;
 
-    //     let mut termios = mem::MaybeUninit::<termios>::uninit();
-    //     io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
-    //     let mut termios = unsafe { termios.assume_init() };
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
+    }
+}
 
-    //     termios.c_lflag |= ONLCR;
+#[cfg(not(unix))]
+mod sys {
+    pub fn reset() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 
-    //     unsafe { tcsetattr(fd, TCSANOW, &termios) };
-    //     tty
-    // }
+    pub fn is_stdin_tty() -> bool {
+        false
+    }
+
+    pub fn is_stdout_tty() -> bool {
+        false
+    }
+
+    pub fn is_stderr_tty() -> bool {
+        false
+    }
+
+    pub fn is_mode_echo() -> bool {
+        true
+    }
+
+    pub fn is_mode_line_buffering() -> bool {
+        true
+    }
+
+    pub fn is_mode_line_feeds() -> bool {
+        true
+    }
+
+    pub fn set_mode_no_echo() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_echo() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_no_line_buffered() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_line_buffered() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_no_line_feeds() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_line_feeds() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

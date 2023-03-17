@@ -243,6 +243,12 @@ impl Mmap {
         unsafe { slice::from_raw_parts(self.ptr as *const u8, self.accessible_size) }
     }
 
+    /// Return the allocated memory as a slice of u8.
+    pub fn as_slice_arbitary(&self, size: usize) -> &[u8] {
+        let size = usize::min(size, self.total_size);
+        unsafe { slice::from_raw_parts(self.ptr as *const u8, size) }
+    }
+
     /// Return the allocated memory as a mutable slice of u8.
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.total_size) }
@@ -251,6 +257,12 @@ impl Mmap {
     /// Return the allocated memory as a mutable slice of u8.
     pub fn as_mut_slice_accessible(&mut self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.accessible_size) }
+    }
+
+    /// Return the allocated memory as a mutable slice of u8.
+    pub fn as_mut_slice_arbitary(&mut self, size: usize) -> &mut [u8] {
+        let size = usize::min(size, self.total_size);
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, size) }
     }
 
     /// Return the allocated memory as a pointer to u8.
@@ -274,10 +286,17 @@ impl Mmap {
     }
 
     /// Duplicate in a new memory mapping.
-    pub fn duplicate(&mut self, _size_hint: Option<usize>) -> Result<Self, String> {
-        let mut new = Self::accessible_reserved(self.accessible_size, self.total_size)?;
-        new.as_mut_slice_accessible()
-            .copy_from_slice(self.as_slice_accessible());
+    pub fn duplicate(&mut self, size_hint: Option<usize>) -> Result<Self, String> {
+        // NOTE: accessible_size != used size as the value is not
+        //       automatically updated when the pre-provisioned space is used
+        let mut copy_size = self.accessible_size;
+        if let Some(size_hint) = size_hint {
+            copy_size = usize::max(copy_size, size_hint);
+        }
+
+        let mut new = Self::accessible_reserved(copy_size, self.total_size)?;
+        new.as_mut_slice_arbitary(copy_size)
+            .copy_from_slice(self.as_slice_arbitary(copy_size));
         Ok(new)
     }
 }

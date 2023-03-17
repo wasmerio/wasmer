@@ -46,7 +46,7 @@ serde_yaml = { version = "^0.8" }
 shellexpand = { version = "^2" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
-term_size = { version = "0.3", optional = true }
+term_size = { version = "0.3" }
 linked_hash_set = { version = "0.1" }
 # used by feature='host-termios'
 termios = { version = "0.3", optional = true }
@@ -68,6 +68,7 @@ optional = true
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
+termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
@@ -102,17 +103,17 @@ sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
-compiler = [ ]
+# Deprecated. Kept it for compatibility
+compiler = []
 
 js = ["virtual-fs/no-time", "getrandom/js", "chrono"]
 js-default = ["js"]
-test-js = ["js"]
+test-js = ["js", "wasmer/wat"]
 
 host-vnet = [ "virtual-net/host-net" ]
 host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["virtual-fs/host-fs"]
-host-termios = ["termios", "term_size"]
 
 logging = ["tracing/log"]
 disable-all-logging = [

@@ -14,7 +14,6 @@ use super::task::signal::SignalHandlerAbi;
 
 const TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(200).as_nanos();
 
-#[cfg(feature = "host-termios")]
 pub mod tty_sys;
 
 #[derive(Debug)]
@@ -446,6 +445,9 @@ impl Default for WasiTtyState {
 
 /// Provides access to a TTY.
 pub trait TtyBridge {
+    /// Resets the values
+    fn reset(&self);
+
     /// Retrieve the current TTY state.
     fn tty_get(&self) -> WasiTtyState;
 

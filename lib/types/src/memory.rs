@@ -70,11 +70,13 @@ pub unsafe trait MemorySize: Copy {
         + TryFrom<u32>
         + TryFrom<u16>
         + TryFrom<u8>
+        + TryFrom<i32>
         + TryInto<usize>
         + TryInto<u64>
         + TryInto<u32>
         + TryInto<u16>
         + TryInto<u8>
+        + TryInto<i32>
         + TryFrom<usize>
         + Add<Self::Offset>
         + Sum<Self::Offset>

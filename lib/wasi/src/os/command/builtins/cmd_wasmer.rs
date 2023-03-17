@@ -63,6 +63,11 @@ impl CmdWasmer {
         what: Option<String>,
         mut args: Vec<String>,
     ) -> Result<TaskJoinHandle, VirtualBusError> {
+        // If the first argument is a '--' then skip it
+        if args.first().map(|a| a.as_str()) == Some("--") {
+            args = args.into_iter().skip(1).collect();
+        }
+
         if let Some(what) = what {
             let store = store.take().ok_or(VirtualBusError::UnknownError)?;
             let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
@@ -85,14 +90,14 @@ impl CmdWasmer {
                     )
                     .await;
                 });
-                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent as u32).handle();
+                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
                 Ok(handle)
             }
         } else {
             parent_ctx.data().tasks().block_on(async move {
                 let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
             });
-            let handle = OwnedTaskStatus::new_finished_with_code(0).handle();
+            let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
             Ok(handle)
         }
     }
@@ -135,7 +140,8 @@ impl VirtualCommand for CmdWasmer {
                 parent_ctx.data().tasks().block_on(async move {
                     let _ = stderr_write(parent_ctx, HELP.as_bytes()).await;
                 });
-                let handle = OwnedTaskStatus::new_finished_with_code(0).handle();
+                let handle =
+                    OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
                 Ok(handle)
             }
             Some(what) => {
