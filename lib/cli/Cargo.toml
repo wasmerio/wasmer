@@ -32,16 +32,15 @@ wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-s
 wasmer-compiler-llvm = { version = "=3.2.0-alpha.1", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=3.2.0-alpha.1", path = "../emscripten", optional = true }
 wasmer-vm = { version = "=3.2.0-alpha.1", path = "../vm" }
-wasmer-wasi = { version = "=3.2.0-alpha.1", path = "../wasi", optional = true }
-wasmer-wasi-experimental-io-devices = { version = "=3.2.0-alpha.1", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
-wasmer-wasi-local-networking = { version = "=3.2.0-alpha.1", path = "../wasi-local-networking", optional = true }
+wasmer-wasix = { version = "0.1.0", path = "../wasi", optional = true }
+wasmer-wasix-experimental-io-devices = { version = "0.1.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
 wasmer-wast = { version = "=3.2.0-alpha.1", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache", optional = true }
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.2.0-alpha.1", path = "../object", optional = true }
-wasmer-vfs  = { version = "=3.2.0-alpha.1", path = "../vfs", default-features = false, features = ["host-fs"] }
-wasmer-vnet  = { version = "=3.2.0-alpha.1", path = "../vnet" }
+virtual-fs  = { version = "0.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
+virtual-net  = { version = "0.1.0", path = "../vnet" }
 wasmer-wasm-interface = { version = "3.2.0-alpha.1", path = "../wasm-interface" }
 wasmparser = "0.51.4"
 atty = "0.2"
@@ -111,19 +110,28 @@ default = [
     "wasmer-artifact-create",
     "static-artifact-create",
     "webc_runner",
-    "tracing"
+    "tracing",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
 wast = ["wasmer-wast"]
-wasi = ["wasmer-wasi", "wasmer-wasi-local-networking"]
+wasi = ["wasmer-wasix", "host-net"]
+host-net = [ "virtual-net/host-net" ]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_wcgi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir", "webc"]
+webc_runner = [
+    "wasi", 
+    "wasmer-wasix/webc_runner", 
+    "wasmer-wasix/webc_runner_rt_wasi", 
+    "wasmer-wasix/webc_runner_rt_wcgi", 
+    "wasmer-wasix/webc_runner_rt_emscripten", 
+    "nuke-dir", 
+    "webc"
+]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
-    "wasmer-wasi/compiler"
+    "wasmer-wasix/compiler"
 ]
 wasmer-artifact-create = ["compiler",
  "wasmer/wasmer-artifact-load",
@@ -149,7 +157,7 @@ static-artifact-load = ["compiler",
  ]
 
 experimental-io-devices = [
-    "wasmer-wasi-experimental-io-devices",
+    "wasmer-wasix-experimental-io-devices",
     "wasi"
 ]
 singlepass = [
@@ -164,8 +172,8 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-debug = ["tracing", "wasmer-wasi/logging"]
-disable-all-logging = ["wasmer-wasi/disable-all-logging", "log/release_max_level_off"]
+debug = ["tracing", "wasmer-wasix/logging"]
+disable-all-logging = ["wasmer-wasix/disable-all-logging", "log/release_max_level_off"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]
 tracing = [ "dep:tracing", "tracing-subscriber" ]
@@ -175,7 +183,7 @@ enable-serde = [
   "wasmer/enable-serde",
   "wasmer-vm/enable-serde",
   "wasmer-compiler/enable-serde",
-  "wasmer-wasi/enable-serde",
+  "wasmer-wasix/enable-serde",
 ]
 
 [target.'cfg(target_os = "windows")'.dependencies]

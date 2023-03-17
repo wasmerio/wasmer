@@ -1,6 +1,6 @@
 [package]
-name = "wasmer-vfs"
-version = "3.2.0-alpha.1"
+name = "virtual-fs"
+version = "0.1.0"
 description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
@@ -24,7 +24,14 @@ tokio = { version = "1", features = [ "io-util", "sync", "macros" ], default_fea
 pin-project-lite = "0.2.9"
 indexmap = "1.9.2"
 
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+getrandom = { version = "0.2" }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = [ "js" ] }
+
 [dev-dependencies]
+pretty_assertions = "1.3.0"
 tempfile = "3.4.0"
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 

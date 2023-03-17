@@ -102,9 +102,12 @@ pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) func_env: FunctionEnv<T>,
 }
 
-impl<'a, T> Debug for FunctionEnvMut<'a, T> {
+impl<'a, T> Debug for FunctionEnvMut<'a, T>
+where
+    T: Send + Debug + 'static,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "env_mut")
+        self.func_env.as_ref(&self.store_mut).fmt(f)
     }
 }
 

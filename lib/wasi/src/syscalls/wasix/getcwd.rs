@@ -4,7 +4,7 @@ use crate::syscalls::*;
 /// ### `getcwd()`
 /// Returns the current working directory
 /// If the path exceeds the size of the buffer then this function
-/// will fill the path_len with the needed size and return EOVERFLOW
+/// will return ERANGE
 #[instrument(level = "debug", skip_all, fields(path = field::Empty, max_path_len = field::Empty), ret)]
 pub fn getcwd<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -18,28 +18,35 @@ pub fn getcwd<M: MemorySize>(
     Span::current().record("path", cur_dir.as_str());
 
     let max_path_len = wasi_try_mem!(path_len.read(&memory));
-    let path_slice = wasi_try_mem!(path.slice(&memory, max_path_len));
-    let max_path_len: u64 = max_path_len.into();
-    Span::current().record("max_path_len", max_path_len);
+    let max_path_len64: u64 = max_path_len.into();
+    let path_slice = match (path.is_null(), max_path_len64) {
+        (true, _) => None,
+        (_, 0) => None,
+        (_, _) => Some(wasi_try_mem!(path.slice(&memory, max_path_len))),
+    };
+    Span::current().record("max_path_len", max_path_len64);
 
     let cur_dir = cur_dir.as_bytes();
     wasi_try_mem!(path_len.write(&memory, wasi_try!(to_offset::<M>(cur_dir.len()))));
-    if cur_dir.len() as u64 >= max_path_len {
-        return Errno::Overflow;
+    if cur_dir.len() as u64 > max_path_len64 {
+        return Errno::Range;
     }
 
-    let cur_dir = {
-        let mut u8_buffer = vec![0; max_path_len as usize];
-        let cur_dir_len = cur_dir.len();
-        if (cur_dir_len as u64) < max_path_len {
-            u8_buffer[..cur_dir_len].clone_from_slice(cur_dir);
-            u8_buffer[cur_dir_len] = 0;
-        } else {
-            return Errno::Overflow;
-        }
-        u8_buffer
-    };
+    if let Some(path_slice) = path_slice {
+        let cur_dir = {
+            let mut u8_buffer = vec![0; max_path_len64 as usize];
+            let cur_dir_len = cur_dir.len();
+            if (cur_dir_len as u64) <= max_path_len64 {
+                u8_buffer[..cur_dir_len].clone_from_slice(cur_dir);
+            } else {
+                return Errno::Range;
+            }
+            u8_buffer
+        };
 
-    wasi_try_mem!(path_slice.write_slice(&cur_dir[..]));
-    Errno::Success
+        wasi_try_mem!(path_slice.write_slice(cur_dir.as_ref()));
+        Errno::Success
+    } else {
+        Errno::Inval
+    }
 }

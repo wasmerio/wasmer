@@ -529,3 +529,6 @@ pub enum NetworkError {
     #[error("unknown error found")]
     UnknownError,
 }
+
+#[cfg(feature = "host-net")]
+pub mod host;

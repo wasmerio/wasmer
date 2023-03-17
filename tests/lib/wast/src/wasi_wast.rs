@@ -5,13 +5,13 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{mpsc, Arc, Mutex};
 use std::task::{Context, Poll};
-use wasmer::{FunctionEnv, Imports, Module, Store};
-use wasmer_vfs::{
+use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
-use wasmer_wasi::types::wasi::{Filesize, Timestamp};
-use wasmer_wasi::{
+use wasmer::{FunctionEnv, Imports, Module, Store};
+use wasmer_wasix::types::wasi::{Filesize, Timestamp};
+use wasmer_wasix::{
     generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntimeImplementation,
     VirtualFile, WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
 };
@@ -20,22 +20,22 @@ use wast::parser::{self, Parse, ParseBuffer, Parser};
 /// The kind of filesystem `WasiTest` is going to use.
 #[derive(Debug)]
 pub enum WasiFileSystemKind {
-    /// Instruct the test runner to use `wasmer_vfs::host_fs`.
+    /// Instruct the test runner to use `virtual_fs::host_fs`.
     Host,
 
-    /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
+    /// Instruct the test runner to use `virtual_fs::mem_fs`.
     InMemory,
 
-    /// Instruct the test runner to use `wasmer_vfs::tmp_fs`
+    /// Instruct the test runner to use `virtual_fs::tmp_fs`
     Tmp,
 
-    /// Instruct the test runner to use `wasmer_vfs::passtru_fs`
+    /// Instruct the test runner to use `virtual_fs::passtru_fs`
     PassthruMemory,
 
-    /// Instruct the test runner to use `wasmer_vfs::union_fs<host_fs, mem_fs>`
+    /// Instruct the test runner to use `virtual_fs::union_fs<host_fs, mem_fs>`
     UnionHostMemory,
 
-    /// Instruct the test runner to use the TempFs returned by `wasmer_vfs::builder::RootFileSystemBuilder`
+    /// Instruct the test runner to use the TempFs returned by `virtual_fs::builder::RootFileSystemBuilder`
     RootFileSystemBuilder,
 }
 
@@ -690,7 +690,7 @@ impl AsyncRead for OutputCapturerer {
     }
 }
 
-/// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
+/// When using `virtual_fs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
 fn map_host_fs_to_mem_fs<'a>(

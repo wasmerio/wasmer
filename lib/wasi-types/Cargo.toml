@@ -1,9 +1,9 @@
 [package]
-name = "wasmer-wasi-types"
-version = "3.2.0-alpha.1"
-description = "WASI types for Wasmer WebAssembly runtime"
+name = "wasmer-wasix-types"
+version = "0.1.0"
+description = "WASI and WASIX types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
-keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
+keywords = ["wasm", "webassembly", "wasi", "wasix", "sandbox", "ABI"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"

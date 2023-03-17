@@ -10,10 +10,8 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `rval` - The exit code returned by the process.
-#[instrument(level = "debug", skip_all, fields(exitcode), ret, err)]
-pub fn thread_exit(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    exitcode: ExitCode,
-) -> Result<Errno, WasiError> {
+#[instrument(level = "debug", skip_all, fields(exitcode), ret)]
+pub fn thread_exit(ctx: FunctionEnvMut<'_, WasiEnv>, exitcode: ExitCode) -> Result<(), WasiError> {
+    tracing::debug!(%exitcode);
     Err(WasiError::Exit(exitcode))
 }

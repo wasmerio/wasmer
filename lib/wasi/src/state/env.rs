@@ -3,15 +3,15 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Dura
 use derivative::Derivative;
 use rand::Rng;
 use tracing::{trace, warn};
+use virtual_fs::{FsError, VirtualFile};
+use virtual_net::DynVirtualNetworking;
 #[cfg(feature = "sys")]
 use wasmer::NativeEngineExt;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,
 };
-use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::DynVirtualNetworking;
-use wasmer_wasi_types::{
+use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
@@ -30,7 +30,7 @@ use crate::{
         },
     },
     runtime::SpawnType,
-    syscalls::platform_clock_time_get,
+    syscalls::{__asyncify_light, platform_clock_time_get},
     SpawnedMemory, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError,
     WasiFunctionEnv, WasiRuntime, WasiRuntimeError, WasiStateCreationError, WasiVFork,
     DEFAULT_STACK_SIZE,
@@ -60,13 +60,13 @@ pub struct WasiInstanceHandles {
     #[allow(dead_code)]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
-    /// Function thats invoked to initialize the WASM module (nane = "_initialize")
+    /// Function thats invoked to initialize the WASM module (name = "_initialize")
     #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) initialize: Option<TypedFunction<(), ()>>,
 
-    /// Represents the callback for spawning a thread (name = "_start_thread")
+    /// Represents the callback for spawning a thread (name = "wasi_thread_start")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
     #[derivative(Debug = "ignore")]
@@ -155,7 +155,7 @@ impl WasiInstanceHandles {
                 .ok(),
             thread_spawn: instance
                 .exports
-                .get_typed_function(store, "_start_thread")
+                .get_typed_function(store, "wasi_thread_start")
                 .ok(),
             react: instance.exports.get_typed_function(store, "_react").ok(),
             signal: instance
@@ -261,7 +261,6 @@ impl WasiEnvInit {
 }
 
 /// The environment provided to the WASI imports.
-#[derive(Debug)]
 pub struct WasiEnv {
     pub control_plane: WasiControlPlane,
     /// Represents the process this environment is attached to
@@ -270,8 +269,8 @@ pub struct WasiEnv {
     pub thread: WasiThread,
     /// Represents a fork of the process that is currently in play
     pub vfork: Option<WasiVFork>,
-    /// Base stack pointer for the memory stack
-    pub stack_base: u64,
+    /// End of the stack memory that is allocated for this thread
+    pub stack_end: u64,
     /// Start of the stack memory that is allocated for this thread
     pub stack_start: u64,
     /// Seed used to rotate around the events returned by `poll_oneoff`
@@ -291,6 +290,12 @@ pub struct WasiEnv {
     pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
+}
+
+impl std::fmt::Debug for WasiEnv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "env(pid={}, tid={})", self.pid().raw(), self.tid().raw())
+    }
 }
 
 // FIXME: remove unsafe impls!
@@ -321,7 +326,7 @@ impl WasiEnv {
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
             vfork: self.vfork.as_ref().map(|v| v.duplicate()),
-            stack_base: self.stack_base,
+            stack_end: self.stack_end,
             stack_start: self.stack_start,
             state: self.state.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -351,7 +356,7 @@ impl WasiEnv {
             thread,
             vfork: None,
             poll_seed: 0,
-            stack_base: self.stack_base,
+            stack_end: self.stack_end,
             stack_start: self.stack_start,
             bin_factory,
             state,
@@ -390,7 +395,7 @@ impl WasiEnv {
             thread: thread.as_thread(),
             vfork: None,
             poll_seed: 0,
-            stack_base: DEFAULT_STACK_SIZE,
+            stack_end: DEFAULT_STACK_SIZE,
             stack_start: 0,
             state: Arc::new(init.state),
             inner: None,
@@ -470,7 +475,7 @@ impl WasiEnv {
                 tracing::error!("wasi[{}]::wasm instantiate error ({})", pid, err);
                 func_env
                     .data(&store)
-                    .cleanup(Some(Errno::Noexec as ExitCode));
+                    .blocking_cleanup(Some(Errno::Noexec.into()));
                 return Err(err.into());
             }
         };
@@ -485,7 +490,7 @@ impl WasiEnv {
             tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
             func_env
                 .data(&store)
-                .cleanup(Some(Errno::Noexec as ExitCode));
+                .blocking_cleanup(Some(Errno::Noexec.into()));
             return Err(err.into());
         }
 
@@ -495,7 +500,7 @@ impl WasiEnv {
                 if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                     func_env
                         .data(&store)
-                        .cleanup(Some(Errno::Noexec as ExitCode));
+                        .blocking_cleanup(Some(Errno::Noexec.into()));
                     return Err(err);
                 }
             }
@@ -543,8 +548,8 @@ impl WasiEnv {
             let signal_cnt = signals.len();
             for sig in signals {
                 if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    env.thread.set_status_finished(Ok(Errno::Intr as u32));
-                    return Err(WasiError::Exit(Errno::Intr as u32));
+                    env.thread.set_status_finished(Ok(Errno::Intr.into()));
+                    return Err(WasiError::Exit(Errno::Intr.into()));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
                 }
@@ -572,7 +577,7 @@ impl WasiEnv {
                 .thread
                 .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
             {
-                env.thread.set_status_finished(Ok(Errno::Intr as u32));
+                env.thread.set_status_finished(Ok(Errno::Intr.into()));
             }
             return Ok(Ok(false));
         }
@@ -644,7 +649,7 @@ impl WasiEnv {
                                 ctx.data().pid(),
                                 runtime_err
                             );
-                            return Err(WasiError::Exit(Errno::Intr as ExitCode));
+                            return Err(WasiError::Exit(Errno::Intr.into()));
                         }
                     }
                 }
@@ -656,13 +661,13 @@ impl WasiEnv {
     }
 
     /// Returns an exit code if the thread or process has been forced to exit
-    pub fn should_exit(&self) -> Option<u32> {
+    pub fn should_exit(&self) -> Option<ExitCode> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child as u32));
+            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child as u32));
+            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
         }
         None
     }
@@ -766,7 +771,7 @@ impl WasiEnv {
         use std::{borrow::Cow, collections::VecDeque};
 
         #[allow(unused_imports)]
-        use wasmer_vfs::FileSystem;
+        use virtual_fs::FileSystem;
 
         let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
 
@@ -859,7 +864,7 @@ impl WasiEnv {
         use std::path::Path;
 
         #[allow(unused_imports)]
-        use wasmer_vfs::FileSystem;
+        use virtual_fs::FileSystem;
 
         #[cfg(feature = "sys")]
         for (command, target) in map_commands.iter() {
@@ -892,41 +897,39 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn cleanup(&self, exit_code: Option<ExitCode>) {
+    pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
+        __asyncify_light(self, None, async {
+            self.cleanup(exit_code).await;
+            Ok(())
+        })
+        .ok();
+    }
+
+    /// Cleans up all the open files (if this is the main thread)
+    #[allow(clippy::await_holding_lock)]
+    pub async fn cleanup(&self, exit_code: Option<ExitCode>) {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
 
-            let state = self.state.clone();
-            let tasks = self.tasks().clone();
-
-            let (tx, rx) = std::sync::mpsc::channel();
-            self.tasks()
-                .task_dedicated(Box::new(move || {
-                    let tasks_inner = tasks.clone();
-                    tasks.runtime().block_on(async {
-                        let timeout = tasks_inner.sleep_now(CLEANUP_TIMEOUT);
-                        tokio::select! {
-                            _ = timeout => {
-                                tracing::warn!(
-                                    "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                                );
-                            },
-                            _ = state.fs.close_all() => { }
-                        }
-                    });
-                    tx.send(()).ok();
-                }))
-                .ok();
-            rx.recv().ok();
+            // Perform the clean operation using the asynchronous runtime
+            let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
+            tokio::select! {
+                _ = timeout => {
+                    tracing::warn!(
+                        "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                    );
+                },
+                _ = self.state.fs.close_all() => { }
+            }
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);
 
             // Terminate the process
-            let exit_code = exit_code.unwrap_or(Errno::Canceled as ExitCode);
+            let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
             self.process.terminate(exit_code);
         }
     }

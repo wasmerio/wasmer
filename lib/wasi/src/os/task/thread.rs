@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use wasmer_wasi_types::{
+use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
 };
@@ -424,7 +424,7 @@ impl Drop for WasiThreadHandleProtected {
         if let Some(inner) = Weak::upgrade(&self.inner) {
             let mut inner = inner.write().unwrap();
             if let Some(ctrl) = inner.threads.remove(&id) {
-                ctrl.set_status_finished(Ok(0));
+                ctrl.set_status_finished(Ok(Errno::Success.into()));
             }
             inner.thread_count -= 1;
         }
@@ -457,7 +457,7 @@ impl From<WasiThreadError> for Errno {
         match a {
             WasiThreadError::Unsupported => Errno::Notsup,
             WasiThreadError::MethodNotFound => Errno::Inval,
-            WasiThreadError::MemoryCreateFailed => Errno::Fault,
+            WasiThreadError::MemoryCreateFailed => Errno::Nomem,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,
         }
     }

@@ -7,7 +7,7 @@ use std::{
 };
 
 use wasmer::Module;
-use wasmer_wasi_types::wasi::Snapshot0Clockid;
+use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
 use crate::{syscalls::platform_clock_time_get, WasiRuntime};
@@ -91,14 +91,19 @@ impl ModuleCache {
     // TODO: should return Result<_, anyhow::Error>
     pub fn get_webc(&self, webc: &str, runtime: &dyn WasiRuntime) -> Option<BinaryPackage> {
         let name = webc.to_string();
-        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
 
         // Fast path
         {
             let cache = self.cache_webc.read().unwrap();
             if let Some(data) = cache.get(&name) {
                 if let Some(when_cached) = data.when_cached.as_ref() {
-                    let delta = now - *when_cached;
+                    /* get the current platform time at this point because of the lock conflict
+                     * now time remains the same and the lock from a differnt thread can cause when_cached to go ahead
+                     * and cause a panic
+                     */
+                    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
+                        .unwrap() as u128;
+                    let delta = now.saturating_sub(*when_cached); //saturating sub for delta and  to prevent panic
                     if delta <= self.cache_time.as_nanos() {
                         return Some(data.clone());
                     }

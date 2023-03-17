@@ -61,7 +61,7 @@ Hello, Some("Gordon")
 
 ```rust
 use wasmer::{Store, Module, Instance};
-use wasmer_wasi::WasiState;
+use wasmer_wasix::WasiState;
 
 let mut store = Store::default();
 let module = Module::from_file(&store, "hello.wasm")?;

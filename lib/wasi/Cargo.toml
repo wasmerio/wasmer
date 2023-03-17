@@ -1,9 +1,9 @@
 [package]
-name = "wasmer-wasi"
-version = "3.2.0-alpha.1"
-description = "WASI implementation library for Wasmer WebAssembly runtime"
+name = "wasmer-wasix"
+version = "0.1.0"
+description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
-keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
+keywords = ["wasm", "webassembly", "wasi", "wasix", "sandbox", "ABI"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
@@ -15,13 +15,12 @@ cfg-if = "1.0"
 thiserror = "1"
 tracing = { version = "0.1" }
 getrandom = "0.2"
-wasmer-wasi-types = { path = "../wasi-types", version = "=3.2.0-alpha.1" }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.1.0" }
 wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default-features = false }
 wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
-wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false, features = ["webc-fs"] }
 wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
-wasmer-vnet = { path = "../vnet", version = "=3.2.0-alpha.1", default-features = false }
-wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.2.0-alpha.1", default-features = false, optional = true }
+virtual-fs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
+virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
 wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -48,10 +47,8 @@ serde_yaml = { version = "^0.8" }
 shellexpand = { version = "^2" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
-term_size = { version = "0.3", optional = true }
+term_size = { version = "0.3" }
 linked_hash_set = { version = "0.1" }
-# used by feature='host-termios'
-termios = { version = "0.3", optional = true }
 # the various compilers
 wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
@@ -72,6 +69,7 @@ optional = true
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
+termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
@@ -101,22 +99,21 @@ webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
-sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "wasmer-vm", "time"]
+sys = ["wasmer/sys", "wasmer-wasix-types/sys", "webc/mmap", "wasmer-vm", "time"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
 compiler = [ "wasmer/compiler", "wasmer-compiler"]
 
-js = ["wasmer/js", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
+js = ["wasmer/js", "virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
-host-vnet = [ "wasmer-wasi-local-networking" ]
+host-vnet = [ "virtual-net/host-net" ]
 host-threads = []
 host-reqwest = ["reqwest"]
-host-fs = ["wasmer-vfs/host-fs"]
-host-termios = ["termios", "term_size"]
+host-fs = ["virtual-fs/host-fs"]
 
 logging = ["tracing/log"]
 disable-all-logging = [
@@ -125,7 +122,7 @@ disable-all-logging = [
 ]
 enable-serde = [
     "typetag",
-    "wasmer-vfs/enable-serde",
-    "wasmer-wasi-types/enable-serde",
+    "virtual-fs/enable-serde",
+    "wasmer-wasix-types/enable-serde",
 ]
 

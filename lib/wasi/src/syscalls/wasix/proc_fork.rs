@@ -7,7 +7,7 @@ use wasmer::vm::VMMemory;
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
-#[instrument(level = "debug", skip_all, fields(copy_memory, pid = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
 pub fn proc_fork<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     mut copy_memory: Bool,
@@ -17,9 +17,16 @@ pub fn proc_fork<M: MemorySize>(
 
     // If we were just restored then we need to return the value instead
     if handle_rewind::<M>(&mut ctx) {
+        let view = ctx.data().memory_view(&ctx);
+        let ret_pid = pid_ptr.read(&view).unwrap_or(u32::MAX);
+        if ret_pid == 0 {
+            trace!("handle_rewind - i am child");
+        } else {
+            trace!("handle_rewind - i am parent (child={})", ret_pid);
+        }
         return Ok(Errno::Success);
     }
-    trace!("capturing",);
+    trace!(%copy_memory, "capturing");
 
     // Fork the environment which will copy all the open file handlers
     // and associate a new context but otherwise shares things like the
@@ -34,12 +41,13 @@ pub fn proc_fork<M: MemorySize>(
         }
     };
     let child_pid = child_env.process.pid();
+    let child_finished = child_env.process.finished.clone();
 
     // We write a zero to the PID before we capture the stack
     // so that this is what will be returned to the child
     {
-        let mut children = ctx.data().process.children.write().unwrap();
-        children.push(child_pid);
+        let mut inner = ctx.data().process.inner.write().unwrap();
+        inner.children.push(child_env.process.clone());
     }
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -88,7 +96,7 @@ pub fn proc_fork<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                 }
             }
         });
@@ -115,6 +123,7 @@ pub fn proc_fork<M: MemorySize>(
 
         // Fork the memory and copy the module (compiled code)
         let env = ctx.data();
+        let fork_memory_ty = env.memory().ty(&ctx);
         let fork_memory: VMMemory = match env
             .memory()
             .try_clone(&ctx)
@@ -126,7 +135,7 @@ pub fn proc_fork<M: MemorySize>(
                 warn!(
                     %err
                 );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
         };
         let fork_module = env.inner().instance.module().clone();
@@ -141,7 +150,6 @@ pub fn proc_fork<M: MemorySize>(
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());
-        let (exit_code_tx, exit_code_rx) = tokio::sync::mpsc::unbounded_channel();
         {
             let store_data = store_data.clone();
             let runtime = runtime.clone();
@@ -151,7 +159,7 @@ pub fn proc_fork<M: MemorySize>(
             let store = fork_store;
             let module = fork_module;
 
-            let spawn_type = SpawnType::NewThread(fork_memory);
+            let spawn_type = SpawnType::NewThread(fork_memory, fork_memory_ty);
             let task = move |mut store, module, memory| {
                 // Create the WasiFunctionEnv
                 let pid = child_env.pid();
@@ -207,24 +215,27 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                let mut ret = Errno::Success;
-                if ctx.data(&store).thread.is_main() {
+                let mut ret: ExitCode = Errno::Success.into();
+                let err = if ctx.data(&store).thread.is_main() {
                     trace!("re-invoking main");
                     let start = ctx.data(&store).inner().start.clone().unwrap();
-                    start.call(&mut store);
+                    start.call(&mut store)
                 } else {
                     trace!("re-invoking thread_spawn");
                     let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
-                    start.call(&mut store, 0, 0);
+                    start.call(&mut store, 0, 0)
+                };
+                if let Err(err) = err {
+                    if let Ok(WasiError::Exit(exit_code)) = err.downcast::<WasiError>() {
+                        ret = exit_code;
+                    }
                 }
-                trace!("child exited (code = {})", ret);
+                trace!(%pid, %tid, "child exited (code = {})", ret);
 
                 // Clean up the environment
-                ctx.cleanup((&mut store), Some(ret as ExitCode));
+                ctx.cleanup((&mut store), Some(ret));
 
                 // Send the result
-                let _ = exit_code_tx.send(ret as u32);
-                drop(exit_code_tx);
                 drop(child_handle);
             };
 
@@ -240,29 +251,19 @@ pub fn proc_fork<M: MemorySize>(
                 .ok()
         };
 
-        // Add the process to the environment state
-
-        let process = OwnedTaskStatus::default();
-
-        {
-            trace!("spawned sub-process (pid={})", child_pid.raw());
-            let mut inner = ctx.data().process.write();
-            inner.bus_processes.insert(child_pid, process.handle());
-        }
-
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
         let pid_offset: u64 = pid_offset.into();
-        if pid_offset >= env.stack_start && pid_offset < env.stack_base {
+        if pid_offset >= env.stack_start && pid_offset < env.stack_end {
             // Make sure its within the "active" part of the memory stack
-            let offset = env.stack_base - pid_offset;
+            let offset = env.stack_end - pid_offset;
             if offset as usize > memory_stack.len() {
                 warn!(
                         "failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
                         offset,
                         memory_stack.len()
                     );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
 
             // Update the memory stack with the new PID
@@ -275,7 +276,7 @@ pub fn proc_fork<M: MemorySize>(
             warn!(
                     "failed - the return value (pid) is not being returned on the stack - which is not supported"
                 );
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
         }
 
         // Rewind the stack and carry on
@@ -288,7 +289,7 @@ pub fn proc_fork<M: MemorySize>(
             Errno::Success => OnCalledAction::InvokeAgain,
             err => {
                 warn!("failed - could not rewind the stack - errno={}", err);
-                OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
             }
         }
     })

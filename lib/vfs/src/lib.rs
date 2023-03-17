@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
@@ -20,11 +24,15 @@ pub mod host_fs;
 pub mod mem_fs;
 pub mod null_file;
 pub mod passthru_fs;
+pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
 pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
+mod filesystems;
+pub(crate) mod ops;
+mod overlay_fs;
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
@@ -38,7 +46,9 @@ pub use builder::*;
 pub use combine_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
+pub use filesystems::FileSystems;
 pub use null_file::*;
+pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
 pub use pipe::*;
 pub use special_file::*;
@@ -138,6 +148,20 @@ impl OpenOptionsConfig {
     pub const fn truncate(&self) -> bool {
         self.truncate
     }
+
+    /// Would a file opened with this [`OpenOptionsConfig`] change files on the
+    /// filesystem.
+    pub const fn would_mutate(&self) -> bool {
+        let OpenOptionsConfig {
+            read: _,
+            write,
+            create_new,
+            create,
+            append,
+            truncate,
+        } = *self;
+        append || write || create || create_new || truncate
+    }
 }
 
 impl<'a> fmt::Debug for OpenOptions<'a> {
@@ -170,36 +194,62 @@ impl<'a> OpenOptions<'a> {
         self.conf.clone()
     }
 
+    /// Use an existing [`OpenOptionsConfig`] to configure this [`OpenOptions`].
     pub fn options(&mut self, options: OpenOptionsConfig) -> &mut Self {
         self.conf = options;
         self
     }
 
+    /// Sets the option for read access.
+    ///
+    /// This option, when true, will indicate that the file should be
+    /// `read`-able if opened.
     pub fn read(&mut self, read: bool) -> &mut Self {
         self.conf.read = read;
         self
     }
 
+    /// Sets the option for write access.
+    ///
+    /// This option, when true, will indicate that the file should be
+    /// `write`-able if opened.
+    ///
+    /// If the file already exists, any write calls on it will overwrite its
+    /// contents, without truncating it.
     pub fn write(&mut self, write: bool) -> &mut Self {
         self.conf.write = write;
         self
     }
 
+    /// Sets the option for the append mode.
+    ///
+    /// This option, when true, means that writes will append to a file instead
+    /// of overwriting previous contents.
+    /// Note that setting `.write(true).append(true)` has the same effect as
+    /// setting only `.append(true)`.
     pub fn append(&mut self, append: bool) -> &mut Self {
         self.conf.append = append;
         self
     }
 
+    /// Sets the option for truncating a previous file.
+    ///
+    /// If a file is successfully opened with this option set it will truncate
+    /// the file to 0 length if it already exists.
+    ///
+    /// The file must be opened with write access for truncate to work.
     pub fn truncate(&mut self, truncate: bool) -> &mut Self {
         self.conf.truncate = truncate;
         self
     }
 
+    /// Sets the option to create a new file, or open it if it already exists.
     pub fn create(&mut self, create: bool) -> &mut Self {
         self.conf.create = create;
         self
     }
 
+    /// Sets the option to create a new file, failing if it already exists.
     pub fn create_new(&mut self, create_new: bool) -> &mut Self {
         self.conf.create_new = create_new;
         self

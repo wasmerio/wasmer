@@ -1,0 +1,62 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 561
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_dash_bash",
+    "use_packages": [
+      "sharrattj/bash"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/bash@1.0.12"
+      },
+      {
+        "name": "sharrattj/coreutils@1.0.11"
+      }
+    ],
+    "cli_args": [],
+    "stdin": [
+      47,
+      98,
+      105,
+      110,
+      47,
+      98,
+      97,
+      115,
+      104,
+      10,
+      101,
+      99,
+      104,
+      111,
+      32,
+      104,
+      105,
+      10,
+      101,
+      120,
+      105,
+      116,
+      10,
+      101,
+      120,
+      105,
+      116,
+      10
+    ],
+    "debug_output": false,
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hi\n",
+      "stderr": "# bash-5.1# exit\n# # ",
+      "exit_code": 78
+    }
+  }
+}

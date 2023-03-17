@@ -6,8 +6,8 @@ use std::{
 };
 
 use derivative::*;
-use wasmer_vfs::{FileSystem, TmpFileSystem};
-use wasmer_wasi_types::wasi::Snapshot0Clockid;
+use virtual_fs::{FileSystem, TmpFileSystem};
+use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
 use super::hash_of_binary;
 use crate::syscalls::platform_clock_time_get;

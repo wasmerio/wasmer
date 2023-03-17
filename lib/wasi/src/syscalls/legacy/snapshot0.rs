@@ -1,6 +1,6 @@
 use tracing::{field, instrument, trace_span};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
-use wasmer_wasi_types::wasi::{
+use wasmer_wasix_types::wasi::{
     Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
     Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
     Whence,

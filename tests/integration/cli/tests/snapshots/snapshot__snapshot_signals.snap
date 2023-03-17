@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 537
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_signals",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "received SIGHUP\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}
