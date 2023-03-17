@@ -146,13 +146,6 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-        // TODO: refactor this if possible, after the WASIX merge.
-        // The imported/exported memory does not have the correct properties
-        // (incorrect size and shared flag) hence when using shared memory its
-        // failing - the only way to fix it is to resolve the import and use the
-        // correct memory properties. this regression issue was only found
-        // in WASIX on the browser as the other areas don't mind that they don't match up
-        // sharrattj/dash should be able to reproduce this.
 
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];
