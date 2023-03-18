@@ -8,8 +8,8 @@ use virtual_net::DynVirtualNetworking;
 #[cfg(feature = "sys")]
 use wasmer::NativeEngineExt;
 use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
-    TypedFunction,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryError, MemoryView,
+    Module, TypedFunction,
 };
 use wasmer_wasix_types::{
     types::Signal,
@@ -934,11 +934,20 @@ impl WasiEnv {
 
             // Now we also force all the memory into a protected state which will prevent any reads
             // or writes and thus terminate processes that try to use it
-            if let Err(err) = self.memory().make_inaccessible(store) {
-                tracing::warn!(
-                    "WasiEnv::cleanup failed to set memory to inaccessible - {}",
-                    err
-                );
+            match self.memory().make_inaccessible(store) {
+                Ok(_) => {}
+                Err(MemoryError::NotImplemented) => {
+                    // we silently ignore memory that does not implement this yet rather
+                    // than failing the cleanup call. the consequences for the runtime
+                    // are that for these types of memories they are still accessible after
+                    // the process is terminated.
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "WasiEnv::cleanup failed to set memory to inaccessible - {}",
+                        err
+                    );
+                }
             }
         }
     }

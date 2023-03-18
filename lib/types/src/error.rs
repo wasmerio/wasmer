@@ -85,6 +85,9 @@ pub enum MemoryError {
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
     Generic(String),
+    /// Not implemented
+    #[error("This operation is not yet implemented")]
+    NotImplemented,
 }
 
 /// An ImportError.

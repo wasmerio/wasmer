@@ -182,7 +182,7 @@ impl Memory {
 
     #[allow(unused)]
     pub fn make_inaccessible(&self, store: &impl AsStoreRef) -> Result<(), MemoryError> {
-        Ok(())
+        Err(MemoryError::NotImplemented)
     }
 }
 
