@@ -656,5 +656,7 @@ where
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 
     /// Makes all the memory inaccessible to reads and writes
-    fn make_inaccessible(&self) -> Result<(), MemoryError>;
+    fn make_inaccessible(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::NotImplemented)
+    }
 }

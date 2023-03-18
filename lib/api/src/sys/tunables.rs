@@ -133,6 +133,7 @@ mod tests {
                 mem,
             }))
         }
+
         /*
         // this code allow custom memory to be ignoring init_memory
         use wasmer_vm::Trap;
