@@ -20,7 +20,7 @@ use crate::{
 pub fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
-    mut store: Store,
+    store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
@@ -201,7 +201,7 @@ impl BinFactory {
     pub fn spawn<'a>(
         &'a self,
         name: String,
-        mut store: Store,
+        store: Store,
         env: WasiEnv,
     ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, VirtualBusError>> + 'a>> {
         Box::pin(async move {
