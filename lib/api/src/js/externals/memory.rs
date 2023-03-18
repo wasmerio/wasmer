@@ -179,6 +179,11 @@ impl Memory {
     pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate()
     }
+
+    #[allow(unused)]
+    pub fn make_inaccessible(&self, store: &impl AsStoreRef) -> Result<(), MemoryError> {
+        Err(MemoryError::NotImplemented)
+    }
 }
 
 impl std::cmp::PartialEq for Memory {
