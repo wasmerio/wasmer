@@ -50,7 +50,7 @@ pub fn spawn_exec(
         }
         (None, None) => {
             error!("package has no entry [{}]", name,);
-            env.blocking_cleanup(&mut store, Some(Errno::Noexec.into()));
+            env.blocking_cleanup(&store, Some(Errno::Noexec.into()));
             return Err(VirtualBusError::CompileError);
         }
     };
@@ -211,7 +211,7 @@ impl BinFactory {
                 .await
                 .ok_or(VirtualBusError::NotFound);
             if binary.is_err() {
-                env.cleanup(&mut store, Some(Errno::Noent.into())).await;
+                env.cleanup(&store, Some(Errno::Noent.into())).await;
             }
             let binary = binary?;
 

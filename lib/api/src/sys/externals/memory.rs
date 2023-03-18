@@ -58,7 +58,7 @@ impl Memory {
     }
 
     /// Makes all the memory inaccessible to any reads or writes
-    pub fn make_inaccessable(&self, store: &impl AsStoreRef) -> Result<(), MemoryError> {
+    pub fn make_inaccessible(&self, store: &impl AsStoreRef) -> Result<(), MemoryError> {
         self.handle
             .get(store.as_store_ref().objects())
             .make_inaccessible()
