@@ -9,6 +9,7 @@ use virtual_fs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_wasix::os::tty_sys::SysTty;
 use wasmer_wasix::os::TtyBridge;
+use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasix::types::__WASI_STDIN_FILENO;
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions, PluggableRuntime, WasiEnv, WasiError, WasiFunctionEnv,
@@ -129,7 +130,7 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let mut rt = PluggableRuntime::default();
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());

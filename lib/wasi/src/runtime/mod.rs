@@ -140,22 +140,6 @@ impl PluggableRuntime {
     }
 }
 
-impl Default for PluggableRuntime {
-    #[cfg(feature = "sys-thread")]
-    fn default() -> Self {
-        let rt = task_manager::tokio::TokioTaskManager::shared();
-        let mut s = Self::new(Arc::new(rt));
-        let engine = wasmer::Store::default().engine().clone();
-        s.engine = Some(engine);
-        s
-    }
-
-    #[cfg(not(feature = "sys-thread"))]
-    fn default() -> Self {
-        unimplemented!("Default WasiRuntime is not implemented on this target")
-    }
-}
-
 impl WasiRuntime for PluggableRuntime {
     fn networking(&self) -> &DynVirtualNetworking {
         &self.networking
