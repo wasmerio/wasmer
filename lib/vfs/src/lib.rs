@@ -40,6 +40,7 @@ pub mod static_fs;
 mod trace_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
+mod webc_volume_fs;
 
 pub use arc_box_file::*;
 pub use arc_file::*;
@@ -57,6 +58,7 @@ pub use special_file::*;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
 pub use union_fs::*;
+pub use webc_volume_fs::WebcVolumeFileSystem;
 pub use zero_file::*;
 
 pub type Result<T> = std::result::Result<T, FsError>;
