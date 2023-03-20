@@ -11,8 +11,8 @@ use wasmer_wasix::os::tty_sys::SysTty;
 use wasmer_wasix::os::TtyBridge;
 use wasmer_wasix::types::__WASI_STDIN_FILENO;
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_versions, PluggableRuntime, WasiEnv, WasiError, WasiFunctionEnv,
+    WasiVersion,
 };
 
 use clap::Parser;
@@ -129,7 +129,7 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let mut rt = PluggableRuntimeImplementation::default();
+        let mut rt = PluggableRuntime::default();
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());

@@ -23,7 +23,7 @@ use crate::{
     capabilities::Capabilities,
     http::HttpClientCapabilityV1,
     runners::wcgi::{Callbacks, MappedDirectory},
-    Pipe, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
+    Pipe, PluggableRuntime, VirtualTaskManager, WasiEnv,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -49,7 +49,7 @@ impl Handler {
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
-        let rt = PluggableRuntimeImplementation::new(Arc::clone(&self.task_manager));
+        let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
         let builder = builder
             .envs(self.env.iter())
             .envs(request_specific_env)
