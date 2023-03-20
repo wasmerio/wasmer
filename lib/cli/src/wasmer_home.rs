@@ -144,6 +144,9 @@ impl DownloadCached for WasmerHome {
             return Ok(cached);
         }
 
+        std::fs::create_dir_all(&checkouts)
+            .with_context(|| format!("Unable to make sure \"{}\" exists", checkouts.display()))?;
+
         // Note: we want to copy directly into a file so we don't hold
         // everything in memory.
         let (mut f, path) = if self.disable_cache {
@@ -162,9 +165,10 @@ impl DownloadCached for WasmerHome {
             (f, cached_path)
         };
 
-        std::io::copy(&mut response, &mut f)
-            .and_then(|_| f.flush())
+        let bytes_read = std::io::copy(&mut response, &mut f)
+            .and_then(|bytes_read| f.flush().map(|_| bytes_read))
             .with_context(|| format!("Unable to save the response to \"{}\"", path.display()))?;
+        tracing::debug!(bytes_read, path=%path.display(), "Saved to disk");
 
         if !self.disable_cache {
             if let Some(etag) = etag {
