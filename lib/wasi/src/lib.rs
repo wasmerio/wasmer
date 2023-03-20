@@ -99,7 +99,7 @@ pub use crate::{
     },
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntimeImplementation, SpawnedMemory, WasiRuntime,
+        PluggableRuntime, SpawnedMemory, WasiRuntime,
     },
     wapm::parse_static_webc,
 };

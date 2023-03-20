@@ -87,7 +87,7 @@ impl TtyBridge for DefaultTty {
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct PluggableRuntimeImplementation {
+pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
@@ -97,23 +97,7 @@ pub struct PluggableRuntimeImplementation {
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
 }
 
-impl PluggableRuntimeImplementation {
-    pub fn set_networking_implementation<I>(&mut self, net: I)
-    where
-        I: VirtualNetworking + Sync,
-    {
-        self.networking = Arc::new(net)
-    }
-
-    #[cfg(feature = "sys")]
-    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
-        self.engine = engine;
-    }
-
-    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
-        self.tty = Some(tty);
-    }
-
+impl PluggableRuntime {
     pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
@@ -142,9 +126,25 @@ impl PluggableRuntimeImplementation {
             tty: None,
         }
     }
+
+    pub fn set_networking_implementation<I>(&mut self, net: I)
+    where
+        I: VirtualNetworking + Sync,
+    {
+        self.networking = Arc::new(net)
+    }
+
+    #[cfg(feature = "sys")]
+    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
+        self.engine = engine;
+    }
+
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+        self.tty = Some(tty);
+    }
 }
 
-impl Default for PluggableRuntimeImplementation {
+impl Default for PluggableRuntime {
     #[cfg(feature = "sys-thread")]
     fn default() -> Self {
         let rt = task_manager::tokio::TokioTaskManager::shared();
@@ -160,7 +160,7 @@ impl Default for PluggableRuntimeImplementation {
     }
 }
 
-impl WasiRuntime for PluggableRuntimeImplementation {
+impl WasiRuntime for PluggableRuntime {
     fn networking(&self) -> &DynVirtualNetworking {
         &self.networking
     }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
 use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, PluggableRuntimeImplementation, WasiEnv};
+use wasmer_wasix::{Pipe, PluggableRuntime, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -76,7 +76,7 @@ async fn test_stdout() {
     // Create the `WasiEnv`.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
-    let rt = PluggableRuntimeImplementation::default();
+    let rt = PluggableRuntime::default();
 
     let builder = WasiEnv::builder("command-name")
         .runtime(Arc::new(rt))
@@ -112,7 +112,7 @@ async fn test_env() {
         builder.build()
     });
 
-    let rt = PluggableRuntimeImplementation::default();
+    let rt = PluggableRuntime::default();
 
     // Create the `WasiEnv`.
     let (pipe_tx, mut pipe_rx) = Pipe::channel();
@@ -157,7 +157,7 @@ async fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe_tx.write_all(&buf[..]).await.unwrap();
 
-    let rt = PluggableRuntimeImplementation::default();
+    let rt = PluggableRuntime::default();
 
     let builder = WasiEnv::builder("command-name")
         .runtime(Arc::new(rt))

@@ -20,7 +20,7 @@ use crate::{
     parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
+    PluggableRuntime, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;
@@ -724,7 +724,7 @@ impl WasiEnvBuilder {
 
         let runtime = self
             .runtime
-            .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
+            .unwrap_or_else(|| Arc::new(PluggableRuntime::default()));
 
         let uses = self.uses;
         let map_commands = self.map_commands;

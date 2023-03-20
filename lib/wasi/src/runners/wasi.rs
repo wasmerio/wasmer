@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::{runners::WapmContainer, PluggableRuntimeImplementation, VirtualTaskManager};
+use crate::{runners::WapmContainer, PluggableRuntime, VirtualTaskManager};
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
@@ -91,7 +91,7 @@ impl crate::runners::Runner for WasiRunner {
         let mut builder = prepare_webc_env(container, &atom_name, &self.args)?;
 
         if let Some(tasks) = &self.tasks {
-            let rt = PluggableRuntimeImplementation::new(Arc::clone(tasks));
+            let rt = PluggableRuntime::new(Arc::clone(tasks));
             builder.set_runtime(Arc::new(rt));
         }
 
