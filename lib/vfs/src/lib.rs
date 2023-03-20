@@ -84,7 +84,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn new_open_options(&self) -> OpenOptions;
 }
 
-
 impl dyn FileSystem + 'static {
     #[inline]
     pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
