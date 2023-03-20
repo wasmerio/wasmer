@@ -34,9 +34,9 @@ use crate::{
     wasmer_home::{DownloadCached, ModuleCache, WasmerHome},
 };
 
-/// The `wasmer run` subcommand.
+/// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
-pub struct Run2 {
+pub struct RunUnstable {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity<WarnLevel>,
     #[clap(flatten)]
@@ -60,7 +60,7 @@ pub struct Run2 {
     args: Vec<String>,
 }
 
-impl Run2 {
+impl RunUnstable {
     pub fn execute(&self) -> Result<(), Error> {
         crate::logging::set_up_logging(self.verbosity.log_level_filter());
 
