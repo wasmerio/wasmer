@@ -30,7 +30,6 @@ where
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
-    #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         None
     }
@@ -91,7 +90,6 @@ pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
-    #[cfg(feature = "sys")]
     pub engine: Option<wasmer::Engine>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
@@ -121,7 +119,6 @@ impl PluggableRuntime {
             rt,
             networking,
             http_client,
-            #[cfg(feature = "sys")]
             engine: None,
             tty: None,
         }
@@ -134,7 +131,6 @@ impl PluggableRuntime {
         self.networking = Arc::new(net)
     }
 
-    #[cfg(feature = "sys")]
     pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
         self.engine = engine;
     }
@@ -169,7 +165,6 @@ impl WasiRuntime for PluggableRuntime {
         self.http_client.as_ref()
     }
 
-    #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         self.engine.clone()
     }
