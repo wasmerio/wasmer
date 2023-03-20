@@ -138,7 +138,7 @@ impl Module {
         Ok(module)
     }
 
-    /// Creates a new WebAssembly module from a serialized binary.
+    /// Creates a new WebAssembly module from a Wasm binary.
     ///
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
@@ -147,7 +147,8 @@ impl Module {
         Ok(Self(module_imp::Module::from_binary(engine, binary)?))
     }
 
-    /// Creates a new WebAssembly module skipping any kind of validation.
+    /// Creates a new WebAssembly module from a Wasm binary,
+    /// skipping any kind of validation on the WebAssembly file.
     ///
     /// # Safety
     ///
@@ -175,6 +176,11 @@ impl Module {
 
     /// Serializes a module into a binary representation that the `Engine`
     /// can later process via [`Module::deserialize`].
+    ///
+    /// # Important
+    ///
+    /// This function will return a custom binary format that will be different than
+    /// the `wasm` binary format, but faster to load in Native hosts.
     ///
     /// # Usage
     ///
@@ -212,7 +218,13 @@ impl Module {
     }
 
     /// Deserializes a serialized Module binary into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
     ///
     /// # Safety
     ///
