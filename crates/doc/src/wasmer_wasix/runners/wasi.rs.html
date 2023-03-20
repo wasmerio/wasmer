@@ -120,6 +120,11 @@
 <span id="118">118</span>
 <span id="119">119</span>
 <span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules</span>
 
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
@@ -217,7 +222,12 @@
             <span class="ident">builder</span>.<span class="ident">set_runtime</span>(<span class="ident">Arc::new</span>(<span class="ident">rt</span>));
         }
 
-        <span class="ident">builder</span>.<span class="ident">run</span>(<span class="ident">module</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">run</span>(<span class="ident">module</span>);
+        <span class="kw">match</span> <span class="ident">res</span> {
+            <span class="prelude-val">Ok</span>(()) =&gt; <span class="prelude-val">Ok</span>(()),
+            <span class="prelude-val">Err</span>(<span class="ident"><span class="kw">crate</span>::WasiRuntimeError::Wasi</span>(<span class="ident"><span class="kw">crate</span>::WasiError::Exit</span>(<span class="kw">_</span>))) =&gt; <span class="prelude-val">Ok</span>(()),
+            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>),
+        }<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
