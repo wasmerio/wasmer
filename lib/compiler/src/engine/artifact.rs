@@ -420,6 +420,7 @@ impl Artifact {
     }
 
     /// Do preinstantiation logic that is executed before instantiating
+    #[allow(clippy::result_large_err)]
     pub fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
     }

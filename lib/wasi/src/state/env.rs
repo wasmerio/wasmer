@@ -377,6 +377,7 @@ impl WasiEnv {
         self.thread.tid()
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
         let process = if let Some(p) = init.process {
             p
@@ -417,6 +418,7 @@ impl WasiEnv {
     }
 
     // FIXME: use custom error type
+    #[allow(clippy::result_large_err)]
     pub(crate) fn instantiate(
         mut init: WasiEnvInit,
         module: Module,

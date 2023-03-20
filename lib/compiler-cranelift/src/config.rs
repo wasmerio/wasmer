@@ -117,11 +117,7 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        let is_riscv = if let Architecture::Riscv64(_) = target.triple().architecture {
-            true
-        } else {
-            false
-        };
+        let is_riscv = matches!(target.triple().architecture, Architecture::Riscv64(_));
 
         builder.finish(self.flags(is_riscv))
     }

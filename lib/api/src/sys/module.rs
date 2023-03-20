@@ -95,6 +95,7 @@ impl Module {
         Self { artifact }
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn instantiate(
         &self,
         store: &mut impl AsStoreMut,

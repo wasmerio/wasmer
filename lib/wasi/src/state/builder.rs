@@ -756,6 +756,7 @@ impl WasiEnvBuilder {
         Ok(init)
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
         let init = self.build_init()?;
         WasiEnv::from_init(init)
@@ -766,6 +767,7 @@ impl WasiEnvBuilder {
     /// NOTE: you still must call [`WasiFunctionEnv::initialize`] to make an
     /// instance usable.
     #[doc(hidden)]
+    #[allow(clippy::result_large_err)]
     pub fn finalize(
         self,
         store: &mut impl AsStoreMut,
@@ -781,6 +783,7 @@ impl WasiEnvBuilder {
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     // FIXME: use a proper custom error type
+    #[allow(clippy::result_large_err)]
     pub fn instantiate(
         self,
         module: Module,
@@ -790,11 +793,13 @@ impl WasiEnvBuilder {
         WasiEnv::instantiate(init, module, store)
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
         let mut store = wasmer::Store::default();
         self.run_with_store(module, &mut store)
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn run_with_store(
         self,
         module: Module,

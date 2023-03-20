@@ -85,7 +85,8 @@ where
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
         match get_volume_name_opt(path) {
             Some(volume) => {
-                let file = (*self.webc)
+                let file = self
+                    .webc
                     .volumes
                     .get(&volume)
                     .ok_or(FsError::EntryNotFound)?
