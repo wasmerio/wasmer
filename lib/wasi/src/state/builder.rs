@@ -722,9 +722,17 @@ impl WasiEnvBuilder {
             }
         }
 
-        let runtime = self
-            .runtime
-            .unwrap_or_else(|| Arc::new(PluggableRuntime::default()));
+        let runtime = self.runtime.unwrap_or_else(|| {
+            #[cfg(feature = "sys-thread")]
+            {
+                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::shared())))
+            }
+
+            #[cfg(not(feature = "sys-thread"))]
+            {
+                panic!("this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()");
+            }
+        });
 
         let uses = self.uses;
         let map_commands = self.map_commands;
