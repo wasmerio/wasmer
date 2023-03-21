@@ -158,7 +158,19 @@
 <span id="156">156</span>
 <span id="157">157</span>
 <span id="158">158</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">pin::Pin</span>, <span class="ident">time::Duration</span>};
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">pin::Pin</span>,
+    <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
+    <span class="ident">time::Duration</span>,
+};
 
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
 <span class="kw">use</span> <span class="ident">tokio::runtime::Handle</span>;
@@ -175,6 +187,10 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TokioTaskManager</span>(<span class="ident">Handle</span>);
 
+<span class="doccomment">/// This holds the currently set shared runtime which should be accessed via</span>
+<span class="doccomment">/// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()</span>
+<span class="kw">static</span> <span class="ident">GLOBAL_RUNTIME</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">tokio::runtime::Runtime</span><span class="op">&gt;</span>, <span class="ident">Handle</span>)<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>);
+
 <span class="kw">impl</span> <span class="ident">TokioTaskManager</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rt</span>: <span class="ident">Handle</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span>(<span class="ident">rt</span>)
@@ -184,35 +200,35 @@
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">clone</span>()
     }
 
+    <span class="doccomment">/// Allows the caller to set the shared runtime that will be used by other</span>
+    <span class="doccomment">/// async processes within Wasmer</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// The shared runtime must be set before it is used and can only be set once</span>
+    <span class="doccomment">/// otherwise this call will fail with an error.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_shared</span>(<span class="ident">rt</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">tokio::runtime::Runtime</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">GLOBAL_RUNTIME</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+        <span class="kw">if</span> <span class="ident">guard</span>.<span class="ident">is_some</span>() {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">&quot;The shared runtime has already been set or lazy initialized - it can not be overridden&quot;</span>));
+        }
+        <span class="ident">guard</span>.<span class="ident">replace</span>((<span class="ident">rt</span>.<span class="ident">clone</span>(), <span class="ident">rt</span>.<span class="ident">handle</span>().<span class="ident">clone</span>()));
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="doccomment">/// Shared tokio [`Runtime`] that is used by default.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This exists because a tokio runtime is heavy, and there should not be many</span>
     <span class="doccomment">/// independent ones in a process.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">shared</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">static</span> <span class="ident">GLOBAL_RUNTIME</span>: <span class="ident">once_cell::sync::Lazy</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">tokio::runtime::Runtime</span><span class="op">&gt;</span>, <span class="ident">Handle</span>)<span class="op">&gt;</span> <span class="op">=</span>
-            <span class="ident">once_cell::sync::Lazy::new</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">tokio::runtime::Handle::try_current</span>() {
-                    (<span class="prelude-val">None</span>, <span class="ident">handle</span>)
-                } <span class="kw">else</span> {
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-                    {
-                        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
-                        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">handle</span>().<span class="ident">clone</span>();
-                        (<span class="prelude-val">Some</span>(<span class="ident">rt</span>), <span class="ident">handle</span>)
-                    }
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>))]</span>
-                    {
-                        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
-                        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">handle</span>().<span class="ident">clone</span>();
-                        (<span class="prelude-val">Some</span>(<span class="ident">rt</span>), <span class="ident">handle</span>)
-                    }
-                }
-            });
-
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">tokio::runtime::Handle::try_current</span>() {
             <span class="self">Self</span>(<span class="ident">handle</span>)
         } <span class="kw">else</span> {
-            <span class="self">Self</span>(<span class="ident">GLOBAL_RUNTIME</span>.<span class="number">1</span>.<span class="ident">clone</span>())
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">GLOBAL_RUNTIME</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">get_or_insert_with</span>(<span class="op">|</span><span class="op">|</span> {
+                <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">tokio::runtime::Runtime::new</span>().<span class="ident">unwrap</span>();
+                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">handle</span>().<span class="ident">clone</span>();
+                (<span class="ident">Arc::new</span>(<span class="ident">rt</span>), <span class="ident">handle</span>)
+            });
+            <span class="self">Self</span>(<span class="ident">rt</span>.<span class="number">1</span>.<span class="ident">clone</span>())
         }
     }
 }
