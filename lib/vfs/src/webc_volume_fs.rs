@@ -2,7 +2,7 @@ use std::{convert::TryInto, path::Path};
 
 use webc::{
     compat::{Container, Volume},
-    v2::{PathSegment, PathSegmentError, PathSegments, ToPathSegments},
+    v2::{PathSegment, PathSegments, ToPathSegments},
 };
 
 use crate::{EmptyFileSystem, FileSystem, FsError, OverlayFileSystem};
@@ -38,7 +38,7 @@ impl WebcVolumeFileSystem {
 
 impl FileSystem for WebcVolumeFileSystem {
     fn read_dir(&self, path: &Path) -> crate::Result<crate::ReadDir> {
-        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
+        let _path = normalize(path).map_err(|_| FsError::InvalidInput)?;
         // self.volume.read_dir(path)
         todo!()
     }
@@ -71,13 +71,17 @@ impl FileSystem for WebcVolumeFileSystem {
 /// Normalize a [`Path`] into a [`PathSegments`], dealing with things like `..`
 /// and skipping `.`'s.
 #[tracing::instrument(level = "trace", err)]
-fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
+fn normalize(path: &Path) -> Result<PathSegments, FsError> {
+    if !path.is_absolute() {
+        return Err(FsError::InvalidInput);
+    }
+
     let mut segments: Vec<PathSegment> = Vec::new();
 
     for component in path.components() {
         match component {
             std::path::Component::Normal(s) => {
-                segments.push(s.try_into()?);
+                segments.push(s.try_into().map_err(|_| FsError::InvalidInput)?);
             }
             std::path::Component::CurDir => continue,
             std::path::Component::ParentDir => {
@@ -89,7 +93,9 @@ fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
         }
     }
 
-    segments.to_path_segments()
+    segments
+        .to_path_segments()
+        .map_err(|_| FsError::InvalidInput)
 }
 
 #[cfg(test)]
@@ -98,6 +104,32 @@ mod tests {
 
     use super::*;
     const PYTHON_WEBC: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
+
+    #[test]
+    fn normalize_paths() {
+        let inputs: Vec<(&str, &[&str])> = vec![
+            ("/", &[]),
+            ("/path/to/", &["path", "to"]),
+            ("/path/to/file.txt", &["path", "to", "file.txt"]),
+            ("/folder/..", &[]),
+            ("/.hidden", &[".hidden"]),
+            ("/folder/../../../../../../../file.txt", &["file.txt"]),
+        ];
+
+        for (path, expected) in inputs {
+            let normalized = normalize(path.as_ref()).unwrap();
+            assert_eq!(normalized, expected.to_path_segments().unwrap());
+        }
+    }
+
+    #[test]
+    fn invalid_paths() {
+        let paths = [".", "..", "./file.txt", ""];
+
+        for path in paths {
+            assert_eq!(normalize(path.as_ref()), Err(FsError::InvalidInput),);
+        }
+    }
 
     #[test]
     fn mount_all_volumes_in_python() {
