@@ -14,6 +14,14 @@
 <span id="12">12</span>
 <span id="13">13</span>
 <span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">container</span>;
 <span class="kw">mod</span> <span class="ident">runner</span>;
 
@@ -28,5 +36,13 @@
     <span class="ident">container</span>::{<span class="ident">Bindings</span>, <span class="ident">WapmContainer</span>, <span class="ident">WebcParseError</span>, <span class="ident">WitBindings</span>},
     <span class="ident">runner::Runner</span>,
 };
+
+<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">serde::Serialize</span>, <span class="ident">serde::Deserialize</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MappedDirectory</span> {
+    <span class="kw">pub</span> <span class="ident">host</span>: <span class="ident">PathBuf</span>,
+    <span class="kw">pub</span> <span class="ident">guest</span>: <span class="ident">String</span>,
+}
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

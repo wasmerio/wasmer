@@ -302,6 +302,13 @@
 <span id="300">300</span>
 <span id="301">301</span>
 <span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -313,7 +320,8 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Wast</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{
-    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Init</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Publish</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>, <span class="ident">Whoami</span>,
+    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Init</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Publish</span>, <span class="ident">Run</span>, <span class="ident">RunUnstable</span>, <span class="ident">SelfUpdate</span>,
+    <span class="ident">Validate</span>, <span class="ident">Whoami</span>,
 };
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{<span class="ident">CreateObj</span>, <span class="ident">GenCHeader</span>};
@@ -464,6 +472,9 @@
 
     <span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.</span>
     <span class="ident">Add</span>(<span class="ident">Add</span>),
+
+    <span class="doccomment">/// (unstable) Run a WebAssembly file or WEBC container.</span>
+    <span class="ident">RunUnstable</span>(<span class="ident">RunUnstable</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">WasmerCLIOptions</span> {
@@ -493,6 +504,7 @@
             <span class="ident"><span class="self">Self</span>::Binfmt</span>(<span class="ident">binfmt</span>) =&gt; <span class="ident">binfmt</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Whoami</span>(<span class="ident">whoami</span>) =&gt; <span class="ident">whoami</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Add</span>(<span class="ident">install</span>) =&gt; <span class="ident">install</span>.<span class="ident">execute</span>(),
+            <span class="ident"><span class="self">Self</span>::RunUnstable</span>(<span class="ident">run2</span>) =&gt; <span class="ident">run2</span>.<span class="ident">execute</span>(),
         }
     }
 }
@@ -545,8 +557,10 @@
     } <span class="kw">else</span> {
         <span class="kw">match</span> <span class="ident">command</span>.<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()).<span class="ident">as_ref</span>() {
             <span class="string">&quot;add&quot;</span> <span class="op">|</span> <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-obj&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;gen-c-header&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;init&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span> <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;binfmt&quot;</span> <span class="op">|</span> <span class="string">&quot;list&quot;</span> <span class="op">|</span> <span class="string">&quot;login&quot;</span> <span class="op">|</span> <span class="string">&quot;publish&quot;</span> =&gt; <span class="ident">WasmerCLIOptions::parse</span>(),
+            <span class="op">|</span> <span class="string">&quot;gen-c-header&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;init&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span> <span class="op">|</span> <span class="string">&quot;run-unstable&quot;</span> <span class="op">|</span> <span class="string">&quot;self-update&quot;</span>
+            <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">|</span> <span class="string">&quot;binfmt&quot;</span> <span class="op">|</span> <span class="string">&quot;list&quot;</span> <span class="op">|</span> <span class="string">&quot;login&quot;</span> <span class="op">|</span> <span class="string">&quot;publish&quot;</span> =&gt; {
+                <span class="ident">WasmerCLIOptions::parse</span>()
+            }
             <span class="kw">_</span> =&gt; {
                 <span class="ident">WasmerCLIOptions::try_parse_from</span>(<span class="ident">args</span>.<span class="ident">iter</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                     <span class="kw">match</span> <span class="ident">e</span>.<span class="ident">kind</span>() {

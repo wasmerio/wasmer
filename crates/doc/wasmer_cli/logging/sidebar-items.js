@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["log_directive",""],["set_up_logging","Subroutine to instantiate the loggers"],["should_emit_colors","Check whether we should emit ANSI escape codes for log formatting."]]};

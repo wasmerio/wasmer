@@ -1,3 +1,4 @@
 (function() {var implementors = {};
+implementors["wasmer_cli"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_wasix/runners/wcgi/runner/trait.Callbacks.html\" title=\"trait wasmer_wasix::runners::wcgi::runner::Callbacks\">Callbacks</a> for <a class=\"struct\" href=\"wasmer_cli/commands/run_unstable/struct.Callbacks.html\" title=\"struct wasmer_cli::commands::run_unstable::Callbacks\">Callbacks</a>","synthetic":false,"types":["wasmer_cli::commands::run_unstable::Callbacks"]}];
 implementors["wasmer_wasix"] = [];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

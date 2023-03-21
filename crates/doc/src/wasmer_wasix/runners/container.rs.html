@@ -204,15 +204,6 @@
 <span id="202">202</span>
 <span id="203">203</span>
 <span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::PathBuf</span>, <span class="ident">sync::Arc</span>};
 
 <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
@@ -407,24 +398,15 @@
 }
 
 <span class="doccomment">/// Error that ocurred while parsing the .webc file</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">thiserror::Error</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WebcParseError</span> {
     <span class="doccomment">/// Parse error</span>
-    <span class="ident">Parse</span>(<span class="ident">webc::v1::Error</span>),
-    <span class="ident">Detect</span>(<span class="ident">webc::DetectError</span>),
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unable to parse the WEBC file&quot;</span>)]</span>
+    <span class="ident">Parse</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">webc::v1::Error</span>),
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unable to determine the WEBC version&quot;</span>)]</span>
+    <span class="ident">Detect</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">webc::DetectError</span>),
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unsupported WEBC version, {_0}&quot;</span>)]</span>
     <span class="ident">UnsupportedVersion</span>(<span class="ident">Version</span>),
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">webc::v1::Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WebcParseError</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">e</span>: <span class="ident">webc::v1::Error</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">WebcParseError::Parse</span>(<span class="ident">e</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">webc::DetectError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WebcParseError</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">e</span>: <span class="ident">webc::DetectError</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">WebcParseError::Detect</span>(<span class="ident">e</span>)
-    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

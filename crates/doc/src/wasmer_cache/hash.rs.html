@@ -72,12 +72,23 @@
 <span id="72">72</span>
 <span id="73">73</span>
 <span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::DeserializeError</span>;
-<span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
 <span class="kw">use</span> <span class="ident">std::string::ToString</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>},
+    <span class="ident">str::FromStr</span>,
+};
 
 <span class="doccomment">/// A hash used as a key when loading and storing modules in a</span>
-<span class="doccomment">/// [`Cache`].</span>
+<span class="doccomment">/// [`crate::Cache`].</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="comment">// Hash is made up of a 32 byte array</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Hash</span>([<span class="ident">u8</span>; <span class="number">32</span>]);
@@ -85,7 +96,7 @@
 <span class="kw">impl</span> <span class="ident">Hash</span> {
     <span class="doccomment">/// Creates a new instance from 32 raw bytes.</span>
     <span class="doccomment">/// Does not perform any hashing. In order to create a hash from data,</span>
-    <span class="doccomment">/// use `Hash::generate`.</span>
+    <span class="doccomment">/// use [`Hash::generate()`].</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">32</span>]) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span>(<span class="ident">bytes</span>)
     }
@@ -95,17 +106,19 @@
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">blake3::hash</span>(<span class="ident">bytes</span>);
         <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">hash</span>.<span class="ident">into</span>())
     }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_array</span>(<span class="self">self</span>) -&gt; [<span class="ident">u8</span>; <span class="number">32</span>] {
-        <span class="self">self</span>.<span class="number">0</span>
-    }
 }
 
-<span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="ident">Hash</span> {
-    <span class="doccomment">/// Create the hexadecimal representation of the</span>
+<span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">Hash</span> {
+    <span class="doccomment">/// Print the hexadecimal representation of the</span>
     <span class="doccomment">/// stored hash.</span>
-    <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="ident">hex::encode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">to_array</span>())
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> [<span class="number">0_u8</span>; <span class="number">64</span>];
+
+        <span class="ident">hex::encode_to_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;Can never fail with a hard-coded buffer length&quot;</span>);
+        <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">fmt::Error</span>)<span class="question-mark">?</span>;
+
+        <span class="ident">f</span>.<span class="ident">write_str</span>(<span class="ident">s</span>)
     }
 }
 
@@ -136,14 +149,17 @@
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">hash_to_array_works</span>() {
+    <span class="kw">fn</span> <span class="ident">hash_is_displayed_as_hex</span>() {
         <span class="kw">let</span> <span class="ident">original</span> <span class="op">=</span> [
             <span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>, <span class="number">0xEE</span>, <span class="number">0xFF</span>, <span class="number">0x12</span>, <span class="number">0x65</span>, <span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>, <span class="number">0xEE</span>, <span class="number">0xFF</span>,
             <span class="number">0x12</span>, <span class="number">0x65</span>, <span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>, <span class="number">0xEE</span>, <span class="number">0xFF</span>, <span class="number">0x12</span>, <span class="number">0x65</span>, <span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>,
             <span class="number">0xEE</span>, <span class="number">0xFF</span>, <span class="number">0x12</span>, <span class="number">0x65</span>,
         ];
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">Hash::new</span>(<span class="ident">original</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">hash</span>.<span class="ident">to_array</span>(), <span class="ident">original</span>);
+        <span class="macro">assert_eq!</span>(
+            <span class="ident">hash</span>.<span class="ident">to_string</span>(),
+            <span class="string">&quot;aabbccddeeff1265aabbccddeeff1265aabbccddeeff1265aabbccddeeff1265&quot;</span>
+        );
     }
 }
 </code></pre></div>

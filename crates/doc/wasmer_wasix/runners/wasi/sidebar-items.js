@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["prepare_webc_env",""]],"struct":[["WasiRunner",""]]};
+window.SIDEBAR_ITEMS = {"struct":[["WasiRunner",""]]};

@@ -717,21 +717,7 @@
 <span id="715">715</span>
 <span id="716">716</span>
 <span id="717">717</span>
-<span id="718">718</span>
-<span id="719">719</span>
-<span id="720">720</span>
-<span id="721">721</span>
-<span id="722">722</span>
-<span id="723">723</span>
-<span id="724">724</span>
-<span id="725">725</span>
-<span id="726">726</span>
-<span id="727">727</span>
-<span id="728">728</span>
-<span id="729">729</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::logging</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::package_source::PackageSource</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">CompilerType</span>, <span class="ident">StoreOptions</span>};
@@ -742,26 +728,20 @@
 <span class="kw">use</span> <span class="ident">std::io::Write</span>;
 <span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs::File</span>, <span class="ident">net::SocketAddr</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;emscripten&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer::FunctionEnv</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_cache</span>::{<span class="ident">Cache</span>, <span class="ident">FileSystemCache</span>, <span class="ident">Hash</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::Type</span> <span class="kw">as</span> <span class="ident">ValueType</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_wasix::runners</span>::{<span class="ident">Runner</span>, <span class="ident">WapmContainer</span>};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">wasi</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasi::Wasi</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">wasi::Wasi</span>;
 
 <span class="doccomment">/// The options for the `wasmer run` subcommand, runs either a package, URL or a file</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Run</span> {
     <span class="doccomment">/// File to run</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;SOURCE&quot;</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span>))]</span>
@@ -779,7 +759,6 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">force_install</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Disable the cache</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-cache&quot;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
 
@@ -796,7 +775,6 @@
     <span class="doccomment">/// A prehashed string, used to speed up start times by avoiding hashing the</span>
     <span class="doccomment">/// wasm module. If the specified hash is not found, Wasmer will hash the module</span>
     <span class="doccomment">/// as if no `cache-key` argument was passed.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;cache-key&quot;</span>, <span class="ident">hide</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 
@@ -804,7 +782,6 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
 
     <span class="comment">// TODO: refactor WASI structure to allow shared options with Emscripten</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wasi</span>: <span class="ident">Wasi</span>,
 
@@ -814,15 +791,12 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable debug output</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;d&#39;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">debug</span>: <span class="ident">bool</span>,
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;verbose&quot;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">verbose</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wcgi</span>: <span class="ident">WcgiOptions</span>,
 
@@ -862,39 +836,40 @@
                 <span class="ident">self_clone</span>.<span class="ident">command_name</span>.<span class="ident">as_deref</span>(),
             )<span class="question-mark">?</span>;
 
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-            {
-                <span class="comment">// See https://github.com/wasmerio/wasmer/issues/3492 -</span>
-                <span class="comment">// we need IndexMap to have a stable ordering for the [fs] mapping,</span>
-                <span class="comment">// otherwise overlapping filesystem mappings might not work</span>
-                <span class="comment">// since we want to control the order of mounting directories from the</span>
-                <span class="comment">// wasmer.toml file</span>
-                <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">indexmap::IndexMap::default</span>();
-                <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">fs</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">default</span>);
-                <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">fs</span>.<span class="ident">iter</span>() {
-                    <span class="kw">let</span> <span class="ident">real_dir</span> <span class="op">=</span> <span class="ident">self_clone</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
-                    <span class="kw">if</span> <span class="op">!</span><span class="ident">real_dir</span>.<span class="ident">exists</span>() {
-                        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-                        <span class="kw">if</span> <span class="ident">self_clone</span>.<span class="ident">debug</span> {
-                            <span class="macro">println!</span>(
-                                <span class="string">&quot;warning: cannot map {alias:?} to {}: directory does not exist&quot;</span>,
-                                <span class="ident">real_dir</span>.<span class="ident">display</span>()
-                            );
-                        }
-                        <span class="kw">continue</span>;
+            <span class="comment">// See https://github.com/wasmerio/wasmer/issues/3492 -</span>
+            <span class="comment">// we need IndexMap to have a stable ordering for the [fs] mapping,</span>
+            <span class="comment">// otherwise overlapping filesystem mappings might not work</span>
+            <span class="comment">// since we want to control the order of mounting directories from the</span>
+            <span class="comment">// wasmer.toml file</span>
+            <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">indexmap::IndexMap::default</span>();
+            <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">fs</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">default</span>);
+            <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">fs</span>.<span class="ident">iter</span>() {
+                <span class="kw">let</span> <span class="ident">real_dir</span> <span class="op">=</span> <span class="ident">self_clone</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">real_dir</span>.<span class="ident">exists</span>() {
+                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
+                    <span class="kw">if</span> <span class="ident">self_clone</span>.<span class="ident">debug</span> {
+                        <span class="macro">println!</span>(
+                            <span class="string">&quot;warning: cannot map {alias:?} to {}: directory does not exist&quot;</span>,
+                            <span class="ident">real_dir</span>.<span class="ident">display</span>()
+                        );
                     }
-
-                    <span class="ident">self_clone</span>.<span class="ident">options</span>.<span class="ident">wasi</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">real_dir</span>.<span class="ident">clone</span>());
+                    <span class="kw">continue</span>;
                 }
+
+                <span class="ident">self_clone</span>.<span class="ident">options</span>.<span class="ident">wasi</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">real_dir</span>.<span class="ident">clone</span>());
             }
 
             <span class="ident">self_clone</span>.<span class="ident">path</span> <span class="op">=</span> <span class="ident">pathbuf</span>;
         }
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">debug</span> {
-            <span class="ident">logging::set_up_logging</span>(<span class="ident">self_clone</span>.<span class="ident">verbose</span>.<span class="ident">unwrap_or</span>(<span class="number">0</span>)).<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">level</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">self_clone</span>.<span class="ident">verbose</span> {
+                <span class="prelude-val">Some</span>(<span class="number">1</span>) =&gt; <span class="ident">log::LevelFilter::Debug</span>,
+                <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="prelude-val">None</span> =&gt; <span class="ident">log::LevelFilter::Trace</span>,
+            };
+            <span class="ident">logging::set_up_logging</span>(<span class="ident">level</span>);
         }
+
         <span class="kw">let</span> <span class="ident">invoke_res</span> <span class="op">=</span> <span class="ident">self_clone</span>.<span class="ident">inner_execute</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">format!</span>(
                 <span class="string">&quot;failed to run `{}`{}&quot;</span>,
@@ -981,7 +956,12 @@
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>))<span class="question-mark">?</span>;
                 <span class="ident">env</span>.<span class="ident">as_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>).<span class="ident">set_data</span>(
                     <span class="kw-2">&amp;</span><span class="ident">emscripten_globals</span>.<span class="ident">data</span>,
-                    <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">clone</span>().<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
+                    <span class="self">self</span>.<span class="ident">wasi</span>
+                        .<span class="ident">mapped_dirs</span>
+                        .<span class="ident">clone</span>()
+                        .<span class="ident">into_iter</span>()
+                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">d</span><span class="op">|</span> (<span class="ident">d</span>.<span class="ident">guest</span>, <span class="ident">d</span>.<span class="ident">host</span>))
+                        .<span class="ident">collect</span>(),
                 );
                 <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span>
                     <span class="ident">generate_emscripten_env</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="kw-2">&amp;mut</span> <span class="ident">emscripten_globals</span>);
@@ -1147,8 +1127,8 @@
             .<span class="ident">store</span>(<span class="ident">store</span>)
             .<span class="ident">addr</span>(<span class="self">self</span>.<span class="ident">wcgi</span>.<span class="ident">addr</span>)
             .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">env_vars</span>.<span class="ident">clone</span>())
-            .<span class="ident">map_directories</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">g</span>, <span class="ident">h</span>)<span class="op">|</span> (<span class="ident">h</span>, <span class="ident">g</span>)));
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wcgi</span>.<span class="ident">forward_host_env</span> {
+            .<span class="ident">map_directories</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">clone</span>());
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">forward_host_env</span> {
             <span class="ident">runner</span>.<span class="ident">config</span>().<span class="ident">forward_host_env</span>();
         }
         <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
@@ -1445,16 +1425,12 @@
     <span class="doccomment">/// The address to serve on.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">short</span>, <span class="ident">env</span>, <span class="ident">default_value_t</span> <span class="op">=</span> ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).<span class="ident">into</span>())]
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-    <span class="doccomment">/// Forward all host env variables to the wcgi task.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">forward_host_env</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WcgiOptions</span> {
     <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">addr</span>: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).<span class="ident">into</span>(),
-            <span class="ident">forward_host_env</span>: <span class="bool-val">false</span>,
         }
     }
 }

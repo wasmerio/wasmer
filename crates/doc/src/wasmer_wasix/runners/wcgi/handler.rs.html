@@ -253,6 +253,57 @@
 <span id="251">251</span>
 <span id="252">252</span>
 <span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">ops::Deref</span>,
@@ -262,7 +313,7 @@
     <span class="ident">task::Poll</span>,
 };
 
-<span class="kw">use</span> <span class="ident">anyhow::Error</span>;
+<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
 <span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">Future</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>, <span class="ident">TryFutureExt</span>};
 <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">Request</span>, <span class="ident">Response</span>};
 <span class="kw">use</span> <span class="ident">hyper</span>::{<span class="ident">service::Service</span>, <span class="ident">Body</span>};
@@ -270,6 +321,7 @@
     <span class="ident">io</span>::{<span class="ident">AsyncBufReadExt</span>, <span class="ident">AsyncRead</span>, <span class="ident">AsyncWrite</span>, <span class="ident">AsyncWriteExt</span>},
     <span class="ident">runtime::Handle</span>,
 };
+<span class="kw">use</span> <span class="ident">tracing::Instrument</span>;
 <span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">FileSystem</span>, <span class="ident">PassthruFileSystem</span>, <span class="ident">RootFileSystemBuilder</span>, <span class="ident">TmpFileSystem</span>};
 <span class="kw">use</span> <span class="ident">wasmer::Module</span>;
 <span class="kw">use</span> <span class="ident">wcgi_host::CgiDialect</span>;
@@ -277,7 +329,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">capabilities::Capabilities</span>,
     <span class="ident">http::HttpClientCapabilityV1</span>,
-    <span class="ident">runners::wcgi</span>::{<span class="ident">Callbacks</span>, <span class="ident">MappedDirectory</span>},
+    <span class="ident">runners</span>::{<span class="ident">wcgi::Callbacks</span>, <span class="ident">MappedDirectory</span>, <span class="ident">WapmContainer</span>},
     <span class="ident">Pipe</span>, <span class="ident">PluggableRuntime</span>, <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiEnv</span>,
 };
 
@@ -292,11 +344,15 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+        <span class="macro">tracing::debug!</span>(<span class="ident">headers</span><span class="op">=</span><span class="question-mark">?</span><span class="ident">req</span>.<span class="ident">headers</span>());
+
         <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_parts</span>();
 
         <span class="kw">let</span> (<span class="ident">req_body_sender</span>, <span class="ident">req_body_receiver</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
         <span class="kw">let</span> (<span class="ident">res_body_sender</span>, <span class="ident">res_body_receiver</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
         <span class="kw">let</span> (<span class="ident">stderr_sender</span>, <span class="ident">stderr_receiver</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
+
+        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Creating the WebAssembly instance&quot;</span>);
 
         <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiEnv::builder</span>(<span class="self">self</span>.<span class="ident">program</span>.<span class="ident">to_string</span>());
 
@@ -305,7 +361,7 @@
             .<span class="ident">prepare_environment_variables</span>(<span class="ident">parts</span>, <span class="kw-2">&amp;mut</span> <span class="ident">request_specific_env</span>);
 
         <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">task_manager</span>));
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">env</span>.<span class="ident">iter</span>())
             .<span class="ident">envs</span>(<span class="ident">request_specific_env</span>)
             .<span class="ident">args</span>(<span class="self">self</span>.<span class="ident">args</span>.<span class="ident">iter</span>())
@@ -318,10 +374,18 @@
                 <span class="ident">threading</span>: <span class="ident">Default::default</span>(),
             })
             .<span class="ident">runtime</span>(<span class="ident">Arc::new</span>(<span class="ident">rt</span>))
-            .<span class="ident">sandbox_fs</span>(<span class="self">self</span>.<span class="ident">fs</span>()<span class="question-mark">?</span>)
+            .<span class="ident">fs</span>(<span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">fs</span>()<span class="question-mark">?</span>))
             .<span class="ident">preopen_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>))<span class="question-mark">?</span>;
 
+        <span class="kw">for</span> <span class="ident">mapping</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mapped_dirs</span> {
+            <span class="ident">builder</span>
+                .<span class="ident">add_preopen_dir</span>(<span class="kw-2">&amp;</span><span class="ident">mapping</span>.<span class="ident">guest</span>)
+                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to preopen \&quot;{}\&quot;&quot;</span>, <span class="ident">mapping</span>.<span class="ident">guest</span>))<span class="question-mark">?</span>;
+        }
+
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">clone</span>();
+
+        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Calling into the WCGI executable&quot;</span>);
 
         <span class="kw">let</span> <span class="ident">done</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">task_manager</span>
@@ -333,19 +397,26 @@
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">task_manager</span>.<span class="ident">runtime</span>().<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">callbacks</span> <span class="op">=</span> <span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">callbacks</span>);
 
-        <span class="ident">handle</span>.<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="ident">consume_stderr</span>(<span class="ident">stderr_receiver</span>, <span class="ident">callbacks</span>).<span class="kw">await</span>;
-        });
-
-        <span class="self">self</span>.<span class="ident">task_manager</span>.<span class="ident">runtime</span>().<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">drive_request_to_completion</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>, <span class="ident">done</span>, <span class="ident">body</span>, <span class="ident">req_body_sender</span>).<span class="kw">await</span>
-            {
-                <span class="macro">tracing::error!</span>(
-                    <span class="ident">error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
-                    <span class="string">&quot;Unable to drive the request to completion&quot;</span>
-                );
+        <span class="ident">handle</span>.<span class="ident">spawn</span>(
+            <span class="kw">async</span> <span class="kw">move</span> {
+                <span class="ident">consume_stderr</span>(<span class="ident">stderr_receiver</span>, <span class="ident">callbacks</span>).<span class="kw">await</span>;
             }
-        });
+            .<span class="ident">in_current_span</span>(),
+        );
+
+        <span class="self">self</span>.<span class="ident">task_manager</span>.<span class="ident">runtime</span>().<span class="ident">spawn</span>(
+            <span class="kw">async</span> <span class="kw">move</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span>
+                    <span class="ident">drive_request_to_completion</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>, <span class="ident">done</span>, <span class="ident">body</span>, <span class="ident">req_body_sender</span>).<span class="kw">await</span>
+                {
+                    <span class="macro">tracing::error!</span>(
+                        <span class="ident">error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
+                        <span class="string">&quot;Unable to drive the request to completion&quot;</span>
+                    );
+                }
+            }
+            .<span class="ident">in_current_span</span>(),
+        );
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res_body_receiver</span> <span class="op">=</span> <span class="ident">tokio::io::BufReader::new</span>(<span class="ident">res_body_receiver</span>);
 
@@ -383,23 +454,30 @@
                     <span class="bool-val">true</span> =&gt; <span class="ident">PathBuf::from</span>(<span class="ident">guest</span>),
                     <span class="bool-val">false</span> =&gt; <span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>).<span class="ident">join</span>(<span class="ident">guest</span>),
                 };
-                <span class="macro">tracing::trace!</span>(
+                <span class="macro">tracing::debug!</span>(
                     <span class="ident">host</span><span class="op">=</span><span class="op">%</span><span class="ident">host</span>.<span class="ident">display</span>(),
                     <span class="ident">guest</span><span class="op">=</span><span class="op">%</span><span class="ident">guest</span>.<span class="ident">display</span>(),
-                    <span class="string">&quot;mounting directory to instance fs&quot;</span>,
+                    <span class="string">&quot;mounting host directory&quot;</span>,
                 );
 
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">guest</span>.<span class="ident">parent</span>() {
+                    <span class="ident">create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">root_fs</span>, <span class="ident">parent</span>)
+                        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, <span class="ident">parent</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+                }
+
                 <span class="ident">root_fs</span>
-                    .<span class="ident">mount</span>(<span class="ident">host</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">fs_backing</span>, <span class="ident">guest</span>.<span class="ident">clone</span>())
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> {
-                        <span class="macro">anyhow::anyhow!</span>(
-                            <span class="string">&quot;Unable to mount \&quot;{}\&quot; to \&quot;{}\&quot;: {error}&quot;</span>,
+                    .<span class="ident">mount</span>(<span class="ident">guest</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">fs_backing</span>, <span class="ident">host</span>.<span class="ident">clone</span>())
+                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+                        <span class="macro">format!</span>(
+                            <span class="string">&quot;Unable to mount \&quot;{}\&quot; to \&quot;{}\&quot;&quot;</span>,
                             <span class="ident">host</span>.<span class="ident">display</span>(),
                             <span class="ident">guest</span>.<span class="ident">display</span>()
                         )
-                    })<span class="question-mark">?</span>;
+                    })
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">dbg!</span>(<span class="ident">e</span>))<span class="question-mark">?</span>;
             }
         }
+
         <span class="prelude-val">Ok</span>(<span class="ident">root_fs</span>)
     }
 }
@@ -412,6 +490,20 @@
     }
 }
 
+<span class="kw">fn</span> <span class="ident">create_dir_all</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">if</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">path</span>).<span class="ident">is_ok</span>() {
+        <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+    }
+
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">parent</span>() {
+        <span class="ident">create_dir_all</span>(<span class="ident">fs</span>, <span class="ident">parent</span>)<span class="question-mark">?</span>;
+    }
+
+    <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(())
+}
+
 <span class="doccomment">/// Drive the request to completion by streaming the request body to the</span>
 <span class="doccomment">/// instance and waiting for it to exit.</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">drive_request_to_completion</span>(
@@ -421,21 +513,30 @@
     <span class="kw-2">mut</span> <span class="ident">instance_stdin</span>: <span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Unpin</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">request_body_send</span> <span class="op">=</span> <span class="ident">handle</span>
-        .<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="comment">// Copy the request into our instance, chunk-by-chunk. If the instance</span>
-            <span class="comment">// dies before we finish writing the body, the instance&#39;s side of the</span>
-            <span class="comment">// pipe will be automatically closed and we&#39;ll error out.</span>
-            <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="ident">request_body</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-                <span class="comment">// FIXME(theduke): figure out how to propagate a body error to the</span>
-                <span class="comment">// CGI instance.</span>
-                <span class="kw">let</span> <span class="ident">chunk</span> <span class="op">=</span> <span class="ident">res</span><span class="question-mark">?</span>;
-                <span class="ident">instance_stdin</span>.<span class="ident">write_all</span>(<span class="ident">chunk</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
+        .<span class="ident">spawn</span>(
+            <span class="kw">async</span> <span class="kw">move</span> {
+                <span class="comment">// Copy the request into our instance, chunk-by-chunk. If the instance</span>
+                <span class="comment">// dies before we finish writing the body, the instance&#39;s side of the</span>
+                <span class="comment">// pipe will be automatically closed and we&#39;ll error out.</span>
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request_size</span> <span class="op">=</span> <span class="number">0</span>;
+                <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="ident">request_body</span>.<span class="ident">next</span>().<span class="kw">await</span> {
+                    <span class="comment">// FIXME(theduke): figure out how to propagate a body error to the</span>
+                    <span class="comment">// CGI instance.</span>
+                    <span class="kw">let</span> <span class="ident">chunk</span> <span class="op">=</span> <span class="ident">res</span><span class="question-mark">?</span>;
+                    <span class="ident">request_size</span> <span class="op">+</span><span class="op">=</span> <span class="ident">chunk</span>.<span class="ident">len</span>();
+                    <span class="ident">instance_stdin</span>.<span class="ident">write_all</span>(<span class="ident">chunk</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
+                }
+
+                <span class="ident">instance_stdin</span>.<span class="ident">shutdown</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="macro">tracing::debug!</span>(
+                    <span class="ident">request_size</span>,
+                    <span class="string">&quot;Finished forwarding the request to the WCGI server&quot;</span>
+                );
+
+                <span class="prelude-val">Ok</span>::<span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span>(())
             }
-
-            <span class="ident">instance_stdin</span>.<span class="ident">shutdown</span>().<span class="kw">await</span><span class="question-mark">?</span>;
-
-            <span class="prelude-val">Ok</span>::<span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span>(())
-        })
+            .<span class="ident">in_current_span</span>(),
+        )
         .<span class="ident">map_err</span>(<span class="ident">Error::from</span>)
         .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="kw">async</span> { <span class="ident">r</span> });
 
@@ -482,6 +583,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">env</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">String</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MappedDirectory</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">container</span>: <span class="ident">WapmContainer</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">module</span>: <span class="ident">Module</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">dialect</span>: <span class="ident">CgiDialect</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">task_manager</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span><span class="op">&gt;</span>,

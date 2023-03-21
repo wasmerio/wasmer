@@ -2202,8 +2202,6 @@
 <span id="2200">2200</span>
 <span id="2201">2201</span>
 <span id="2202">2202</span>
-<span id="2203">2203</span>
-<span id="2204">2204</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="self">self</span>::utils::normalize_atom_name</span>;
@@ -4218,7 +4216,6 @@
             .<span class="ident">context</span>(<span class="string">&quot;Could not lookup wasmer repository on Github.&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if</span> <span class="ident">response</span>.<span class="ident">status_code</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">StatusCode::new</span>(<span class="number">200</span>) {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
             <span class="macro">log::warn!</span>(
                 <span class="string">&quot;Warning: Github API replied with non-200 status code: {}. Response: {}&quot;</span>,
                 <span class="ident">response</span>.<span class="ident">status_code</span>(),
@@ -4340,7 +4337,6 @@
         <span class="kw">let</span> <span class="ident">download_path</span> <span class="op">=</span> <span class="ident">download_tempdir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">download_path</span>)<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
         <span class="macro">log::debug!</span>(
             <span class="string">&quot;Downloading {} to {}&quot;</span>,
             <span class="ident">browser_download_url</span>,
