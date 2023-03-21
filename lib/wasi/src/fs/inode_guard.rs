@@ -248,7 +248,7 @@ impl Future for InodeValFilePollGuardJoin {
                             }
                         }
                         Poll::Ready(Ok(amt)) => {
-                            if guard.notifications.closed == true {
+                            if guard.notifications.closed {
                                 Poll::Pending
                             } else {
                                 Poll::Ready(Ok(amt))
@@ -341,7 +341,7 @@ impl Future for InodeValFilePollGuardJoin {
                             }
                         }
                         Poll::Ready(Ok(amt)) => {
-                            if guard.notifications.closed == true {
+                            if guard.notifications.closed {
                                 Poll::Pending
                             } else {
                                 Poll::Ready(Ok(amt))

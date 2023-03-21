@@ -255,14 +255,14 @@ pub fn proc_exec<M: MemorySize>(
                         env.thread.set_status_finished(Ok(exit_code));
                     },
                 )?;
-                return match res {
+                match res {
                     AsyncifyAction::Finish(mut ctx) => {
                         // When we arrive here the process should already be terminated
                         WasiEnv::process_signals_and_exit(&mut ctx)?;
                         Err(WasiError::Exit(Errno::Unknown.into()))
                     }
                     AsyncifyAction::Unwind => Ok(()),
-                };
+                }
             }
             Ok(Err(err)) => {
                 warn!(

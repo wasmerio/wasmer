@@ -21,7 +21,7 @@ pub fn proc_join<M: MemorySize + 'static>(
     // This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
     let ret_result = {
-        let status_ptr = status_ptr.clone();
+        let status_ptr = status_ptr;
         move |ctx: FunctionEnvMut<'_, WasiEnv>| {
             let view = ctx.data().memory_view(&ctx);
             let status = wasi_try_mem_ok!(status_ptr.read(&view));
@@ -36,9 +36,9 @@ pub fn proc_join<M: MemorySize + 'static>(
                         },
                     }
                 ));
-                return Ok(ret);
+                Ok(ret)
             } else {
-                return Ok(Errno::Success);
+                Ok(Errno::Success)
             }
         }
     };
@@ -80,8 +80,8 @@ pub fn proc_join<M: MemorySize + 'static>(
     let pid = match option_pid {
         None => {
             let mut process = ctx.data_mut().process.clone();
-            let pid_ptr = pid_ptr.clone();
-            let status_ptr = status_ptr.clone();
+            let pid_ptr = pid_ptr;
+            let status_ptr = status_ptr;
 
             // We wait for any process to exit (if it takes too long
             // then we go into a deep sleep)
@@ -210,5 +210,5 @@ pub fn proc_join<M: MemorySize + 'static>(
         },
     };
     wasi_try_mem_ok!(status_ptr.write(&memory, status));
-    return ret_result(ctx);
+    ret_result(ctx)
 }

@@ -429,7 +429,7 @@ where
                 _ = deep_sleep_wait => {
                     tracing::trace!("thread entering deep sleep");
                     return deep_sleep::<M, _>(ctx, work)
-                        .map(|err| Err(err));
+                        .map(Err);
                 },
             }
         };
@@ -973,9 +973,9 @@ where
 
     // Perform the unwind action
     let tasks = ctx.data().tasks().clone();
-    return unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
+    unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
         // Schedule the process on the stack so that it can be resumed
-        return OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
+        OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
             WasiError::DeepSleep(DeepSleepWork {
                 work: Box::new(work),
                 rewind: RewindState {
@@ -985,8 +985,8 @@ where
                     is_64bit: M::is_64bit(),
                 },
             }),
-        ))));
-    });
+        ))))
+    })
 }
 
 #[must_use = "you must return the result immediately so the stack can unwind"]

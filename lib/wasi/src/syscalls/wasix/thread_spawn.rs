@@ -98,7 +98,7 @@ pub fn thread_spawn<M: MemorySize>(
         let state = env.state.clone();
         let tasks = tasks.clone();
         let wasi_env = wasi_env.duplicate();
-        let thread_handle = thread_handle.clone();
+        let thread_handle = thread_handle;
         move |mut store: Store, module: Module, mut memory: Option<VMMemory>| {
             // Now create the context and hook it up
             let ctx = match create_ctx(&mut store, &module, memory, wasi_env) {
