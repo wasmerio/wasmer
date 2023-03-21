@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
+use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store, Value};
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
@@ -215,7 +215,7 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut impl AsStoreMut,
+        store: &mut Store,
         module: &Module,
         program_name: String,
         args: Vec<String>,

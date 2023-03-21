@@ -8,18 +8,21 @@ use crate::syscalls::*;
 ///
 /// * `duration` - Amount of time that the thread should sleep
 #[instrument(level = "debug", skip_all, fields(duration), ret, err)]
-pub fn thread_sleep(
+pub fn thread_sleep<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
-    thread_sleep_internal(ctx, duration)
+    thread_sleep_internal::<M>(ctx, duration)
 }
 
-pub(crate) fn thread_sleep_internal(
+pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    if handle_rewind::<M>(&mut ctx) {
+        return Ok(Errno::Success);
+    }
 
     let env = ctx.data();
 
@@ -31,14 +34,20 @@ pub(crate) fn thread_sleep_internal(
     if duration > 0 {
         let duration = Duration::from_nanos(duration as u64);
         let tasks = env.tasks().clone();
-        wasi_try_ok!(__asyncify(&mut ctx, Some(duration), async move {
-            // using an infinite async sleep here means we don't have to write the same event
-            // handling loop code for signals and timeouts
-            InfiniteSleep::default().await;
-            unreachable!(
-                "the timeout or signals will wake up this thread even though it waits forever"
-            )
-        })?);
+
+        __asyncify_with_deep_sleep_ext::<M, _, _, _>(
+            ctx,
+            Some(duration),
+            async move {
+                // using an infinite async sleep here means we don't have to write the same event
+                // handling loop code for signals and timeouts
+                InfiniteSleep::default().await;
+                unreachable!(
+                    "the timeout or signals will wake up this thread even though it waits forever"
+                )
+            },
+            move |_, _, _| {},
+        )?;
     }
     Ok(Errno::Success)
 }

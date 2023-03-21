@@ -1,7 +1,7 @@
 use wasmer_wasix_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
 
 use super::*;
-use crate::syscalls::*;
+use crate::{syscalls::*, WasiProcess};
 
 /// ### `proc_join()`
 /// Joins the child process, blocking this one until the other finishes
@@ -10,13 +10,44 @@ use crate::syscalls::*;
 ///
 /// * `pid` - Handle of the child process to wait on
 #[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
-pub fn proc_join<M: MemorySize>(
+pub fn proc_join<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
     _flags: JoinFlags,
     status_ptr: WasmPtr<JoinStatus, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    // This lambda will look at what we wrote in the status variable
+    // and use this to determine the return code sent back to the caller
+    let ret_result = {
+        let status_ptr = status_ptr.clone();
+        move |ctx: FunctionEnvMut<'_, WasiEnv>| {
+            let view = ctx.data().memory_view(&ctx);
+            let status = wasi_try_mem_ok!(status_ptr.read(&view));
+            if status.tag == JoinStatusType::Nothing {
+                let ret = unsafe { status.u.nothing_errno };
+                wasi_try_mem_ok!(status_ptr.write(
+                    &view,
+                    JoinStatus {
+                        tag: JoinStatusType::Nothing,
+                        u: JoinStatusUnion {
+                            nothing_errno: Errno::Success
+                        },
+                    }
+                ));
+                return Ok(ret);
+            } else {
+                return Ok(Errno::Success);
+            }
+        }
+    };
+
+    // If we were just restored the stack then we were woken after a deep sleep
+    // and the return calues are already set
+    if handle_rewind::<M>(&mut ctx) {
+        return ret_result(ctx);
+    }
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -27,45 +58,79 @@ pub fn proc_join<M: MemorySize>(
     };
     tracing::trace!("filter_pid = {:?}", option_pid);
 
+    // Clear the existing values (in case something goes wrong)
+    wasi_try_mem_ok!(pid_ptr.write(
+        &memory,
+        OptionPid {
+            tag: OptionTag::None,
+            pid: 0,
+        }
+    ));
+    wasi_try_mem_ok!(status_ptr.write(
+        &memory,
+        JoinStatus {
+            tag: JoinStatusType::Nothing,
+            u: JoinStatusUnion {
+                nothing_errno: Errno::Success
+            },
+        }
+    ));
+
     // If the ID is maximum then it means wait for any of the children
     let pid = match option_pid {
         None => {
             let mut process = ctx.data_mut().process.clone();
-            let child_exit = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                process.join_any_child().await
-            })?);
-            return match child_exit {
-                Some((pid, exit_code)) => {
-                    trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
-                    let env = ctx.data();
-                    let memory = env.memory_view(&ctx);
+            let pid_ptr = pid_ptr.clone();
+            let status_ptr = status_ptr.clone();
 
-                    let option_pid = OptionPid {
-                        tag: OptionTag::Some,
-                        pid: pid.raw() as Pid,
-                    };
-                    wasi_try_mem_ok!(pid_ptr.write(&memory, option_pid));
+            // We wait for any process to exit (if it takes too long
+            // then we go into a deep sleep)
+            let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
+                ctx,
+                None,
+                async move { process.join_any_child().await },
+                move |child_exit, env, store| {
+                    let memory = env.memory_view(store);
+                    match child_exit {
+                        Ok(Some((pid, exit_code))) => {
+                            trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
 
-                    let status = JoinStatus {
-                        tag: JoinStatusType::ExitNormal,
-                        u: JoinStatusUnion {
-                            exit_normal: exit_code.into(),
-                        },
-                    };
-                    wasi_try_mem_ok!(status_ptr.write(&memory, status));
-                    Ok(Errno::Success)
-                }
-                None => {
-                    let env = ctx.data();
-                    let memory = env.memory_view(&ctx);
+                            let option_pid = OptionPid {
+                                tag: OptionTag::Some,
+                                pid: pid.raw() as Pid,
+                            };
+                            pid_ptr.write(&memory, option_pid).ok();
 
-                    let status = JoinStatus {
-                        tag: JoinStatusType::Nothing,
-                        u: JoinStatusUnion { nothing: 0 },
-                    };
-                    wasi_try_mem_ok!(status_ptr.write(&memory, status));
-                    Ok(Errno::Child)
-                }
+                            let status = JoinStatus {
+                                tag: JoinStatusType::ExitNormal,
+                                u: JoinStatusUnion {
+                                    exit_normal: exit_code.into(),
+                                },
+                            };
+                            status_ptr.write(&memory, status).ok();
+                        }
+                        Ok(None) => {
+                            let status = JoinStatus {
+                                tag: JoinStatusType::Nothing,
+                                u: JoinStatusUnion {
+                                    nothing_errno: Errno::Child,
+                                },
+                            };
+                            status_ptr.write(&memory, status).ok();
+                        }
+                        Err(err) => {
+                            let status = JoinStatus {
+                                tag: JoinStatusType::Nothing,
+                                u: JoinStatusUnion { nothing_errno: err },
+                            };
+                            status_ptr.write(&memory, status).ok();
+                        }
+                    }
+                },
+            )?;
+            return match res {
+                AsyncifyAction::Finish(ctx) => ret_result(ctx),
+                AsyncifyAction::Unwind => Ok(Errno::Success),
             };
         }
         Some(pid) => pid,
@@ -96,40 +161,41 @@ pub fn proc_join<M: MemorySize>(
     }
 
     if let Some(process) = process {
-        let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            let code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
-            Ok(code)
-        })
-        .map_err(|err| {
-            trace!(
-                %pid,
-                %err
-            );
-            err
-        })?);
+        // We can already set the process ID
+        wasi_try_mem_ok!(pid_ptr.write(
+            &memory,
+            OptionPid {
+                tag: OptionTag::Some,
+                pid: pid.raw(),
+            }
+        ));
 
-        trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
-        let env = ctx.data();
-        {
-            let mut inner = env.process.inner.write().unwrap();
-            inner.children.retain(|a| a.pid != pid);
-        }
+        // Wait for the process to finish
+        let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
+            ctx,
+            None,
+            async move { process.join().await.unwrap_or_else(|_| Errno::Child.into()) },
+            move |exit_code, env, store| {
+                trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
+                {
+                    let mut inner = env.process.inner.write().unwrap();
+                    inner.children.retain(|a| a.pid != pid);
+                }
 
-        let memory = env.memory_view(&ctx);
-
-        let option_pid = OptionPid {
-            tag: OptionTag::Some,
-            pid: pid.raw(),
-        };
-        let status = JoinStatus {
-            tag: JoinStatusType::ExitNormal,
-            u: JoinStatusUnion {
-                exit_normal: exit_code.into(),
+                let memory = env.memory_view(store);
+                let status = JoinStatus {
+                    tag: JoinStatusType::ExitNormal,
+                    u: JoinStatusUnion {
+                        exit_normal: exit_code.into(),
+                    },
+                };
+                status_ptr.write(&memory, status).ok();
             },
+        )?;
+        return match res {
+            AsyncifyAction::Finish(ctx) => ret_result(ctx),
+            AsyncifyAction::Unwind => Ok(Errno::Success),
         };
-        wasi_try_mem_ok!(pid_ptr.write(&memory, option_pid));
-        wasi_try_mem_ok!(status_ptr.write(&memory, status));
-        return Ok(Errno::Success);
     }
 
     trace!(ret_id = pid.raw(), "status=nothing");
@@ -139,8 +205,10 @@ pub fn proc_join<M: MemorySize>(
 
     let status = JoinStatus {
         tag: JoinStatusType::Nothing,
-        u: JoinStatusUnion { nothing: 0 },
+        u: JoinStatusUnion {
+            nothing_errno: Errno::Success,
+        },
     };
     wasi_try_mem_ok!(status_ptr.write(&memory, status));
-    Ok(Errno::Child)
+    return ret_result(ctx);
 }

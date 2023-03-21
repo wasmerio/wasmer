@@ -3,11 +3,13 @@ use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance
 use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
+    os::task::thread::DEFAULT_STACK_SIZE,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions},
-    WasiEnv, WasiError, DEFAULT_STACK_SIZE,
+    WasiEnv, WasiError,
 };
 
+#[derive(Clone)]
 pub struct WasiFunctionEnv {
     pub env: FunctionEnv<WasiEnv>,
 }
@@ -97,16 +99,24 @@ impl WasiFunctionEnv {
         env.state.fs.set_is_wasix(is_wasix_module);
 
         // Set the base stack
-        let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+        let mut stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
             match stack_pointer.get(store) {
                 wasmer::Value::I32(a) => a as u64,
                 wasmer::Value::I64(a) => a as u64,
-                _ => DEFAULT_STACK_SIZE,
+                _ => 0,
             }
         } else {
-            DEFAULT_STACK_SIZE
+            0
         };
-        self.data_mut(store).stack_end = stack_base;
+        if stack_base == 0 {
+            stack_base = DEFAULT_STACK_SIZE;
+        }
+
+        // Update the stack layout which is need for asyncify
+        let env = self.data_mut(store);
+        let layout = &mut env.layout;
+        layout.stack_upper = stack_base;
+        layout.stack_size = layout.stack_upper - layout.stack_lower;
 
         Ok(())
     }

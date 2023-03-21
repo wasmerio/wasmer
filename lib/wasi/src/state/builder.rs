@@ -9,7 +9,7 @@ use std::{
 use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
-use wasmer::{AsStoreMut, Instance, Module};
+use wasmer::{AsStoreMut, Instance, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
@@ -693,7 +693,6 @@ impl WasiEnvBuilder {
             inodes,
             args: self.args.clone(),
             preopen: self.vfs_preopens.clone(),
-            threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Default::default(),
             envs,
@@ -759,6 +758,7 @@ impl WasiEnvBuilder {
             process: None,
             thread: None,
             call_initialize: true,
+            can_deep_sleep: false,
         };
 
         Ok(init)
@@ -792,7 +792,7 @@ impl WasiEnvBuilder {
     pub fn instantiate(
         self,
         module: Module,
-        store: &mut impl AsStoreMut,
+        store: &mut Store,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let init = self.build_init()?;
         WasiEnv::instantiate(init, module, store)
@@ -803,11 +803,7 @@ impl WasiEnvBuilder {
         self.run_with_store(module, &mut store)
     }
 
-    pub fn run_with_store(
-        self,
-        module: Module,
-        store: &mut impl AsStoreMut,
-    ) -> Result<(), WasiRuntimeError> {
+    pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
         let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;

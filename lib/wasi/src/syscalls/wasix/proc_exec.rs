@@ -23,6 +23,15 @@ pub fn proc_exec<M: MemorySize>(
     args: WasmPtr<u8, M>,
     args_len: M::Offset,
 ) -> Result<(), WasiError> {
+    WasiEnv::process_signals_and_exit(&mut ctx)?;
+
+    // If we were just restored the stack then we were woken after a deep sleep
+    if handle_rewind::<M>(&mut ctx) {
+        // We should never get here as the process will be termined
+        // in the `WasiEnv::process_signals_and_exit()` call
+        return Err(WasiError::Exit(Errno::Unknown.into()));
+    }
+
     let memory = ctx.data().memory_view(&ctx);
     let mut name = name.read_utf8_string(&memory, name_len).map_err(|err| {
         warn!("failed to execve as the name could not be read - {}", err);
@@ -78,8 +87,8 @@ pub fn proc_exec<M: MemorySize>(
         _prepare_wasi(&mut wasi_env, Some(args));
 
         // Recrod the stack offsets before we give up ownership of the wasi_env
-        let stack_base = wasi_env.stack_end;
-        let stack_start = wasi_env.stack_start;
+        let stack_lower = wasi_env.layout.stack_lower;
+        let stack_upper = wasi_env.layout.stack_upper;
 
         // Spawn a new process with this current execution environment
         let mut err_exit_code: ExitCode = Errno::Success.into();
@@ -141,11 +150,12 @@ pub fn proc_exec<M: MemorySize>(
 
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
+        let val_bytes = child_pid.raw().to_ne_bytes();
         let pid_offset: u64 = vfork.pid_offset;
-        if pid_offset >= stack_start && pid_offset < stack_base {
+        if pid_offset >= stack_lower && (pid_offset + val_bytes.len() as u64) <= stack_upper {
             // Make sure its within the "active" part of the memory stack
-            let offset = stack_base - pid_offset;
-            if offset as usize > memory_stack.len() {
+            let offset = stack_upper - pid_offset;
+            if (offset as usize + val_bytes.len()) > memory_stack.len() {
                 warn!(
                     "vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
                     offset,
@@ -153,7 +163,6 @@ pub fn proc_exec<M: MemorySize>(
                 );
             } else {
                 // Update the memory stack with the new PID
-                let val_bytes = child_pid.raw().to_ne_bytes();
                 let pstart = memory_stack.len() - offset as usize;
                 let pend = pstart + val_bytes.len();
                 let pbytes = &mut memory_stack[pstart..pend];
@@ -181,87 +190,94 @@ pub fn proc_exec<M: MemorySize>(
                 }
             }
         })?;
-        return Ok(());
+        Ok(())
     }
     // Otherwise we need to unwind the stack to get out of the current executing
     // callstack, steal the memory/WasiEnv and switch it over to a new thread
     // on the new module
     else {
-        // We need to unwind out of this process and launch a new process in its place
-        unwind::<M, _>(ctx, move |mut ctx, _, _| {
-            // Prepare the environment
-            let mut wasi_env = ctx.data_mut().duplicate();
-            _prepare_wasi(&mut wasi_env, Some(args));
+        // Prepare the environment
+        let mut wasi_env = ctx.data_mut().duplicate();
+        _prepare_wasi(&mut wasi_env, Some(args));
 
-            // Get a reference to the runtime
-            let bin_factory = ctx.data().bin_factory.clone();
-            let tasks = wasi_env.tasks().clone();
+        // Get a reference to the runtime
+        let bin_factory = ctx.data().bin_factory.clone();
+        let tasks = wasi_env.tasks().clone();
 
-            // Create the process and drop the context
-            let bin_factory = Box::new(ctx.data().bin_factory.clone());
+        // Create the process and drop the context
+        let bin_factory = Box::new(ctx.data().bin_factory.clone());
 
-            let mut new_store = Some(new_store);
-            let mut builder = Some(wasi_env);
+        let mut new_store = Some(new_store);
+        let mut builder = Some(wasi_env);
 
-            let process = match bin_factory.try_built_in(
-                name.clone(),
-                Some(&ctx),
-                &mut new_store,
-                &mut builder,
-            ) {
-                Ok(a) => Ok(Ok(a)),
-                Err(err) => {
-                    if err != VirtualBusError::NotFound {
-                        error!("builtin failed - {}", err);
-                    }
-
-                    let new_store = new_store.take().unwrap();
-                    let env = builder.take().unwrap();
-
-                    // Spawn a new process with this current execution environment
-                    //let pid = wasi_env.process.pid();
-                    let (tx, rx) = std::sync::mpsc::channel();
-                    tasks.block_on(Box::pin(async move {
-                        let ret = bin_factory.spawn(name, new_store, env).await;
-                        tx.send(ret);
-                    }));
-                    rx.recv()
+        let process = match bin_factory.try_built_in(
+            name.clone(),
+            Some(&ctx),
+            &mut new_store,
+            &mut builder,
+        ) {
+            Ok(a) => Ok(Ok(a)),
+            Err(err) => {
+                if err != VirtualBusError::NotFound {
+                    error!("builtin failed - {}", err);
                 }
-            };
 
-            match process {
-                Ok(Ok(mut process)) => {
-                    // Wait for the sub-process to exit itself - then we will exit
-                    let (tx, rx) = std::sync::mpsc::channel();
-                    let tasks_inner = tasks.clone();
-                    tasks.block_on(Box::pin(async move {
-                        let code = process
+                let new_store = new_store.take().unwrap();
+                let env = builder.take().unwrap();
+
+                // Spawn a new process with this current execution environment
+                //let pid = wasi_env.process.pid();
+                let (tx, rx) = std::sync::mpsc::channel();
+                tasks.block_on(Box::pin(async move {
+                    let ret = bin_factory.spawn(name, new_store, env).await;
+                    tx.send(ret);
+                }));
+                rx.recv()
+            }
+        };
+
+        match process {
+            Ok(Ok(mut process)) => {
+                // If we support deep sleeping then we switch to deep sleep mode
+                let env = ctx.data();
+
+                // The poller will wait for the process to actually finish
+                let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
+                    ctx,
+                    None,
+                    async move {
+                        process
                             .wait_finished()
                             .await
-                            .unwrap_or_else(|_| Errno::Child.into());
-                        tx.send(code);
-                    }));
-                    let exit_code = rx.recv().unwrap();
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code)))
-                }
-                Ok(Err(err)) => {
-                    warn!(
-                        "failed to execve as the process could not be spawned (fork)[0] - {}",
-                        err
-                    );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
-                }
-                Err(err) => {
-                    warn!(
-                        "failed to execve as the process could not be spawned (fork)[1] - {}",
-                        err
-                    );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
-                }
+                            .unwrap_or_else(|_| Errno::Child.into())
+                    },
+                    |exit_code, env, _| {
+                        env.thread.set_status_finished(Ok(exit_code));
+                    },
+                )?;
+                return match res {
+                    AsyncifyAction::Finish(mut ctx) => {
+                        // When we arrive here the process should already be terminated
+                        WasiEnv::process_signals_and_exit(&mut ctx)?;
+                        Err(WasiError::Exit(Errno::Unknown.into()))
+                    }
+                    AsyncifyAction::Unwind => Ok(()),
+                };
             }
-        })?;
+            Ok(Err(err)) => {
+                warn!(
+                    "failed to execve as the process could not be spawned (fork)[0] - {}",
+                    err
+                );
+                Err(WasiError::Exit(Errno::Noexec.into()))
+            }
+            Err(err) => {
+                warn!(
+                    "failed to execve as the process could not be spawned (fork)[1] - {}",
+                    err
+                );
+                Err(WasiError::Exit(Errno::Noexec.into()))
+            }
+        }
     }
-
-    // Success
-    Ok(())
 }

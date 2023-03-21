@@ -93,10 +93,12 @@ pub fn stack_checkpoint<M: MemorySize>(
         let mut memory_stack_corrected = memory_stack.clone();
         {
             let snapshot_offset: u64 = snapshot_offset.into();
-            if snapshot_offset >= env.stack_start && snapshot_offset < env.stack_end {
+            if snapshot_offset >= env.layout.stack_lower
+                && (snapshot_offset + val_bytes.len() as u64) <= env.layout.stack_upper
+            {
                 // Make sure its within the "active" part of the memory stack
                 // (note - the area being written to might not go past the memory pointer)
-                let offset = env.stack_end - snapshot_offset;
+                let offset = env.layout.stack_upper - snapshot_offset;
                 if (offset as usize) < memory_stack_corrected.len() {
                     let left = memory_stack_corrected.len() - (offset as usize);
                     let end = offset + (val_bytes.len().min(left) as u64);

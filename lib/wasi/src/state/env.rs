@@ -26,14 +26,13 @@ use crate::{
         task::{
             control_plane::ControlPlaneError,
             process::{WasiProcess, WasiProcessId},
-            thread::{WasiThread, WasiThreadHandle, WasiThreadId},
+            thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
         },
     },
     runtime::SpawnType,
     syscalls::{__asyncify_light, platform_clock_time_get},
     SpawnedMemory, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError,
     WasiFunctionEnv, WasiRuntime, WasiRuntimeError, WasiStateCreationError, WasiVFork,
-    DEFAULT_STACK_SIZE,
 };
 
 use super::WasiState;
@@ -56,8 +55,6 @@ pub struct WasiInstanceHandles {
 
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
-    // TODO: review allow...
-    #[allow(dead_code)]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
     /// Function thats invoked to initialize the WASM module (name = "_initialize")
@@ -220,6 +217,9 @@ pub struct WasiEnvInit {
     /// Whether to call the `_initialize` function in the WASI module.
     /// Will be true for regular new instances, but false for threads.
     pub call_initialize: bool,
+
+    /// Indicates if the calling environment is capable of deep sleeping
+    pub can_deep_sleep: bool,
 }
 
 impl WasiEnvInit {
@@ -236,7 +236,6 @@ impl WasiEnvInit {
                 secret: rand::thread_rng().gen::<[u8; 32]>(),
                 inodes,
                 fs,
-                threading: Default::default(),
                 futexs: Default::default(),
                 clock_offset: std::sync::Mutex::new(
                     self.state.clock_offset.lock().unwrap().clone(),
@@ -256,6 +255,7 @@ impl WasiEnvInit {
             process: None,
             thread: None,
             call_initialize: self.call_initialize,
+            can_deep_sleep: self.can_deep_sleep,
         }
     }
 }
@@ -267,12 +267,10 @@ pub struct WasiEnv {
     pub process: WasiProcess,
     /// Represents the thread this environment is attached to
     pub thread: WasiThread,
+    /// Represents the layout of the memory
+    pub layout: WasiMemoryLayout,
     /// Represents a fork of the process that is currently in play
     pub vfork: Option<WasiVFork>,
-    /// End of the stack memory that is allocated for this thread
-    pub stack_end: u64,
-    /// Start of the stack memory that is allocated for this thread
-    pub stack_start: u64,
     /// Seed used to rotate around the events returned by `poll_oneoff`
     pub poll_seed: u64,
     /// Shared state of the WASI system. Manages all the data that the
@@ -290,6 +288,9 @@ pub struct WasiEnv {
     pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
+
+    /// Is this environment capable and setup for deep sleeping
+    pub enable_deep_sleep: bool,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -325,9 +326,8 @@ impl WasiEnv {
             process: self.process.clone(),
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
+            layout: self.layout.clone(),
             vfork: self.vfork.as_ref().map(|v| v.duplicate()),
-            stack_end: self.stack_end,
-            stack_start: self.stack_start,
             state: self.state.clone(),
             bin_factory: self.bin_factory.clone(),
             inner: self.inner.clone(),
@@ -335,6 +335,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             module_cache: self.module_cache.clone(),
             capabilities: self.capabilities.clone(),
+            enable_deep_sleep: self.enable_deep_sleep,
         }
     }
 
@@ -354,10 +355,9 @@ impl WasiEnv {
             control_plane: self.control_plane.clone(),
             process,
             thread,
+            layout: self.layout.clone(),
             vfork: None,
             poll_seed: 0,
-            stack_end: self.stack_end,
-            stack_start: self.stack_start,
             bin_factory,
             state,
             inner: None,
@@ -365,6 +365,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             module_cache: self.module_cache.clone(),
+            enable_deep_sleep: false,
         };
         Ok((new_env, handle))
     }
@@ -375,6 +376,20 @@ impl WasiEnv {
 
     pub fn tid(&self) -> WasiThreadId {
         self.thread.tid()
+    }
+
+    /// Returns true if this module is capable of deep sleep
+    /// (needs asyncify to unwind and rewin)
+    pub fn capable_of_deep_sleep(&self) -> bool {
+        let inner = self.inner();
+        inner.asyncify_get_state.is_some()
+            && inner.asyncify_start_rewind.is_some()
+            && inner.asyncify_start_unwind.is_some()
+    }
+
+    /// Returns true if this thread can go into a deep sleep
+    pub fn layout(&self) -> &WasiMemoryLayout {
+        &self.layout
     }
 
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
@@ -393,10 +408,9 @@ impl WasiEnv {
             control_plane: init.control_plane,
             process,
             thread: thread.as_thread(),
+            layout: WasiMemoryLayout::default(),
             vfork: None,
             poll_seed: 0,
-            stack_end: DEFAULT_STACK_SIZE,
-            stack_start: 0,
             state: Arc::new(init.state),
             inner: None,
             owned_handles: Vec::new(),
@@ -404,6 +418,7 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             module_cache: init.module_cache.clone(),
             capabilities: init.capabilities,
+            enable_deep_sleep: false,
         };
         env.owned_handles.push(thread);
 
@@ -695,7 +710,7 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+    pub fn memory_view<'a>(&'a self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         self.memory().view(store)
     }
 
@@ -897,7 +912,7 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
+    pub fn blocking_cleanup<'a>(&self, exit_code: Option<ExitCode>) {
         __asyncify_light(self, None, async {
             self.cleanup(exit_code).await;
             Ok(())

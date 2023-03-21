@@ -1,5 +1,5 @@
 use tracing::{field, instrument, trace_span};
-use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
+use wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, WasmPtr};
 use wasmer_wasix_types::wasi::{
     Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
     Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
@@ -10,8 +10,8 @@ use crate::{
     mem_error_to_wasi,
     os::task::thread::WasiThread,
     state::{PollEventBuilder, PollEventSet},
-    syscalls,
     syscalls::types,
+    syscalls::{self, handle_rewind},
     Memory32, MemorySize, WasiEnv, WasiError,
 };
 
@@ -137,13 +137,18 @@ pub fn fd_seek(
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
 #[instrument(level = "trace", skip_all, fields(timeout_ns = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
-pub fn poll_oneoff(
+pub fn poll_oneoff<M: MemorySize>(
     mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<Snapshot0Subscription, Memory32>,
     out_: WasmPtr<Snapshot0Event, Memory32>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
 ) -> Result<Errno, WasiError> {
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    if handle_rewind::<M>(&mut ctx) {
+        return Ok(Errno::Success);
+    }
+
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let mut subscriptions = Vec::new();
@@ -157,39 +162,38 @@ pub fn poll_oneoff(
         ));
     }
 
-    // make the call
-    let triggered_events = syscalls::poll_oneoff_internal(&mut ctx, subscriptions)?;
-    let triggered_events = match triggered_events {
-        Ok(a) => a,
-        Err(err) => {
-            tracing::trace!(err = err as u16);
-            return Ok(err);
+    // We clear the number of events
+    wasi_try_mem_ok!(nevents.write(&memory, 0));
+
+    // Function to invoke once the poll is finished
+    let process_events = move |triggered_events, env: &'_ WasiEnv, store: &'_ dyn AsStoreRef| {
+        // Process all the events that were triggered
+        let mut memory = env.memory_view(store);
+        let mut events_seen: u32 = 0;
+        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions));
+        for event in triggered_events {
+            let event: Event = event;
+            let event = Snapshot0Event {
+                userdata: event.userdata,
+                error: event.error,
+                type_: Eventtype::FdRead,
+                fd_readwrite: match event.type_ {
+                    Eventtype::FdRead => unsafe { event.u.fd_readwrite },
+                    Eventtype::FdWrite => unsafe { event.u.fd_readwrite },
+                    Eventtype::Clock => EventFdReadwrite {
+                        nbytes: 0,
+                        flags: Eventrwflags::empty(),
+                    },
+                },
+            };
+            wasi_try_mem!(event_array.index(events_seen as u64).write(event));
+            events_seen += 1;
         }
+        let out_ptr = nevents.deref(&memory);
+        wasi_try_mem!(out_ptr.write(events_seen));
+        Errno::Success
     };
 
-    // Process all the events that were triggered
-    let mut env = ctx.data();
-    let mut memory = env.memory_view(&ctx);
-    let mut events_seen: u32 = 0;
-    let event_array = wasi_try_mem_ok!(out_.slice(&memory, nsubscriptions));
-    for event in triggered_events {
-        let event = Snapshot0Event {
-            userdata: event.userdata,
-            error: event.error,
-            type_: Eventtype::FdRead,
-            fd_readwrite: match event.type_ {
-                Eventtype::FdRead => unsafe { event.u.fd_readwrite },
-                Eventtype::FdWrite => unsafe { event.u.fd_readwrite },
-                Eventtype::Clock => EventFdReadwrite {
-                    nbytes: 0,
-                    flags: Eventrwflags::empty(),
-                },
-            },
-        };
-        wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
-        events_seen += 1;
-    }
-    let out_ptr = nevents.deref(&memory);
-    wasi_try_mem_ok!(out_ptr.write(events_seen));
-    Ok(Errno::Success)
+    // Poll and receive all the events that triggered
+    syscalls::poll_oneoff_internal::<M, _>(ctx, subscriptions, process_events)
 }

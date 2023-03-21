@@ -121,6 +121,36 @@ impl Drop for WasiThreadRunGuard {
     }
 }
 
+/// Represents the memory layout of the parts that the thread itself uses
+#[derive(Debug, Clone)]
+pub struct WasiMemoryLayout {
+    /// This is the top part of the stack (stacks go backwards)
+    pub stack_upper: u64,
+    /// This is the bottom part of the stack (anything more below this is a stack overflow)
+    pub stack_lower: u64,
+    /// Piece of memory that is marked as none readable/writable so stack overflows cause an exception
+    /// TODO: This field will need to be used to mark the guard memory as inaccessible
+    #[allow(dead_code)]
+    pub guard_size: u64,
+    /// Total size of the stack
+    pub stack_size: u64,
+}
+
+/// The default stack size for WASIX
+pub const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
+pub const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
+
+impl Default for WasiMemoryLayout {
+    fn default() -> Self {
+        Self {
+            stack_lower: 0,
+            stack_upper: DEFAULT_STACK_SIZE,
+            guard_size: 0,
+            stack_size: DEFAULT_STACK_SIZE,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct WasiThreadState {
     is_main: bool,

@@ -20,20 +20,11 @@ mod env;
 mod func_env;
 mod types;
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    path::Path,
-    sync::{Arc, Mutex, RwLock},
-    task::Waker,
-    time::Duration,
-};
+use std::{collections::HashMap, path::Path, sync::Mutex, task::Waker, time::Duration};
 
-use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer::Store;
 use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
@@ -47,7 +38,6 @@ use crate::{
     fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
     syscalls::types::*,
     utils::WasiParkingLot,
-    WasiCallingId,
 };
 
 /// all the rights enabled
@@ -67,33 +57,6 @@ impl FileOpener for WasiStateOpener {
         new_options.options(conf.clone());
         new_options.open(path)
     }
-}
-
-// TODO: review allow...
-#[allow(dead_code)]
-pub(crate) struct WasiThreadContext {
-    pub ctx: WasiFunctionEnv,
-    pub store: RefCell<Store>,
-}
-
-/// The code itself makes safe use of the struct so multiple threads don't access
-/// it (without this the JS code prevents the reference to the module from being stored
-/// which is needed for the multithreading mode)
-unsafe impl Send for WasiThreadContext {}
-unsafe impl Sync for WasiThreadContext {}
-
-/// Structures used for the threading and sub-processes
-///
-/// These internal implementation details are hidden away from the
-/// consumer who should instead implement the vbus trait on the runtime
-#[derive(Derivative, Default)]
-// TODO: review allow...
-#[allow(dead_code)]
-#[derivative(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub(crate) struct WasiStateThreading {
-    #[derivative(Debug = "ignore")]
-    pub thread_ctx: HashMap<WasiCallingId, Arc<WasiThreadContext>>,
 }
 
 /// Represents a futex which will make threads wait for completion in a more
@@ -149,7 +112,6 @@ pub(crate) struct WasiState {
 
     pub fs: WasiFs,
     pub inodes: WasiInodes,
-    pub threading: RwLock<WasiStateThreading>,
     pub futexs: Mutex<HashMap<u64, WasiFutex>>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
@@ -270,7 +232,6 @@ impl WasiState {
             fs: self.fs.fork(),
             secret: self.secret,
             inodes: self.inodes.clone(),
-            threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
             args: self.args.clone(),

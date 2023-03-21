@@ -97,6 +97,9 @@ pub unsafe trait MemorySize: Copy {
 
     /// Convert a `Native` to an `Offset`.
     fn native_to_offset(native: Self::Native) -> Self::Offset;
+
+    /// True if the memory is 64-bit
+    fn is_64bit() -> bool;
 }
 
 /// Marker trait for 32-bit memories.
@@ -113,6 +116,9 @@ unsafe impl MemorySize for Memory32 {
     fn native_to_offset(native: Self::Native) -> Self::Offset {
         native as Self::Offset
     }
+    fn is_64bit() -> bool {
+        false
+    }
 }
 
 /// Marker trait for 64-bit memories.
@@ -128,5 +134,8 @@ unsafe impl MemorySize for Memory64 {
     }
     fn native_to_offset(native: Self::Native) -> Self::Offset {
         native as Self::Offset
+    }
+    fn is_64bit() -> bool {
+        true
     }
 }

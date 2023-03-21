@@ -3,32 +3,47 @@ use std::task::Waker;
 use super::*;
 use crate::syscalls::*;
 
-struct FutexPoller<'a, M>
+#[derive(Clone)]
+struct FutexPoller<M>
 where
     M: MemorySize,
 {
-    env: &'a WasiEnv,
-    view: MemoryView<'a>,
+    state: Arc<WasiState>,
     futex_idx: u64,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
+    ret_woken: WasmPtr<Bool, M>,
 }
-impl<'a, M> Future for FutexPoller<'a, M>
+impl<M> AsyncifyFuture for FutexPoller<M>
 where
     M: MemorySize,
 {
     type Output = Result<(), Errno>;
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        &mut self,
+        env: &WasiEnv,
+        store: &dyn AsStoreRef,
+        cx: &mut Context<'_>,
+    ) -> Poll<Self::Output> {
         let waker = cx.waker();
-        let mut guard = self.env.state.futexs.lock().unwrap();
+        let view = env.memory_view(store);
+        let mut guard = env.state.futexs.lock().unwrap();
 
         {
-            let val = match self.futex_ptr.read(&self.view) {
+            let val = match self.futex_ptr.read(&view) {
                 Ok(a) => a,
-                Err(err) => return Poll::Ready(Err(mem_error_to_wasi(err))),
+                Err(err) => {
+                    self.ret_woken.write(&view, Bool::True).ok();
+                    return Poll::Ready(Err(mem_error_to_wasi(err)));
+                }
             };
             if val != self.expected {
-                return Poll::Ready(Ok(()));
+                // If we are triggered then we should update the return value
+                let ret = self
+                    .ret_woken
+                    .write(&view, Bool::True)
+                    .map_err(mem_error_to_wasi);
+                return Poll::Ready(ret);
             }
         }
 
@@ -42,13 +57,13 @@ where
         Poll::Pending
     }
 }
-impl<'a, M> Drop for FutexPoller<'a, M>
+impl<M> Drop for FutexPoller<M>
 where
     M: MemorySize,
 {
     fn drop(&mut self) {
         let futex = {
-            let mut guard = self.env.state.futexs.lock().unwrap();
+            let mut guard = self.state.futexs.lock().unwrap();
             guard.remove(&self.futex_idx)
         };
         if let Some(futex) = futex {
@@ -67,7 +82,7 @@ where
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
 #[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, expected, timeout = field::Empty, woken = field::Empty), err)]
-pub fn futex_wait<M: MemorySize>(
+pub fn futex_wait<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
@@ -75,6 +90,11 @@ pub fn futex_wait<M: MemorySize>(
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    // If we were just restored then we were woken after a deep sleep
+    if handle_rewind::<M>(&mut ctx) {
+        return Ok(Errno::Success);
+    }
 
     // Determine the timeout
     let mut env = ctx.data();
@@ -92,34 +112,22 @@ pub fn futex_wait<M: MemorySize>(
     let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
     Span::current().record("futex_idx", futex_idx);
 
+    // We clear the woken flag (so if the poller fails to trigger
+    // then the value is not set) - the poller will set it to true
+    let memory = env.memory_view(&ctx);
+    wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
+
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
-    let view = env.memory_view(&ctx);
     let poller = FutexPoller {
-        env,
-        view,
+        state: env.state.clone(),
         futex_idx,
         futex_ptr,
         expected,
+        ret_woken,
     };
 
-    // Wait for the futex to trigger or a timeout to occur
-    let res = __asyncify_light(env, timeout, poller)?;
-
-    // Process it and return the result
-    let mut ret = Errno::Success;
-    let woken = match res {
-        Err(Errno::Timedout) => Bool::False,
-        Err(err) => {
-            ret = err;
-            Bool::True
-        }
-        Ok(_) => Bool::True,
-    };
-    Span::current().record("woken", woken as u8);
-
-    let memory = env.memory_view(&ctx);
-    let mut env = ctx.data();
-    wasi_try_mem_ok!(ret_woken.write(&memory, woken));
-    Ok(ret)
+    // We use asyncify on the poller and potentially go into deep sleep
+    __asyncify_with_deep_sleep::<M, _>(ctx, timeout, poller)?;
+    Ok(Errno::Success)
 }

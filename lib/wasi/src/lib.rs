@@ -53,14 +53,12 @@ pub mod capabilities;
 mod bindings;
 
 use std::sync::Arc;
-use std::{
-    cell::RefCell,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use std::{cell::RefCell, sync::atomic::AtomicU32};
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
+use syscalls::AsyncifyFuture;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -115,45 +113,49 @@ pub use crate::{
     utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
 };
 
+/// The rewind state after a deep sleep
+pub struct RewindState {
+    /// Memory stack used to restore the stack trace back to where it was
+    pub memory_stack: BytesMut,
+    /// Call stack used to restore the stack trace back to where it was
+    pub rewind_stack: BytesMut,
+    /// All the global data stored in the store
+    pub store_data: Bytes,
+    /// Flag that indicates if this rewind is 64-bit or 32-bit memory based
+    pub is_64bit: bool,
+}
+
+/// Represents the work that will be done when a thread goes to deep sleep and
+/// includes the things needed to restore it again
+pub struct DeepSleepWork {
+    /// This is the work that will be performed before the thread is rewoken
+    pub work: Box<dyn AsyncifyFuture<Output = Result<(), Errno>> + Send + Sync + 'static>,
+    /// State that the thread will be rewound to
+    pub rewind: RewindState,
+}
+impl std::fmt::Debug for DeepSleepWork {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "deep-sleep-work(memory_stack_len={}, rewind_stack_len={}, store_size={})",
+            self.rewind.memory_stack.len(),
+            self.rewind.rewind_stack.len(),
+            self.rewind.store_data.len()
+        )
+    }
+}
+
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
-#[derive(Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Error, Debug)]
 pub enum WasiError {
     #[error("WASI exited with code: {0}")]
     Exit(ExitCode),
+    #[error("WASI deep sleep: {0:?}")]
+    DeepSleep(DeepSleepWork),
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
 }
-
-/// Represents the ID of a WASI calling thread
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WasiCallingId(u32);
-
-impl WasiCallingId {
-    pub fn raw(&self) -> u32 {
-        self.0
-    }
-
-    pub fn inc(&mut self) -> WasiCallingId {
-        self.0 += 1;
-        *self
-    }
-}
-
-impl From<u32> for WasiCallingId {
-    fn from(id: u32) -> Self {
-        Self(id)
-    }
-}
-impl From<WasiCallingId> for u32 {
-    fn from(t: WasiCallingId) -> u32 {
-        t.0 as u32
-    }
-}
-
-/// The default stack size for WASIX
-pub const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
-pub const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
 // TODO: remove, this is a leftover from an old vbus crate and should be folded
 // into WasiRuntimeError.
@@ -335,19 +337,6 @@ lazy_static::lazy_static! {
     static ref CALLER_ID_SEED: Arc<AtomicU32> = Arc::new(AtomicU32::new(1));
 }
 
-/// Returns the current thread ID
-pub fn current_caller_id() -> WasiCallingId {
-    CALLER_ID
-        .with(|f| {
-            let mut caller_id = f.borrow_mut();
-            if *caller_id == 0 {
-                *caller_id = CALLER_ID_SEED.fetch_add(1, Ordering::AcqRel);
-            }
-            *caller_id
-        })
-        .into()
-}
-
 /// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
 /// needs a [`WasiState`], that can be constructed from a
 /// [`WasiEnvBuilder`](state::WasiEnvBuilder).
@@ -406,11 +395,11 @@ fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<Wasi
         "path_rename" => Function::new_typed_with_env(&mut store, env, path_rename::<Memory32>),
         "path_symlink" => Function::new_typed_with_env(&mut store, env, path_symlink::<Memory32>),
         "path_unlink_file" => Function::new_typed_with_env(&mut store, env, path_unlink_file::<Memory32>),
-        "poll_oneoff" => Function::new_typed_with_env(&mut store, env, legacy::snapshot0::poll_oneoff),
+        "poll_oneoff" => Function::new_typed_with_env(&mut store, env, legacy::snapshot0::poll_oneoff::<Memory32>),
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory32>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "random_get" => Function::new_typed_with_env(&mut store, env, random_get::<Memory32>),
-        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield::<Memory32>),
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
@@ -465,7 +454,7 @@ fn wasi_snapshot_preview1_exports(
         "proc_exit" => Function::new_typed_with_env(&mut store, env, proc_exit::<Memory32>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "random_get" => Function::new_typed_with_env(&mut store, env, random_get::<Memory32>),
-        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield::<Memory32>),
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
@@ -542,13 +531,13 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "thread_local_destroy" => Function::new_typed_with_env(&mut store, env, thread_local_destroy),
         "thread_local_set" => Function::new_typed_with_env(&mut store, env, thread_local_set),
         "thread_local_get" => Function::new_typed_with_env(&mut store, env, thread_local_get::<Memory32>),
-        "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep),
+        "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep::<Memory32>),
         "thread_id" => Function::new_typed_with_env(&mut store, env, thread_id::<Memory32>),
         "thread_signal" => Function::new_typed_with_env(&mut store, env, thread_signal),
-        "thread_join" => Function::new_typed_with_env(&mut store, env, thread_join),
+        "thread_join" => Function::new_typed_with_env(&mut store, env, thread_join::<Memory32>),
         "thread_parallelism" => Function::new_typed_with_env(&mut store, env, thread_parallelism::<Memory32>),
         "thread_exit" => Function::new_typed_with_env(&mut store, env, thread_exit),
-        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield::<Memory32>),
         "stack_checkpoint" => Function::new_typed_with_env(&mut store, env, stack_checkpoint::<Memory32>),
         "stack_restore" => Function::new_typed_with_env(&mut store, env, stack_restore::<Memory32>),
         "futex_wait" => Function::new_typed_with_env(&mut store, env, futex_wait::<Memory32>),
@@ -665,13 +654,13 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "thread_local_destroy" => Function::new_typed_with_env(&mut store, env, thread_local_destroy),
         "thread_local_set" => Function::new_typed_with_env(&mut store, env, thread_local_set),
         "thread_local_get" => Function::new_typed_with_env(&mut store, env, thread_local_get::<Memory64>),
-        "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep),
+        "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep::<Memory64>),
         "thread_id" => Function::new_typed_with_env(&mut store, env, thread_id::<Memory64>),
         "thread_signal" => Function::new_typed_with_env(&mut store, env, thread_signal),
-        "thread_join" => Function::new_typed_with_env(&mut store, env, thread_join),
+        "thread_join" => Function::new_typed_with_env(&mut store, env, thread_join::<Memory64>),
         "thread_parallelism" => Function::new_typed_with_env(&mut store, env, thread_parallelism::<Memory64>),
         "thread_exit" => Function::new_typed_with_env(&mut store, env, thread_exit),
-        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield),
+        "sched_yield" => Function::new_typed_with_env(&mut store, env, sched_yield::<Memory64>),
         "stack_checkpoint" => Function::new_typed_with_env(&mut store, env, stack_checkpoint::<Memory64>),
         "stack_restore" => Function::new_typed_with_env(&mut store, env, stack_restore::<Memory64>),
         "futex_wait" => Function::new_typed_with_env(&mut store, env, futex_wait::<Memory64>),

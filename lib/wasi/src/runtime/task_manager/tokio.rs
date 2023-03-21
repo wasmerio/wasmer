@@ -13,7 +13,7 @@ use wasmer::{
 
 use crate::os::task::thread::WasiThreadError;
 
-use super::{SpawnType, VirtualTaskManager};
+use super::{SpawnType, TaskResumeAction, VirtualTaskManager};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
@@ -130,7 +130,7 @@ impl VirtualTaskManager for TokioTaskManager {
         })
     }
 
-    /// See [`VirtualTaskManager::enter`].
+    /// See [`VirtualTaskManager::task_wasm`].
     fn task_wasm(
         &self,
         task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
@@ -142,6 +142,32 @@ impl VirtualTaskManager for TokioTaskManager {
         self.0.spawn_blocking(move || {
             // Invoke the callback
             task(store, module, memory);
+        });
+        Ok(())
+    }
+
+    /// See [`VirtualTaskManager::task_wasm_with_trigger`].
+    fn resume_wasm_after_trigger(
+        &self,
+        task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
+        store: Store,
+        module: Module,
+        trigger: Box<
+            dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
+                + Send
+                + 'static,
+        >,
+    ) -> Result<(), WasiThreadError> {
+        let trigger = trigger(store);
+        let handle = self.0.clone();
+        self.0.spawn(async move {
+            let action = trigger.await;
+            if let TaskResumeAction::Run(store) = action {
+                handle.spawn_blocking(move || {
+                    // Invoke the callback
+                    task(store, module);
+                });
+            }
         });
         Ok(())
     }
