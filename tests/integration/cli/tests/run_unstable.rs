@@ -15,13 +15,16 @@ use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 const RUST_LOG: &str = "info,wasmer_wasi::runners=debug";
-// const RUST_LOG: &str = "info,wasmer_wasi=trace";
 
 mod webc_on_disk {
     use super::*;
     use rand::Rng;
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wasi_runner() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -35,6 +38,10 @@ mod webc_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wasi_runner_with_mounted_directories() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("index.js"), "console.log('Hello, World!')").unwrap();
@@ -52,6 +59,10 @@ mod webc_on_disk {
 
     #[test]
     #[ignore = "WASI runners only give you access to the webc fs for now"]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wasi_runner_with_mounted_directories_and_webc_volumes() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -68,6 +79,10 @@ mod webc_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn webc_files_with_multiple_commands_require_an_entrypoint_flag() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -79,6 +94,10 @@ mod webc_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wasi_runner_with_env_vars() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -94,6 +113,10 @@ mod webc_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wcgi_runner() {
         // Start the WCGI server in the background
         let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
@@ -123,6 +146,10 @@ mod webc_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wcgi_runner_with_mounted_directories() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
@@ -155,6 +182,10 @@ mod wasm_on_disk {
     use predicates::str::contains;
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn wasi_executable() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -168,6 +199,10 @@ mod wasm_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn no_abi() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -178,6 +213,10 @@ mod wasm_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn error_if_no_start_function_found() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -190,6 +229,10 @@ mod wasm_on_disk {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn pre_compiled() {
         let temp = TempDir::new().unwrap();
         let dest = temp.path().join("qjs.wasmu");
@@ -218,6 +261,10 @@ mod wasm_on_disk {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_env = "musl", target_os = "linux"),
+    ignore = "wasmer run-unstable segfaults on musl"
+)]
 fn wasmer_package_directory() {
     let temp = TempDir::new().unwrap();
     std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
@@ -238,6 +285,10 @@ mod remote_webc {
     use super::*;
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn quickjs_as_package_name() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
@@ -253,6 +304,10 @@ mod remote_webc {
     }
 
     #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn quickjs_as_url() {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
