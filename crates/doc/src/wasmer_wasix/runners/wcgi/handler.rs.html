@@ -278,7 +278,7 @@
     <span class="ident">capabilities::Capabilities</span>,
     <span class="ident">http::HttpClientCapabilityV1</span>,
     <span class="ident">runners::wcgi</span>::{<span class="ident">Callbacks</span>, <span class="ident">MappedDirectory</span>},
-    <span class="ident">Pipe</span>, <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiEnv</span>,
+    <span class="ident">Pipe</span>, <span class="ident">PluggableRuntime</span>, <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiEnv</span>,
 };
 
 <span class="doccomment">/// The shared object that manages the instantiaion of WASI executables and</span>
@@ -304,7 +304,7 @@
         <span class="self">self</span>.<span class="ident">dialect</span>
             .<span class="ident">prepare_environment_variables</span>(<span class="ident">parts</span>, <span class="kw-2">&amp;mut</span> <span class="ident">request_specific_env</span>);
 
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntimeImplementation::new</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">task_manager</span>));
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">task_manager</span>));
         <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">env</span>.<span class="ident">iter</span>())
             .<span class="ident">envs</span>(<span class="ident">request_specific_env</span>)

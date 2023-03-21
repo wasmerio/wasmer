@@ -233,6 +233,7 @@
 <span id="231">231</span>
 <span id="232">232</span>
 <span id="233">233</span>
+<span id="234">234</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils</span>::{<span class="ident">parse_envvar</span>, <span class="ident">parse_mapdir</span>};
 <span class="kw">use</span> <span class="ident">anyhow::Result</span>;
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
@@ -244,10 +245,11 @@
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasix::os::tty_sys::SysTty</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasix::os::TtyBridge</span>;
+<span class="kw">use</span> <span class="ident">wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasix::types::__WASI_STDIN_FILENO</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasix</span>::{
-    <span class="ident">default_fs_backing</span>, <span class="ident">get_wasi_versions</span>, <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>,
-    <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiVersion</span>,
+    <span class="ident">default_fs_backing</span>, <span class="ident">get_wasi_versions</span>, <span class="ident">PluggableRuntime</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>, <span class="ident">WasiFunctionEnv</span>,
+    <span class="ident">WasiVersion</span>,
 };
 
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
@@ -364,7 +366,7 @@
             .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> (<span class="ident">a</span>.<span class="ident">to_string</span>(), <span class="ident">b</span>.<span class="ident">to_string</span>()))
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntimeImplementation::default</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::new</span>(<span class="ident">TokioTaskManager::shared</span>()));
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">networking</span> {
             <span class="ident">rt</span>.<span class="ident">set_networking_implementation</span>(<span class="ident">virtual_net::host::LocalNetworking::default</span>());

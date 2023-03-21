@@ -606,13 +606,13 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
+    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
 
     <span class="kw">use</span> <span class="ident">tracing_subscriber</span>::{
         <span class="ident">filter</span>, <span class="ident">prelude::__tracing_subscriber_SubscriberExt</span>, <span class="ident">util::SubscriberInitExt</span>, <span class="ident">Layer</span>,
     };
 
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PluggableRuntimeImplementation</span>;
+    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">runtime::task_manager::tokio::TokioTaskManager</span>, <span class="ident">PluggableRuntime</span>};
 
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
@@ -629,7 +629,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">ModuleCache::new</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>);
         <span class="ident">cache</span>.<span class="ident">cache_time</span> <span class="op">=</span> <span class="ident">std::time::Duration::from_millis</span>(<span class="number">500</span>);
 
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntimeImplementation::default</span>();
+        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::new</span>(<span class="ident">TokioTaskManager::shared</span>()));
         <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">task_manager</span>();
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Vec::new</span>();

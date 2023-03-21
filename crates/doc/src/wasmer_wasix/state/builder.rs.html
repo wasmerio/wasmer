@@ -997,6 +997,14 @@
 <span id="995">995</span>
 <span id="996">996</span>
 <span id="997">997</span>
+<span id="998">998</span>
+<span id="999">999</span>
+<span id="1000">1000</span>
+<span id="1001">1001</span>
+<span id="1002">1002</span>
+<span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -1019,7 +1027,7 @@
     <span class="ident">parse_static_webc</span>,
     <span class="ident">state::WasiState</span>,
     <span class="ident">syscalls::types</span>::{<span class="ident">__WASI_STDERR_FILENO</span>, <span class="ident">__WASI_STDIN_FILENO</span>, <span class="ident">__WASI_STDOUT_FILENO</span>},
-    <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiRuntime</span>, <span class="ident">WasiRuntimeError</span>,
+    <span class="ident">PluggableRuntime</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiRuntime</span>, <span class="ident">WasiRuntimeError</span>,
 };
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env::WasiEnvInit</span>;
@@ -1721,9 +1729,17 @@
             }
         }
 
-        <span class="kw">let</span> <span class="ident">runtime</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">runtime</span>
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Arc::new</span>(<span class="ident">PluggableRuntimeImplementation::default</span>()));
+        <span class="kw">let</span> <span class="ident">runtime</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys-thread&quot;</span>)]</span>
+            {
+                <span class="ident">Arc::new</span>(<span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::new</span>(<span class="ident"><span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::shared</span>())))
+            }
+
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys-thread&quot;</span>))]</span>
+            {
+                <span class="macro">panic!</span>(<span class="string">&quot;this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()&quot;</span>);
+            }
+        });
 
         <span class="kw">let</span> <span class="ident">uses</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">uses</span>;
         <span class="kw">let</span> <span class="ident">map_commands</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">map_commands</span>;

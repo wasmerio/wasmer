@@ -727,6 +727,7 @@
 <span id="727">727</span>
 <span id="728">728</span>
 <span id="729">729</span>
+<span id="730">730</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">read_dir</span>, <span class="ident">File</span>, <span class="ident">OpenOptions</span>, <span class="ident">ReadDir</span>};
 <span class="kw">use</span> <span class="ident">std::future::Future</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">SeekFrom</span>};
@@ -739,10 +740,11 @@
     <span class="ident">AsyncWriteExt</span>, <span class="ident">FileSystem</span>, <span class="ident">Pipe</span>, <span class="ident">ReadBuf</span>, <span class="ident">RootFileSystemBuilder</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasix::types::wasi</span>::{<span class="ident">Filesize</span>, <span class="ident">Timestamp</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasix</span>::{
-    <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">FsError</span>, <span class="ident">PluggableRuntimeImplementation</span>,
-    <span class="ident">VirtualFile</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiEnvBuilder</span>, <span class="ident">WasiRuntime</span>, <span class="ident">WasiVersion</span>,
+    <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">FsError</span>, <span class="ident">PluggableRuntime</span>, <span class="ident">VirtualFile</span>,
+    <span class="ident">WasiEnv</span>, <span class="ident">WasiEnvBuilder</span>, <span class="ident">WasiRuntime</span>, <span class="ident">WasiVersion</span>,
 };
 <span class="kw">use</span> <span class="ident">wast::parser</span>::{<span class="self">self</span>, <span class="ident">Parse</span>, <span class="ident">ParseBuffer</span>, <span class="ident">Parser</span>};
 
@@ -829,7 +831,7 @@
             <span class="ident">out</span>
         };
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntimeImplementation::default</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::new</span>(<span class="ident">TokioTaskManager::shared</span>()));
         <span class="ident">rt</span>.<span class="ident">set_engine</span>(<span class="prelude-val">Some</span>(<span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">clone</span>()));
 
         <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">task_manager</span>().<span class="ident">runtime</span>().<span class="ident">clone</span>();
