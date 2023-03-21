@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///
 /// * `user_data` - User data that will be passed to the destructor
 ///   when the thread variable goes out of scope
-#[instrument(level = "trace", skip_all, fields(user_data), ret)]
+#[instrument(level = "trace", skip_all, fields(%user_data), ret)]
 pub fn thread_local_create<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     user_data: TlUser,

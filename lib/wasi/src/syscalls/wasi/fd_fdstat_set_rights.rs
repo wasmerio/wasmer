@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     The rights to apply to `fd`
 /// - `Rights fs_rights_inheriting`
 ///     The inheriting rights to apply to `fd`
-#[instrument(level = "debug", skip_all, fields(fd), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd), ret)]
 pub fn fd_fdstat_set_rights(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

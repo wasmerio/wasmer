@@ -9,7 +9,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be set
 /// * `time` - Value to set the time to
-#[instrument(level = "debug", skip_all, fields(sock, opt, time = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, %opt, time = field::Empty), ret)]
 pub fn sock_set_opt_time<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

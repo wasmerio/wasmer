@@ -16,7 +16,7 @@ use crate::syscalls::*;
 ///     Pointer to UTF8 bytes, the new file name
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
-#[instrument(level = "debug", skip_all, fields(old_fd, new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
 pub fn path_rename<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,
@@ -121,7 +121,7 @@ pub fn path_rename<M: MemorySize>(
                 // implements the logic of "I'm not actually a file, I'll try to be as needed".
                 let result = if let Some(h) = handle {
                     drop(guard);
-                    state.fs_rename(&source_path, &host_adjusted_target_path)
+                    state.fs_rename(source_path, &host_adjusted_target_path)
                 } else {
                     let path_clone = path.clone();
                     drop(guard);

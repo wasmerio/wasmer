@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
 use futures::future::AbortHandle;
@@ -7,6 +7,7 @@ use hyper::Body;
 use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
+use virtual_fs::FileSystem;
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
 use webc::metadata::{
@@ -16,11 +17,12 @@ use webc::metadata::{
 
 use crate::{
     runners::{
+        wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
         MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
-    VirtualTaskManager,
+    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 pub struct WcgiRunner {
@@ -126,9 +128,6 @@ impl WcgiRunner {
         wasi: &Wasi,
         ctx: &RunnerContext<'_>,
     ) -> Result<Handler, Error> {
-        let env = construct_env(wasi, self.config.forward_host_env, &self.config.env);
-        let args = construct_args(wasi, &self.config.args);
-
         let Wcgi { dialect, .. } = ctx.command().get_annotation("wcgi")?.unwrap_or_default();
 
         let dialect = match dialect {
@@ -137,68 +136,46 @@ impl WcgiRunner {
         };
 
         let shared = SharedState {
-            program: self.program_name.clone(),
-            env,
-            args,
-            mapped_dirs: self.config.mapped_dirs.clone(),
             task_manager: self
                 .config
                 .task_manager
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
             module,
-            container: ctx.container.clone(),
             dialect,
             callbacks: Arc::clone(&self.config.callbacks),
+            setup_builder: Box::new(self.setup_builder(ctx, wasi)),
         };
 
         Ok(Handler::new(shared))
     }
-}
 
-fn construct_args(wasi: &Wasi, extras: &[String]) -> Vec<String> {
-    let mut args = Vec::new();
+    fn setup_builder(
+        &self,
+        ctx: &RunnerContext<'_>,
+        wasi: &Wasi,
+    ) -> impl Fn() -> Result<WasiEnvBuilder, Error> + Send + Sync {
+        let container_fs = ctx.container_fs();
+        let wasi_common = self.config.wasi.clone();
+        let program_name = self.program_name.clone();
+        let wasi = wasi.clone();
+        let tasks = self.config.task_manager.clone();
 
-    if let Some(main_args) = &wasi.main_args {
-        args.extend(main_args.iter().cloned());
-    }
+        move || {
+            let mut builder =
+                wasi_common.prepare_webc_env(Arc::clone(&container_fs), &program_name, &wasi)?;
 
-    args.extend(extras.iter().cloned());
-
-    args
-}
-
-fn construct_env(
-    wasi: &Wasi,
-    forward_host_env: bool,
-    overrides: &HashMap<String, String>,
-) -> HashMap<String, String> {
-    let mut env: HashMap<String, String> = HashMap::new();
-
-    for item in wasi.env.as_deref().unwrap_or_default() {
-        // TODO(Michael-F-Bryan): Convert "wasi.env" in the webc crate from an
-        // Option<Vec<String>> to a HashMap<String, String> so we avoid this
-        // string.split() business
-        match item.split_once('=') {
-            Some((k, v)) => {
-                env.insert(k.to_string(), v.to_string());
+            if let Some(tasks) = &tasks {
+                let rt = PluggableRuntime::new(Arc::clone(tasks));
+                builder.set_runtime(Arc::new(rt));
             }
-            None => {
-                env.insert(item.to_string(), String::new());
-            }
+
+            Ok(builder)
         }
     }
-
-    if forward_host_env {
-        env.extend(std::env::vars());
-    }
-
-    env.extend(overrides.clone());
-
-    env
 }
 
-// TODO(Michael-F-Bryan): Pass this to Runner::run() as "&dyn RunnerContext"
+// TODO(Michael-F-Bryan): Pass this to Runner::run() as a "&dyn RunnerContext"
 // when we rewrite the "Runner" trait.
 struct RunnerContext<'a> {
     container: &'a WapmContainer,
@@ -233,6 +210,10 @@ impl RunnerContext<'_> {
         // TODO(Michael-F-Bryan): wire this up to wasmer-cache
         Module::new(&self.engine, wasm).map_err(Error::from)
     }
+
+    fn container_fs(&self) -> Arc<dyn FileSystem> {
+        self.container.container_fs()
+    }
 }
 
 impl crate::runners::Runner for WcgiRunner {
@@ -265,11 +246,8 @@ impl crate::runners::Runner for WcgiRunner {
 #[derivative(Debug)]
 pub struct Config {
     task_manager: Option<Arc<dyn VirtualTaskManager>>,
+    wasi: CommonWasiOptions,
     addr: SocketAddr,
-    args: Vec<String>,
-    env: HashMap<String, String>,
-    forward_host_env: bool,
-    mapped_dirs: Vec<MappedDirectory>,
     #[derivative(Debug = "ignore")]
     callbacks: Arc<dyn Callbacks>,
     store: Option<Arc<Store>>,
@@ -288,7 +266,7 @@ impl Config {
 
     /// Add an argument to the WASI executable's command-line arguments.
     pub fn arg(&mut self, arg: impl Into<String>) -> &mut Self {
-        self.args.push(arg.into());
+        self.wasi.args.push(arg.into());
         self
     }
 
@@ -298,13 +276,13 @@ impl Config {
         A: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        self.args.extend(args.into_iter().map(|s| s.into()));
+        self.wasi.args.extend(args.into_iter().map(|s| s.into()));
         self
     }
 
     /// Expose an environment variable to the guest.
     pub fn env(&mut self, name: impl Into<String>, value: impl Into<String>) -> &mut Self {
-        self.env.insert(name.into(), value.into());
+        self.wasi.env.insert(name.into(), value.into());
         self
     }
 
@@ -315,19 +293,20 @@ impl Config {
         K: Into<String>,
         V: Into<String>,
     {
-        self.env
+        self.wasi
+            .env
             .extend(variables.into_iter().map(|(k, v)| (k.into(), v.into())));
         self
     }
 
     /// Forward all of the host's environment variables to the guest.
     pub fn forward_host_env(&mut self) -> &mut Self {
-        self.forward_host_env = true;
+        self.wasi.forward_host_env = true;
         self
     }
 
     pub fn map_directory(&mut self, dir: MappedDirectory) -> &mut Self {
-        self.mapped_dirs.push(dir);
+        self.wasi.mapped_dirs.push(dir);
         self
     }
 
@@ -335,7 +314,7 @@ impl Config {
         &mut self,
         mappings: impl IntoIterator<Item = MappedDirectory>,
     ) -> &mut Self {
-        self.mapped_dirs.extend(mappings.into_iter());
+        self.wasi.mapped_dirs.extend(mappings.into_iter());
         self
     }
 
@@ -357,10 +336,7 @@ impl Default for Config {
         Self {
             task_manager: None,
             addr: ([127, 0, 0, 1], 8000).into(),
-            env: HashMap::new(),
-            forward_host_env: false,
-            mapped_dirs: Vec::new(),
-            args: Vec::new(),
+            wasi: CommonWasiOptions::default(),
             callbacks: Arc::new(NoopCallbacks),
             store: None,
         }

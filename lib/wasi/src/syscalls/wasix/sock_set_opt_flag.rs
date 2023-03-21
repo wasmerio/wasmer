@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be set
 /// * `flag` - Value to set the option to
-#[instrument(level = "debug", skip_all, fields(sock, opt, flag), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, %opt, %flag), ret)]
 pub fn sock_set_opt_flag(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

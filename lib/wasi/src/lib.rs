@@ -260,6 +260,7 @@ impl WasiRuntimeError {
     }
 }
 
+#[allow(clippy::result_large_err)]
 pub(crate) fn run_wasi_func(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
@@ -281,6 +282,7 @@ pub(crate) fn run_wasi_func(
 /// The function will not receive arguments or return values.
 ///
 /// An exit code that is not 0 will be returned as a `WasiError::Exit`.
+#[allow(clippy::result_large_err)]
 pub(crate) fn run_wasi_func_start(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,

@@ -52,7 +52,7 @@ mod wasi {
             WasiError::Exit(code) => *code,
             other => unreachable!("Something else went wrong: {:?}", other),
         };
-        assert_eq!(exit_code.is_success(), true);
+        assert!(exit_code.is_success());
     }
 
     #[tokio::test]

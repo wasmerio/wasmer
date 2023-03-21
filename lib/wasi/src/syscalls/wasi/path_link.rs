@@ -18,7 +18,7 @@ use crate::syscalls::*;
 ///     String containing the new file path
 /// - `u32 old_path_len`
 ///     Length of the `new_path` string
-#[instrument(level = "debug", skip_all, fields(old_fd, new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = false), ret)]
+#[instrument(level = "debug", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = false), ret)]
 pub fn path_link<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,

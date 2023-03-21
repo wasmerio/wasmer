@@ -12,7 +12,7 @@ use crate::syscalls::*;
 ///     The length from the offset to which the advice applies
 /// - `__wasi_advice_t advice`
 ///     The advice to give
-#[instrument(level = "debug", skip_all, fields(fd, offset, len, advice), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, %offset, %len, ?advice), ret)]
 pub fn fd_advise(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

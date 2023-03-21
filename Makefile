@@ -14,7 +14,7 @@ SHELL=/usr/bin/env bash
 # |------------|----------|--------------|-------|
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
-# | Singlepass | Windows  |              |       |
+# | Singlepass | Windows  | riscv        |       |
 # |------------|----------|--------------|-------|
 #
 # Here is what works and what doesn't:
@@ -22,13 +22,16 @@ SHELL=/usr/bin/env bash
 # * Cranelift works everywhere,
 #
 # * LLVM works on Linux+Darwin/`amd64`,
-#   but it doesn't work on */`aarch64` or Windows/*.
+#   and linux+`aarch64`, linux+`riscv`
+#   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
 #
-# * Singlepass works on Linux+Darwin/`amd64`, but
-#   it doesn't work on */`aarch64` or Windows/*.
+# * Singlepass works on Linux+Darwin+Windows/`amd64`, 
+#   and Linux+Darwin/`aarch64`
+#   it doesn't work on */`riscv`.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
 #   working, but it might possibly be.
+# * The Only target for `riscv` familly of processor is the RV64, with the `GC` extensions
 
 
 #####
@@ -45,6 +48,7 @@ IS_FREEBSD := 0
 IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
+IS_RISCV64 := 0
 
 # Test Windows apart because it doesn't support `uname -s`.
 ifeq ($(OS), Windows_NT)
@@ -75,6 +79,8 @@ else
 		IS_AMD64 := 1
 	else ifneq (, $(filter $(uname), aarch64 arm64))
 		IS_AARCH64 := 1
+	else ifneq (, $(filter $(uname), riscv64))
+		IS_RISCV64 := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
@@ -116,8 +122,16 @@ compilers :=
 
 # If the user didn't disable the Cranelift compiler…
 ifneq ($(ENABLE_CRANELIFT), 0)
-	# … then it can always be enabled.
-	compilers += cranelift
+        # … then maybe the user forced to enable the Cranelift compiler.
+        ifeq ($(ENABLE_CRANELIFT), 1)
+                compilers += cranelift
+        # … otherwise, we try to check whether Cranelift works on this host.
+        else
+                compilers += cranelift
+        endif
+endif
+
+ifneq (, $(findstring cranelift,$(compilers)))
 	ENABLE_CRANELIFT := 1
 endif
 
@@ -234,6 +248,8 @@ ifeq ($(ENABLE_LLVM), 1)
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-universal
+		else ifeq ($(IS_RISCV64), 1)
 			compilers_engines += llvm-universal
 		endif
 	endif

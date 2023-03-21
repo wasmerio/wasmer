@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `__wasi_prestat *buf`
 ///     Where the metadata will be written
-#[instrument(level = "trace", skip_all, fields(fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_prestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

@@ -1,7 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
-#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, path = field::Empty), ret)]
 pub fn fd_prestat_dir_name<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

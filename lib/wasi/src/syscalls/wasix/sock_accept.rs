@@ -13,7 +13,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// New socket connection
-#[instrument(level = "debug", skip_all, fields(sock, fd = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret, err)]
 pub fn sock_accept<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

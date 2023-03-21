@@ -1,13 +1,6 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::Poll,
-};
+use std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
-use anyhow::{Context, Error};
+use anyhow::Error;
 use futures::{Future, FutureExt, StreamExt, TryFutureExt};
 use http::{Request, Response};
 use hyper::{service::Service, Body};
@@ -16,15 +9,12 @@ use tokio::{
     runtime::Handle,
 };
 use tracing::Instrument;
-use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Module;
 use wcgi_host::CgiDialect;
 
 use crate::{
-    capabilities::Capabilities,
-    http::HttpClientCapabilityV1,
-    runners::{wcgi::Callbacks, MappedDirectory, WapmContainer},
-    Pipe, PluggableRuntime, VirtualTaskManager, WasiEnv,
+    capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
+    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -37,6 +27,7 @@ impl Handler {
         Handler(Arc::new(state))
     }
 
+    #[tracing::instrument(level = "debug", skip_all, err)]
     pub(crate) async fn handle(&self, req: Request<Body>) -> Result<Response<Body>, Error> {
         tracing::debug!(headers=?req.headers());
 
@@ -48,17 +39,14 @@ impl Handler {
 
         tracing::debug!("Creating the WebAssembly instance");
 
-        let builder = WasiEnv::builder(self.program.to_string());
-
         let mut request_specific_env = HashMap::new();
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
         let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
-        let mut builder = builder
-            .envs(self.env.iter())
+
+        let builder = (self.setup_builder)()?
             .envs(request_specific_env)
-            .args(self.args.iter())
             .stdin(Box::new(req_body_receiver))
             .stdout(Box::new(res_body_sender))
             .stderr(Box::new(stderr_sender))
@@ -67,15 +55,7 @@ impl Handler {
                 http_client: HttpClientCapabilityV1::new_allow_all(),
                 threading: Default::default(),
             })
-            .runtime(Arc::new(rt))
-            .fs(Box::new(self.fs()?))
-            .preopen_dir(Path::new("/"))?;
-
-        for mapping in &self.mapped_dirs {
-            builder
-                .add_preopen_dir(&mapping.guest)
-                .with_context(|| format!("Unable to preopen \"{}\"", mapping.guest))?;
-        }
+            .runtime(Arc::new(rt));
 
         let module = self.module.clone();
 
@@ -135,45 +115,6 @@ impl Handler {
 
         Ok(response)
     }
-
-    fn fs(&self) -> Result<TmpFileSystem, Error> {
-        let root_fs = RootFileSystemBuilder::new().build();
-
-        if !self.mapped_dirs.is_empty() {
-            let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
-
-            for MappedDirectory { host, guest } in self.mapped_dirs.iter() {
-                let guest = match guest.starts_with('/') {
-                    true => PathBuf::from(guest),
-                    false => Path::new("/").join(guest),
-                };
-                tracing::debug!(
-                    host=%host.display(),
-                    guest=%guest.display(),
-                    "mounting host directory",
-                );
-
-                if let Some(parent) = guest.parent() {
-                    create_dir_all(&root_fs, parent)
-                        .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
-                }
-
-                root_fs
-                    .mount(guest.clone(), &fs_backing, host.clone())
-                    .with_context(|| {
-                        format!(
-                            "Unable to mount \"{}\" to \"{}\"",
-                            host.display(),
-                            guest.display()
-                        )
-                    })
-                    .map_err(|e| dbg!(e))?;
-            }
-        }
-
-        Ok(root_fs)
-    }
 }
 
 impl Deref for Handler {
@@ -182,20 +123,6 @@ impl Deref for Handler {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-}
-
-fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
-    if fs.metadata(path).is_ok() {
-        return Ok(());
-    }
-
-    if let Some(parent) = path.parent() {
-        create_dir_all(fs, parent)?;
-    }
-
-    fs.create_dir(path)?;
-
-    Ok(())
 }
 
 /// Drive the request to completion by streaming the request body to the
@@ -270,19 +197,17 @@ async fn consume_stderr(
     }
 }
 
-#[derive(Clone, derivative::Derivative)]
+#[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub(crate) struct SharedState {
-    pub(crate) program: String,
-    pub(crate) env: HashMap<String, String>,
-    pub(crate) args: Vec<String>,
-    pub(crate) mapped_dirs: Vec<MappedDirectory>,
-    pub(crate) container: WapmContainer,
     pub(crate) module: Module,
     pub(crate) dialect: CgiDialect,
-    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) setup_builder: Box<dyn Fn() -> Result<WasiEnvBuilder, anyhow::Error> + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
 }
 
 impl Service<Request<Body>> for Handler {

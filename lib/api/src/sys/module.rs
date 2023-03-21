@@ -1,5 +1,4 @@
 use crate::engine::AsEngineRef;
-use crate::sys::engine::NativeEngineExt;
 use bytes::Bytes;
 use std::path::Path;
 use std::sync::Arc;
@@ -95,6 +94,7 @@ impl Module {
         Self { artifact }
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn instantiate(
         &self,
         store: &mut impl AsStoreMut,

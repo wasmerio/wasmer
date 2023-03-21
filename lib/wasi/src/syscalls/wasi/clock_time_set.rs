@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///     The ID of the clock to query
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
-#[instrument(level = "trace", skip_all, fields(clock_id, time), ret)]
+#[instrument(level = "trace", skip_all, fields(?clock_id, %time), ret)]
 pub fn clock_time_set<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,

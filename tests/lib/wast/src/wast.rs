@@ -437,7 +437,7 @@ impl Wast {
 
     // Checks if the `assert_unlinkable` message matches the expected one
     fn matches_message_assert_unlinkable(expected: &str, actual: &str) -> bool {
-        actual.contains(&expected)
+        actual.contains(expected)
     }
 
     // Checks if the `assert_invalid` message matches the expected one
