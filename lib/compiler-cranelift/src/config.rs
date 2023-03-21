@@ -117,13 +117,12 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        let is_riscv = matches!(target.triple().architecture, Architecture::Riscv64(_));
-
-        builder.finish(self.flags(is_riscv))
+        builder.finish(self.flags(target))
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self, is_riscv: bool) -> settings::Flags {
+    pub fn flags(&self, target: &Target) -> settings::Flags {
+        let is_riscv = matches!(target.triple().architecture, Architecture::Riscv64(_));
         let mut flags = settings::builder();
 
         // Enable probestack

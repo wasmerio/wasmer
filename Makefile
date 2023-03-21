@@ -19,7 +19,7 @@ SHELL=/usr/bin/env bash
 #
 # Here is what works and what doesn't:
 #
-# * Cranelift works everywhere except Linux/`riscv`,
+# * Cranelift works everywhere,
 #
 # * LLVM works on Linux+Darwin/`amd64`,
 #   and linux+`aarch64`, linux+`riscv`
