@@ -39,6 +39,7 @@ mod wasi {
         let handle = std::thread::spawn(move || {
             WasiRunner::new(store)
                 .with_task_manager(tasks)
+                .with_args(["--version"])
                 .run_cmd(&container, "wat2wasm")
         });
         let err = handle.join().unwrap().unwrap_err();

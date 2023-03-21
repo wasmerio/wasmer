@@ -1,8 +1,12 @@
-use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
 use futures::future::AbortHandle;
-use virtual_fs::FileSystem;
+use http::{Request, Response};
+use hyper::Body;
+use tower::{make::Shared, ServiceBuilder};
+use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
+use tracing::Span;
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
 use webc::metadata::{
@@ -12,11 +16,8 @@ use webc::metadata::{
 
 use crate::{
     runners::{
-        wcgi::{
-            handler::{Handler, SharedState},
-            MappedDirectory,
-        },
-        WapmContainer,
+        wcgi::handler::{Handler, SharedState},
+        MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     VirtualTaskManager,
@@ -37,7 +38,7 @@ impl WcgiRunner {
     }
 
     #[tracing::instrument(skip(self, ctx))]
-    fn run_(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
+    fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
         let wasi: Wasi = ctx
             .command()
             .get_annotation("wasi")
@@ -50,16 +51,30 @@ impl WcgiRunner {
 
         let handler = self.create_handler(module, &wasi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
+        let callbacks = Arc::clone(&self.config.callbacks);
 
-        let make_service = hyper::service::make_service_fn(move |_| {
-            let handler = handler.clone();
-            async { Ok::<_, Infallible>(handler) }
-        });
+        let service = ServiceBuilder::new()
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(|request: &Request<Body>| {
+                        tracing::info_span!(
+                            "request",
+                            method = %request.method(),
+                            uri = %request.uri(),
+                            status_code = tracing::field::Empty,
+                        )
+                    })
+                    .on_response(|response: &Response<_>, _latency: Duration, span: &Span| {
+                        span.record("status_code", &tracing::field::display(response.status()));
+                        tracing::info!("response generated")
+                    }),
+            )
+            .layer(CatchPanicLayer::new())
+            .layer(CorsLayer::permissive())
+            .service(handler);
 
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
-
-        let callbacks = Arc::clone(&self.config.callbacks);
 
         task_manager
             .block_on(async {
@@ -69,7 +84,7 @@ impl WcgiRunner {
                 callbacks.started(abort_handle);
 
                 hyper::Server::bind(&address)
-                    .serve(make_service)
+                    .serve(Shared::new(service))
                     .with_graceful_shutdown(async {
                         let _ = shutdown.await;
                         tracing::info!("Shutting down gracefully");
@@ -132,6 +147,7 @@ impl WcgiRunner {
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
             module,
+            container: ctx.container.clone(),
             dialect,
             callbacks: Arc::clone(&self.config.callbacks),
         };
@@ -209,10 +225,6 @@ impl RunnerContext<'_> {
         &self.store
     }
 
-    fn volume(&self, _name: &str) -> Option<Box<dyn FileSystem>> {
-        todo!("Implement a read-only filesystem backed by a volume");
-    }
-
     fn get_atom(&self, name: &str) -> Option<&[u8]> {
         self.container.get_atom(name)
     }
@@ -245,7 +257,7 @@ impl crate::runners::Runner for WcgiRunner {
             store,
         };
 
-        self.run_(command_name, &ctx)
+        WcgiRunner::run(self, command_name, &ctx)
     }
 }
 
@@ -314,29 +326,16 @@ impl Config {
         self
     }
 
-    pub fn map_directory(
-        &mut self,
-        host: impl Into<PathBuf>,
-        guest: impl Into<String>,
-    ) -> &mut Self {
-        self.mapped_dirs.push(MappedDirectory {
-            host: host.into(),
-            guest: guest.into(),
-        });
+    pub fn map_directory(&mut self, dir: MappedDirectory) -> &mut Self {
+        self.mapped_dirs.push(dir);
         self
     }
 
-    pub fn map_directories<I, H, G>(&mut self, mappings: I) -> &mut Self
-    where
-        I: IntoIterator<Item = (H, G)>,
-        H: Into<PathBuf>,
-        G: Into<String>,
-    {
-        let mappings = mappings.into_iter().map(|(h, g)| MappedDirectory {
-            host: h.into(),
-            guest: g.into(),
-        });
-        self.mapped_dirs.extend(mappings);
+    pub fn map_directories(
+        &mut self,
+        mappings: impl IntoIterator<Item = MappedDirectory>,
+    ) -> &mut Self {
+        self.mapped_dirs.extend(mappings.into_iter());
         self
     }
 
@@ -373,8 +372,10 @@ impl Default for Config {
 pub trait Callbacks: Send + Sync + 'static {
     /// A callback that is called whenever the server starts.
     fn started(&self, _abort: AbortHandle) {}
+
     /// Data was written to stderr by an instance.
     fn on_stderr(&self, _stderr: &[u8]) {}
+
     /// Reading from stderr failed.
     fn on_stderr_error(&self, _error: std::io::Error) {}
 }
