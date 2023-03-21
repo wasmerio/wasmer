@@ -288,7 +288,7 @@ fn run<M: MemorySize>(
     mut store: Store,
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
-    fork_memory_ty: MemoryType,
+    #[allow(clippy::all)] fork_memory_ty: MemoryType,
     rewind_state: Option<RewindState>,
 ) -> ExitCode {
     // If we need to rewind then do so

@@ -155,7 +155,7 @@ fn call_module<M: MemorySize>(
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
     start_ptr_offset: M::Offset,
-    thread_memory_ty: MemoryType,
+    #[allow(clippy::all)] thread_memory_ty: MemoryType,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<RewindState>,
 ) -> u32 {

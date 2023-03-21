@@ -912,7 +912,7 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn blocking_cleanup<'a>(&self, exit_code: Option<ExitCode>) {
+    pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
         __asyncify_light(self, None, async {
             self.cleanup(exit_code).await;
             Ok(())

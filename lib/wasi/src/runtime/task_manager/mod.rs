@@ -91,7 +91,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
         store: Store,
         module: Module,
-        trigger: Box<
+        #[allow(clippy::all)] trigger: Box<
             dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
                 + Send
                 + 'static,

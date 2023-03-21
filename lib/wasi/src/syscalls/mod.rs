@@ -392,7 +392,7 @@ pub enum AsyncifyAction<'a> {
 /// or it will return an WasiError which will exit the WASM call using asyncify
 /// and instead process it on a shared task
 ///
-pub(crate) fn __asyncify_with_deep_sleep<'a, M: MemorySize, Fut>(
+pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, Fut>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     mut work: Fut,
@@ -454,7 +454,7 @@ where
 /// or it will return an WasiError which will exit the WASM call using asyncify
 /// and instead process it on a shared task
 ///
-pub(crate) fn __asyncify_with_deep_sleep_ext<'a, M: MemorySize, T, Fut, After>(
+pub(crate) fn __asyncify_with_deep_sleep_ext<M: MemorySize, T, Fut, After>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
@@ -467,6 +467,7 @@ where
 {
     struct Poller<T> {
         work: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>,
+        #[allow(clippy::all)]
         after: Option<Box<dyn FnOnce(T, &WasiEnv, &dyn AsStoreRef) + Send + Sync + 'static>>,
     }
     impl<T> AsyncifyFuture for Poller<T> {
@@ -503,7 +504,7 @@ where
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
 /// synchronous IO engine
-pub(crate) fn __asyncify_light<'a, T, Fut>(
+pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
     work: Fut,
