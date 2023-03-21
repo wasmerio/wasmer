@@ -95,7 +95,12 @@ impl crate::runners::Runner for WasiRunner {
             builder.set_runtime(Arc::new(rt));
         }
 
-        builder.run(module)?;
+        let res = builder.run(module);
+        match res {
+            Ok(()) => Ok(()),
+            Err(crate::WasiRuntimeError::Wasi(crate::WasiError::Exit(_))) => Ok(()),
+            Err(e) => Err(e),
+        }?;
 
         Ok(())
     }
