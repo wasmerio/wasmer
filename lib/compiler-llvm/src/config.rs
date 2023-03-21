@@ -215,9 +215,19 @@ impl LLVM {
         if let Architecture::Riscv64(_) = triple.architecture {
             // TODO: totally non-portable way to change ABI
             unsafe {
+                // This structure mimic the internal structure from inkwell
+                // that is defined as
+                //  #[derive(Debug)]
+                //  pub struct TargetMachine {
+                //    pub(crate) target_machine: LLVMTargetMachineRef,
+                //  }
                 pub struct MyTargetMachine {
                     pub target_machine: *const u8,
                 }
+                // It is use to live patch the create LLVMTargetMachine
+                // to hard change the ABI and force "-mabi=lp64d" ABI
+                // instead of the default that don't use float registers
+                // because there is no current way to do this change
 
                 let my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
 
