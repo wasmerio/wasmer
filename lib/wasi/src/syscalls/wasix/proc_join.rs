@@ -46,7 +46,9 @@ pub fn proc_join<M: MemorySize + 'static>(
     // If we were just restored the stack then we were woken after a deep sleep
     // and the return calues are already set
     if handle_rewind::<M>(&mut ctx) {
-        return ret_result(ctx);
+        let ret = ret_result(ctx);
+        tracing::trace!("rewound join ret={:?}", ret);
+        return ret;
     }
 
     let env = ctx.data();
@@ -89,7 +91,9 @@ pub fn proc_join<M: MemorySize + 'static>(
                 ctx,
                 None,
                 async move { process.join_any_child().await },
-                move |child_exit, env, store| {
+                move |env, store, res| {
+                    let child_exit = res.unwrap_or_else(Err);
+
                     let memory = env.memory_view(store);
                     match child_exit {
                         Ok(Some((pid, exit_code))) => {
@@ -107,7 +111,9 @@ pub fn proc_join<M: MemorySize + 'static>(
                                     exit_normal: exit_code.into(),
                                 },
                             };
-                            status_ptr.write(&memory, status).ok();
+                            status_ptr
+                                .write(&memory, status)
+                                .map_err(mem_error_to_wasi)?;
                         }
                         Ok(None) => {
                             let status = JoinStatus {
@@ -116,16 +122,21 @@ pub fn proc_join<M: MemorySize + 'static>(
                                     nothing_errno: Errno::Child,
                                 },
                             };
-                            status_ptr.write(&memory, status).ok();
+                            status_ptr
+                                .write(&memory, status)
+                                .map_err(mem_error_to_wasi)?;
                         }
                         Err(err) => {
                             let status = JoinStatus {
                                 tag: JoinStatusType::Nothing,
                                 u: JoinStatusUnion { nothing_errno: err },
                             };
-                            status_ptr.write(&memory, status).ok();
+                            status_ptr
+                                .write(&memory, status)
+                                .map_err(mem_error_to_wasi)?;
                         }
                     }
+                    Ok(())
                 },
             )?;
             return match res {
@@ -175,7 +186,9 @@ pub fn proc_join<M: MemorySize + 'static>(
             ctx,
             None,
             async move { process.join().await.unwrap_or_else(|_| Errno::Child.into()) },
-            move |exit_code, env, store| {
+            move |env, store, res| {
+                let exit_code = res.unwrap_or_else(ExitCode::Errno);
+
                 trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
                 {
                     let mut inner = env.process.inner.write().unwrap();
@@ -189,7 +202,11 @@ pub fn proc_join<M: MemorySize + 'static>(
                         exit_normal: exit_code.into(),
                     },
                 };
-                status_ptr.write(&memory, status).ok();
+                status_ptr
+                    .write(&memory, status)
+                    .map_err(mem_error_to_wasi)
+                    .map_err(ExitCode::Errno)?;
+                Ok(())
             },
         )?;
         return match res {

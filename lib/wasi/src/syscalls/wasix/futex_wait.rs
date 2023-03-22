@@ -9,6 +9,7 @@ where
     M: MemorySize,
 {
     state: Arc<WasiState>,
+    woken: bool,
     futex_idx: u64,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
@@ -18,13 +19,12 @@ impl<M> AsyncifyFuture for FutexPoller<M>
 where
     M: MemorySize,
 {
-    type Output = Result<(), Errno>;
     fn poll(
         &mut self,
         env: &WasiEnv,
         store: &dyn AsStoreRef,
         cx: &mut Context<'_>,
-    ) -> Poll<Self::Output> {
+    ) -> Poll<Result<(), Errno>> {
         let waker = cx.waker();
         let view = env.memory_view(store);
         let mut guard = env.state.futexs.lock().unwrap();
@@ -39,11 +39,8 @@ where
             };
             if val != self.expected {
                 // If we are triggered then we should update the return value
-                let ret = self
-                    .ret_woken
-                    .write(&view, Bool::True)
-                    .map_err(mem_error_to_wasi);
-                return Poll::Ready(ret);
+                self.woken = true;
+                return Poll::Ready(Ok(()));
             }
         }
 
@@ -55,6 +52,23 @@ where
         }
 
         Poll::Pending
+    }
+
+    fn finish(
+        &mut self,
+        env: &WasiEnv,
+        store: &dyn AsStoreRef,
+        res: Result<(), Errno>,
+    ) -> Result<(), ExitCode> {
+        if self.woken {
+            let view = env.memory_view(store);
+            self.ret_woken
+                .write(&view, Bool::True)
+                .map_err(mem_error_to_wasi)
+                .map_err(ExitCode::Errno)
+        } else {
+            Ok(())
+        }
     }
 }
 impl<M> Drop for FutexPoller<M>
@@ -121,6 +135,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // this futex event and check when it has changed
     let poller = FutexPoller {
         state: env.state.clone(),
+        woken: false,
         futex_idx,
         futex_ptr,
         expected,

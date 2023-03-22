@@ -136,7 +136,7 @@ pub fn fd_seek(
 
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
-#[instrument(level = "trace", skip_all, fields(timeout_ns = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
 pub fn poll_oneoff<M: MemorySize>(
     mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<Snapshot0Subscription, Memory32>,
@@ -166,7 +166,7 @@ pub fn poll_oneoff<M: MemorySize>(
     wasi_try_mem_ok!(nevents.write(&memory, 0));
 
     // Function to invoke once the poll is finished
-    let process_events = move |triggered_events, env: &'_ WasiEnv, store: &'_ dyn AsStoreRef| {
+    let process_events = move |env: &'_ WasiEnv, store: &'_ dyn AsStoreRef, triggered_events| {
         // Process all the events that were triggered
         let mut memory = env.memory_view(store);
         let mut events_seen: u32 = 0;

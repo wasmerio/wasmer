@@ -28,7 +28,7 @@ pub fn thread_join<M: MemorySize + 'static>(
             async move {
                 other_thread.join().await;
             },
-            move |_, _, _| {},
+            |_, _, res| res.map_err(ExitCode::Errno),
         )?;
         Ok(Errno::Success)
     } else {

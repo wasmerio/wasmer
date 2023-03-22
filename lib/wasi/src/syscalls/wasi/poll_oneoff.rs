@@ -22,7 +22,7 @@ use crate::{
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-#[instrument(level = "trace", skip_all, fields(timeout_ns = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
 pub fn poll_oneoff<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     in_: WasmPtr<Subscription, M>,
@@ -49,7 +49,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     wasi_try_mem_ok!(nevents.write(&memory, M::ZERO));
 
     // Function to invoke once the poll is finished
-    let process_events = move |triggered_events, env: &'_ WasiEnv, store: &'_ dyn AsStoreRef| {
+    let process_events = move |env: &'_ WasiEnv, store: &'_ dyn AsStoreRef, triggered_events| {
         // Process all the events that were triggered
         let mut memory = env.memory_view(store);
         let mut events_seen: u32 = 0;
@@ -142,7 +142,7 @@ pub(crate) fn poll_oneoff_internal<M: MemorySize, After>(
     process_events: After,
 ) -> Result<Errno, WasiError>
 where
-    After: FnOnce(Vec<Event>, &'_ WasiEnv, &'_ dyn AsStoreRef) -> Errno + Send + Sync + 'static,
+    After: FnOnce(&'_ WasiEnv, &'_ dyn AsStoreRef, Vec<Event>) -> Errno + Send + Sync + 'static,
 {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
     if handle_rewind::<M>(&mut ctx) {
@@ -296,12 +296,12 @@ where
 
         if let Some(time_to_sleep) = time_to_sleep.as_ref() {
             if *time_to_sleep == Duration::ZERO {
-                Span::current().record("timeout_ns", "nonblocking");
+                Span::current().record("timeout_ms", "nonblocking");
             } else {
-                Span::current().record("timeout_ns", time_to_sleep.as_millis());
+                Span::current().record("timeout_ms", time_to_sleep.as_millis());
             }
         } else {
-            Span::current().record("timeout_ns", "infinite");
+            Span::current().record("timeout_ms", "infinite");
         }
 
         // Block polling the file descriptors
@@ -313,7 +313,9 @@ where
         ctx,
         time_to_sleep,
         batch,
-        move |events, env, store| {
+        move |env, store, res| {
+            let events = res.unwrap_or_else(Err);
+
             // Process the result
             match events {
                 Ok(evts) => {
@@ -321,7 +323,7 @@ where
                     Span::current().record("seen", evts.len());
 
                     // Process the events
-                    process_events(evts, env, store);
+                    process_events(env, store, evts);
                 }
                 Err(Errno::Timedout) => {
                     // The timeout has triggerred so lets add that event
@@ -347,17 +349,18 @@ where
                     }
 
                     // Process the events
-                    process_events(evts, env, store);
+                    process_events(env, store, evts);
                 }
                 // If nonblocking the Errno::Again needs to be turned into an empty list
                 Err(Errno::Again) if time_to_sleep == Some(Duration::ZERO) => {
-                    process_events(Default::default(), env, store);
+                    process_events(env, store, Default::default());
                 }
                 // Otherwise process the error
                 Err(err) => {
-                    env.thread.set_status_finished(Ok(err.into()));
+                    tracing::warn!("triggered_timeout (without any clock subscriptions)");
                 }
             }
+            Ok(())
         },
     )?;
     Ok(Errno::Success)

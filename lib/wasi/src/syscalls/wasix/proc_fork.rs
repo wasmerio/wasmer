@@ -1,5 +1,8 @@
 use super::*;
-use crate::{os::task::OwnedTaskStatus, runtime::task_manager::TaskResumeAction, syscalls::*};
+use crate::{
+    os::task::OwnedTaskStatus, runtime::task_manager::TaskResumeAction, syscalls::*,
+    WasiThreadHandle,
+};
 
 use wasmer::{vm::VMMemory, MemoryType};
 
@@ -218,11 +221,7 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                let ret = run::<M>(ctx, store, module, tasks, None);
-                trace!(%pid, %tid, "child exited (code = {})", ret);
-
-                // Send the result
-                drop(child_handle);
+                let ret = run::<M>(ctx, store, module, tasks, child_handle, None);
             };
 
             tasks_outer
@@ -288,8 +287,12 @@ fn run<M: MemorySize>(
     mut store: Store,
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
+    child_handle: WasiThreadHandle,
     rewind_state: Option<RewindState>,
 ) -> ExitCode {
+    let pid = ctx.data(&store).pid();
+    let tid = ctx.data(&store).tid();
+
     // If we need to rewind then do so
     if let Some(rewind_state) = rewind_state {
         let ctx = ctx.env.clone().into_mut(&mut store);
@@ -306,11 +309,11 @@ fn run<M: MemorySize>(
 
     let mut ret: ExitCode = Errno::Success.into();
     let err = if ctx.data(&store).thread.is_main() {
-        trace!("re-invoking main");
+        trace!(%pid, %tid, "re-invoking main");
         let start = ctx.data(&store).inner().start.clone().unwrap();
         start.call(&mut store)
     } else {
-        trace!("re-invoking thread_spawn");
+        trace!(%pid, %tid, "re-invoking thread_spawn");
         let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
         start.call(&mut store, 0, 0)
     };
@@ -320,13 +323,13 @@ fn run<M: MemorySize>(
                 ret = exit_code;
             }
             Ok(WasiError::DeepSleep(deep)) => {
-                trace!("entered a deep sleep");
+                trace!(%pid, %tid, "entered a deep sleep");
 
                 // Extract the memory
                 let memory = match ctx.data(&store).memory().try_clone(&store) {
                     Some(m) => m,
                     None => {
-                        tracing::error!("failed to clone memory before deep sleep");
+                        tracing::error!(%pid, %tid, "failed to clone memory before deep sleep");
                         return Errno::Noexec.into();
                     }
                 };
@@ -337,19 +340,23 @@ fn run<M: MemorySize>(
                     let tasks = tasks.clone();
                     let rewind_state = Some(deep.rewind);
                     move |store, module| {
-                        run::<M>(ctx, store, module, tasks, rewind_state);
+                        run::<M>(ctx, store, module, tasks, child_handle, rewind_state);
                     }
                 };
 
                 /// Spawns the WASM process after a trigger
                 tasks.resume_wasm_after_poller(Box::new(respawn), store, module, ctx, deep.work);
-                return Errno::Unknown.into();
+                return Errno::Success.into();
             }
             _ => {}
         }
     }
+    trace!(%pid, %tid, "child exited (code = {})", ret);
 
     // Clean up the environment and return the result
     ctx.cleanup((&mut store), Some(ret));
+
+    // We drop the handle at the last moment which will close the thread
+    drop(child_handle);
     ret
 }

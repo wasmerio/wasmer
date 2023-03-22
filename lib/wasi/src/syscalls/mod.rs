@@ -47,7 +47,7 @@ pub(crate) use std::{
     thread::LocalKey,
     time::Duration,
 };
-use std::{io::IoSlice, mem::MaybeUninit};
+use std::{io::IoSlice, mem::MaybeUninit, time::Instant};
 
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
@@ -334,30 +334,35 @@ where
 
 /// Future that will be polled by asyncify methods
 pub trait AsyncifyFuture {
-    type Output;
-
     fn poll(
         &mut self,
         env: &WasiEnv,
         store: &dyn AsStoreRef,
         cx: &mut Context<'_>,
-    ) -> Poll<Self::Output>;
+    ) -> Poll<Result<(), Errno>>;
+
+    fn finish(
+        &mut self,
+        env: &WasiEnv,
+        store: &dyn AsStoreRef,
+        res: Result<(), Errno>,
+    ) -> Result<(), ExitCode>;
 }
 
 // This poller will process any signals when the main working function is idle
-struct AsyncifyPoller<'a, 'b, 'c, Fut, T>
+struct AsyncifyPoller<'a, 'b, 'c, Fut>
 where
-    Fut: AsyncifyFuture<Output = Result<T, Errno>>,
+    Fut: AsyncifyFuture,
 {
     env: &'a WasiEnv,
     store: &'b dyn AsStoreRef,
     work: &'c mut Fut,
 }
-impl<'a, 'b, 'c, Fut, T> Future for AsyncifyPoller<'a, 'b, 'c, Fut, T>
+impl<'a, 'b, 'c, Fut> Future for AsyncifyPoller<'a, 'b, 'c, Fut>
 where
-    Fut: AsyncifyFuture<Output = Result<T, Errno>>,
+    Fut: AsyncifyFuture,
 {
-    type Output = Result<Fut::Output, WasiError>;
+    type Output = Result<Result<(), Errno>, WasiError>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let env = self.env;
         let store = self.store;
@@ -395,58 +400,111 @@ pub enum AsyncifyAction<'a> {
 pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, Fut>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
-    mut work: Fut,
+    work: Fut,
 ) -> Result<AsyncifyAction<'_>, WasiError>
 where
-    Fut: AsyncifyFuture<Output = Result<(), Errno>> + Send + Sync + 'static,
+    Fut: AsyncifyFuture + Send + Sync + 'static,
 {
+    // We build a wrapper around the polling struct that will
+    // check for a timeout
+    struct WorkWithTimeout<Fut>
+    where
+        Fut: AsyncifyFuture + Send + Sync + 'static,
+    {
+        inner: Box<Fut>,
+        timeout: Option<Instant>,
+    }
+    impl<Fut> AsyncifyFuture for WorkWithTimeout<Fut>
+    where
+        Fut: AsyncifyFuture + Send + Sync + 'static,
+    {
+        fn poll(
+            &mut self,
+            env: &WasiEnv,
+            store: &dyn AsStoreRef,
+            cx: &mut Context<'_>,
+        ) -> Poll<Result<(), Errno>> {
+            if let Poll::Ready(res) = self.inner.poll(env, store, cx) {
+                return Poll::Ready(self.finish(env, store, res).map_err(|err| err.into()));
+            }
+
+            if let Some(end) = self.timeout.as_ref() {
+                let now = Instant::now();
+                if now >= *end {
+                    return Poll::Ready(
+                        self.finish(env, store, Err(Errno::Timedout))
+                            .map_err(|err| err.into()),
+                    );
+                }
+                let diff = now - *end;
+
+                let mut timeout = env.tasks().sleep_now(diff);
+                if timeout.as_mut().poll(cx).is_ready() {
+                    return Poll::Ready(
+                        self.finish(env, store, Err(Errno::Timedout))
+                            .map_err(|err| err.into()),
+                    );
+                }
+            }
+
+            Poll::Pending
+        }
+        fn finish(
+            &mut self,
+            env: &WasiEnv,
+            store: &dyn AsStoreRef,
+            res: Result<(), Errno>,
+        ) -> Result<(), ExitCode> {
+            self.inner.finish(env, store, res)
+        }
+    }
+    let mut work = WorkWithTimeout {
+        inner: Box::new(work),
+        timeout: timeout.map(|timeout| Instant::now() + timeout),
+    };
+
     // Define the work
     let tasks = ctx.data().tasks().clone();
     let work = async move {
-        // Create the timeout
-        let res = {
-            let env = ctx.data();
-            let deep_sleep_wait = {
-                async {
-                    if env.enable_deep_sleep {
-                        env.tasks()
-                            .sleep_now(std::time::Duration::from_millis(50))
-                            .await
-                    } else {
-                        InfiniteSleep::default().await
-                    }
-                }
-            };
+        let env = ctx.data();
 
-            tokio::select! {
-                // The main work we are doing
-                res = AsyncifyPoller {
-                    env: ctx.data(),
-                    store: &ctx,
-                    work: &mut work,
-                } => res?,
-                // Determines when and if we should go into a deep sleep
-                _ = deep_sleep_wait => {
-                    tracing::trace!("thread entering deep sleep");
-                    return deep_sleep::<M, _>(ctx, work)
-                        .map(Err);
-                },
+        // Create the deep sleeper
+        let deep_sleep_wait = async {
+            if env.enable_deep_sleep {
+                env.tasks()
+                    .sleep_now(std::time::Duration::from_millis(50))
+                    .await
+            } else {
+                InfiniteSleep::default().await
             }
         };
-        Ok(res.map(|()| ctx))
+
+        Ok(tokio::select! {
+            // Inner wait with finializer
+            res = AsyncifyPoller {
+                env: ctx.data(),
+                store: &ctx,
+                work: &mut work,
+            } => {
+                AsyncifyAction::Finish(ctx)
+            },
+            // Determines when and if we should go into a deep sleep
+            _ = deep_sleep_wait => {
+                tracing::trace!("thread entering deep sleep");
+                deep_sleep::<M, _>(ctx, work)?;
+                AsyncifyAction::Unwind
+            },
+        })
     };
 
     // Block on the work
-    let res = block_on_with_timeout(&tasks, timeout, work)?;
-    Ok(match res {
-        Ok(ctx) => AsyncifyAction::Finish(ctx),
-        Err(err) if err == Errno::Success => AsyncifyAction::Unwind,
-        Err(err) => return Err(WasiError::Exit(err.into())),
-    })
+    tasks.block_on(work)
 }
 
-pub(crate) type AsyncifyWorkAfter<T> =
-    dyn FnOnce(T, &WasiEnv, &dyn AsStoreRef) + Send + Sync + 'static;
+pub(crate) type AsyncifyWorkAfter<T> = dyn FnOnce(&WasiEnv, &dyn AsStoreRef, Result<T, Errno>) -> Result<(), ExitCode>
+    + Send
+    + Sync
+    + 'static;
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
 /// thus allowed for asynchronous operations to execute. It has built in functionality
@@ -464,31 +522,47 @@ pub(crate) fn __asyncify_with_deep_sleep_ext<M: MemorySize, T, Fut, After>(
     after: After,
 ) -> Result<AsyncifyAction<'_>, WasiError>
 where
-    T: 'static,
+    T: Send + Sync + 'static,
     Fut: Future<Output = T> + Send + Sync + 'static,
-    After: FnOnce(T, &WasiEnv, &dyn AsStoreRef) + Send + Sync + 'static,
+    After: FnOnce(&WasiEnv, &dyn AsStoreRef, Result<T, Errno>) -> Result<(), ExitCode>
+        + Send
+        + Sync
+        + 'static,
 {
     struct Poller<T> {
         work: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>,
         after: Option<Box<AsyncifyWorkAfter<T>>>,
+        ret: Option<T>,
     }
     impl<T> AsyncifyFuture for Poller<T> {
-        type Output = Result<(), Errno>;
         fn poll(
             &mut self,
             env: &WasiEnv,
             store: &dyn AsStoreRef,
             cx: &mut Context<'_>,
-        ) -> Poll<Self::Output> {
+        ) -> Poll<Result<(), Errno>> {
             match self.work.as_mut().poll(cx) {
                 Poll::Ready(ret) => {
-                    if let Some(after) = self.after.take() {
-                        after(ret, env, store);
-                    }
+                    self.ret.replace(ret);
                     Poll::Ready(Ok(()))
                 }
                 Poll::Pending => Poll::Pending,
             }
+        }
+        fn finish(
+            &mut self,
+            env: &WasiEnv,
+            store: &dyn AsStoreRef,
+            res: Result<(), Errno>,
+        ) -> Result<(), ExitCode> {
+            if let Some(after) = self.after.take() {
+                if let Some(ret) = self.ret.take() {
+                    return after(env, store, Ok(ret));
+                } else if let Err(err) = res {
+                    return after(env, store, Err(err));
+                }
+            }
+            Ok(())
         }
     }
 
@@ -498,6 +572,7 @@ where
         Poller::<T> {
             work: Box::pin(work),
             after: Some(Box::new(after)),
+            ret: None,
         },
     )
 }
@@ -964,9 +1039,9 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
 pub(crate) fn deep_sleep<M: MemorySize, Fut>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     work: Fut,
-) -> Result<Errno, WasiError>
+) -> Result<(), WasiError>
 where
-    Fut: AsyncifyFuture<Output = Result<(), Errno>> + Send + Sync + 'static,
+    Fut: AsyncifyFuture + Send + Sync + 'static,
 {
     // Grab all the globals and serialize them
     let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
@@ -976,7 +1051,7 @@ where
 
     // Perform the unwind action
     let tasks = ctx.data().tasks().clone();
-    unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
+    let res = unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
         // Schedule the process on the stack so that it can be resumed
         OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
             WasiError::DeepSleep(DeepSleepWork {
@@ -989,11 +1064,17 @@ where
                 },
             }),
         ))))
-    })
+    })?;
+
+    // If there is an error then exit the process, otherwise we are done
+    match res {
+        Errno::Success => Ok(()),
+        err => Err(WasiError::Exit(ExitCode::Errno(err))),
+    }
 }
 
 #[must_use = "you must return the result immediately so the stack can unwind"]
-pub(crate) fn unwind<M: MemorySize, F>(
+pub fn unwind<M: MemorySize, F>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     callback: F,
 ) -> Result<Errno, WasiError>
@@ -1114,7 +1195,7 @@ where
 
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
-pub(crate) fn rewind<M: MemorySize>(
+pub fn rewind<M: MemorySize>(
     mut ctx: FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,

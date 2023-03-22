@@ -46,7 +46,10 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
                     "the timeout or signals will wake up this thread even though it waits forever"
                 )
             },
-            move |_, _, _| {},
+            |_, _, res| match res {
+                Ok(()) => Ok(()),
+                _ => Ok(()),
+            },
         )?;
     }
     Ok(Errno::Success)

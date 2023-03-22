@@ -127,31 +127,33 @@ impl dyn VirtualTaskManager {
         store: Store,
         module: Module,
         env: WasiFunctionEnv,
-        work: Box<dyn AsyncifyFuture<Output = Result<(), Errno>> + Send + Sync + 'static>,
+        work: Box<dyn AsyncifyFuture + Send + Sync + 'static>,
     ) -> Result<(), WasiThreadError> {
         // This poller will process any signals when the main working function is idle
-        struct AsyncifyPollerOwned<T> {
+        struct AsyncifyPollerOwned {
             env: WasiFunctionEnv,
             store: Store,
-            work:
-                RefCell<Box<dyn AsyncifyFuture<Output = Result<T, Errno>> + Send + Sync + 'static>>,
+            work: RefCell<Box<dyn AsyncifyFuture + Send + Sync + 'static>>,
         }
-        impl<T> Future for AsyncifyPollerOwned<T> {
-            type Output = Result<Result<T, Errno>, ExitCode>;
+        impl Future for AsyncifyPollerOwned {
+            type Output = Result<Result<(), Errno>, ExitCode>;
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let mut work = self.work.borrow_mut();
                 let store = &self.store;
                 let env = self.env.data(store);
-                if let Poll::Ready(res) = work.poll(env, &self.store, cx) {
-                    return Poll::Ready(Ok(res));
-                }
-                if let Some(exit_code) = env.should_exit() {
-                    return Poll::Ready(Err(exit_code));
-                }
-                if env.thread.has_signals_or_subscribe(cx.waker()) {
-                    return Poll::Ready(Ok(Err(Errno::Intr)));
-                }
-                Poll::Pending
+
+                let res = if let Poll::Ready(res) = work.poll(env, &self.store, cx) {
+                    Ok(res)
+                } else if let Some(exit_code) = env.should_exit() {
+                    Err(exit_code)
+                } else if env.thread.has_signals_or_subscribe(cx.waker()) {
+                    Ok(Err(Errno::Intr))
+                } else {
+                    return Poll::Pending;
+                }?;
+
+                work.finish(env, store, res)?;
+                Poll::Ready(Ok(Ok(())))
             }
         }
 

@@ -109,7 +109,7 @@ pub use crate::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::types,
+    syscalls::{types, rewind, unwind},
     utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
 };
 
@@ -129,7 +129,7 @@ pub struct RewindState {
 /// includes the things needed to restore it again
 pub struct DeepSleepWork {
     /// This is the work that will be performed before the thread is rewoken
-    pub work: Box<dyn AsyncifyFuture<Output = Result<(), Errno>> + Send + Sync + 'static>,
+    pub work: Box<dyn AsyncifyFuture + Send + Sync + 'static>,
     /// State that the thread will be rewound to
     pub rewind: RewindState,
 }

@@ -251,8 +251,10 @@ pub fn proc_exec<M: MemorySize>(
                             .await
                             .unwrap_or_else(|_| Errno::Child.into())
                     },
-                    |exit_code, env, _| {
+                    |env, _, res| {
+                        let exit_code = res.unwrap_or_else(ExitCode::Errno);
                         env.thread.set_status_finished(Ok(exit_code));
+                        Ok(())
                     },
                 )?;
                 match res {
