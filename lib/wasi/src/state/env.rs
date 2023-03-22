@@ -379,6 +379,9 @@ impl WasiEnv {
     /// Returns true if this module is capable of deep sleep
     /// (needs asyncify to unwind and rewin)
     pub fn capable_of_deep_sleep(&self) -> bool {
+        if self.control_plane.config().disable_asynchronous_threading {
+            return false;
+        }
         let inner = self.inner();
         inner.asyncify_get_state.is_some()
             && inner.asyncify_start_rewind.is_some()

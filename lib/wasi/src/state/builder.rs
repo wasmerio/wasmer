@@ -767,6 +767,7 @@ impl WasiEnvBuilder {
 
         let plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,
+            disable_asynchronous_threading: capabilities.threading.disable_asynchronous_threading,
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
