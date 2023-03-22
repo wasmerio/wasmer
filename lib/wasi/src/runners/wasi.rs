@@ -1,8 +1,11 @@
 //! WebC container support for running WASI modules
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use crate::{runners::WapmContainer, PluggableRuntimeImplementation, VirtualTaskManager};
+use crate::{
+    runners::{MappedDirectory, WapmContainer},
+    PluggableRuntime, VirtualTaskManager,
+};
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
@@ -12,6 +15,9 @@ use webc::metadata::{annotations::Wasi, Command};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WasiRunner {
     args: Vec<String>,
+    env: HashMap<String, String>,
+    forward_host_env: bool,
+    mapped_dirs: Vec<MappedDirectory>,
     #[serde(skip, default)]
     store: Store,
     #[serde(skip, default)]
@@ -23,7 +29,10 @@ impl WasiRunner {
     pub fn new(store: Store) -> Self {
         Self {
             args: Vec::new(),
+            env: HashMap::new(),
             store,
+            mapped_dirs: Vec::new(),
+            forward_host_env: false,
             tasks: None,
         }
     }
@@ -52,6 +61,56 @@ impl WasiRunner {
         self.args = args.into_iter().map(|s| s.into()).collect();
     }
 
+    /// Builder method to provide environment variables to the runner.
+    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.set_env(key, value);
+        self
+    }
+
+    /// Provide environment variables to the runner.
+    pub fn set_env(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.env.insert(key.into(), value.into());
+    }
+
+    pub fn with_envs<I, K, V>(mut self, envs: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        self.set_envs(envs);
+        self
+    }
+
+    pub fn set_envs<I, K, V>(&mut self, envs: I)
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        for (key, value) in envs {
+            self.env.insert(key.into(), value.into());
+        }
+    }
+
+    pub fn with_forward_host_env(mut self) -> Self {
+        self.set_forward_host_env();
+        self
+    }
+
+    pub fn set_forward_host_env(&mut self) {
+        self.forward_host_env = true;
+    }
+
+    pub fn with_mapped_directories<I, D>(mut self, dirs: I) -> Self
+    where
+        I: IntoIterator<Item = D>,
+        D: Into<MappedDirectory>,
+    {
+        self.mapped_dirs.extend(dirs.into_iter().map(|d| d.into()));
+        self
+    }
+
     pub fn with_task_manager(mut self, tasks: impl VirtualTaskManager) -> Self {
         self.set_task_manager(tasks);
         self
@@ -59,6 +118,39 @@ impl WasiRunner {
 
     pub fn set_task_manager(&mut self, tasks: impl VirtualTaskManager) {
         self.tasks = Some(Arc::new(tasks));
+    }
+
+    fn prepare_webc_env(
+        &self,
+        container: &WapmContainer,
+        command: &str,
+    ) -> Result<WasiEnvBuilder, anyhow::Error> {
+        let (fs, preopen_dirs) = container.container_fs();
+
+        let mut builder = WasiEnv::builder(command).args(&self.args);
+
+        for dir in preopen_dirs {
+            builder.add_preopen_dir(dir)?;
+        }
+
+        builder.set_fs(Box::new(fs));
+
+        if self.forward_host_env {
+            for (k, v) in std::env::vars() {
+                builder.add_env(k, v);
+            }
+        }
+
+        for (k, v) in &self.env {
+            builder.add_env(k, v);
+        }
+
+        if let Some(tasks) = &self.tasks {
+            let rt = PluggableRuntime::new(Arc::clone(tasks));
+            builder.set_runtime(Arc::new(rt));
+        }
+
+        Ok(builder)
     }
 }
 
@@ -88,38 +180,8 @@ impl crate::runners::Runner for WasiRunner {
         let mut module = Module::new(&self.store, atom)?;
         module.set_name(&atom_name);
 
-        let mut builder = prepare_webc_env(container, &atom_name, &self.args)?;
-
-        if let Some(tasks) = &self.tasks {
-            let rt = PluggableRuntimeImplementation::new(Arc::clone(tasks));
-            builder.set_runtime(Arc::new(rt));
-        }
-
-        let res = builder.run(module);
-        match res {
-            Ok(()) => Ok(()),
-            Err(crate::WasiRuntimeError::Wasi(crate::WasiError::Exit(_))) => Ok(()),
-            Err(e) => Err(e),
-        }?;
+        self.prepare_webc_env(container, &atom_name)?.run(module)?;
 
         Ok(())
     }
-}
-
-// https://github.com/tokera-com/ate/blob/42c4ce5a0c0aef47aeb4420cc6dc788ef6ee8804/term-lib/src/eval/exec.rs#L444
-fn prepare_webc_env(
-    container: &WapmContainer,
-    command: &str,
-    args: &[String],
-) -> Result<WasiEnvBuilder, anyhow::Error> {
-    let (filesystem, preopen_dirs) = container.container_fs();
-    let mut builder = WasiEnv::builder(command).args(args);
-
-    for entry in preopen_dirs {
-        builder.add_preopen_build(|p| p.directory(&entry).read(true).write(true).create(true))?;
-    }
-
-    builder.set_fs(filesystem);
-
-    Ok(builder)
 }

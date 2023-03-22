@@ -20,7 +20,7 @@ use crate::{
     parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
+    PluggableRuntime, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;
@@ -722,9 +722,17 @@ impl WasiEnvBuilder {
             }
         }
 
-        let runtime = self
-            .runtime
-            .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
+        let runtime = self.runtime.unwrap_or_else(|| {
+            #[cfg(feature = "sys-thread")]
+            {
+                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::shared())))
+            }
+
+            #[cfg(not(feature = "sys-thread"))]
+            {
+                panic!("this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()");
+            }
+        });
 
         let uses = self.uses;
         let map_commands = self.map_commands;

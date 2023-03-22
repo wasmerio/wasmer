@@ -283,13 +283,13 @@ impl ModuleCache {
 #[cfg(test)]
 #[cfg(feature = "sys")]
 mod tests {
-    use std::time::Duration;
+    use std::{sync::Arc, time::Duration};
 
     use tracing_subscriber::{
         filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
     };
 
-    use crate::PluggableRuntimeImplementation;
+    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
     use super::*;
 
@@ -306,7 +306,7 @@ mod tests {
         let mut cache = ModuleCache::new(None, None, true);
         cache.cache_time = std::time::Duration::from_millis(500);
 
-        let rt = PluggableRuntimeImplementation::default();
+        let rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
         let tasks = rt.task_manager();
 
         let mut store = Vec::new();

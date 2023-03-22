@@ -6,6 +6,7 @@ use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::Context;
@@ -91,6 +92,40 @@ impl dyn FileSystem + 'static {
     #[inline]
     pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
         self.upcast_any_mut().downcast_mut::<T>()
+    }
+}
+
+impl<D, F> FileSystem for D
+where
+    D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
+    F: FileSystem + ?Sized,
+{
+    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+        (**self).read_dir(path)
+    }
+
+    fn create_dir(&self, path: &Path) -> Result<()> {
+        (**self).create_dir(path)
+    }
+
+    fn remove_dir(&self, path: &Path) -> Result<()> {
+        (**self).remove_dir(path)
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        (**self).rename(from, to)
+    }
+
+    fn metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).metadata(path)
+    }
+
+    fn remove_file(&self, path: &Path) -> Result<()> {
+        (**self).remove_file(path)
+    }
+
+    fn new_open_options(&self) -> OpenOptions {
+        (**self).new_open_options()
     }
 }
 

@@ -5,8 +5,6 @@ use rand::Rng;
 use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
-#[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,

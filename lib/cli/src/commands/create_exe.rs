@@ -2012,7 +2012,6 @@ mod http_fetch {
             .context("Could not lookup wasmer repository on Github.")?;
 
         if response.status_code() != StatusCode::new(200) {
-            #[cfg(feature = "debug")]
             log::warn!(
                 "Warning: Github API replied with non-200 status code: {}. Response: {}",
                 response.status_code(),
@@ -2134,7 +2133,6 @@ mod http_fetch {
         let download_path = download_tempdir.path().join(&filename);
 
         let mut file = std::fs::File::create(&download_path)?;
-        #[cfg(feature = "debug")]
         log::debug!(
             "Downloading {} to {}",
             browser_download_url,

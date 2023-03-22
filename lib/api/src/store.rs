@@ -13,8 +13,6 @@ use wasmer_vm::init_traps;
 pub use wasmer_vm::TrapHandlerFn;
 
 #[cfg(feature = "sys")]
-use crate::sys::NativeEngineExt;
-#[cfg(feature = "sys")]
 pub use wasmer_vm::{StoreHandle, StoreObjects};
 
 #[cfg(feature = "js")]

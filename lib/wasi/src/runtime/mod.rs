@@ -30,7 +30,6 @@ where
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
-    #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         None
     }
@@ -87,33 +86,16 @@ impl TtyBridge for DefaultTty {
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
-pub struct PluggableRuntimeImplementation {
+pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
-    #[cfg(feature = "sys")]
     pub engine: Option<wasmer::Engine>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
 }
 
-impl PluggableRuntimeImplementation {
-    pub fn set_networking_implementation<I>(&mut self, net: I)
-    where
-        I: VirtualNetworking + Sync,
-    {
-        self.networking = Arc::new(net)
-    }
-
-    #[cfg(feature = "sys")]
-    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
-        self.engine = engine;
-    }
-
-    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
-        self.tty = Some(tty);
-    }
-
+impl PluggableRuntime {
     pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
@@ -137,30 +119,28 @@ impl PluggableRuntimeImplementation {
             rt,
             networking,
             http_client,
-            #[cfg(feature = "sys")]
             engine: None,
             tty: None,
         }
     }
-}
 
-impl Default for PluggableRuntimeImplementation {
-    #[cfg(feature = "sys-thread")]
-    fn default() -> Self {
-        let rt = task_manager::tokio::TokioTaskManager::shared();
-        let mut s = Self::new(Arc::new(rt));
-        let engine = wasmer::Store::default().engine().clone();
-        s.engine = Some(engine);
-        s
+    pub fn set_networking_implementation<I>(&mut self, net: I)
+    where
+        I: VirtualNetworking + Sync,
+    {
+        self.networking = Arc::new(net)
     }
 
-    #[cfg(not(feature = "sys-thread"))]
-    fn default() -> Self {
-        unimplemented!("Default WasiRuntime is not implemented on this target")
+    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
+        self.engine = engine;
+    }
+
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+        self.tty = Some(tty);
     }
 }
 
-impl WasiRuntime for PluggableRuntimeImplementation {
+impl WasiRuntime for PluggableRuntime {
     fn networking(&self) -> &DynVirtualNetworking {
         &self.networking
     }
@@ -169,7 +149,6 @@ impl WasiRuntime for PluggableRuntimeImplementation {
         self.http_client.as_ref()
     }
 
-    #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         self.engine.clone()
     }

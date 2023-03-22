@@ -1,5 +1,4 @@
 use crate::engine::AsEngineRef;
-use crate::sys::engine::NativeEngineExt;
 use bytes::Bytes;
 use std::path::Path;
 use std::sync::Arc;

@@ -22,12 +22,12 @@ pub mod common;
 pub mod error;
 pub mod c_gen;
 pub mod cli;
-#[cfg(feature = "debug")]
 pub mod logging;
 pub mod package_source;
 pub mod store;
 pub mod suggestions;
 pub mod utils;
+pub mod wasmer_home;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
