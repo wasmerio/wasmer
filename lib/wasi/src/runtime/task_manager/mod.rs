@@ -43,6 +43,10 @@ pub enum TaskResumeAction {
     Abort,
 }
 
+pub type WasmResumeTrigger = dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
+    + Send
+    + Sync;
+
 /// An implementation of task management
 #[async_trait::async_trait]
 #[allow(unused_variables)]
@@ -91,11 +95,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
         store: Store,
         module: Module,
-        #[allow(clippy::all)] trigger: Box<
-            dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
-                + Send
-                + 'static,
-        >,
+        trigger: Box<WasmResumeTrigger>,
     ) -> Result<(), WasiThreadError>;
 
     /// Starts an asynchronous task will will run on a dedicated thread

@@ -13,7 +13,7 @@ use wasmer::{
 
 use crate::os::task::thread::WasiThreadError;
 
-use super::{SpawnType, TaskResumeAction, VirtualTaskManager};
+use super::{SpawnType, TaskResumeAction, VirtualTaskManager, WasmResumeTrigger};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
@@ -152,11 +152,7 @@ impl VirtualTaskManager for TokioTaskManager {
         task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
         store: Store,
         module: Module,
-        trigger: Box<
-            dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
-                + Send
-                + 'static,
-        >,
+        trigger: Box<WasmResumeTrigger>,
     ) -> Result<(), WasiThreadError> {
         let trigger = trigger(store);
         let handle = self.0.clone();

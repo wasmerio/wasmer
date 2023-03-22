@@ -218,7 +218,7 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                let ret = run::<M>(ctx, store, module, tasks, fork_memory_ty, None);
+                let ret = run::<M>(ctx, store, module, tasks, None);
                 trace!(%pid, %tid, "child exited (code = {})", ret);
 
                 // Send the result
@@ -288,7 +288,6 @@ fn run<M: MemorySize>(
     mut store: Store,
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
-    #[allow(clippy::all)] fork_memory_ty: MemoryType,
     rewind_state: Option<RewindState>,
 ) -> ExitCode {
     // If we need to rewind then do so
@@ -338,7 +337,7 @@ fn run<M: MemorySize>(
                     let tasks = tasks.clone();
                     let rewind_state = Some(deep.rewind);
                     move |store, module| {
-                        run::<M>(ctx, store, module, tasks, fork_memory_ty, rewind_state);
+                        run::<M>(ctx, store, module, tasks, rewind_state);
                     }
                 };
 

@@ -155,7 +155,7 @@ fn call_module<M: MemorySize>(
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
     start_ptr_offset: M::Offset,
-    #[allow(clippy::all)] thread_memory_ty: MemoryType,
+    thread_memory_ty: MemoryType,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<RewindState>,
 ) -> u32 {
@@ -225,7 +225,11 @@ fn call_module<M: MemorySize>(
 
     // If it went to deep sleep then we need to handle that
     match ret {
-        Ok(ret) => ret,
+        Ok(ret) => {
+            // Frees the handle so that it closes
+            drop(thread_handle);
+            ret
+        }
         Err(deep) => {
             // Create the callback that will be invoked when the thread respawns after a deep sleep
             let rewind = deep.rewind;

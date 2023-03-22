@@ -445,6 +445,9 @@ where
     })
 }
 
+pub(crate) type AsyncifyWorkAfter<T> =
+    dyn FnOnce(T, &WasiEnv, &dyn AsStoreRef) + Send + Sync + 'static;
+
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
@@ -467,8 +470,7 @@ where
 {
     struct Poller<T> {
         work: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>,
-        #[allow(clippy::all)]
-        after: Option<Box<dyn FnOnce(T, &WasiEnv, &dyn AsStoreRef) + Send + Sync + 'static>>,
+        after: Option<Box<AsyncifyWorkAfter<T>>>,
     }
     impl<T> AsyncifyFuture for Poller<T> {
         type Output = Result<(), Errno>;
