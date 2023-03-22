@@ -33,7 +33,7 @@ pub fn futex_wake<M: MemorySize>(
             }
             true
         } else {
-            false
+            true
         }
     };
     Span::current().record("woken", woken);
