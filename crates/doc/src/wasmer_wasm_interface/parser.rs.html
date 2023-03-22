@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasm-interface/src/parser.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>parser.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_wasm_interface/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasm-interface/src/parser.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>parser.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_wasm_interface/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -594,419 +594,419 @@
 <span id="594">594</span>
 <span id="595">595</span>
 <span id="596">596</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Parsers to get a wasm interface from text</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The grammar of the text format is:</span>
-<span class="doccomment">//! interface = &quot;(&quot; interface name? interface-entry* &quot;)&quot;</span>
-<span class="doccomment">//! interface-entry = func | global</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! func = import-fn | export-fn</span>
-<span class="doccomment">//! global = import-global | export-global</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! import-fn = &quot;(&quot; &quot;func&quot; import-id param-list? result-list? &quot;)&quot;</span>
-<span class="doccomment">//! import-global = &quot;(&quot; &quot;global&quot; import-id type-decl &quot;)&quot;</span>
-<span class="doccomment">//! import-id = &quot;(&quot; &quot;import&quot; namespace name &quot;)&quot;</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! export-fn = &quot;(&quot; &quot;func&quot; export-id param-list? result-list? &quot;)&quot;</span>
-<span class="doccomment">//! export-global = &quot;(&quot; &quot;global&quot; export-id type-decl &quot;)&quot;</span>
-<span class="doccomment">//! export-id = &quot;(&quot; export name &quot;)&quot;</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! param-list = &quot;(&quot; param type* &quot;)&quot;</span>
-<span class="doccomment">//! result-list = &quot;(&quot; result type* &quot;)&quot;</span>
-<span class="doccomment">//! type-decl = &quot;(&quot; &quot;type&quot; type &quot;)&quot;</span>
-<span class="doccomment">//! namespace = &quot;\&quot;&quot; identifier &quot;\&quot;&quot;</span>
-<span class="doccomment">//! name = &quot;\&quot;&quot; identifier &quot;\&quot;&quot;</span>
-<span class="doccomment">//! identifier = any character that&#39;s not a whitespace character or an open or close parenthesis</span>
-<span class="doccomment">//! type = &quot;i32&quot; | &quot;i64&quot; | &quot;f32&quot; | &quot;f64&quot;</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! + means 1 or more</span>
-<span class="doccomment">//! * means 0 or more</span>
-<span class="doccomment">//! ? means 0 or 1</span>
-<span class="doccomment">//! | means &quot;or&quot;</span>
-<span class="doccomment">//! &quot;\&quot;&quot; means one `&quot;` character</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! comments start with a `;` character and go until a newline `\n` character is reached</span>
-<span class="doccomment">//! comments and whitespace are valid between any tokens</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Parsers to get a wasm interface from text
+//!
+//! The grammar of the text format is:
+//! interface = &quot;(&quot; interface name? interface-entry* &quot;)&quot;
+//! interface-entry = func | global
+//!
+//! func = import-fn | export-fn
+//! global = import-global | export-global
+//!
+//! import-fn = &quot;(&quot; &quot;func&quot; import-id param-list? result-list? &quot;)&quot;
+//! import-global = &quot;(&quot; &quot;global&quot; import-id type-decl &quot;)&quot;
+//! import-id = &quot;(&quot; &quot;import&quot; namespace name &quot;)&quot;
+//!
+//! export-fn = &quot;(&quot; &quot;func&quot; export-id param-list? result-list? &quot;)&quot;
+//! export-global = &quot;(&quot; &quot;global&quot; export-id type-decl &quot;)&quot;
+//! export-id = &quot;(&quot; export name &quot;)&quot;
+//!
+//! param-list = &quot;(&quot; param type* &quot;)&quot;
+//! result-list = &quot;(&quot; result type* &quot;)&quot;
+//! type-decl = &quot;(&quot; &quot;type&quot; type &quot;)&quot;
+//! namespace = &quot;\&quot;&quot; identifier &quot;\&quot;&quot;
+//! name = &quot;\&quot;&quot; identifier &quot;\&quot;&quot;
+//! identifier = any character that&#39;s not a whitespace character or an open or close parenthesis
+//! type = &quot;i32&quot; | &quot;i64&quot; | &quot;f32&quot; | &quot;f64&quot;
+//!
+//! + means 1 or more
+//! * means 0 or more
+//! ? means 0 or 1
+//! | means &quot;or&quot;
+//! &quot;\&quot;&quot; means one `&quot;` character
+//!
+//! comments start with a `;` character and go until a newline `\n` character is reached
+//! comments and whitespace are valid between any tokens
 
-<span class="kw">use</span> <span class="ident">either::Either</span>;
-<span class="kw">use</span> <span class="ident">nom</span>::{
-    <span class="ident">branch</span>::<span class="kw-2">*</span>,
-    <span class="ident">bytes::complete</span>::{<span class="ident">escaped</span>, <span class="ident">is_not</span>, <span class="ident">tag</span>},
-    <span class="ident">character::complete</span>::{<span class="ident">char</span>, <span class="ident">multispace0</span>, <span class="ident">multispace1</span>, <span class="ident">one_of</span>},
-    <span class="ident">combinator</span>::<span class="kw-2">*</span>,
-    <span class="ident">error::context</span>,
-    <span class="ident">multi::many0</span>,
-    <span class="ident">sequence</span>::{<span class="ident">delimited</span>, <span class="ident">preceded</span>, <span class="ident">tuple</span>},
-    <span class="ident">IResult</span>,
+</span><span class="kw">use </span>either::Either;
+<span class="kw">use </span>nom::{
+    branch::<span class="kw-2">*</span>,
+    bytes::complete::{escaped, is_not, tag},
+    character::complete::{char, multispace0, multispace1, one_of},
+    combinator::<span class="kw-2">*</span>,
+    error::context,
+    multi::many0,
+    sequence::{delimited, preceded, tuple},
+    IResult,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::interface</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::interface::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// Some example input:</span>
-<span class="doccomment">/// (interface &quot;example_interface&quot;</span>
-<span class="doccomment">///     (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))</span>
-<span class="doccomment">///     (func (export &quot;name&quot;) (param f64 i32) (result f64 i32))</span>
-<span class="doccomment">///     (global (import &quot;ns&quot; &quot;name&quot;) (type f64)))</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_interface</span>(<span class="kw-2">mut</span> <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Interface</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">Interface::default</span>();
-    <span class="kw">let</span> <span class="ident">interface_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(
-        <span class="ident">tag</span>(<span class="string">&quot;interface&quot;</span>),
-        <span class="ident">tuple</span>((
-            <span class="ident">opt</span>(<span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>)),
-            <span class="ident">many0</span>(<span class="ident">parse_func_or_global</span>),
+<span class="doccomment">/// Some example input:
+/// (interface &quot;example_interface&quot;
+///     (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))
+///     (func (export &quot;name&quot;) (param f64 i32) (result f64 i32))
+///     (global (import &quot;ns&quot; &quot;name&quot;) (type f64)))
+</span><span class="kw">pub fn </span>parse_interface(<span class="kw-2">mut </span>input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Interface, String&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>interface = Interface::default();
+    <span class="kw">let </span>interface_inner = preceded(
+        tag(<span class="string">&quot;interface&quot;</span>),
+        tuple((
+            opt(preceded(space_comments, identifier)),
+            many0(parse_func_or_global),
         )),
     );
-    <span class="kw">let</span> <span class="ident">interface_parser</span> <span class="op">=</span> <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">s_exp</span>(<span class="ident">interface_inner</span>));
+    <span class="kw">let </span>interface_parser = preceded(space_comments, s_exp(interface_inner));
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Result::Ok</span>((<span class="ident">inp</span>, (<span class="ident">sig_id</span>, <span class="ident">out</span>))) <span class="op">=</span> <span class="ident">interface_parser</span>(<span class="ident">input</span>) {
-        <span class="ident">interface</span>.<span class="ident">name</span> <span class="op">=</span> <span class="ident">sig_id</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s_id</span><span class="op">|</span> <span class="ident">s_id</span>.<span class="ident">to_string</span>());
+    <span class="kw">if let </span>Result::Ok((inp, (sig_id, out))) = interface_parser(input) {
+        interface.name = sig_id.map(|s_id| s_id.to_string());
 
-        <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">out</span>.<span class="ident">into_iter</span>() {
-            <span class="kw">match</span> <span class="ident">entry</span> {
-                <span class="ident">Either::Left</span>(<span class="ident">import</span>) =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dup</span>) <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">imports</span>.<span class="ident">insert</span>(<span class="ident">import</span>.<span class="ident">get_key</span>(), <span class="ident">import</span>) {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Duplicate import found {:?}&quot;</span>, <span class="ident">dup</span>));
+        <span class="kw">for </span>entry <span class="kw">in </span>out.into_iter() {
+            <span class="kw">match </span>entry {
+                Either::Left(import) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(dup) = interface.imports.insert(import.get_key(), import) {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Duplicate import found {:?}&quot;</span>, dup));
                     }
                 }
-                <span class="ident">Either::Right</span>(<span class="ident">export</span>) =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dup</span>) <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">exports</span>.<span class="ident">insert</span>(<span class="ident">export</span>.<span class="ident">get_key</span>(), <span class="ident">export</span>) {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Duplicate export found {:?}&quot;</span>, <span class="ident">dup</span>));
+                Either::Right(export) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(dup) = interface.exports.insert(export.get_key(), export) {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Duplicate export found {:?}&quot;</span>, dup));
                     }
                 }
             }
         }
-        <span class="ident">input</span> <span class="op">=</span> <span class="ident">inp</span>;
+        input = inp;
     }
-    <span class="comment">// catch trailing comments and spaces</span>
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>((<span class="ident">inp</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">space_comments</span>(<span class="ident">input</span>) {
-        <span class="ident">input</span> <span class="op">=</span> <span class="ident">inp</span>;
+    <span class="comment">// catch trailing comments and spaces
+    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>((inp, <span class="kw">_</span>)) = space_comments(input) {
+        input = inp;
     }
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">input</span>.<span class="ident">is_empty</span>() {
-        <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Could not parse remaining input: {}&quot;</span>, <span class="ident">input</span>))
-    } <span class="kw">else</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">interface</span>)
+    <span class="kw">if </span>!input.is_empty() {
+        <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Could not parse remaining input: {}&quot;</span>, input))
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Ok</span>(interface)
     }
 }
 
-<span class="kw">fn</span> <span class="ident">parse_comment</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, ()<span class="op">&gt;</span> {
-    <span class="ident">map</span>(
-        <span class="ident">preceded</span>(<span class="ident">multispace0</span>, <span class="ident">preceded</span>(<span class="ident">char</span>(<span class="string">&#39;;&#39;</span>), <span class="ident">many0</span>(<span class="ident">is_not</span>(<span class="string">&quot;\n&quot;</span>)))),
-        <span class="op">|</span><span class="kw">_</span><span class="op">|</span> (),
-    )(<span class="ident">input</span>)
+<span class="kw">fn </span>parse_comment(input: <span class="kw-2">&amp;</span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span>str, ()&gt; {
+    map(
+        preceded(multispace0, preceded(char(<span class="string">&#39;;&#39;</span>), many0(is_not(<span class="string">&quot;\n&quot;</span>)))),
+        |<span class="kw">_</span>| (),
+    )(input)
 }
 
-<span class="doccomment">/// Consumes spaces and comments</span>
-<span class="doccomment">/// comments must terminate with a new line character</span>
-<span class="kw">fn</span> <span class="ident">space_comments</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, ()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">space_found</span> <span class="op">=</span> <span class="bool-val">true</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">comment_found</span> <span class="op">=</span> <span class="bool-val">true</span>;
-    <span class="kw">while</span> <span class="ident">space_found</span> <span class="op">|</span><span class="op">|</span> <span class="ident">comment_found</span> {
-        <span class="kw">let</span> <span class="ident">space</span>: <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">multispace1</span>(<span class="ident">input</span>);
-        <span class="ident">space_found</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Result::Ok</span>((<span class="ident">inp</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">space</span> {
-            <span class="ident">input</span> <span class="op">=</span> <span class="ident">inp</span>;
-            <span class="bool-val">true</span>
-        } <span class="kw">else</span> {
-            <span class="bool-val">false</span>
-        };
-        <span class="ident">comment_found</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Result::Ok</span>((<span class="ident">inp</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">parse_comment</span>(<span class="ident">input</span>) {
-            <span class="ident">input</span> <span class="op">=</span> <span class="ident">inp</span>;
-            <span class="bool-val">true</span>
-        } <span class="kw">else</span> {
-            <span class="bool-val">false</span>
-        };
+<span class="doccomment">/// Consumes spaces and comments
+/// comments must terminate with a new line character
+</span><span class="kw">fn </span>space_comments&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">mut </span>input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, ()&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>space_found = <span class="bool-val">true</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>comment_found = <span class="bool-val">true</span>;
+    <span class="kw">while </span>space_found || comment_found {
+        <span class="kw">let </span>space: IResult&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, <span class="kw">_</span>&gt; = multispace1(input);
+        space_found = <span class="kw">if let </span>Result::Ok((inp, <span class="kw">_</span>)) = space {
+            input = inp;
+            <span class="bool-val">true
+        </span>} <span class="kw">else </span>{
+            <span class="bool-val">false
+        </span>};
+        comment_found = <span class="kw">if let </span>Result::Ok((inp, <span class="kw">_</span>)) = parse_comment(input) {
+            input = inp;
+            <span class="bool-val">true
+        </span>} <span class="kw">else </span>{
+            <span class="bool-val">false
+        </span>};
     }
-    <span class="prelude-val">Ok</span>((<span class="ident">input</span>, ()))
+    <span class="prelude-val">Ok</span>((input, ()))
 }
 
-<span class="doccomment">/// A quoted identifier, must be valid UTF8</span>
-<span class="kw">fn</span> <span class="ident">identifier</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">name_inner</span> <span class="op">=</span> <span class="ident">escaped</span>(<span class="ident">is_not</span>(<span class="string">&quot;\&quot;\\&quot;</span>), <span class="string">&#39;\\&#39;</span>, <span class="ident">one_of</span>(<span class="string">&quot;\&quot;n\\&quot;</span>));
-    <span class="ident">context</span>(<span class="string">&quot;identifier&quot;</span>, <span class="ident">delimited</span>(<span class="ident">char</span>(<span class="string">&#39;&quot;&#39;</span>), <span class="ident">name_inner</span>, <span class="ident">char</span>(<span class="string">&#39;&quot;&#39;</span>)))(<span class="ident">input</span>)
+<span class="doccomment">/// A quoted identifier, must be valid UTF8
+</span><span class="kw">fn </span>identifier(input: <span class="kw-2">&amp;</span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str&gt; {
+    <span class="kw">let </span>name_inner = escaped(is_not(<span class="string">&quot;\&quot;\\&quot;</span>), <span class="string">&#39;\\&#39;</span>, one_of(<span class="string">&quot;\&quot;n\\&quot;</span>));
+    context(<span class="string">&quot;identifier&quot;</span>, delimited(char(<span class="string">&#39;&quot;&#39;</span>), name_inner, char(<span class="string">&#39;&quot;&#39;</span>)))(input)
 }
 
-<span class="doccomment">/// Parses a wasm primitive type</span>
-<span class="kw">fn</span> <span class="ident">wasm_type</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">WasmType</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">i32_tag</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">tag</span>(<span class="string">&quot;i32&quot;</span>), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">WasmType::I32</span>);
-    <span class="kw">let</span> <span class="ident">i64_tag</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">tag</span>(<span class="string">&quot;i64&quot;</span>), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">WasmType::I64</span>);
-    <span class="kw">let</span> <span class="ident">f32_tag</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">tag</span>(<span class="string">&quot;f32&quot;</span>), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">WasmType::F32</span>);
-    <span class="kw">let</span> <span class="ident">f64_tag</span> <span class="op">=</span> <span class="ident">map</span>(<span class="ident">tag</span>(<span class="string">&quot;f64&quot;</span>), <span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">WasmType::F64</span>);
+<span class="doccomment">/// Parses a wasm primitive type
+</span><span class="kw">fn </span>wasm_type(input: <span class="kw-2">&amp;</span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span>str, WasmType&gt; {
+    <span class="kw">let </span>i32_tag = map(tag(<span class="string">&quot;i32&quot;</span>), |<span class="kw">_</span>| WasmType::I32);
+    <span class="kw">let </span>i64_tag = map(tag(<span class="string">&quot;i64&quot;</span>), |<span class="kw">_</span>| WasmType::I64);
+    <span class="kw">let </span>f32_tag = map(tag(<span class="string">&quot;f32&quot;</span>), |<span class="kw">_</span>| WasmType::F32);
+    <span class="kw">let </span>f64_tag = map(tag(<span class="string">&quot;f64&quot;</span>), |<span class="kw">_</span>| WasmType::F64);
 
-    <span class="ident">alt</span>((<span class="ident">i32_tag</span>, <span class="ident">i64_tag</span>, <span class="ident">f32_tag</span>, <span class="ident">f64_tag</span>))(<span class="ident">input</span>)
+    alt((i32_tag, i64_tag, f32_tag, f64_tag))(input)
 }
 
-<span class="doccomment">/// Parses an S-expression</span>
-<span class="kw">fn</span> <span class="ident">s_exp</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">O1</span>, <span class="ident">F</span><span class="op">&gt;</span>(<span class="ident">inner</span>: <span class="ident">F</span>) -&gt; <span class="kw">impl</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">O1</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">O1</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Parses an S-expression
+</span><span class="kw">fn </span>s_exp&lt;<span class="lifetime">&#39;a</span>, O1, F&gt;(inner: F) -&gt; <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, O1&gt;
+<span class="kw">where
+    </span>F: Fn(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, O1&gt;,
 {
-    <span class="ident">delimited</span>(
-        <span class="ident">char</span>(<span class="string">&#39;(&#39;</span>),
-        <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">inner</span>),
-        <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">char</span>(<span class="string">&#39;)&#39;</span>)),
+    delimited(
+        char(<span class="string">&#39;(&#39;</span>),
+        preceded(space_comments, inner),
+        preceded(space_comments, char(<span class="string">&#39;)&#39;</span>)),
     )
 }
 
-<span class="kw">fn</span> <span class="ident">parse_func_or_global</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Either</span><span class="op">&lt;</span><span class="ident">Import</span>, <span class="ident">Export</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">alt</span>((<span class="ident">func</span>, <span class="ident">global</span>)))(<span class="ident">input</span>)
+<span class="kw">fn </span>parse_func_or_global(input: <span class="kw-2">&amp;</span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span>str, Either&lt;Import, Export&gt;&gt; {
+    preceded(space_comments, alt((func, global)))(input)
 }
 
-<span class="doccomment">/// (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))</span>
-<span class="doccomment">/// (func (export &quot;name&quot;) (param f64 i32) (result f64 i32))</span>
-<span class="kw">fn</span> <span class="ident">func</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Either</span><span class="op">&lt;</span><span class="ident">Import</span>, <span class="ident">Export</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">param_list_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(<span class="ident">tag</span>(<span class="string">&quot;param&quot;</span>), <span class="ident">many0</span>(<span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">wasm_type</span>)));
-    <span class="kw">let</span> <span class="ident">param_list</span> <span class="op">=</span> <span class="ident">opt</span>(<span class="ident">s_exp</span>(<span class="ident">param_list_inner</span>));
-    <span class="kw">let</span> <span class="ident">result_list_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(<span class="ident">tag</span>(<span class="string">&quot;result&quot;</span>), <span class="ident">many0</span>(<span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">wasm_type</span>)));
-    <span class="kw">let</span> <span class="ident">result_list</span> <span class="op">=</span> <span class="ident">opt</span>(<span class="ident">s_exp</span>(<span class="ident">result_list_inner</span>));
-    <span class="kw">let</span> <span class="ident">import_id_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(
-        <span class="ident">tag</span>(<span class="string">&quot;import&quot;</span>),
-        <span class="ident">tuple</span>((
-            <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>),
-            <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>),
+<span class="doccomment">/// (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))
+/// (func (export &quot;name&quot;) (param f64 i32) (result f64 i32))
+</span><span class="kw">fn </span>func(input: <span class="kw-2">&amp;</span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span>str, Either&lt;Import, Export&gt;&gt; {
+    <span class="kw">let </span>param_list_inner = preceded(tag(<span class="string">&quot;param&quot;</span>), many0(preceded(space_comments, wasm_type)));
+    <span class="kw">let </span>param_list = opt(s_exp(param_list_inner));
+    <span class="kw">let </span>result_list_inner = preceded(tag(<span class="string">&quot;result&quot;</span>), many0(preceded(space_comments, wasm_type)));
+    <span class="kw">let </span>result_list = opt(s_exp(result_list_inner));
+    <span class="kw">let </span>import_id_inner = preceded(
+        tag(<span class="string">&quot;import&quot;</span>),
+        tuple((
+            preceded(space_comments, identifier),
+            preceded(space_comments, identifier),
         )),
     );
-    <span class="kw">let</span> <span class="ident">export_id_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(<span class="ident">tag</span>(<span class="string">&quot;export&quot;</span>), <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>));
-    <span class="kw">let</span> <span class="ident">func_id_inner</span> <span class="op">=</span> <span class="ident">alt</span>((
-        <span class="ident">map</span>(<span class="ident">import_id_inner</span>, <span class="op">|</span>(<span class="ident">ns</span>, <span class="ident">name</span>)<span class="op">|</span> {
-            <span class="ident">Either::Left</span>((<span class="ident">ns</span>.<span class="ident">to_string</span>(), <span class="ident">name</span>.<span class="ident">to_string</span>()))
+    <span class="kw">let </span>export_id_inner = preceded(tag(<span class="string">&quot;export&quot;</span>), preceded(space_comments, identifier));
+    <span class="kw">let </span>func_id_inner = alt((
+        map(import_id_inner, |(ns, name)| {
+            Either::Left((ns.to_string(), name.to_string()))
         }),
-        <span class="ident">map</span>(<span class="ident">export_id_inner</span>, <span class="op">|</span><span class="ident">name</span><span class="op">|</span> <span class="ident">Either::Right</span>(<span class="ident">name</span>.<span class="ident">to_string</span>())),
+        map(export_id_inner, |name| Either::Right(name.to_string())),
     ));
-    <span class="kw">let</span> <span class="ident">func_id</span> <span class="op">=</span> <span class="ident">s_exp</span>(<span class="ident">func_id_inner</span>);
-    <span class="kw">let</span> <span class="ident">func_import_inner</span> <span class="op">=</span> <span class="ident">context</span>(
+    <span class="kw">let </span>func_id = s_exp(func_id_inner);
+    <span class="kw">let </span>func_import_inner = context(
         <span class="string">&quot;func import inner&quot;</span>,
-        <span class="ident">preceded</span>(
-            <span class="ident">tag</span>(<span class="string">&quot;func&quot;</span>),
-            <span class="ident">map</span>(
-                <span class="ident">tuple</span>((
-                    <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">func_id</span>),
-                    <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">param_list</span>),
-                    <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">result_list</span>),
+        preceded(
+            tag(<span class="string">&quot;func&quot;</span>),
+            map(
+                tuple((
+                    preceded(space_comments, func_id),
+                    preceded(space_comments, param_list),
+                    preceded(space_comments, result_list),
                 )),
-                <span class="op">|</span>(<span class="ident">func_id</span>, <span class="ident">pl</span>, <span class="ident">rl</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">func_id</span> {
-                    <span class="ident">Either::Left</span>((<span class="ident">ns</span>, <span class="ident">name</span>)) =&gt; <span class="ident">Either::Left</span>(<span class="ident">Import::Func</span> {
-                        <span class="ident">namespace</span>: <span class="ident">ns</span>,
-                        <span class="ident">name</span>,
-                        <span class="ident">params</span>: <span class="ident">pl</span>.<span class="ident">unwrap_or_default</span>(),
-                        <span class="ident">result</span>: <span class="ident">rl</span>.<span class="ident">unwrap_or_default</span>(),
+                |(func_id, pl, rl)| <span class="kw">match </span>func_id {
+                    Either::Left((ns, name)) =&gt; Either::Left(Import::Func {
+                        namespace: ns,
+                        name,
+                        params: pl.unwrap_or_default(),
+                        result: rl.unwrap_or_default(),
                     }),
-                    <span class="ident">Either::Right</span>(<span class="ident">name</span>) =&gt; <span class="ident">Either::Right</span>(<span class="ident">Export::Func</span> {
-                        <span class="ident">name</span>,
-                        <span class="ident">params</span>: <span class="ident">pl</span>.<span class="ident">unwrap_or_default</span>(),
-                        <span class="ident">result</span>: <span class="ident">rl</span>.<span class="ident">unwrap_or_default</span>(),
+                    Either::Right(name) =&gt; Either::Right(Export::Func {
+                        name,
+                        params: pl.unwrap_or_default(),
+                        result: rl.unwrap_or_default(),
                     }),
                 },
             ),
         ),
     );
-    <span class="ident">s_exp</span>(<span class="ident">func_import_inner</span>)(<span class="ident">input</span>)
+    s_exp(func_import_inner)(input)
 }
 
-<span class="doccomment">/// (global (import &quot;ns&quot; &quot;name&quot;) (type f64))</span>
-<span class="doccomment">/// (global (export &quot;name&quot;) (type f64))</span>
-<span class="kw">fn</span> <span class="ident">global</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Either</span><span class="op">&lt;</span><span class="ident">Import</span>, <span class="ident">Export</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">global_type_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(<span class="ident">tag</span>(<span class="string">&quot;type&quot;</span>), <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">wasm_type</span>));
-    <span class="kw">let</span> <span class="ident">type_s_exp</span> <span class="op">=</span> <span class="ident">s_exp</span>(<span class="ident">global_type_inner</span>);
-    <span class="kw">let</span> <span class="ident">export_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(<span class="ident">tag</span>(<span class="string">&quot;export&quot;</span>), <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>));
-    <span class="kw">let</span> <span class="ident">import_inner</span> <span class="op">=</span> <span class="ident">preceded</span>(
-        <span class="ident">tag</span>(<span class="string">&quot;import&quot;</span>),
-        <span class="ident">tuple</span>((
-            <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>),
-            <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">identifier</span>),
+<span class="doccomment">/// (global (import &quot;ns&quot; &quot;name&quot;) (type f64))
+/// (global (export &quot;name&quot;) (type f64))
+</span><span class="kw">fn </span>global(input: <span class="kw-2">&amp;</span>str) -&gt; IResult&lt;<span class="kw-2">&amp;</span>str, Either&lt;Import, Export&gt;&gt; {
+    <span class="kw">let </span>global_type_inner = preceded(tag(<span class="string">&quot;type&quot;</span>), preceded(space_comments, wasm_type));
+    <span class="kw">let </span>type_s_exp = s_exp(global_type_inner);
+    <span class="kw">let </span>export_inner = preceded(tag(<span class="string">&quot;export&quot;</span>), preceded(space_comments, identifier));
+    <span class="kw">let </span>import_inner = preceded(
+        tag(<span class="string">&quot;import&quot;</span>),
+        tuple((
+            preceded(space_comments, identifier),
+            preceded(space_comments, identifier),
         )),
     );
-    <span class="kw">let</span> <span class="ident">global_id_inner</span> <span class="op">=</span> <span class="ident">alt</span>((
-        <span class="ident">map</span>(<span class="ident">import_inner</span>, <span class="op">|</span>(<span class="ident">ns</span>, <span class="ident">name</span>)<span class="op">|</span> {
-            <span class="ident">Either::Left</span>(<span class="ident">Import::Global</span> {
-                <span class="ident">namespace</span>: <span class="ident">ns</span>.<span class="ident">to_string</span>(),
-                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-                <span class="comment">// placeholder type, overwritten in `global_inner`</span>
-                <span class="ident">var_type</span>: <span class="ident">WasmType::I32</span>,
+    <span class="kw">let </span>global_id_inner = alt((
+        map(import_inner, |(ns, name)| {
+            Either::Left(Import::Global {
+                namespace: ns.to_string(),
+                name: name.to_string(),
+                <span class="comment">// placeholder type, overwritten in `global_inner`
+                </span>var_type: WasmType::I32,
             })
         }),
-        <span class="ident">map</span>(<span class="ident">export_inner</span>, <span class="op">|</span><span class="ident">name</span><span class="op">|</span> {
-            <span class="ident">Either::Right</span>(<span class="ident">Export::Global</span> {
-                <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-                <span class="comment">// placeholder type, overwritten in `global_inner`</span>
-                <span class="ident">var_type</span>: <span class="ident">WasmType::I32</span>,
+        map(export_inner, |name| {
+            Either::Right(Export::Global {
+                name: name.to_string(),
+                <span class="comment">// placeholder type, overwritten in `global_inner`
+                </span>var_type: WasmType::I32,
             })
         }),
     ));
-    <span class="kw">let</span> <span class="ident">global_id</span> <span class="op">=</span> <span class="ident">s_exp</span>(<span class="ident">global_id_inner</span>);
-    <span class="kw">let</span> <span class="ident">global_inner</span> <span class="op">=</span> <span class="ident">context</span>(
+    <span class="kw">let </span>global_id = s_exp(global_id_inner);
+    <span class="kw">let </span>global_inner = context(
         <span class="string">&quot;global inner&quot;</span>,
-        <span class="ident">preceded</span>(
-            <span class="ident">tag</span>(<span class="string">&quot;global&quot;</span>),
-            <span class="ident">map</span>(
-                <span class="ident">tuple</span>((
-                    <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">global_id</span>),
-                    <span class="ident">preceded</span>(<span class="ident">space_comments</span>, <span class="ident">type_s_exp</span>),
+        preceded(
+            tag(<span class="string">&quot;global&quot;</span>),
+            map(
+                tuple((
+                    preceded(space_comments, global_id),
+                    preceded(space_comments, type_s_exp),
                 )),
-                <span class="op">|</span>(<span class="ident">import_or_export</span>, <span class="ident">var_type</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">import_or_export</span> {
-                    <span class="ident">Either::Left</span>(<span class="ident">Import::Global</span> {
-                        <span class="ident">namespace</span>, <span class="ident">name</span>, ..
-                    }) =&gt; <span class="ident">Either::Left</span>(<span class="ident">Import::Global</span> {
-                        <span class="ident">namespace</span>,
-                        <span class="ident">name</span>,
-                        <span class="ident">var_type</span>,
+                |(import_or_export, var_type)| <span class="kw">match </span>import_or_export {
+                    Either::Left(Import::Global {
+                        namespace, name, ..
+                    }) =&gt; Either::Left(Import::Global {
+                        namespace,
+                        name,
+                        var_type,
                     }),
-                    <span class="ident">Either::Right</span>(<span class="ident">Export::Global</span> { <span class="ident">name</span>, .. }) =&gt; {
-                        <span class="ident">Either::Right</span>(<span class="ident">Export::Global</span> { <span class="ident">name</span>, <span class="ident">var_type</span> })
+                    Either::Right(Export::Global { name, .. }) =&gt; {
+                        Either::Right(Export::Global { name, var_type })
                     }
-                    <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Invalid value interonally in parse global function&quot;</span>),
+                    <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Invalid value interonally in parse global function&quot;</span>),
                 },
             ),
         ),
     );
-    <span class="ident">s_exp</span>(<span class="ident">global_inner</span>)(<span class="ident">input</span>)
+    s_exp(global_inner)(input)
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::collections::HashMap;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_wasm_type</span>() {
-        <span class="kw">let</span> <span class="ident">i32_res</span> <span class="op">=</span> <span class="ident">wasm_type</span>(<span class="string">&quot;i32&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">i32_res</span>, (<span class="string">&quot;&quot;</span>, <span class="ident">WasmType::I32</span>));
-        <span class="kw">let</span> <span class="ident">i64_res</span> <span class="op">=</span> <span class="ident">wasm_type</span>(<span class="string">&quot;i64&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">i64_res</span>, (<span class="string">&quot;&quot;</span>, <span class="ident">WasmType::I64</span>));
-        <span class="kw">let</span> <span class="ident">f32_res</span> <span class="op">=</span> <span class="ident">wasm_type</span>(<span class="string">&quot;f32&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">f32_res</span>, (<span class="string">&quot;&quot;</span>, <span class="ident">WasmType::F32</span>));
-        <span class="kw">let</span> <span class="ident">f64_res</span> <span class="op">=</span> <span class="ident">wasm_type</span>(<span class="string">&quot;f64&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">f64_res</span>, (<span class="string">&quot;&quot;</span>, <span class="ident">WasmType::F64</span>));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_wasm_type() {
+        <span class="kw">let </span>i32_res = wasm_type(<span class="string">&quot;i32&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(i32_res, (<span class="string">&quot;&quot;</span>, WasmType::I32));
+        <span class="kw">let </span>i64_res = wasm_type(<span class="string">&quot;i64&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(i64_res, (<span class="string">&quot;&quot;</span>, WasmType::I64));
+        <span class="kw">let </span>f32_res = wasm_type(<span class="string">&quot;f32&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(f32_res, (<span class="string">&quot;&quot;</span>, WasmType::F32));
+        <span class="kw">let </span>f64_res = wasm_type(<span class="string">&quot;f64&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(f64_res, (<span class="string">&quot;&quot;</span>, WasmType::F64));
 
-        <span class="macro">assert!</span>(<span class="ident">wasm_type</span>(<span class="string">&quot;i128&quot;</span>).<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(wasm_type(<span class="string">&quot;i128&quot;</span>).is_err());
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_identifier</span>() {
-        <span class="kw">let</span> <span class="ident">inner_str</span> <span class="op">=</span> <span class="string">&quot;柴は可愛すぎるだと思います&quot;</span>;
-        <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">inner_str</span>);
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">identifier</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;&quot;</span>, <span class="ident">inner_str</span>))
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_identifier() {
+        <span class="kw">let </span>inner_str = <span class="string">&quot;柴は可愛すぎるだと思います&quot;</span>;
+        <span class="kw">let </span>input = <span class="macro">format!</span>(<span class="string">&quot;\&quot;{}\&quot;&quot;</span>, <span class="kw-2">&amp;</span>inner_str);
+        <span class="kw">let </span>parse_res = identifier(<span class="kw-2">&amp;</span>input).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;&quot;</span>, inner_str))
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_global_import</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">global</span>(<span class="string">r#&quot;(global (import &quot;env&quot; &quot;length&quot;) (type i32))&quot;#</span>)
-            .<span class="ident">ok</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="prelude-val">Some</span>((<span class="ident">a</span>, <span class="ident">b</span>.<span class="ident">left</span>()<span class="question-mark">?</span>)))
-            .<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_global_import() {
+        <span class="kw">let </span>parse_res = global(<span class="string">r#&quot;(global (import &quot;env&quot; &quot;length&quot;) (type i32))&quot;#</span>)
+            .ok()
+            .and_then(|(a, b)| <span class="prelude-val">Some</span>((a, b.left()<span class="question-mark">?</span>)))
+            .unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
-                <span class="ident">Import::Global</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;env&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">name</span>: <span class="string">&quot;length&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">var_type</span>: <span class="ident">WasmType::I32</span>,
+                Import::Global {
+                    namespace: <span class="string">&quot;env&quot;</span>.to_string(),
+                    name: <span class="string">&quot;length&quot;</span>.to_string(),
+                    var_type: WasmType::I32,
                 }
             )
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_global_export</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">global</span>(<span class="string">r#&quot;(global (export &quot;length&quot;) (type i32))&quot;#</span>)
-            .<span class="ident">ok</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="prelude-val">Some</span>((<span class="ident">a</span>, <span class="ident">b</span>.<span class="ident">right</span>()<span class="question-mark">?</span>)))
-            .<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_global_export() {
+        <span class="kw">let </span>parse_res = global(<span class="string">r#&quot;(global (export &quot;length&quot;) (type i32))&quot;#</span>)
+            .ok()
+            .and_then(|(a, b)| <span class="prelude-val">Some</span>((a, b.right()<span class="question-mark">?</span>)))
+            .unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
-                <span class="ident">Export::Global</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;length&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">var_type</span>: <span class="ident">WasmType::I32</span>,
+                Export::Global {
+                    name: <span class="string">&quot;length&quot;</span>.to_string(),
+                    var_type: WasmType::I32,
                 }
             )
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_func_import</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">func</span>(<span class="string">r#&quot;(func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))&quot;#</span>)
-            .<span class="ident">ok</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="prelude-val">Some</span>((<span class="ident">a</span>, <span class="ident">b</span>.<span class="ident">left</span>()<span class="question-mark">?</span>)))
-            .<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_func_import() {
+        <span class="kw">let </span>parse_res = func(<span class="string">r#&quot;(func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))&quot;#</span>)
+            .ok()
+            .and_then(|(a, b)| <span class="prelude-val">Some</span>((a, b.left()<span class="question-mark">?</span>)))
+            .unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
-                <span class="ident">Import::Func</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">params</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
-                    <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+                Import::Func {
+                    namespace: <span class="string">&quot;ns&quot;</span>.to_string(),
+                    name: <span class="string">&quot;name&quot;</span>.to_string(),
+                    params: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
+                    result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
                 }
             )
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_func_export</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">func</span>(<span class="string">r#&quot;(func (export &quot;name&quot;) (param f64 i32) (result f64 i32))&quot;#</span>)
-            .<span class="ident">ok</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="prelude-val">Some</span>((<span class="ident">a</span>, <span class="ident">b</span>.<span class="ident">right</span>()<span class="question-mark">?</span>)))
-            .<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_func_export() {
+        <span class="kw">let </span>parse_res = func(<span class="string">r#&quot;(func (export &quot;name&quot;) (param f64 i32) (result f64 i32))&quot;#</span>)
+            .ok()
+            .and_then(|(a, b)| <span class="prelude-val">Some</span>((a, b.right()<span class="question-mark">?</span>)))
+            .unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
-                <span class="ident">Export::Func</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">params</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
-                    <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+                Export::Func {
+                    name: <span class="string">&quot;name&quot;</span>.to_string(),
+                    params: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
+                    result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
                 }
             )
         );
 
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">func</span>(<span class="string">r#&quot;(func (export &quot;name&quot;))&quot;#</span>)
-            .<span class="ident">ok</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="prelude-val">Some</span>((<span class="ident">a</span>, <span class="ident">b</span>.<span class="ident">right</span>()<span class="question-mark">?</span>)))
-            .<span class="ident">unwrap</span>();
+        <span class="kw">let </span>parse_res = func(<span class="string">r#&quot;(func (export &quot;name&quot;))&quot;#</span>)
+            .ok()
+            .and_then(|(a, b)| <span class="prelude-val">Some</span>((a, b.right()<span class="question-mark">?</span>)))
+            .unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
-                <span class="ident">Export::Func</span> {
-                    <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">params</span>: <span class="macro">vec!</span>[],
-                    <span class="ident">result</span>: <span class="macro">vec!</span>[],
+                Export::Func {
+                    name: <span class="string">&quot;name&quot;</span>.to_string(),
+                    params: <span class="macro">vec!</span>[],
+                    result: <span class="macro">vec!</span>[],
                 }
             )
         )
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_imports_test</span>() {
-        <span class="kw">let</span> <span class="ident">parse_imports</span> <span class="op">=</span> <span class="op">|</span><span class="ident">in_str</span><span class="op">|</span> {
-            <span class="ident">many0</span>(<span class="ident">parse_func_or_global</span>)(<span class="ident">in_str</span>)
-                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> {
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_imports_test() {
+        <span class="kw">let </span>parse_imports = |in_str| {
+            many0(parse_func_or_global)(in_str)
+                .map(|(a, b)| {
                     (
-                        <span class="ident">a</span>,
-                        <span class="ident">b</span>.<span class="ident">into_iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">left</span>()).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
+                        a,
+                        b.into_iter().filter_map(|x| x.left()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
                     )
                 })
-                .<span class="ident">unwrap</span>()
+                .unwrap()
         };
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span>
-            <span class="ident">parse_imports</span>(<span class="string">r#&quot;(func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))&quot;#</span>);
+        <span class="kw">let </span>parse_res =
+            parse_imports(<span class="string">r#&quot;(func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))&quot;#</span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
-                <span class="macro">vec!</span>[<span class="ident">Import::Func</span> {
-                    <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">params</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
-                    <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+                <span class="macro">vec!</span>[Import::Func {
+                    namespace: <span class="string">&quot;ns&quot;</span>.to_string(),
+                    name: <span class="string">&quot;name&quot;</span>.to_string(),
+                    params: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
+                    result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
                 }]
             )
         );
 
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">parse_imports</span>(
+        <span class="kw">let </span>parse_res = parse_imports(
             <span class="string">r#&quot;(func (import &quot;ns&quot; &quot;name&quot;)
                                                    (param f64 i32) (result f64 i32))
         ( global ( import &quot;env&quot; &quot;length&quot; ) ( type
@@ -1024,81 +1024,81 @@
                                               )&quot;#</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
+            parse_res,
             (
                 <span class="string">&quot;&quot;</span>,
                 <span class="macro">vec!</span>[
-                    <span class="ident">Import::Func</span> {
-                        <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">params</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
-                        <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+                    Import::Func {
+                        namespace: <span class="string">&quot;ns&quot;</span>.to_string(),
+                        name: <span class="string">&quot;name&quot;</span>.to_string(),
+                        params: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
+                        result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
                     },
-                    <span class="ident">Import::Global</span> {
-                        <span class="ident">namespace</span>: <span class="string">&quot;env&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">name</span>: <span class="string">&quot;length&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">var_type</span>: <span class="ident">WasmType::I32</span>,
+                    Import::Global {
+                        namespace: <span class="string">&quot;env&quot;</span>.to_string(),
+                        name: <span class="string">&quot;length&quot;</span>.to_string(),
+                        var_type: WasmType::I32,
                     },
-                    <span class="ident">Import::Func</span> {
-                        <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">name</span>: <span class="string">&quot;name2&quot;</span>.<span class="ident">to_string</span>(),
-                        <span class="ident">params</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F32</span>, <span class="ident">WasmType::I64</span>],
-                        <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+                    Import::Func {
+                        namespace: <span class="string">&quot;ns&quot;</span>.to_string(),
+                        name: <span class="string">&quot;name2&quot;</span>.to_string(),
+                        params: <span class="macro">vec!</span>[WasmType::F32, WasmType::I64],
+                        result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
                     },
                 ]
             )
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">top_level_test</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">parse_interface</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>top_level_test() {
+        <span class="kw">let </span>parse_res = parse_interface(
             <span class="string">r#&quot; (interface 
  (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))
  (func (export &quot;name2&quot;) (param) (result i32))
  (global (import &quot;env&quot; &quot;length&quot;) (type f64)))&quot;#</span>,
         )
-        .<span class="ident">unwrap</span>();
+        .unwrap();
 
-        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="macro">vec!</span>[
-            <span class="ident">Import::Func</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">params</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
-                <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+        <span class="kw">let </span>imports = <span class="macro">vec!</span>[
+            Import::Func {
+                namespace: <span class="string">&quot;ns&quot;</span>.to_string(),
+                name: <span class="string">&quot;name&quot;</span>.to_string(),
+                params: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
+                result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
             },
-            <span class="ident">Import::Global</span> {
-                <span class="ident">namespace</span>: <span class="string">&quot;env&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">name</span>: <span class="string">&quot;length&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">var_type</span>: <span class="ident">WasmType::F64</span>,
+            Import::Global {
+                namespace: <span class="string">&quot;env&quot;</span>.to_string(),
+                name: <span class="string">&quot;length&quot;</span>.to_string(),
+                var_type: WasmType::F64,
             },
         ];
-        <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Export::Func</span> {
-            <span class="ident">name</span>: <span class="string">&quot;name2&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">params</span>: <span class="macro">vec!</span>[],
-            <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::I32</span>],
+        <span class="kw">let </span>exports = <span class="macro">vec!</span>[Export::Func {
+            name: <span class="string">&quot;name2&quot;</span>.to_string(),
+            params: <span class="macro">vec!</span>[],
+            result: <span class="macro">vec!</span>[WasmType::I32],
         }];
-        <span class="kw">let</span> <span class="ident">import_map</span> <span class="op">=</span> <span class="ident">imports</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> (<span class="ident">entry</span>.<span class="ident">get_key</span>(), <span class="ident">entry</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">Import</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="ident">export_map</span> <span class="op">=</span> <span class="ident">exports</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> (<span class="ident">entry</span>.<span class="ident">get_key</span>(), <span class="ident">entry</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Export</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let </span>import_map = imports
+            .into_iter()
+            .map(|entry| (entry.get_key(), entry))
+            .collect::&lt;HashMap&lt;(String, String), Import&gt;&gt;();
+        <span class="kw">let </span>export_map = exports
+            .into_iter()
+            .map(|entry| (entry.get_key(), entry))
+            .collect::&lt;HashMap&lt;String, Export&gt;&gt;();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
-            <span class="ident">Interface</span> {
-                <span class="ident">name</span>: <span class="prelude-val">None</span>,
-                <span class="ident">imports</span>: <span class="ident">import_map</span>,
-                <span class="ident">exports</span>: <span class="ident">export_map</span>,
+            parse_res,
+            Interface {
+                name: <span class="prelude-val">None</span>,
+                imports: import_map,
+                exports: export_map,
             }
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">duplicates_not_allowed</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">parse_interface</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>duplicates_not_allowed() {
+        <span class="kw">let </span>parse_res = parse_interface(
             <span class="string">r#&quot; (interface &quot;sig_name&quot; (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))
 ; test comment
   ;; hello
@@ -1108,76 +1108,76 @@
 &quot;#</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="ident">parse_res</span>.<span class="ident">is_err</span>());
+        <span class="macro">assert!</span>(parse_res.is_err());
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_comment_space_parsing</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">space_comments</span>(<span class="string">&quot; &quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;&quot;</span>, ()));
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">space_comments</span>(<span class="string">&quot;&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;&quot;</span>, ()));
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">space_comments</span>(<span class="string">&quot;; hello\n&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;&quot;</span>, ()));
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">space_comments</span>(<span class="string">&quot;abc&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;abc&quot;</span>, ()));
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">space_comments</span>(<span class="string">&quot;\n ; hello\n &quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;&quot;</span>, ()));
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">space_comments</span>(<span class="string">&quot;\n ; hello\n ; abc\n\n ; hello\n&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_res</span>, (<span class="string">&quot;&quot;</span>, ()));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_comment_space_parsing() {
+        <span class="kw">let </span>parse_res = space_comments(<span class="string">&quot; &quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;&quot;</span>, ()));
+        <span class="kw">let </span>parse_res = space_comments(<span class="string">&quot;&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;&quot;</span>, ()));
+        <span class="kw">let </span>parse_res = space_comments(<span class="string">&quot;; hello\n&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;&quot;</span>, ()));
+        <span class="kw">let </span>parse_res = space_comments(<span class="string">&quot;abc&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;abc&quot;</span>, ()));
+        <span class="kw">let </span>parse_res = space_comments(<span class="string">&quot;\n ; hello\n &quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;&quot;</span>, ()));
+        <span class="kw">let </span>parse_res = space_comments(<span class="string">&quot;\n ; hello\n ; abc\n\n ; hello\n&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(parse_res, (<span class="string">&quot;&quot;</span>, ()));
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_param_elision</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">parse_interface</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_param_elision() {
+        <span class="kw">let </span>parse_res = parse_interface(
             <span class="string">r#&quot; (interface &quot;interface_name&quot; (func (import &quot;ns&quot; &quot;name&quot;) (result f64 i32))
 (func (export &quot;name&quot;)))
 &quot;#</span>,
         )
-        .<span class="ident">unwrap</span>();
+        .unwrap();
 
-        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Import::Func</span> {
-            <span class="ident">namespace</span>: <span class="string">&quot;ns&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">params</span>: <span class="macro">vec!</span>[],
-            <span class="ident">result</span>: <span class="macro">vec!</span>[<span class="ident">WasmType::F64</span>, <span class="ident">WasmType::I32</span>],
+        <span class="kw">let </span>imports = <span class="macro">vec!</span>[Import::Func {
+            namespace: <span class="string">&quot;ns&quot;</span>.to_string(),
+            name: <span class="string">&quot;name&quot;</span>.to_string(),
+            params: <span class="macro">vec!</span>[],
+            result: <span class="macro">vec!</span>[WasmType::F64, WasmType::I32],
         }];
-        <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Export::Func</span> {
-            <span class="ident">name</span>: <span class="string">&quot;name&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">params</span>: <span class="macro">vec!</span>[],
-            <span class="ident">result</span>: <span class="macro">vec!</span>[],
+        <span class="kw">let </span>exports = <span class="macro">vec!</span>[Export::Func {
+            name: <span class="string">&quot;name&quot;</span>.to_string(),
+            params: <span class="macro">vec!</span>[],
+            result: <span class="macro">vec!</span>[],
         }];
-        <span class="kw">let</span> <span class="ident">import_map</span> <span class="op">=</span> <span class="ident">imports</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> (<span class="ident">entry</span>.<span class="ident">get_key</span>(), <span class="ident">entry</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">Import</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="ident">export_map</span> <span class="op">=</span> <span class="ident">exports</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> (<span class="ident">entry</span>.<span class="ident">get_key</span>(), <span class="ident">entry</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Export</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let </span>import_map = imports
+            .into_iter()
+            .map(|entry| (entry.get_key(), entry))
+            .collect::&lt;HashMap&lt;(String, String), Import&gt;&gt;();
+        <span class="kw">let </span>export_map = exports
+            .into_iter()
+            .map(|entry| (entry.get_key(), entry))
+            .collect::&lt;HashMap&lt;String, Export&gt;&gt;();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_res</span>,
-            <span class="ident">Interface</span> {
-                <span class="ident">name</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;interface_name&quot;</span>.<span class="ident">to_string</span>()),
-                <span class="ident">imports</span>: <span class="ident">import_map</span>,
-                <span class="ident">exports</span>: <span class="ident">export_map</span>,
+            parse_res,
+            Interface {
+                name: <span class="prelude-val">Some</span>(<span class="string">&quot;interface_name&quot;</span>.to_string()),
+                imports: import_map,
+                exports: export_map,
             }
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">typo_gets_caught</span>() {
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>typo_gets_caught() {
+        <span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface &quot;interface_id&quot;
 (func (import &quot;env&quot; &quot;do_panic&quot;) (params i32 i64))
 (global (import &quot;length&quot;) (type i32)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">parse_interface</span>(<span class="ident">interface_src</span>);
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_err</span>());
+        <span class="kw">let </span>result = parse_interface(interface_src);
+        <span class="macro">assert!</span>(result.is_err());
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">parse_trailing_spaces_on_interface</span>() {
-        <span class="kw">let</span> <span class="ident">parse_res</span> <span class="op">=</span> <span class="ident">parse_interface</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_trailing_spaces_on_interface() {
+        <span class="kw">let </span>parse_res = parse_interface(
             <span class="string">r#&quot; (interface &quot;really_good_interface&quot; (func (import &quot;ns&quot; &quot;name&quot;) (param f64 i32) (result f64 i32))
 ; test comment
   ;; hello
@@ -1187,8 +1187,8 @@
 &quot;#</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="ident">parse_res</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(parse_res.is_ok());
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasm_interface" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasm_interface" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

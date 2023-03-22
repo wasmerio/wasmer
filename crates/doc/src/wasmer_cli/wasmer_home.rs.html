@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/wasmer_home.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasmer_home.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/wasmer_home.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasmer_home.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -399,380 +399,380 @@
 <span id="397">397</span>
 <span id="398">398</span>
 <span id="399">399</span>
-</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
+</pre><pre class="rust"><code><span class="attribute">#![allow(missing_docs)]
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">io::Write</span>,
-    <span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>},
-    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">SystemTime</span>},
+</span><span class="kw">use </span>std::{
+    io::Write,
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime},
 };
 
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
-<span class="kw">use</span> <span class="ident">reqwest</span>::{<span class="ident">blocking::Client</span>, <span class="ident">Url</span>};
-<span class="kw">use</span> <span class="ident">tempfile::NamedTempFile</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsEngineRef</span>, <span class="ident">DeserializeError</span>, <span class="ident">Module</span>, <span class="ident">SerializeError</span>};
-<span class="kw">use</span> <span class="ident">wasmer_cache::Hash</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry::Package</span>;
+<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>reqwest::{blocking::Client, Url};
+<span class="kw">use </span>tempfile::NamedTempFile;
+<span class="kw">use </span>wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
+<span class="kw">use </span>wasmer_cache::Hash;
+<span class="kw">use </span>wasmer_registry::Package;
 
-<span class="kw">const</span> <span class="ident">DEFAULT_REGISTRY</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;https://wapm.io/&quot;</span>;
-<span class="kw">const</span> <span class="ident">CACHE_INVALIDATION_THRESHOLD</span>: <span class="ident">Duration</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">5</span> <span class="op">*</span> <span class="number">60</span>);
+<span class="kw">const </span>DEFAULT_REGISTRY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://wapm.io/&quot;</span>;
+<span class="kw">const </span>CACHE_INVALIDATION_THRESHOLD: Duration = Duration::from_secs(<span class="number">5 </span>* <span class="number">60</span>);
 
-<span class="doccomment">/// Something which can fetch resources from the internet and will cache them</span>
-<span class="doccomment">/// locally.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">DownloadCached</span> {
-    <span class="kw">fn</span> <span class="ident">download_url</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">Error</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">download_package</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pkg</span>: <span class="kw-2">&amp;</span><span class="ident">Package</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">Error</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Something which can fetch resources from the internet and will cache them
+/// locally.
+</span><span class="kw">pub trait </span>DownloadCached {
+    <span class="kw">fn </span>download_url(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt;;
+    <span class="kw">fn </span>download_package(<span class="kw-2">&amp;</span><span class="self">self</span>, pkg: <span class="kw-2">&amp;</span>Package) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt;;
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">clap::Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmerHome</span> {
-    <span class="doccomment">/// The Wasmer home directory.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;wasmer-dir&quot;</span>, <span class="ident">env</span> <span class="op">=</span> <span class="string">&quot;WASMER_DIR&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">home</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Override the registry packages are downloaded from.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">env</span> <span class="op">=</span> <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]</span>
-    <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Skip all caching.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Debug, clap::Parser)]
+</span><span class="kw">pub struct </span>WasmerHome {
+    <span class="doccomment">/// The Wasmer home directory.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;wasmer-dir&quot;</span>, env = <span class="string">&quot;WASMER_DIR&quot;</span>)]
+    </span><span class="kw">pub </span>home: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    <span class="doccomment">/// Override the registry packages are downloaded from.
+    </span><span class="attribute">#[clap(long, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]
+    </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Skip all caching.
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>disable_cache: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">WasmerHome</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasmer_home</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">wasmer_home</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">home</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">wasmer_home</span>.<span class="ident">clone</span>());
+<span class="kw">impl </span>WasmerHome {
+    <span class="kw">pub fn </span>wasmer_home(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(wasmer_home) = <span class="kw-2">&amp;</span><span class="self">self</span>.home {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(wasmer_home.clone());
         }
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">user_home</span>) <span class="op">=</span> <span class="ident">dirs::home_dir</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">user_home</span>.<span class="ident">join</span>(<span class="string">&quot;.wasmer&quot;</span>));
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(user_home) = dirs::home_dir() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(user_home.join(<span class="string">&quot;.wasmer&quot;</span>));
         }
 
         <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Unable to determine the Wasmer directory&quot;</span>);
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ModuleCache</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">disable_cache</span> {
-            <span class="kw">return</span> <span class="ident">ModuleCache::Disabled</span>;
+    <span class="kw">pub fn </span>module_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ModuleCache {
+        <span class="kw">if </span><span class="self">self</span>.disable_cache {
+            <span class="kw">return </span>ModuleCache::Disabled;
         };
 
-        <span class="self">self</span>.<span class="ident">wasmer_home</span>()
-            .<span class="ident">ok</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">home</span><span class="op">|</span> <span class="ident">wasmer_cache::FileSystemCache::new</span>(<span class="ident">home</span>.<span class="ident">join</span>(<span class="string">&quot;cache&quot;</span>)).<span class="ident">ok</span>())
-            .<span class="ident">map</span>(<span class="ident">ModuleCache::Enabled</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">ModuleCache::Disabled</span>)
+        <span class="self">self</span>.wasmer_home()
+            .ok()
+            .and_then(|home| wasmer_cache::FileSystemCache::new(home.join(<span class="string">&quot;cache&quot;</span>)).ok())
+            .map(ModuleCache::Enabled)
+            .unwrap_or(ModuleCache::Disabled)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">DownloadCached</span> <span class="kw">for</span> <span class="ident">WasmerHome</span> {
-    <span class="attribute">#[<span class="ident">tracing::instrument</span>(<span class="ident">skip_all</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">download_url</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="macro">tracing::debug!</span>(<span class="op">%</span><span class="ident">url</span>, <span class="string">&quot;Downloading&quot;</span>);
+<span class="kw">impl </span>DownloadCached <span class="kw">for </span>WasmerHome {
+    <span class="attribute">#[tracing::instrument(skip_all)]
+    </span><span class="kw">fn </span>download_url(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt; {
+        <span class="macro">tracing::debug!</span>(%url, <span class="string">&quot;Downloading&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">home</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">wasmer_home</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">checkouts</span> <span class="op">=</span> <span class="ident">wasmer_registry::get_checkouts_dir</span>(<span class="kw-2">&amp;</span><span class="ident">home</span>);
+        <span class="kw">let </span>home = <span class="self">self</span>.wasmer_home()<span class="question-mark">?</span>;
+        <span class="kw">let </span>checkouts = wasmer_registry::get_checkouts_dir(<span class="kw-2">&amp;</span>home);
 
-        <span class="comment">// This function is a bit tricky because we go to great lengths to avoid</span>
-        <span class="comment">// unnecessary downloads.</span>
+        <span class="comment">// This function is a bit tricky because we go to great lengths to avoid
+        // unnecessary downloads.
 
-        <span class="kw">let</span> <span class="ident">cache_key</span> <span class="op">=</span> <span class="ident">Hash::generate</span>(<span class="ident">url</span>.<span class="ident">to_string</span>().<span class="ident">as_bytes</span>());
+        </span><span class="kw">let </span>cache_key = Hash::generate(url.to_string().as_bytes());
 
-        <span class="comment">// First, we figure out some basic information about the item</span>
-        <span class="kw">let</span> <span class="ident">cache_info</span> <span class="op">=</span> <span class="ident">CacheInfo::for_url</span>(<span class="kw-2">&amp;</span><span class="ident">cache_key</span>, <span class="kw-2">&amp;</span><span class="ident">checkouts</span>, <span class="self">self</span>.<span class="ident">disable_cache</span>);
+        <span class="comment">// First, we figure out some basic information about the item
+        </span><span class="kw">let </span>cache_info = CacheInfo::for_url(<span class="kw-2">&amp;</span>cache_key, <span class="kw-2">&amp;</span>checkouts, <span class="self">self</span>.disable_cache);
 
-        <span class="comment">// Next we check if we definitely got a cache hit</span>
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">classify_cache_using_mtime</span>(<span class="ident">cache_info</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">path</span>) =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="ident">path</span><span class="op">=</span><span class="op">%</span><span class="ident">path</span>.<span class="ident">display</span>(), <span class="string">&quot;Cache hit&quot;</span>);
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">path</span>);
+        <span class="comment">// Next we check if we definitely got a cache hit
+        </span><span class="kw">let </span>state = <span class="kw">match </span>classify_cache_using_mtime(cache_info) {
+            <span class="prelude-val">Ok</span>(path) =&gt; {
+                <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Cache hit&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
+            <span class="prelude-val">Err</span>(s) =&gt; s,
         };
 
-        <span class="comment">// Okay, looks like we&#39;re going to have to download the item</span>
-        <span class="macro">tracing::debug!</span>(<span class="op">%</span><span class="ident">url</span>, <span class="string">&quot;Sending a GET request&quot;</span>);
+        <span class="comment">// Okay, looks like we&#39;re going to have to download the item
+        </span><span class="macro">tracing::debug!</span>(%url, <span class="string">&quot;Sending a GET request&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">Client::new</span>();
+        <span class="kw">let </span>client = Client::new();
 
-        <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">get</span>(<span class="ident">url</span>.<span class="ident">clone</span>()).<span class="ident">header</span>(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/webc&quot;</span>);
+        <span class="kw">let </span>request = client.get(url.clone()).header(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/webc&quot;</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">response</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">request</span>.<span class="ident">send</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">r</span>) =&gt; <span class="ident">r</span>
-                .<span class="ident">error_for_status</span>()
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;The GET request to \&quot;{url}\&quot; was unsuccessful&quot;</span>))<span class="question-mark">?</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="comment">// Something went wrong. If it was a connection issue and we&#39;ve</span>
-                <span class="comment">// got a cached file, let&#39;s use that and emit a warning.</span>
-                <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">is_connect</span>() {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">path</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">take_path</span>() {
+        <span class="kw">let </span><span class="kw-2">mut </span>response = <span class="kw">match </span>request.send() {
+            <span class="prelude-val">Ok</span>(r) =&gt; r
+                .error_for_status()
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The GET request to \&quot;{url}\&quot; was unsuccessful&quot;</span>))<span class="question-mark">?</span>,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="comment">// Something went wrong. If it was a connection issue and we&#39;ve
+                // got a cached file, let&#39;s use that and emit a warning.
+                </span><span class="kw">if </span>e.is_connect() {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = state.take_path() {
                         <span class="macro">tracing::warn!</span>(
-                            <span class="ident">path</span><span class="op">=</span><span class="op">%</span><span class="ident">path</span>.<span class="ident">display</span>(),
-                            <span class="ident">error</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
+                            path=%path.display(),
+                            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
                             <span class="string">&quot;An error occurred while connecting to {}. Falling back to a cached version.&quot;</span>,
-                            <span class="ident">url</span>.<span class="ident">host_str</span>().<span class="ident">unwrap_or</span>(<span class="ident">url</span>.<span class="ident">as_str</span>()),
+                            url.host_str().unwrap_or(url.as_str()),
                         );
-                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">path</span>);
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
                     }
                 }
 
-                <span class="comment">// Oh well, we tried.</span>
-                <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to send a GET request to \&quot;{url}\&quot;&quot;</span>);
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Error::from</span>(<span class="ident">e</span>).<span class="ident">context</span>(<span class="ident">msg</span>));
+                <span class="comment">// Oh well, we tried.
+                </span><span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Unable to send a GET request to \&quot;{url}\&quot;&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Error::from(e).context(msg));
             }
         };
 
         <span class="macro">tracing::debug!</span>(
-            <span class="ident">status_code</span><span class="op">=</span><span class="op">%</span><span class="ident">response</span>.<span class="ident">status</span>(),
-            <span class="ident">url</span><span class="op">=</span><span class="op">%</span><span class="ident">response</span>.<span class="ident">url</span>(),
-            <span class="ident">content_length</span><span class="op">=</span><span class="ident">response</span>.<span class="ident">content_length</span>(),
+            status_code=%response.status(),
+            url=%response.url(),
+            content_length=response.content_length(),
             <span class="string">&quot;Download started&quot;</span>,
         );
-        <span class="macro">tracing::trace!</span>(<span class="ident">headers</span><span class="op">=</span><span class="question-mark">?</span><span class="ident">response</span>.<span class="ident">headers</span>());
+        <span class="macro">tracing::trace!</span>(headers=<span class="question-mark">?</span>response.headers());
 
-        <span class="comment">// Now there is one last chance to avoid downloading the full file. If</span>
-        <span class="comment">// it has an ETag header, we can use that to see whether the (possibly)</span>
-        <span class="comment">// cached file is outdated.</span>
-        <span class="kw">let</span> <span class="ident">etag</span> <span class="op">=</span> <span class="ident">response</span>
-            .<span class="ident">headers</span>()
-            .<span class="ident">get</span>(<span class="string">&quot;Etag&quot;</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">to_str</span>().<span class="ident">ok</span>())
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">etag</span><span class="op">|</span> <span class="ident">etag</span>.<span class="ident">trim</span>().<span class="ident">to_string</span>());
+        <span class="comment">// Now there is one last chance to avoid downloading the full file. If
+        // it has an ETag header, we can use that to see whether the (possibly)
+        // cached file is outdated.
+        </span><span class="kw">let </span>etag = response
+            .headers()
+            .get(<span class="string">&quot;Etag&quot;</span>)
+            .and_then(|v| v.to_str().ok())
+            .map(|etag| etag.trim().to_string());
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cached</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">use_etag_to_resolve_cached_file</span>(<span class="ident">etag</span>.<span class="ident">as_deref</span>()) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = state.use_etag_to_resolve_cached_file(etag.as_deref()) {
             <span class="macro">tracing::debug!</span>(
-                <span class="ident">path</span><span class="op">=</span><span class="op">%</span><span class="ident">cached</span>.<span class="ident">display</span>(),
+                path=%cached.display(),
                 <span class="string">&quot;Reusing the cached file because the ETag header is still valid&quot;</span>,
             );
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">cached</span>);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(cached);
         }
 
-        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">checkouts</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to make sure \&quot;{}\&quot; exists&quot;</span>, <span class="ident">checkouts</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+        std::fs::create_dir_all(<span class="kw-2">&amp;</span>checkouts)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to make sure \&quot;{}\&quot; exists&quot;</span>, checkouts.display()))<span class="question-mark">?</span>;
 
-        <span class="comment">// Note: we want to copy directly into a file so we don&#39;t hold</span>
-        <span class="comment">// everything in memory.</span>
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">f</span>, <span class="ident">path</span>) <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">disable_cache</span> {
-            <span class="comment">// Leave the temporary file where it is. The OS will clean it up</span>
-            <span class="comment">// for us later, and hopefully the caller will open it before the</span>
-            <span class="comment">// temp file cleaner comes along.</span>
-            <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">NamedTempFile::new</span>().<span class="ident">context</span>(<span class="string">&quot;Unable to create a temporary file&quot;</span>)<span class="question-mark">?</span>;
-            <span class="ident">temp</span>.<span class="ident">keep</span>()
-                .<span class="ident">context</span>(<span class="string">&quot;Unable to persist the temporary file&quot;</span>)<span class="question-mark">?</span>
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">cached_path</span> <span class="op">=</span> <span class="ident">checkouts</span>.<span class="ident">join</span>(<span class="ident">cache_key</span>.<span class="ident">to_string</span>());
-            <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">cached_path</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="macro">format!</span>(<span class="string">&quot;Unable to open \&quot;{}\&quot; for writing&quot;</span>, <span class="ident">cached_path</span>.<span class="ident">display</span>())
+        <span class="comment">// Note: we want to copy directly into a file so we don&#39;t hold
+        // everything in memory.
+        </span><span class="kw">let </span>(<span class="kw-2">mut </span>f, path) = <span class="kw">if </span><span class="self">self</span>.disable_cache {
+            <span class="comment">// Leave the temporary file where it is. The OS will clean it up
+            // for us later, and hopefully the caller will open it before the
+            // temp file cleaner comes along.
+            </span><span class="kw">let </span>temp = NamedTempFile::new().context(<span class="string">&quot;Unable to create a temporary file&quot;</span>)<span class="question-mark">?</span>;
+            temp.keep()
+                .context(<span class="string">&quot;Unable to persist the temporary file&quot;</span>)<span class="question-mark">?
+        </span>} <span class="kw">else </span>{
+            <span class="kw">let </span>cached_path = checkouts.join(cache_key.to_string());
+            <span class="kw">let </span>f = std::fs::File::create(<span class="kw-2">&amp;</span>cached_path).with_context(|| {
+                <span class="macro">format!</span>(<span class="string">&quot;Unable to open \&quot;{}\&quot; for writing&quot;</span>, cached_path.display())
             })<span class="question-mark">?</span>;
 
-            (<span class="ident">f</span>, <span class="ident">cached_path</span>)
+            (f, cached_path)
         };
 
-        <span class="kw">let</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="ident">std::io::copy</span>(<span class="kw-2">&amp;mut</span> <span class="ident">response</span>, <span class="kw-2">&amp;mut</span> <span class="ident">f</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">bytes_read</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">flush</span>().<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">bytes_read</span>))
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to save the response to \&quot;{}\&quot;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-        <span class="macro">tracing::debug!</span>(<span class="ident">bytes_read</span>, <span class="ident">path</span><span class="op">=</span><span class="op">%</span><span class="ident">path</span>.<span class="ident">display</span>(), <span class="string">&quot;Saved to disk&quot;</span>);
+        <span class="kw">let </span>bytes_read = std::io::copy(<span class="kw-2">&amp;mut </span>response, <span class="kw-2">&amp;mut </span>f)
+            .and_then(|bytes_read| f.flush().map(|<span class="kw">_</span>| bytes_read))
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to save the response to \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+        <span class="macro">tracing::debug!</span>(bytes_read, path=%path.display(), <span class="string">&quot;Saved to disk&quot;</span>);
 
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">disable_cache</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">etag</span>) <span class="op">=</span> <span class="ident">etag</span> {
-                <span class="kw">let</span> <span class="ident">etag_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">with_extension</span>(<span class="string">&quot;etag&quot;</span>);
+        <span class="kw">if </span>!<span class="self">self</span>.disable_cache {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(etag) = etag {
+                <span class="kw">let </span>etag_path = path.with_extension(<span class="string">&quot;etag&quot;</span>);
                 <span class="macro">tracing::debug!</span>(
-                    <span class="ident">path</span><span class="op">=</span><span class="op">%</span><span class="ident">etag_path</span>.<span class="ident">display</span>(),
-                    <span class="op">%</span><span class="ident">etag</span>,
+                    path=%etag_path.display(),
+                    %etag,
                     <span class="string">&quot;Saving the ETag to disk&quot;</span>,
                 );
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">etag_path</span>, <span class="ident">etag</span>.<span class="ident">as_bytes</span>()) {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::write(<span class="kw-2">&amp;</span>etag_path, etag.as_bytes()) {
                     <span class="macro">tracing::warn!</span>(
-                        <span class="ident">error</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
-                        <span class="ident">path</span><span class="op">=</span><span class="op">%</span><span class="ident">etag_path</span>.<span class="ident">display</span>(),
-                        <span class="op">%</span><span class="ident">etag</span>,
+                        error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        path=%etag_path.display(),
+                        %etag,
                         <span class="string">&quot;Unable to save the ETag to disk&quot;</span>,
                     );
                 }
             }
         }
 
-        <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
+        <span class="prelude-val">Ok</span>(path)
     }
 
-    <span class="kw">fn</span> <span class="ident">download_package</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pkg</span>: <span class="kw-2">&amp;</span><span class="ident">Package</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">registry</span>.<span class="ident">as_deref</span>().<span class="ident">unwrap_or</span>(<span class="ident">DEFAULT_REGISTRY</span>);
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">package_url</span>(<span class="ident">registry</span>, <span class="ident">pkg</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>download_package(<span class="kw-2">&amp;</span><span class="self">self</span>, pkg: <span class="kw-2">&amp;</span>Package) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt; {
+        <span class="kw">let </span>registry = <span class="self">self</span>.registry.as_deref().unwrap_or(DEFAULT_REGISTRY);
+        <span class="kw">let </span>url = package_url(registry, pkg)<span class="question-mark">?</span>;
 
-        <span class="self">self</span>.<span class="ident">download_url</span>(<span class="kw-2">&amp;</span><span class="ident">url</span>)
+        <span class="self">self</span>.download_url(<span class="kw-2">&amp;</span>url)
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">enum</span> <span class="ident">CacheInfo</span> {
-    <span class="doccomment">/// Caching has been disabled.</span>
-    <span class="ident">Disabled</span>,
-    <span class="doccomment">/// An item isn&#39;t in the cache, but could be cached later on.</span>
-    <span class="ident">Miss</span>,
-    <span class="doccomment">/// An item in the cache.</span>
-    <span class="ident">Hit</span> {
-        <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-        <span class="ident">etag</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-        <span class="ident">last_modified</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SystemTime</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone, PartialEq)]
+</span><span class="kw">enum </span>CacheInfo {
+    <span class="doccomment">/// Caching has been disabled.
+    </span>Disabled,
+    <span class="doccomment">/// An item isn&#39;t in the cache, but could be cached later on.
+    </span>Miss,
+    <span class="doccomment">/// An item in the cache.
+    </span>Hit {
+        path: PathBuf,
+        etag: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        last_modified: <span class="prelude-ty">Option</span>&lt;SystemTime&gt;,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">CacheInfo</span> {
-    <span class="kw">fn</span> <span class="ident">for_url</span>(<span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="ident">Hash</span>, <span class="ident">checkout_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">disabled</span>: <span class="ident">bool</span>) -&gt; <span class="ident">CacheInfo</span> {
-        <span class="kw">if</span> <span class="ident">disabled</span> {
-            <span class="kw">return</span> <span class="ident">CacheInfo::Disabled</span>;
+<span class="kw">impl </span>CacheInfo {
+    <span class="kw">fn </span>for_url(key: <span class="kw-2">&amp;</span>Hash, checkout_dir: <span class="kw-2">&amp;</span>Path, disabled: bool) -&gt; CacheInfo {
+        <span class="kw">if </span>disabled {
+            <span class="kw">return </span>CacheInfo::Disabled;
         }
 
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">checkout_dir</span>.<span class="ident">join</span>(<span class="ident">key</span>.<span class="ident">to_string</span>());
+        <span class="kw">let </span>path = checkout_dir.join(key.to_string());
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">exists</span>() {
-            <span class="kw">return</span> <span class="ident">CacheInfo::Miss</span>;
+        <span class="kw">if </span>!path.exists() {
+            <span class="kw">return </span>CacheInfo::Miss;
         }
 
-        <span class="kw">let</span> <span class="ident">etag</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">path</span>.<span class="ident">with_extension</span>(<span class="string">&quot;etag&quot;</span>)).<span class="ident">ok</span>();
-        <span class="kw">let</span> <span class="ident">last_modified</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">metadata</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">modified</span>()).<span class="ident">ok</span>();
+        <span class="kw">let </span>etag = std::fs::read_to_string(path.with_extension(<span class="string">&quot;etag&quot;</span>)).ok();
+        <span class="kw">let </span>last_modified = path.metadata().and_then(|m| m.modified()).ok();
 
-        <span class="ident">CacheInfo::Hit</span> {
-            <span class="ident">etag</span>,
-            <span class="ident">last_modified</span>,
-            <span class="ident">path</span>,
+        CacheInfo::Hit {
+            etag,
+            last_modified,
+            path,
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">classify_cache_using_mtime</span>(<span class="ident">info</span>: <span class="ident">CacheInfo</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">CacheState</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> (<span class="ident">path</span>, <span class="ident">last_modified</span>, <span class="ident">etag</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">info</span> {
-        <span class="ident">CacheInfo::Hit</span> {
-            <span class="ident">path</span>,
-            <span class="ident">last_modified</span>: <span class="prelude-val">Some</span>(<span class="ident">last_modified</span>),
-            <span class="ident">etag</span>,
+<span class="kw">fn </span>classify_cache_using_mtime(info: CacheInfo) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, CacheState&gt; {
+    <span class="kw">let </span>(path, last_modified, etag) = <span class="kw">match </span>info {
+        CacheInfo::Hit {
+            path,
+            last_modified: <span class="prelude-val">Some</span>(last_modified),
+            etag,
             ..
-        } =&gt; (<span class="ident">path</span>, <span class="ident">last_modified</span>, <span class="ident">etag</span>),
-        <span class="ident">CacheInfo::Hit</span> {
-            <span class="ident">path</span>,
-            <span class="ident">last_modified</span>: <span class="prelude-val">None</span>,
-            <span class="ident">etag</span>: <span class="prelude-val">Some</span>(<span class="ident">etag</span>),
+        } =&gt; (path, last_modified, etag),
+        CacheInfo::Hit {
+            path,
+            last_modified: <span class="prelude-val">None</span>,
+            etag: <span class="prelude-val">Some</span>(etag),
             ..
-        } =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CacheState::PossiblyDirty</span> { <span class="ident">etag</span>, <span class="ident">path</span> }),
-        <span class="ident">CacheInfo::Hit</span> {
-            <span class="ident">etag</span>: <span class="prelude-val">None</span>,
-            <span class="ident">last_modified</span>: <span class="prelude-val">None</span>,
-            <span class="ident">path</span>,
+        } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(CacheState::PossiblyDirty { etag, path }),
+        CacheInfo::Hit {
+            etag: <span class="prelude-val">None</span>,
+            last_modified: <span class="prelude-val">None</span>,
+            path,
             ..
         } =&gt; {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CacheState::UnableToVerify</span> { <span class="ident">path</span> });
+            <span class="kw">return </span><span class="prelude-val">Err</span>(CacheState::UnableToVerify { path });
         }
-        <span class="ident">CacheInfo::Disabled</span> <span class="op">|</span> <span class="ident">CacheInfo::Miss</span> { .. } =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CacheState::Miss</span>),
+        CacheInfo::Disabled | CacheInfo::Miss { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(CacheState::Miss),
     };
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">time_since_last_modified</span>) <span class="op">=</span> <span class="ident">last_modified</span>.<span class="ident">elapsed</span>() {
-        <span class="kw">if</span> <span class="ident">time_since_last_modified</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">CACHE_INVALIDATION_THRESHOLD</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">path</span>);
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(time_since_last_modified) = last_modified.elapsed() {
+        <span class="kw">if </span>time_since_last_modified &lt;= CACHE_INVALIDATION_THRESHOLD {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
         }
     }
 
-    <span class="kw">match</span> <span class="ident">etag</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">etag</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">CacheState::PossiblyDirty</span> { <span class="ident">etag</span>, <span class="ident">path</span> }),
-        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">CacheState::UnableToVerify</span> { <span class="ident">path</span> }),
+    <span class="kw">match </span>etag {
+        <span class="prelude-val">Some</span>(etag) =&gt; <span class="prelude-val">Err</span>(CacheState::PossiblyDirty { etag, path }),
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(CacheState::UnableToVerify { path }),
     }
 }
 
-<span class="doccomment">/// Classification of how valid an item is based on filesystem metadata.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">enum</span> <span class="ident">CacheState</span> {
-    <span class="doccomment">/// The item isn&#39;t in the cache.</span>
-    <span class="ident">Miss</span>,
-    <span class="doccomment">/// The cached item might be invalid, but it has an ETag we can use for</span>
-    <span class="doccomment">/// further validation.</span>
-    <span class="ident">PossiblyDirty</span> { <span class="ident">etag</span>: <span class="ident">String</span>, <span class="ident">path</span>: <span class="ident">PathBuf</span> },
-    <span class="doccomment">/// The cached item exists on disk, but we weren&#39;t able to tell whether it is still</span>
-    <span class="doccomment">/// valid, and there aren&#39;t any other ways to validate it further. You can</span>
-    <span class="doccomment">/// probably reuse this if you are having internet issues.</span>
-    <span class="ident">UnableToVerify</span> { <span class="ident">path</span>: <span class="ident">PathBuf</span> },
+<span class="doccomment">/// Classification of how valid an item is based on filesystem metadata.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">enum </span>CacheState {
+    <span class="doccomment">/// The item isn&#39;t in the cache.
+    </span>Miss,
+    <span class="doccomment">/// The cached item might be invalid, but it has an ETag we can use for
+    /// further validation.
+    </span>PossiblyDirty { etag: String, path: PathBuf },
+    <span class="doccomment">/// The cached item exists on disk, but we weren&#39;t able to tell whether it is still
+    /// valid, and there aren&#39;t any other ways to validate it further. You can
+    /// probably reuse this if you are having internet issues.
+    </span>UnableToVerify { path: PathBuf },
 }
 
-<span class="kw">impl</span> <span class="ident">CacheState</span> {
-    <span class="kw">fn</span> <span class="ident">take_path</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">CacheState::PossiblyDirty</span> { <span class="ident">path</span>, .. } <span class="op">|</span> <span class="ident">CacheState::UnableToVerify</span> { <span class="ident">path</span> } =&gt; {
-                <span class="prelude-val">Some</span>(<span class="ident">path</span>)
+<span class="kw">impl </span>CacheState {
+    <span class="kw">fn </span>take_path(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            CacheState::PossiblyDirty { path, .. } | CacheState::UnableToVerify { path } =&gt; {
+                <span class="prelude-val">Some</span>(path)
             }
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">use_etag_to_resolve_cached_file</span>(<span class="self">self</span>, <span class="ident">new_etag</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> (<span class="ident">new_etag</span>, <span class="self">self</span>) {
+    <span class="kw">fn </span>use_etag_to_resolve_cached_file(<span class="self">self</span>, new_etag: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
+        <span class="kw">match </span>(new_etag, <span class="self">self</span>) {
             (
-                <span class="prelude-val">Some</span>(<span class="ident">new_etag</span>),
-                <span class="ident">CacheState::PossiblyDirty</span> {
-                    <span class="ident">etag</span>: <span class="ident">cached_etag</span>,
-                    <span class="ident">path</span>,
+                <span class="prelude-val">Some</span>(new_etag),
+                CacheState::PossiblyDirty {
+                    etag: cached_etag,
+                    path,
                 },
-            ) <span class="kw">if</span> <span class="ident">cached_etag</span> <span class="op">==</span> <span class="ident">new_etag</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">path</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+            ) <span class="kw">if </span>cached_etag == new_etag =&gt; <span class="prelude-val">Some</span>(path),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">package_url</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">pkg</span>: <span class="kw-2">&amp;</span><span class="ident">Package</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Url</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">registry</span>: <span class="ident">Url</span> <span class="op">=</span> <span class="ident">registry</span>
-        .<span class="ident">parse</span>()
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{registry}\&quot; as a URL&quot;</span>))<span class="question-mark">?</span>;
+<span class="kw">fn </span>package_url(registry: <span class="kw-2">&amp;</span>str, pkg: <span class="kw-2">&amp;</span>Package) -&gt; <span class="prelude-ty">Result</span>&lt;Url, Error&gt; {
+    <span class="kw">let </span>registry: Url = registry
+        .parse()
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{registry}\&quot; as a URL&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">Package</span> {
-        <span class="ident">name</span>,
-        <span class="ident">namespace</span>,
-        <span class="ident">version</span>,
-    } <span class="op">=</span> <span class="ident">pkg</span>;
+    <span class="kw">let </span>Package {
+        name,
+        namespace,
+        version,
+    } = pkg;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{namespace}/{name}&quot;</span>);
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">version</span>) <span class="op">=</span> <span class="ident">version</span> {
-        <span class="ident">path</span>.<span class="ident">push</span>(<span class="string">&#39;@&#39;</span>);
-        <span class="ident">path</span>.<span class="ident">push_str</span>(<span class="ident">version</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="macro">format!</span>(<span class="string">&quot;{namespace}/{name}&quot;</span>);
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = version {
+        path.push(<span class="string">&#39;@&#39;</span>);
+        path.push_str(version);
     }
 
-    <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">registry</span>
-        .<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
-        .<span class="ident">context</span>(<span class="string">&quot;Unable to construct the package URL&quot;</span>)<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">url</span>)
+    <span class="kw">let </span>url = registry
+        .join(<span class="kw-2">&amp;</span>path)
+        .context(<span class="string">&quot;Unable to construct the package URL&quot;</span>)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(url)
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ModuleCache</span> {
-    <span class="ident">Enabled</span>(<span class="ident">wasmer_cache::FileSystemCache</span>),
-    <span class="ident">Disabled</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub enum </span>ModuleCache {
+    Enabled(wasmer_cache::FileSystemCache),
+    Disabled,
 }
 
-<span class="kw">impl</span> <span class="ident">wasmer_cache::Cache</span> <span class="kw">for</span> <span class="ident">ModuleCache</span> {
-    <span class="kw">type</span> <span class="ident">SerializeError</span> <span class="op">=</span> <span class="ident">SerializeError</span>;
-    <span class="kw">type</span> <span class="ident">DeserializeError</span> <span class="op">=</span> <span class="ident">DeserializeError</span>;
+<span class="kw">impl </span>wasmer_cache::Cache <span class="kw">for </span>ModuleCache {
+    <span class="kw">type </span>SerializeError = SerializeError;
+    <span class="kw">type </span>DeserializeError = DeserializeError;
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">load</span>(
+    <span class="kw">unsafe fn </span>load(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
-        <span class="ident">key</span>: <span class="ident">Hash</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span>, <span class="ident"><span class="self">Self</span>::DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ModuleCache::Enabled</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>.<span class="ident">load</span>(<span class="ident">engine</span>, <span class="ident">key</span>),
-            <span class="ident">ModuleCache::Disabled</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Io</span>(<span class="ident">std::io::ErrorKind::NotFound</span>.<span class="ident">into</span>())),
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        key: Hash,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, <span class="self">Self</span>::DeserializeError&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ModuleCache::Enabled(f) =&gt; f.load(engine, key),
+            ModuleCache::Disabled =&gt; <span class="prelude-val">Err</span>(DeserializeError::Io(std::io::ErrorKind::NotFound.into())),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">store</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">key</span>: <span class="ident">Hash</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ModuleCache::Enabled</span>(<span class="ident">f</span>) =&gt; <span class="ident">f</span>.<span class="ident">store</span>(<span class="ident">key</span>, <span class="ident">module</span>),
-            <span class="ident">ModuleCache::Disabled</span> =&gt; <span class="prelude-val">Ok</span>(()),
+    <span class="kw">fn </span>store(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Hash, module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::SerializeError&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ModuleCache::Enabled(f) =&gt; f.store(key, module),
+            ModuleCache::Disabled =&gt; <span class="prelude-val">Ok</span>(()),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">construct_package_urls</span>() {
-        <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> [
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>construct_package_urls() {
+        <span class="kw">let </span>inputs = [
             (
                 <span class="string">&quot;https://wapm.io/&quot;</span>,
                 <span class="string">&quot;syrusakbary/python&quot;</span>,
@@ -790,13 +790,13 @@
             ),
         ];
 
-        <span class="kw">for</span> (<span class="ident">registry</span>, <span class="ident">package</span>, <span class="ident">expected</span>) <span class="kw">in</span> <span class="ident">inputs</span> {
-            <span class="kw">let</span> <span class="ident">package</span>: <span class="ident">Package</span> <span class="op">=</span> <span class="ident">package</span>.<span class="ident">parse</span>().<span class="ident">unwrap</span>();
+        <span class="kw">for </span>(registry, package, expected) <span class="kw">in </span>inputs {
+            <span class="kw">let </span>package: Package = package.parse().unwrap();
 
-            <span class="kw">let</span> <span class="ident">got</span> <span class="op">=</span> <span class="ident">package_url</span>(<span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">package</span>).<span class="ident">unwrap</span>();
-            <span class="macro">assert_eq!</span>(<span class="ident">got</span>.<span class="ident">to_string</span>(), <span class="ident">expected</span>);
+            <span class="kw">let </span>got = package_url(registry, <span class="kw-2">&amp;</span>package).unwrap();
+            <span class="macro">assert_eq!</span>(got.to_string(), expected);
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

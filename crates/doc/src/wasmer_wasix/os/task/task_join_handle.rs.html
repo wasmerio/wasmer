@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/task/task_join_handle.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>task_join_handle.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/task/task_join_handle.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>task_join_handle.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -181,186 +181,186 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">pin::Pin</span>,
-    <span class="ident">sync::Arc</span>,
-    <span class="ident">task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>},
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
 
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi</span>::{<span class="ident">Errno</span>, <span class="ident">ExitCode</span>};
+<span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, ExitCode};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::WasiRuntimeError</span>;
+<span class="kw">use </span><span class="kw">crate</span>::WasiRuntimeError;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TaskStatus</span> {
-    <span class="ident">Pending</span>,
-    <span class="ident">Running</span>,
-    <span class="ident">Finished</span>(<span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span>),
+<span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub enum </span>TaskStatus {
+    Pending,
+    Running,
+    Finished(<span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt;),
 }
 
-<span class="kw">impl</span> <span class="ident">TaskStatus</span> {
-    <span class="doccomment">/// Returns `true` if the task status is [`Pending`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`Pending`]: TaskStatus::Pending</span>
-    <span class="attribute">#[<span class="ident">must_use</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_pending</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::Pending</span>)
+<span class="kw">impl </span>TaskStatus {
+    <span class="doccomment">/// Returns `true` if the task status is [`Pending`].
+    ///
+    /// [`Pending`]: TaskStatus::Pending
+    </span><span class="attribute">#[must_use]
+    </span><span class="kw">pub fn </span>is_pending(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Pending)
     }
 
-    <span class="doccomment">/// Returns `true` if the task status is [`Running`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`Running`]: TaskStatus::Running</span>
-    <span class="attribute">#[<span class="ident">must_use</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_running</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::Running</span>)
+    <span class="doccomment">/// Returns `true` if the task status is [`Running`].
+    ///
+    /// [`Running`]: TaskStatus::Running
+    </span><span class="attribute">#[must_use]
+    </span><span class="kw">pub fn </span>is_running(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Running)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_finished</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Finished</span>(<span class="ident">res</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">res</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+    <span class="kw">pub fn </span>into_finished(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt;&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Finished(res) =&gt; <span class="prelude-val">Some</span>(res),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="doccomment">/// Returns `true` if the task status is [`Finished`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`Finished`]: TaskStatus::Finished</span>
-    <span class="attribute">#[<span class="ident">must_use</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::Finished</span>(..))
+    <span class="doccomment">/// Returns `true` if the task status is [`Finished`].
+    ///
+    /// [`Finished`]: TaskStatus::Finished
+    </span><span class="attribute">#[must_use]
+    </span><span class="kw">pub fn </span>is_finished(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::Finished(..))
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">thiserror::Error</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Task already terminated&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TaskTerminatedError</span>;
+<span class="attribute">#[derive(thiserror::Error, Debug)]
+#[error(<span class="string">&quot;Task already terminated&quot;</span>)]
+</span><span class="kw">pub struct </span>TaskTerminatedError;
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualTaskHandle</span>: <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskStatus</span>;
+<span class="kw">pub trait </span>VirtualTaskHandle: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaskStatus;
 
-    <span class="doccomment">/// Polls to check if the process is ready yet to receive commands</span>
-    <span class="kw">fn</span> <span class="ident">poll_ready</span>(
-        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">TaskTerminatedError</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Polls to check if the process is ready yet to receive commands
+    </span><span class="kw">fn </span>poll_ready(
+        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), TaskTerminatedError&gt;&gt;;
 
-    <span class="kw">fn</span> <span class="ident">poll_finished</span>(
-        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="kw">fn </span>poll_finished(
+        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt;&gt;;
 }
 
-<span class="doccomment">/// A handle that allows awaiting the termination of a task, and retrieving its exit code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OwnedTaskStatus</span> {
-    <span class="ident">watch_tx</span>: <span class="ident">tokio::sync::watch::Sender</span><span class="op">&lt;</span><span class="ident">TaskStatus</span><span class="op">&gt;</span>,
-    <span class="comment">// Even through unused, without this receive there is a race condition</span>
-    <span class="comment">// where the previously sent values are lost.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="ident">watch_rx</span>: <span class="ident">tokio::sync::watch::Receiver</span><span class="op">&lt;</span><span class="ident">TaskStatus</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A handle that allows awaiting the termination of a task, and retrieving its exit code.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>OwnedTaskStatus {
+    watch_tx: tokio::sync::watch::Sender&lt;TaskStatus&gt;,
+    <span class="comment">// Even through unused, without this receive there is a race condition
+    // where the previously sent values are lost.
+    </span><span class="attribute">#[allow(dead_code)]
+    </span>watch_rx: tokio::sync::watch::Receiver&lt;TaskStatus&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">OwnedTaskStatus</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">status</span>: <span class="ident">TaskStatus</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">tokio::sync::watch::channel</span>(<span class="ident">status</span>);
-        <span class="self">Self</span> {
-            <span class="ident">watch_tx</span>: <span class="ident">tx</span>,
-            <span class="ident">watch_rx</span>: <span class="ident">rx</span>,
+<span class="kw">impl </span>OwnedTaskStatus {
+    <span class="kw">pub fn </span>new(status: TaskStatus) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(tx, rx) = tokio::sync::watch::channel(status);
+        <span class="self">Self </span>{
+            watch_tx: tx,
+            watch_rx: rx,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_finished_with_code</span>(<span class="ident">code</span>: <span class="ident">ExitCode</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">code</span>)))
+    <span class="kw">pub fn </span>new_finished_with_code(code: ExitCode) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(TaskStatus::Finished(<span class="prelude-val">Ok</span>(code)))
     }
 
-    <span class="doccomment">/// Marks the task as finished.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_running</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">send_modify</span>(<span class="op">|</span><span class="ident">value</span><span class="op">|</span> {
-            <span class="comment">// Only set to running if task was pending, otherwise the transition would be invalid.</span>
-            <span class="kw">if</span> <span class="ident">value</span>.<span class="ident">is_pending</span>() {
-                <span class="kw-2">*</span><span class="ident">value</span> <span class="op">=</span> <span class="ident">TaskStatus::Running</span>;
+    <span class="doccomment">/// Marks the task as finished.
+    </span><span class="kw">pub fn </span>set_running(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.watch_tx.send_modify(|value| {
+            <span class="comment">// Only set to running if task was pending, otherwise the transition would be invalid.
+            </span><span class="kw">if </span>value.is_pending() {
+                <span class="kw-2">*</span>value = TaskStatus::Running;
             }
         })
     }
 
-    <span class="doccomment">/// Marks the task as finished.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">set_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">code</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">code</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">code</span>) <span class="op">=</span> <span class="ident">err</span>.<span class="ident">as_exit_code</span>() {
-                    <span class="prelude-val">Ok</span>(<span class="ident">code</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>)
+    <span class="doccomment">/// Marks the task as finished.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_finished(<span class="kw-2">&amp;</span><span class="self">self</span>, res: <span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt;) {
+        <span class="kw">let </span>inner = <span class="kw">match </span>res {
+            <span class="prelude-val">Ok</span>(code) =&gt; <span class="prelude-val">Ok</span>(code),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(code) = err.as_exit_code() {
+                    <span class="prelude-val">Ok</span>(code)
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Err</span>(err)
                 }
             }
         };
-        <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">send_modify</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">old</span><span class="op">|</span> {
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">old</span>.<span class="ident">is_finished</span>() {
-                <span class="kw-2">*</span><span class="ident">old</span> <span class="op">=</span> <span class="ident">TaskStatus::Finished</span>(<span class="ident">inner</span>);
+        <span class="self">self</span>.watch_tx.send_modify(<span class="kw">move </span>|old| {
+            <span class="kw">if </span>!old.is_finished() {
+                <span class="kw-2">*</span>old = TaskStatus::Finished(inner);
             }
         });
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskStatus</span> {
-        <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">borrow</span>().<span class="ident">clone</span>()
+    <span class="kw">pub fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaskStatus {
+        <span class="self">self</span>.watch_tx.borrow().clone()
     }
 
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">await_termination</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">subscribe</span>();
-        <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">receiver</span>.<span class="ident">borrow_and_update</span>().<span class="ident">clone</span>();
-            <span class="kw">match</span> <span class="ident">status</span> {
-                <span class="ident">TaskStatus::Pending</span> <span class="op">|</span> <span class="ident">TaskStatus::Running</span> =&gt; {}
-                <span class="ident">TaskStatus::Finished</span>(<span class="ident">res</span>) =&gt; {
-                    <span class="kw">return</span> <span class="ident">res</span>;
+    <span class="kw">pub async fn </span>await_termination(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>receiver = <span class="self">self</span>.watch_tx.subscribe();
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>status = receiver.borrow_and_update().clone();
+            <span class="kw">match </span>status {
+                TaskStatus::Pending | TaskStatus::Running =&gt; {}
+                TaskStatus::Finished(res) =&gt; {
+                    <span class="kw">return </span>res;
                 }
             }
-            <span class="comment">// NOTE: unwrap() is fine, because &amp;self always holds on to the sender.</span>
-            <span class="ident">receiver</span>.<span class="ident">changed</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
+            <span class="comment">// NOTE: unwrap() is fine, because &amp;self always holds on to the sender.
+            </span>receiver.changed().<span class="kw">await</span>.unwrap();
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskJoinHandle</span> {
-        <span class="ident">TaskJoinHandle</span> {
-            <span class="ident">watch</span>: <span class="self">self</span>.<span class="ident">watch_tx</span>.<span class="ident">subscribe</span>(),
+    <span class="kw">pub fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaskJoinHandle {
+        TaskJoinHandle {
+            watch: <span class="self">self</span>.watch_tx.subscribe(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">OwnedTaskStatus</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">TaskStatus::Pending</span>)
+<span class="kw">impl </span>Default <span class="kw">for </span>OwnedTaskStatus {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(TaskStatus::Pending)
     }
 }
 
-<span class="doccomment">/// A handle that allows awaiting the termination of a task, and retrieving its exit code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TaskJoinHandle</span> {
-    <span class="ident">watch</span>: <span class="ident">tokio::sync::watch::Receiver</span><span class="op">&lt;</span><span class="ident">TaskStatus</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A handle that allows awaiting the termination of a task, and retrieving its exit code.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>TaskJoinHandle {
+    watch: tokio::sync::watch::Receiver&lt;TaskStatus&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">TaskJoinHandle</span> {
-    <span class="doccomment">/// Retrieve the current status.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskStatus</span> {
-        <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">borrow</span>().<span class="ident">clone</span>()
+<span class="kw">impl </span>TaskJoinHandle {
+    <span class="doccomment">/// Retrieve the current status.
+    </span><span class="kw">pub fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaskStatus {
+        <span class="self">self</span>.watch.borrow().clone()
     }
 
-    <span class="doccomment">/// Wait until the task finishes.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">wait_finished</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">borrow_and_update</span>().<span class="ident">clone</span>();
-            <span class="kw">match</span> <span class="ident">status</span> {
-                <span class="ident">TaskStatus::Pending</span> <span class="op">|</span> <span class="ident">TaskStatus::Running</span> =&gt; {}
-                <span class="ident">TaskStatus::Finished</span>(<span class="ident">res</span>) =&gt; {
-                    <span class="kw">return</span> <span class="ident">res</span>;
+    <span class="doccomment">/// Wait until the task finishes.
+    </span><span class="kw">pub async fn </span>wait_finished(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt; {
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>status = <span class="self">self</span>.watch.borrow_and_update().clone();
+            <span class="kw">match </span>status {
+                TaskStatus::Pending | TaskStatus::Running =&gt; {}
+                TaskStatus::Finished(res) =&gt; {
+                    <span class="kw">return </span>res;
                 }
             }
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">changed</span>().<span class="kw">await</span>.<span class="ident">is_err</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span>.<span class="ident">into</span>());
+            <span class="kw">if </span><span class="self">self</span>.watch.changed().<span class="kw">await</span>.is_err() {
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Noent.into());
             }
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

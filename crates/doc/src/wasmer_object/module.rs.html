@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/object/src/module.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_object/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_object/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_object/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/object/src/module.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_object/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_object/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_object/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -460,391 +460,401 @@
 <span id="460">460</span>
 <span id="461">461</span>
 <span id="462">462</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ObjectError</span>;
-<span class="kw">use</span> <span class="ident">object::write</span>::{
-    <span class="ident">Object</span>, <span class="ident">Relocation</span>, <span class="ident">StandardSection</span>, <span class="ident">StandardSegment</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">ObjSymbol</span>, <span class="ident">SymbolSection</span>,
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::ObjectError;
+<span class="kw">use </span>object::write::{
+    Object, Relocation, StandardSection, StandardSegment, Symbol <span class="kw">as </span>ObjSymbol, SymbolSection,
 };
-<span class="kw">use</span> <span class="ident">object</span>::{
-    <span class="ident">elf</span>, <span class="ident">macho</span>, <span class="ident">RelocationEncoding</span>, <span class="ident">RelocationKind</span>, <span class="ident">SectionKind</span>, <span class="ident">SymbolFlags</span>, <span class="ident">SymbolKind</span>,
-    <span class="ident">SymbolScope</span>,
+<span class="kw">use </span>object::{
+    elf, macho, FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags,
+    SymbolKind, SymbolScope,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::LocalFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">Compilation</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Endianness</span>,
-    <span class="ident">RelocationKind</span> <span class="kw">as</span> <span class="ident">Reloc</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionIndex</span>, <span class="ident">Triple</span>,
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::LocalFunctionIndex;
+<span class="kw">use </span>wasmer_types::{
+    Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness,
+    RelocationKind <span class="kw">as </span>Reloc, RelocationTarget, SectionIndex, Triple,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
+<span class="kw">use </span>wasmer_types::{Symbol, SymbolRegistry};
 
-<span class="kw">const</span> <span class="ident">DWARF_SECTION_NAME</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;.eh_frame&quot;</span>;
+<span class="kw">const </span>DWARF_SECTION_NAME: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;.eh_frame&quot;</span>;
 
-<span class="doccomment">/// Create an object for a given target `Triple`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Usage</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_types::Triple;</span>
-<span class="doccomment">/// # use wasmer_object::ObjectError;</span>
-<span class="doccomment">/// use wasmer_object::get_object_for_target;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # fn generate_object_for_target(triple: &amp;Triple) -&gt; Result&lt;(), ObjectError&gt; {</span>
-<span class="doccomment">/// let mut object = get_object_for_target(&amp;triple)?;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Ok(())</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_object_for_target</span>(<span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Object</span>, <span class="ident">ObjectError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">obj_binary_format</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">binary_format</span> {
-        <span class="ident">BinaryFormat::Elf</span> =&gt; <span class="ident">object::BinaryFormat::Elf</span>,
-        <span class="ident">BinaryFormat::Macho</span> =&gt; <span class="ident">object::BinaryFormat::MachO</span>,
-        <span class="ident">BinaryFormat::Coff</span> =&gt; <span class="ident">object::BinaryFormat::Coff</span>,
-        <span class="ident">binary_format</span> =&gt; {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ObjectError::UnsupportedBinaryFormat</span>(<span class="macro">format!</span>(
+<span class="doccomment">/// Create an object for a given target `Triple`.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_types::Triple;
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::get_object_for_target;
+///
+/// # fn generate_object_for_target(triple: &amp;Triple) -&gt; Result&lt;(), ObjectError&gt; {
+/// let mut object = get_object_for_target(&amp;triple)?;
+///
+/// # Ok(())
+/// # }
+/// ```
+</span><span class="kw">pub fn </span>get_object_for_target(triple: <span class="kw-2">&amp;</span>Triple) -&gt; <span class="prelude-ty">Result</span>&lt;Object, ObjectError&gt; {
+    <span class="kw">let </span>obj_binary_format = <span class="kw">match </span>triple.binary_format {
+        BinaryFormat::Elf =&gt; object::BinaryFormat::Elf,
+        BinaryFormat::Macho =&gt; object::BinaryFormat::MachO,
+        BinaryFormat::Coff =&gt; object::BinaryFormat::Coff,
+        binary_format =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(ObjectError::UnsupportedBinaryFormat(<span class="macro">format!</span>(
                 <span class="string">&quot;{}&quot;</span>,
-                <span class="ident">binary_format</span>
+                binary_format
             )));
         }
     };
-    <span class="kw">let</span> <span class="ident">obj_architecture</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">architecture</span> {
-        <span class="ident">Architecture::X86_64</span> =&gt; <span class="ident">object::Architecture::X86_64</span>,
-        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; <span class="ident">object::Architecture::Aarch64</span>,
-        <span class="ident">architecture</span> =&gt; {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ObjectError::UnsupportedArchitecture</span>(<span class="macro">format!</span>(
+    <span class="kw">let </span>obj_architecture = <span class="kw">match </span>triple.architecture {
+        Architecture::X86_64 =&gt; object::Architecture::X86_64,
+        Architecture::Aarch64(<span class="kw">_</span>) =&gt; object::Architecture::Aarch64,
+        Architecture::Riscv64(<span class="kw">_</span>) =&gt; object::Architecture::Riscv64,
+        architecture =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(ObjectError::UnsupportedArchitecture(<span class="macro">format!</span>(
                 <span class="string">&quot;{}&quot;</span>,
-                <span class="ident">architecture</span>
+                architecture
             )));
         }
     };
-    <span class="kw">let</span> <span class="ident">obj_endianness</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>
-        .<span class="ident">endianness</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ObjectError::UnknownEndianness</span>)<span class="question-mark">?</span>
-    {
-        <span class="ident">Endianness::Little</span> =&gt; <span class="ident">object::Endianness::Little</span>,
-        <span class="ident">Endianness::Big</span> =&gt; <span class="ident">object::Endianness::Big</span>,
+    <span class="kw">let </span>obj_endianness = <span class="kw">match </span>triple
+        .endianness()
+        .map_err(|<span class="kw">_</span>| ObjectError::UnknownEndianness)<span class="question-mark">?
+    </span>{
+        Endianness::Little =&gt; object::Endianness::Little,
+        Endianness::Big =&gt; object::Endianness::Big,
     };
 
-    <span class="prelude-val">Ok</span>(<span class="ident">Object::new</span>(
-        <span class="ident">obj_binary_format</span>,
-        <span class="ident">obj_architecture</span>,
-        <span class="ident">obj_endianness</span>,
-    ))
+    <span class="kw">let </span><span class="kw-2">mut </span>object = Object::new(obj_binary_format, obj_architecture, obj_endianness);
+
+    <span class="kw">if let </span>Architecture::Riscv64(<span class="kw">_</span>) = triple.architecture {
+        object.flags = FileFlags::Elf {
+            e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
+        };
+    }
+
+    <span class="prelude-val">Ok</span>(object)
 }
 
-<span class="doccomment">/// Write data into an existing object.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Usage</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_types::Triple;</span>
-<span class="doccomment">/// # use wasmer_object::ObjectError;</span>
-<span class="doccomment">/// use wasmer_object::{get_object_for_target, emit_data};</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # fn emit_data_into_object(triple: &amp;Triple) -&gt; Result&lt;(), ObjectError&gt; {</span>
-<span class="doccomment">/// let mut object = get_object_for_target(&amp;triple)?;</span>
-<span class="doccomment">/// emit_data(&amp;mut object, b&quot;WASMER_METADATA&quot;, &amp;b&quot;Hello, World!&quot;[..], 1)?;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Ok(())</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_data</span>(
-    <span class="ident">obj</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Object</span>,
-    <span class="ident">name</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    <span class="ident">align</span>: <span class="ident">u64</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ObjectError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-        <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_vec</span>(),
-        <span class="ident">value</span>: <span class="number">0</span>,
-        <span class="ident">size</span>: <span class="number">0</span>,
-        <span class="ident">kind</span>: <span class="ident">SymbolKind::Data</span>,
-        <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-        <span class="ident">weak</span>: <span class="bool-val">false</span>,
-        <span class="ident">section</span>: <span class="ident">SymbolSection::Undefined</span>,
-        <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+<span class="doccomment">/// Write data into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_types::Triple;
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::{get_object_for_target, emit_data};
+///
+/// # fn emit_data_into_object(triple: &amp;Triple) -&gt; Result&lt;(), ObjectError&gt; {
+/// let mut object = get_object_for_target(&amp;triple)?;
+/// emit_data(&amp;mut object, b&quot;WASMER_METADATA&quot;, &amp;b&quot;Hello, World!&quot;[..], 1)?;
+///
+/// # Ok(())
+/// # }
+/// ```
+</span><span class="kw">pub fn </span>emit_data(
+    obj: <span class="kw-2">&amp;mut </span>Object,
+    name: <span class="kw-2">&amp;</span>[u8],
+    data: <span class="kw-2">&amp;</span>[u8],
+    align: u64,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), ObjectError&gt; {
+    <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+        name: name.to_vec(),
+        value: <span class="number">0</span>,
+        size: <span class="number">0</span>,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Dynamic,
+        weak: <span class="bool-val">false</span>,
+        section: SymbolSection::Undefined,
+        flags: SymbolFlags::None,
     });
-    <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Data</span>);
-    <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="ident">data</span>, <span class="ident">align</span>);
+    <span class="kw">let </span>section_id = obj.section_id(StandardSection::Data);
+    obj.add_symbol_data(symbol_id, section_id, data, align);
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Emit the compilation result into an existing object.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Usage</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_types::SymbolRegistry;</span>
-<span class="doccomment">/// # use wasmer_types::{Compilation, Triple};</span>
-<span class="doccomment">/// # use wasmer_object::ObjectError;</span>
-<span class="doccomment">/// use wasmer_object::{get_object_for_target, emit_compilation};</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # fn emit_compilation_into_object(</span>
-<span class="doccomment">/// #     triple: &amp;Triple,</span>
-<span class="doccomment">/// #     compilation: Compilation,</span>
-<span class="doccomment">/// #     symbol_registry: impl SymbolRegistry,</span>
-<span class="doccomment">/// # ) -&gt; Result&lt;(), ObjectError&gt; {</span>
-<span class="doccomment">/// let mut object = get_object_for_target(&amp;triple)?;</span>
-<span class="doccomment">/// emit_compilation(&amp;mut object, compilation, &amp;symbol_registry, &amp;triple)?;</span>
-<span class="doccomment">/// # Ok(())</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_compilation</span>(
-    <span class="ident">obj</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Object</span>,
-    <span class="ident">compilation</span>: <span class="ident">Compilation</span>,
-    <span class="ident">symbol_registry</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">SymbolRegistry</span>,
-    <span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ObjectError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_bodies</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_relocations</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
-    <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">func</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">into_iter</span>() {
-        <span class="ident">function_bodies</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">body</span>);
-        <span class="ident">function_relocations</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">relocations</span>);
+<span class="doccomment">/// Emit the compilation result into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_types::SymbolRegistry;
+/// # use wasmer_types::{Compilation, Triple};
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::{get_object_for_target, emit_compilation};
+///
+/// # fn emit_compilation_into_object(
+/// #     triple: &amp;Triple,
+/// #     compilation: Compilation,
+/// #     symbol_registry: impl SymbolRegistry,
+/// # ) -&gt; Result&lt;(), ObjectError&gt; {
+/// let mut object = get_object_for_target(&amp;triple)?;
+/// emit_compilation(&amp;mut object, compilation, &amp;symbol_registry, &amp;triple)?;
+/// # Ok(())
+/// # }
+/// ```
+</span><span class="kw">pub fn </span>emit_compilation(
+    obj: <span class="kw-2">&amp;mut </span>Object,
+    compilation: Compilation,
+    symbol_registry: <span class="kw-2">&amp;</span><span class="kw">impl </span>SymbolRegistry,
+    triple: <span class="kw-2">&amp;</span>Triple,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), ObjectError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
+    <span class="kw">let </span><span class="kw-2">mut </span>function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
+    <span class="kw">for </span>(<span class="kw">_</span>, func) <span class="kw">in </span>compilation.functions.into_iter() {
+        function_bodies.push(func.body);
+        function_relocations.push(func.relocations);
     }
-    <span class="kw">let</span> <span class="ident">custom_section_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>
-        .<span class="ident">custom_sections</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">section</span>)<span class="op">|</span> <span class="ident">section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>())
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let </span>custom_section_relocations = compilation
+        .custom_sections
+        .iter()
+        .map(|(<span class="kw">_</span>, section)| section.relocations.clone())
+        .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">let</span> <span class="ident">debug_index</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">debug</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span>.<span class="ident">eh_frame</span>);
+    <span class="kw">let </span>debug_index = compilation.debug.map(|d| d.eh_frame);
 
-    <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">architecture</span> {
-        <span class="ident">Architecture::X86_64</span> =&gt; <span class="number">1</span>,
-        <span class="comment">// In Arm64 is recommended a 4-byte alignment</span>
-        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; <span class="number">4</span>,
-        <span class="kw">_</span> =&gt; <span class="number">1</span>,
+    <span class="kw">let </span>align = <span class="kw">match </span>triple.architecture {
+        Architecture::X86_64 =&gt; <span class="number">1</span>,
+        <span class="comment">// In Arm64 is recommended a 4-byte alignment
+        </span>Architecture::Aarch64(<span class="kw">_</span>) =&gt; <span class="number">4</span>,
+        <span class="kw">_ </span>=&gt; <span class="number">1</span>,
     };
 
-    <span class="comment">// Add sections</span>
-    <span class="kw">let</span> <span class="ident">custom_section_ids</span> <span class="op">=</span> <span class="ident">compilation</span>
-        .<span class="ident">custom_sections</span>
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">section_index</span>, <span class="ident">custom_section</span>)<span class="op">|</span> {
-            <span class="kw">if</span> <span class="ident">debug_index</span>.<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span> <span class="op">==</span> <span class="ident">section_index</span>) {
-                <span class="comment">// If this is the debug section</span>
-                <span class="kw">let</span> <span class="ident">segment</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">segment_name</span>(<span class="ident">StandardSegment::Debug</span>).<span class="ident">to_vec</span>();
-                <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span>
-                    <span class="ident">obj</span>.<span class="ident">add_section</span>(<span class="ident">segment</span>, <span class="ident">DWARF_SECTION_NAME</span>.<span class="ident">to_vec</span>(), <span class="ident">SectionKind::Debug</span>);
-                <span class="ident">obj</span>.<span class="ident">append_section_data</span>(<span class="ident">section_id</span>, <span class="ident">custom_section</span>.<span class="ident">bytes</span>.<span class="ident">as_slice</span>(), <span class="ident">align</span>);
-                <span class="kw">let</span> <span class="ident">section_name</span> <span class="op">=</span> <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::Section</span>(<span class="ident">section_index</span>));
-                <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-                    <span class="ident">name</span>: <span class="ident">section_name</span>.<span class="ident">into_bytes</span>(),
-                    <span class="ident">value</span>: <span class="number">0</span>,
-                    <span class="ident">size</span>: <span class="ident">custom_section</span>.<span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-                    <span class="ident">kind</span>: <span class="ident">SymbolKind::Data</span>,
-                    <span class="ident">scope</span>: <span class="ident">SymbolScope::Compilation</span>,
-                    <span class="ident">weak</span>: <span class="bool-val">false</span>,
-                    <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-                    <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    <span class="comment">// Add sections
+    </span><span class="kw">let </span>custom_section_ids = compilation
+        .custom_sections
+        .into_iter()
+        .map(|(section_index, custom_section)| {
+            <span class="kw">if </span>debug_index.map_or(<span class="bool-val">false</span>, |d| d == section_index) {
+                <span class="comment">// If this is the debug section
+                </span><span class="kw">let </span>segment = obj.segment_name(StandardSegment::Debug).to_vec();
+                <span class="kw">let </span>section_id =
+                    obj.add_section(segment, DWARF_SECTION_NAME.to_vec(), SectionKind::Debug);
+                obj.append_section_data(section_id, custom_section.bytes.as_slice(), align);
+                <span class="kw">let </span>section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
+                <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+                    name: section_name.into_bytes(),
+                    value: <span class="number">0</span>,
+                    size: custom_section.bytes.len() <span class="kw">as _</span>,
+                    kind: SymbolKind::Data,
+                    scope: SymbolScope::Compilation,
+                    weak: <span class="bool-val">false</span>,
+                    section: SymbolSection::Section(section_id),
+                    flags: SymbolFlags::None,
                 });
-                (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>)
-            } <span class="kw">else</span> {
-                <span class="kw">let</span> <span class="ident">section_name</span> <span class="op">=</span> <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::Section</span>(<span class="ident">section_index</span>));
-                <span class="kw">let</span> (<span class="ident">section_kind</span>, <span class="ident">standard_section</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">custom_section</span>.<span class="ident">protection</span> {
-                    <span class="ident">CustomSectionProtection::ReadExecute</span> =&gt; {
-                        (<span class="ident">SymbolKind::Text</span>, <span class="ident">StandardSection::Text</span>)
+                (section_id, symbol_id)
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
+                <span class="kw">let </span>(section_kind, standard_section) = <span class="kw">match </span>custom_section.protection {
+                    CustomSectionProtection::ReadExecute =&gt; {
+                        (SymbolKind::Text, StandardSection::Text)
                     }
-                    <span class="ident">CustomSectionProtection::Read</span> =&gt; (<span class="ident">SymbolKind::Data</span>, <span class="ident">StandardSection::Data</span>),
+                    CustomSectionProtection::Read =&gt; (SymbolKind::Data, StandardSection::Data),
                 };
-                <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">standard_section</span>);
-                <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-                    <span class="ident">name</span>: <span class="ident">section_name</span>.<span class="ident">into_bytes</span>(),
-                    <span class="ident">value</span>: <span class="number">0</span>,
-                    <span class="ident">size</span>: <span class="ident">custom_section</span>.<span class="ident">bytes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-                    <span class="ident">kind</span>: <span class="ident">section_kind</span>,
-                    <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-                    <span class="ident">weak</span>: <span class="bool-val">false</span>,
-                    <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-                    <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+                <span class="kw">let </span>section_id = obj.section_id(standard_section);
+                <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+                    name: section_name.into_bytes(),
+                    value: <span class="number">0</span>,
+                    size: custom_section.bytes.len() <span class="kw">as _</span>,
+                    kind: section_kind,
+                    scope: SymbolScope::Dynamic,
+                    weak: <span class="bool-val">false</span>,
+                    section: SymbolSection::Section(section_id),
+                    flags: SymbolFlags::None,
                 });
-                <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(
-                    <span class="ident">symbol_id</span>,
-                    <span class="ident">section_id</span>,
-                    <span class="ident">custom_section</span>.<span class="ident">bytes</span>.<span class="ident">as_slice</span>(),
-                    <span class="ident">align</span>,
+                obj.add_symbol_data(
+                    symbol_id,
+                    section_id,
+                    custom_section.bytes.as_slice(),
+                    align,
                 );
-                (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>)
+                (section_id, symbol_id)
             }
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
 
-    <span class="comment">// Add functions</span>
-    <span class="kw">let</span> <span class="ident">function_symbol_ids</span> <span class="op">=</span> <span class="ident">function_bodies</span>
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">function_local_index</span>, <span class="ident">function</span>)<span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-                <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::LocalFunction</span>(<span class="ident">function_local_index</span>));
-            <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Text</span>);
-            <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-                <span class="ident">name</span>: <span class="ident">function_name</span>.<span class="ident">into_bytes</span>(),
-                <span class="ident">value</span>: <span class="number">0</span>,
-                <span class="ident">size</span>: <span class="ident">function</span>.<span class="ident">body</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-                <span class="ident">kind</span>: <span class="ident">SymbolKind::Text</span>,
-                <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-                <span class="ident">weak</span>: <span class="bool-val">false</span>,
-                <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-                <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    <span class="comment">// Add functions
+    </span><span class="kw">let </span>function_symbol_ids = function_bodies
+        .into_iter()
+        .map(|(function_local_index, function)| {
+            <span class="kw">let </span>function_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
+            <span class="kw">let </span>section_id = obj.section_id(StandardSection::Text);
+            <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+                name: function_name.into_bytes(),
+                value: <span class="number">0</span>,
+                size: function.body.len() <span class="kw">as _</span>,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Dynamic,
+                weak: <span class="bool-val">false</span>,
+                section: SymbolSection::Section(section_id),
+                flags: SymbolFlags::None,
             });
-            <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="kw-2">&amp;</span><span class="ident">function</span>.<span class="ident">body</span>, <span class="ident">align</span>);
-            (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>)
+            obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, align);
+            (section_id, symbol_id)
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;();
 
-    <span class="comment">// Add function call trampolines</span>
-    <span class="kw">for</span> (<span class="ident">signature_index</span>, <span class="ident">function</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">function_call_trampolines</span>.<span class="ident">into_iter</span>() {
-        <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-            <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::FunctionCallTrampoline</span>(<span class="ident">signature_index</span>));
-        <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Text</span>);
-        <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-            <span class="ident">name</span>: <span class="ident">function_name</span>.<span class="ident">into_bytes</span>(),
-            <span class="ident">value</span>: <span class="number">0</span>,
-            <span class="ident">size</span>: <span class="ident">function</span>.<span class="ident">body</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="ident">kind</span>: <span class="ident">SymbolKind::Text</span>,
-            <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-            <span class="ident">weak</span>: <span class="bool-val">false</span>,
-            <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-            <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    <span class="comment">// Add function call trampolines
+    </span><span class="kw">for </span>(signature_index, function) <span class="kw">in </span>compilation.function_call_trampolines.into_iter() {
+        <span class="kw">let </span>function_name =
+            symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(signature_index));
+        <span class="kw">let </span>section_id = obj.section_id(StandardSection::Text);
+        <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+            name: function_name.into_bytes(),
+            value: <span class="number">0</span>,
+            size: function.body.len() <span class="kw">as _</span>,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Dynamic,
+            weak: <span class="bool-val">false</span>,
+            section: SymbolSection::Section(section_id),
+            flags: SymbolFlags::None,
         });
-        <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="kw-2">&amp;</span><span class="ident">function</span>.<span class="ident">body</span>, <span class="ident">align</span>);
+        obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, align);
     }
 
-    <span class="comment">// Add dynamic function trampolines</span>
-    <span class="kw">for</span> (<span class="ident">func_index</span>, <span class="ident">function</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">dynamic_function_trampolines</span>.<span class="ident">into_iter</span>() {
-        <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
-            <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::DynamicFunctionTrampoline</span>(<span class="ident">func_index</span>));
-        <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Text</span>);
-        <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-            <span class="ident">name</span>: <span class="ident">function_name</span>.<span class="ident">into_bytes</span>(),
-            <span class="ident">value</span>: <span class="number">0</span>,
-            <span class="ident">size</span>: <span class="ident">function</span>.<span class="ident">body</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="ident">kind</span>: <span class="ident">SymbolKind::Text</span>,
-            <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-            <span class="ident">weak</span>: <span class="bool-val">false</span>,
-            <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-            <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    <span class="comment">// Add dynamic function trampolines
+    </span><span class="kw">for </span>(func_index, function) <span class="kw">in </span>compilation.dynamic_function_trampolines.into_iter() {
+        <span class="kw">let </span>function_name =
+            symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+        <span class="kw">let </span>section_id = obj.section_id(StandardSection::Text);
+        <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+            name: function_name.into_bytes(),
+            value: <span class="number">0</span>,
+            size: function.body.len() <span class="kw">as _</span>,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Dynamic,
+            weak: <span class="bool-val">false</span>,
+            section: SymbolSection::Section(section_id),
+            flags: SymbolFlags::None,
         });
-        <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="kw-2">&amp;</span><span class="ident">function</span>.<span class="ident">body</span>, <span class="ident">align</span>);
+        obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>function.body, align);
     }
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">all_relocations</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>all_relocations = Vec::new();
 
-    <span class="kw">for</span> (<span class="ident">function_local_index</span>, <span class="ident">relocations</span>) <span class="kw">in</span> <span class="ident">function_relocations</span>.<span class="ident">into_iter</span>() {
-        <span class="kw">let</span> (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>) <span class="op">=</span> <span class="ident">function_symbol_ids</span>.<span class="ident">get</span>(<span class="ident">function_local_index</span>).<span class="ident">unwrap</span>();
-        <span class="ident">all_relocations</span>.<span class="ident">push</span>((<span class="kw-2">*</span><span class="ident">section_id</span>, <span class="kw-2">*</span><span class="ident">symbol_id</span>, <span class="ident">relocations</span>))
+    <span class="kw">for </span>(function_local_index, relocations) <span class="kw">in </span>function_relocations.into_iter() {
+        <span class="kw">let </span>(section_id, symbol_id) = function_symbol_ids.get(function_local_index).unwrap();
+        all_relocations.push((<span class="kw-2">*</span>section_id, <span class="kw-2">*</span>symbol_id, relocations))
     }
 
-    <span class="kw">for</span> (<span class="ident">section_index</span>, <span class="ident">relocations</span>) <span class="kw">in</span> <span class="ident">custom_section_relocations</span>.<span class="ident">into_iter</span>() {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">debug_index</span>.<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span> <span class="op">==</span> <span class="ident">section_index</span>) {
-            <span class="comment">// Skip DWARF relocations just yet</span>
-            <span class="kw">let</span> (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>) <span class="op">=</span> <span class="ident">custom_section_ids</span>.<span class="ident">get</span>(<span class="ident">section_index</span>).<span class="ident">unwrap</span>();
-            <span class="ident">all_relocations</span>.<span class="ident">push</span>((<span class="kw-2">*</span><span class="ident">section_id</span>, <span class="kw-2">*</span><span class="ident">symbol_id</span>, <span class="ident">relocations</span>));
+    <span class="kw">for </span>(section_index, relocations) <span class="kw">in </span>custom_section_relocations.into_iter() {
+        <span class="kw">if </span>!debug_index.map_or(<span class="bool-val">false</span>, |d| d == section_index) {
+            <span class="comment">// Skip DWARF relocations just yet
+            </span><span class="kw">let </span>(section_id, symbol_id) = custom_section_ids.get(section_index).unwrap();
+            all_relocations.push((<span class="kw-2">*</span>section_id, <span class="kw-2">*</span>symbol_id, relocations));
         }
     }
 
-    <span class="kw">for</span> (<span class="ident">section_id</span>, <span class="ident">symbol_id</span>, <span class="ident">relocations</span>) <span class="kw">in</span> <span class="ident">all_relocations</span>.<span class="ident">into_iter</span>() {
-        <span class="kw">let</span> (<span class="ident">_symbol_id</span>, <span class="ident">section_offset</span>) <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">symbol_section_and_offset</span>(<span class="ident">symbol_id</span>).<span class="ident">unwrap</span>();
+    <span class="kw">for </span>(section_id, symbol_id, relocations) <span class="kw">in </span>all_relocations.into_iter() {
+        <span class="kw">let </span>(_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
 
-        <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">relocations</span> {
-            <span class="kw">let</span> <span class="ident">relocation_address</span> <span class="op">=</span> <span class="ident">section_offset</span> <span class="op">+</span> <span class="ident">r</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>;
+        <span class="kw">for </span>r <span class="kw">in </span>relocations {
+            <span class="kw">let </span>relocation_address = section_offset + r.offset <span class="kw">as </span>u64;
 
-            <span class="kw">let</span> (<span class="ident">relocation_kind</span>, <span class="ident">relocation_encoding</span>, <span class="ident">relocation_size</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">kind</span> {
-                <span class="ident">Reloc::Abs4</span> =&gt; (<span class="ident">RelocationKind::Absolute</span>, <span class="ident">RelocationEncoding::Generic</span>, <span class="number">32</span>),
-                <span class="ident">Reloc::Abs8</span> =&gt; (<span class="ident">RelocationKind::Absolute</span>, <span class="ident">RelocationEncoding::Generic</span>, <span class="number">64</span>),
-                <span class="ident">Reloc::X86PCRel4</span> =&gt; (<span class="ident">RelocationKind::Relative</span>, <span class="ident">RelocationEncoding::Generic</span>, <span class="number">32</span>),
-                <span class="ident">Reloc::X86CallPCRel4</span> =&gt; {
-                    (<span class="ident">RelocationKind::Relative</span>, <span class="ident">RelocationEncoding::X86Branch</span>, <span class="number">32</span>)
+            <span class="kw">let </span>(relocation_kind, relocation_encoding, relocation_size) = <span class="kw">match </span>r.kind {
+                Reloc::Abs4 =&gt; (RelocationKind::Absolute, RelocationEncoding::Generic, <span class="number">32</span>),
+                Reloc::Abs8 =&gt; (RelocationKind::Absolute, RelocationEncoding::Generic, <span class="number">64</span>),
+                Reloc::X86PCRel4 =&gt; (RelocationKind::Relative, RelocationEncoding::Generic, <span class="number">32</span>),
+                Reloc::X86CallPCRel4 =&gt; {
+                    (RelocationKind::Relative, RelocationEncoding::X86Branch, <span class="number">32</span>)
                 }
-                <span class="ident">Reloc::X86CallPLTRel4</span> =&gt; (
-                    <span class="ident">RelocationKind::PltRelative</span>,
-                    <span class="ident">RelocationEncoding::X86Branch</span>,
+                Reloc::X86CallPLTRel4 =&gt; (
+                    RelocationKind::PltRelative,
+                    RelocationEncoding::X86Branch,
                     <span class="number">32</span>,
                 ),
-                <span class="ident">Reloc::X86GOTPCRel4</span> =&gt; {
-                    (<span class="ident">RelocationKind::GotRelative</span>, <span class="ident">RelocationEncoding::Generic</span>, <span class="number">32</span>)
+                Reloc::X86GOTPCRel4 =&gt; {
+                    (RelocationKind::GotRelative, RelocationEncoding::Generic, <span class="number">32</span>)
                 }
-                <span class="ident">Reloc::Arm64Call</span> =&gt; (
-                    <span class="kw">match</span> <span class="ident">obj</span>.<span class="ident">format</span>() {
-                        <span class="ident">object::BinaryFormat::Elf</span> =&gt; <span class="ident">RelocationKind::Elf</span>(<span class="ident">elf::R_AARCH64_CALL26</span>),
-                        <span class="ident">object::BinaryFormat::MachO</span> =&gt; <span class="ident">RelocationKind::MachO</span> {
-                            <span class="ident">value</span>: <span class="ident">macho::ARM64_RELOC_BRANCH26</span>,
-                            <span class="ident">relative</span>: <span class="bool-val">true</span>,
+                Reloc::Arm64Call =&gt; (
+                    <span class="kw">match </span>obj.format() {
+                        object::BinaryFormat::Elf =&gt; RelocationKind::Elf(elf::R_AARCH64_CALL26),
+                        object::BinaryFormat::MachO =&gt; RelocationKind::MachO {
+                            value: macho::ARM64_RELOC_BRANCH26,
+                            relative: <span class="bool-val">true</span>,
                         },
-                        <span class="ident">fmt</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unsupported binary format {:?}&quot;</span>, <span class="ident">fmt</span>),
+                        fmt =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unsupported binary format {:?}&quot;</span>, fmt),
                     },
-                    <span class="ident">RelocationEncoding::Generic</span>,
+                    RelocationEncoding::Generic,
                     <span class="number">32</span>,
                 ),
-                <span class="ident">Reloc::ElfX86_64TlsGd</span> =&gt; (
-                    <span class="ident">RelocationKind::Elf</span>(<span class="ident">elf::R_X86_64_TLSGD</span>),
-                    <span class="ident">RelocationEncoding::Generic</span>,
+                Reloc::ElfX86_64TlsGd =&gt; (
+                    RelocationKind::Elf(elf::R_X86_64_TLSGD),
+                    RelocationEncoding::Generic,
                     <span class="number">32</span>,
                 ),
-                <span class="ident">other</span> =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ObjectError::UnsupportedArchitecture</span>(<span class="macro">format!</span>(
+                other =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(ObjectError::UnsupportedArchitecture(<span class="macro">format!</span>(
                         <span class="string">&quot;{} (relocation: {}&quot;</span>,
-                        <span class="ident">triple</span>.<span class="ident">architecture</span>, <span class="ident">other</span>
+                        triple.architecture, other
                     )))
                 }
             };
 
-            <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">reloc_target</span> {
-                <span class="ident">RelocationTarget::LocalFunc</span>(<span class="ident">index</span>) =&gt; {
-                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">target_symbol</span>) <span class="op">=</span> <span class="ident">function_symbol_ids</span>.<span class="ident">get</span>(<span class="ident">index</span>).<span class="ident">unwrap</span>();
-                    <span class="ident">obj</span>.<span class="ident">add_relocation</span>(
-                        <span class="ident">section_id</span>,
-                        <span class="ident">Relocation</span> {
-                            <span class="ident">offset</span>: <span class="ident">relocation_address</span>,
-                            <span class="ident">size</span>: <span class="ident">relocation_size</span>,
-                            <span class="ident">kind</span>: <span class="ident">relocation_kind</span>,
-                            <span class="ident">encoding</span>: <span class="ident">relocation_encoding</span>,
-                            <span class="ident">symbol</span>: <span class="kw-2">*</span><span class="ident">target_symbol</span>,
-                            <span class="ident">addend</span>: <span class="ident">r</span>.<span class="ident">addend</span>,
+            <span class="kw">match </span>r.reloc_target {
+                RelocationTarget::LocalFunc(index) =&gt; {
+                    <span class="kw">let </span>(<span class="kw">_</span>, target_symbol) = function_symbol_ids.get(index).unwrap();
+                    obj.add_relocation(
+                        section_id,
+                        Relocation {
+                            offset: relocation_address,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
+                            symbol: <span class="kw-2">*</span>target_symbol,
+                            addend: r.addend,
                         },
                     )
-                    .<span class="ident">map_err</span>(<span class="ident">ObjectError::Write</span>)<span class="question-mark">?</span>;
+                    .map_err(ObjectError::Write)<span class="question-mark">?</span>;
                 }
-                <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">libcall</span>) =&gt; {
-                    <span class="kw">let</span> <span class="ident">libcall_fn_name</span> <span class="op">=</span> <span class="ident">libcall</span>.<span class="ident">to_function_name</span>().<span class="ident">as_bytes</span>();
-                    <span class="comment">// We add the symols lazily as we see them</span>
-                    <span class="kw">let</span> <span class="ident">target_symbol</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">symbol_id</span>(<span class="ident">libcall_fn_name</span>).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                        <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-                            <span class="ident">name</span>: <span class="ident">libcall_fn_name</span>.<span class="ident">to_vec</span>(),
-                            <span class="ident">value</span>: <span class="number">0</span>,
-                            <span class="ident">size</span>: <span class="number">0</span>,
-                            <span class="ident">kind</span>: <span class="ident">SymbolKind::Unknown</span>,
-                            <span class="ident">scope</span>: <span class="ident">SymbolScope::Unknown</span>,
-                            <span class="ident">weak</span>: <span class="bool-val">false</span>,
-                            <span class="ident">section</span>: <span class="ident">SymbolSection::Undefined</span>,
-                            <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+                RelocationTarget::LibCall(libcall) =&gt; {
+                    <span class="kw">let </span>libcall_fn_name = libcall.to_function_name().as_bytes();
+                    <span class="comment">// We add the symols lazily as we see them
+                    </span><span class="kw">let </span>target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
+                        obj.add_symbol(ObjSymbol {
+                            name: libcall_fn_name.to_vec(),
+                            value: <span class="number">0</span>,
+                            size: <span class="number">0</span>,
+                            kind: SymbolKind::Unknown,
+                            scope: SymbolScope::Unknown,
+                            weak: <span class="bool-val">false</span>,
+                            section: SymbolSection::Undefined,
+                            flags: SymbolFlags::None,
                         })
                     });
-                    <span class="ident">obj</span>.<span class="ident">add_relocation</span>(
-                        <span class="ident">section_id</span>,
-                        <span class="ident">Relocation</span> {
-                            <span class="ident">offset</span>: <span class="ident">relocation_address</span>,
-                            <span class="ident">size</span>: <span class="ident">relocation_size</span>,
-                            <span class="ident">kind</span>: <span class="ident">relocation_kind</span>,
-                            <span class="ident">encoding</span>: <span class="ident">relocation_encoding</span>,
-                            <span class="ident">symbol</span>: <span class="ident">target_symbol</span>,
-                            <span class="ident">addend</span>: <span class="ident">r</span>.<span class="ident">addend</span>,
+                    obj.add_relocation(
+                        section_id,
+                        Relocation {
+                            offset: relocation_address,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
+                            symbol: target_symbol,
+                            addend: r.addend,
                         },
                     )
-                    .<span class="ident">map_err</span>(<span class="ident">ObjectError::Write</span>)<span class="question-mark">?</span>;
+                    .map_err(ObjectError::Write)<span class="question-mark">?</span>;
                 }
-                <span class="ident">RelocationTarget::CustomSection</span>(<span class="ident">section_index</span>) =&gt; {
-                    <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">target_symbol</span>) <span class="op">=</span> <span class="ident">custom_section_ids</span>.<span class="ident">get</span>(<span class="ident">section_index</span>).<span class="ident">unwrap</span>();
-                    <span class="ident">obj</span>.<span class="ident">add_relocation</span>(
-                        <span class="ident">section_id</span>,
-                        <span class="ident">Relocation</span> {
-                            <span class="ident">offset</span>: <span class="ident">relocation_address</span>,
-                            <span class="ident">size</span>: <span class="ident">relocation_size</span>,
-                            <span class="ident">kind</span>: <span class="ident">relocation_kind</span>,
-                            <span class="ident">encoding</span>: <span class="ident">relocation_encoding</span>,
-                            <span class="ident">symbol</span>: <span class="kw-2">*</span><span class="ident">target_symbol</span>,
-                            <span class="ident">addend</span>: <span class="ident">r</span>.<span class="ident">addend</span>,
+                RelocationTarget::CustomSection(section_index) =&gt; {
+                    <span class="kw">let </span>(<span class="kw">_</span>, target_symbol) = custom_section_ids.get(section_index).unwrap();
+                    obj.add_relocation(
+                        section_id,
+                        Relocation {
+                            offset: relocation_address,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
+                            symbol: <span class="kw-2">*</span>target_symbol,
+                            addend: r.addend,
                         },
                     )
-                    .<span class="ident">map_err</span>(<span class="ident">ObjectError::Write</span>)<span class="question-mark">?</span>;
+                    .map_err(ObjectError::Write)<span class="question-mark">?</span>;
                 }
             };
         }
@@ -853,74 +863,74 @@
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Emit the compilation result into an existing object.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Usage</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_types::SymbolRegistry;</span>
-<span class="doccomment">/// # use wasmer_types::{Compilation, Triple};</span>
-<span class="doccomment">/// # use wasmer_object::{ObjectError, emit_serialized};</span>
-<span class="doccomment">/// use wasmer_object::{get_object_for_target, emit_compilation};</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # fn emit_compilation_into_object(</span>
-<span class="doccomment">/// #     triple: &amp;Triple,</span>
-<span class="doccomment">/// #     compilation: Compilation,</span>
-<span class="doccomment">/// #     symbol_registry: impl SymbolRegistry,</span>
-<span class="doccomment">/// # ) -&gt; Result&lt;(), ObjectError&gt; {</span>
-<span class="doccomment">/// let bytes = &amp;[ /* compilation bytes */];</span>
-<span class="doccomment">/// let mut object = get_object_for_target(&amp;triple)?;</span>
-<span class="doccomment">/// emit_serialized(&amp;mut object, bytes, &amp;triple, &quot;WASMER_MODULE&quot;)?;</span>
-<span class="doccomment">/// # Ok(())</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_serialized</span>(
-    <span class="ident">obj</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Object</span>,
-    <span class="ident">sercomp</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    <span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
-    <span class="ident">object_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ObjectError</span><span class="op">&gt;</span> {
-    <span class="ident">obj</span>.<span class="ident">set_mangling</span>(<span class="ident">object::write::Mangling::None</span>);
-    <span class="comment">//let module_name = module.compile_info.module.name.clone();</span>
-    <span class="kw">let</span> <span class="ident">len_name</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}_LENGTH&quot;</span>, <span class="ident">object_name</span>);
-    <span class="kw">let</span> <span class="ident">data_name</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}_DATA&quot;</span>, <span class="ident">object_name</span>);
-    <span class="comment">//let metadata_name = &quot;WASMER_MODULE_METADATA&quot;;</span>
+<span class="doccomment">/// Emit the compilation result into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_types::SymbolRegistry;
+/// # use wasmer_types::{Compilation, Triple};
+/// # use wasmer_object::{ObjectError, emit_serialized};
+/// use wasmer_object::{get_object_for_target, emit_compilation};
+///
+/// # fn emit_compilation_into_object(
+/// #     triple: &amp;Triple,
+/// #     compilation: Compilation,
+/// #     symbol_registry: impl SymbolRegistry,
+/// # ) -&gt; Result&lt;(), ObjectError&gt; {
+/// let bytes = &amp;[ /* compilation bytes */];
+/// let mut object = get_object_for_target(&amp;triple)?;
+/// emit_serialized(&amp;mut object, bytes, &amp;triple, &quot;WASMER_MODULE&quot;)?;
+/// # Ok(())
+/// # }
+/// ```
+</span><span class="kw">pub fn </span>emit_serialized(
+    obj: <span class="kw-2">&amp;mut </span>Object,
+    sercomp: <span class="kw-2">&amp;</span>[u8],
+    triple: <span class="kw-2">&amp;</span>Triple,
+    object_name: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), ObjectError&gt; {
+    obj.set_mangling(object::write::Mangling::None);
+    <span class="comment">//let module_name = module.compile_info.module.name.clone();
+    </span><span class="kw">let </span>len_name = <span class="macro">format!</span>(<span class="string">&quot;{}_LENGTH&quot;</span>, object_name);
+    <span class="kw">let </span>data_name = <span class="macro">format!</span>(<span class="string">&quot;{}_DATA&quot;</span>, object_name);
+    <span class="comment">//let metadata_name = &quot;WASMER_MODULE_METADATA&quot;;
 
-    <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">architecture</span> {
-        <span class="ident">Architecture::X86_64</span> =&gt; <span class="number">1</span>,
-        <span class="comment">// In Arm64 is recommended a 4-byte alignment</span>
-        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; <span class="number">4</span>,
-        <span class="kw">_</span> =&gt; <span class="number">1</span>,
+    </span><span class="kw">let </span>align = <span class="kw">match </span>triple.architecture {
+        Architecture::X86_64 =&gt; <span class="number">1</span>,
+        <span class="comment">// In Arm64 is recommended a 4-byte alignment
+        </span>Architecture::Aarch64(<span class="kw">_</span>) =&gt; <span class="number">4</span>,
+        <span class="kw">_ </span>=&gt; <span class="number">1</span>,
     };
 
-    <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">sercomp</span>.<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Data</span>);
-    <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-        <span class="ident">name</span>: <span class="ident">len_name</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>(),
-        <span class="ident">value</span>: <span class="number">0</span>,
-        <span class="ident">size</span>: <span class="ident">len</span>.<span class="ident">to_le_bytes</span>().<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-        <span class="ident">kind</span>: <span class="ident">SymbolKind::Data</span>,
-        <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-        <span class="ident">weak</span>: <span class="bool-val">false</span>,
-        <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-        <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    <span class="kw">let </span>len = sercomp.len();
+    <span class="kw">let </span>section_id = obj.section_id(StandardSection::Data);
+    <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+        name: len_name.as_bytes().to_vec(),
+        value: <span class="number">0</span>,
+        size: len.to_le_bytes().len() <span class="kw">as _</span>,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Dynamic,
+        weak: <span class="bool-val">false</span>,
+        section: SymbolSection::Section(section_id),
+        flags: SymbolFlags::None,
     });
-    <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="kw-2">&amp;</span><span class="ident">len</span>.<span class="ident">to_le_bytes</span>(), <span class="ident">align</span>);
+    obj.add_symbol_data(symbol_id, section_id, <span class="kw-2">&amp;</span>len.to_le_bytes(), align);
 
-    <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Data</span>);
-    <span class="kw">let</span> <span class="ident">symbol_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">add_symbol</span>(<span class="ident">ObjSymbol</span> {
-        <span class="ident">name</span>: <span class="ident">data_name</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>(),
-        <span class="ident">value</span>: <span class="number">0</span>,
-        <span class="ident">size</span>: <span class="ident">sercomp</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="kw">_</span>,
-        <span class="ident">kind</span>: <span class="ident">SymbolKind::Data</span>,
-        <span class="ident">scope</span>: <span class="ident">SymbolScope::Dynamic</span>,
-        <span class="ident">weak</span>: <span class="bool-val">false</span>,
-        <span class="ident">section</span>: <span class="ident">SymbolSection::Section</span>(<span class="ident">section_id</span>),
-        <span class="ident">flags</span>: <span class="ident">SymbolFlags::None</span>,
+    <span class="kw">let </span>section_id = obj.section_id(StandardSection::Data);
+    <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+        name: data_name.as_bytes().to_vec(),
+        value: <span class="number">0</span>,
+        size: sercomp.len() <span class="kw">as _</span>,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Dynamic,
+        weak: <span class="bool-val">false</span>,
+        section: SymbolSection::Section(section_id),
+        flags: SymbolFlags::None,
     });
-    <span class="ident">obj</span>.<span class="ident">add_symbol_data</span>(<span class="ident">symbol_id</span>, <span class="ident">section_id</span>, <span class="ident">sercomp</span>, <span class="ident">align</span>);
+    obj.add_symbol_data(symbol_id, section_id, sercomp, align);
 
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_object" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_object" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

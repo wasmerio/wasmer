@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -158,163 +158,163 @@
 <span id="156">156</span>
 <span id="157">157</span>
 <span id="158">158</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Utilities to read errors.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Only one error can be registered at a time. Error are registered</span>
-<span class="doccomment">//! by Rust only, and are usually read by C or C++.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Reading an error from C or C++ happens in 2 steps: Getting the</span>
-<span class="doccomment">//! error&#39;s length with [`wasmer_last_error_length`], and then reading</span>
-<span class="doccomment">//! the actual error with [`wasmer_last_error_message`].</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! # Example</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">//! # fn main() {</span>
-<span class="doccomment">//! #    (assert_c! {</span>
-<span class="doccomment">//! # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">//! #</span>
-<span class="doccomment">//! int main() {</span>
-<span class="doccomment">//!     // Create an invalid WebAssembly module from a WAT definition,</span>
-<span class="doccomment">//!     // it will generate an error!</span>
-<span class="doccomment">//!     wasm_byte_vec_t wat;</span>
-<span class="doccomment">//!     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(foobar)&quot;);</span>
-<span class="doccomment">//!     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">//!     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     int error_length = wasmer_last_error_length();</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // There is an error!</span>
-<span class="doccomment">//!     assert(error_length &gt; 0);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     char *error_message = malloc(error_length);</span>
-<span class="doccomment">//!     wasmer_last_error_message(error_message, error_length);</span>
-<span class="doccomment">//!     printf(&quot;Error message: %s\n&quot;, error_message);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Side note: The error has now been cleared on the Rust side!</span>
-<span class="doccomment">//!     assert(wasmer_last_error_length() == 0);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Free everything.</span>
-<span class="doccomment">//!     free(error_message);</span>
-<span class="doccomment">//!     wasm_byte_vec_delete(&amp;wasm);</span>
-<span class="doccomment">//!     wasm_byte_vec_delete(&amp;wat);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     return 0;</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! #    })</span>
-<span class="doccomment">//! #    .success();</span>
-<span class="doccomment">//! # }</span>
-<span class="doccomment">//! ```</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Utilities to read errors.
+//!
+//! Only one error can be registered at a time. Error are registered
+//! by Rust only, and are usually read by C or C++.
+//!
+//! Reading an error from C or C++ happens in 2 steps: Getting the
+//! error&#39;s length with [`wasmer_last_error_length`], and then reading
+//! the actual error with [`wasmer_last_error_message`].
+//!
+//! # Example
+//!
+//! ```rust
+//! # use wasmer_inline_c::assert_c;
+//! # fn main() {
+//! #    (assert_c! {
+//! # #include &quot;tests/wasmer.h&quot;
+//! #
+//! int main() {
+//!     // Create an invalid WebAssembly module from a WAT definition,
+//!     // it will generate an error!
+//!     wasm_byte_vec_t wat;
+//!     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(foobar)&quot;);
+//!     wasm_byte_vec_t wasm;
+//!     wat2wasm(&amp;wat, &amp;wasm);
+//!
+//!     int error_length = wasmer_last_error_length();
+//!
+//!     // There is an error!
+//!     assert(error_length &gt; 0);
+//!
+//!     char *error_message = malloc(error_length);
+//!     wasmer_last_error_message(error_message, error_length);
+//!     printf(&quot;Error message: %s\n&quot;, error_message);
+//!
+//!     // Side note: The error has now been cleared on the Rust side!
+//!     assert(wasmer_last_error_length() == 0);
+//!
+//!     // Free everything.
+//!     free(error_message);
+//!     wasm_byte_vec_delete(&amp;wasm);
+//!     wasm_byte_vec_delete(&amp;wat);
+//!
+//!     return 0;
+//! }
+//! #    })
+//! #    .success();
+//! # }
+//! ```
 
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>};
-<span class="kw">use</span> <span class="ident">std::cell::RefCell</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Display</span>;
-<span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
-<span class="kw">use</span> <span class="ident">std::slice</span>;
+</span><span class="kw">use </span>libc::{c_char, c_int};
+<span class="kw">use </span>std::cell::RefCell;
+<span class="kw">use </span>std::fmt::Display;
+<span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
+<span class="kw">use </span>std::slice;
 
-<span class="macro">thread_local!</span> {
-    <span class="kw">static</span> <span class="ident">LAST_ERROR</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">RefCell::new</span>(<span class="prelude-val">None</span>);
+<span class="macro">thread_local! </span>{
+    <span class="kw">static </span>LAST_ERROR: RefCell&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; = RefCell::new(<span class="prelude-val">None</span>);
 }
 
-<span class="doccomment">/// Rust function to register a new error.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust,no_run</span>
-<span class="doccomment">/// # use wasmer::error::update_last_error;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// update_last_error(&quot;Hello, World!&quot;);</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">update_last_error</span><span class="op">&lt;</span><span class="ident">E</span>: <span class="ident">Display</span><span class="op">&gt;</span>(<span class="ident">err</span>: <span class="ident">E</span>) {
-    <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> {
-        <span class="kw-2">*</span><span class="ident">prev</span>.<span class="ident">borrow_mut</span>() <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>.<span class="ident">to_string</span>());
+<span class="doccomment">/// Rust function to register a new error.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use wasmer::error::update_last_error;
+///
+/// update_last_error(&quot;Hello, World!&quot;);
+/// ```
+</span><span class="kw">pub fn </span>update_last_error&lt;E: Display&gt;(err: E) {
+    LAST_ERROR.with(|prev| {
+        <span class="kw-2">*</span>prev.borrow_mut() = <span class="prelude-val">Some</span>(err.to_string());
     });
 }
 
-<span class="doccomment">/// Retrieve the most recent error, clearing it in the process.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">take_last_error</span>() -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> <span class="ident">prev</span>.<span class="ident">borrow_mut</span>().<span class="ident">take</span>())
+<span class="doccomment">/// Retrieve the most recent error, clearing it in the process.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>take_last_error() -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
-<span class="doccomment">/// Gets the length in bytes of the last error if any, zero otherwise. This</span>
-<span class="doccomment">/// includes th NUL terminator byte.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This can be used to dynamically allocate a buffer with the correct number of</span>
-<span class="doccomment">/// bytes needed to store a message.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See this module&#39;s documentation to get a complete example.</span>
-<span class="comment">// TODO(Amanieu): This should use size_t</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_last_error_length</span>() -&gt; <span class="ident">c_int</span> {
-    <span class="ident">LAST_ERROR</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">prev</span><span class="op">|</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">prev</span>.<span class="ident">borrow</span>() {
-        <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">c_int</span> <span class="op">+</span> <span class="number">1</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="number">0</span>,
+<span class="doccomment">/// Gets the length in bytes of the last error if any, zero otherwise. This
+/// includes th NUL terminator byte.
+///
+/// This can be used to dynamically allocate a buffer with the correct number of
+/// bytes needed to store a message.
+///
+/// # Example
+///
+/// See this module&#39;s documentation to get a complete example.
+</span><span class="comment">// TODO(Amanieu): This should use size_t
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_last_error_length() -&gt; c_int {
+    LAST_ERROR.with(|prev| <span class="kw">match </span><span class="kw-2">*</span>prev.borrow() {
+        <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>err) =&gt; err.len() <span class="kw">as </span>c_int + <span class="number">1</span>,
+        <span class="prelude-val">None </span>=&gt; <span class="number">0</span>,
     })
 }
 
-<span class="doccomment">/// Gets the last error message if any into the provided buffer</span>
-<span class="doccomment">/// `buffer` up to the given `length`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The `length` parameter must be large enough to store the last</span>
-<span class="doccomment">/// error message. Ideally, the value should come from</span>
-<span class="doccomment">/// [`wasmer_last_error_length`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The function returns the length of the string in bytes, `-1` if an</span>
-<span class="doccomment">/// error occurs. Potential errors are:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///  * The `buffer` is a null pointer,</span>
-<span class="doccomment">///  * The `buffer` is too small to hold the error message.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Note: The error message always has a trailing NUL character.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Important note: If the provided `buffer` is non-null, once this</span>
-<span class="doccomment">/// function has been called, regardless whether it fails or succeeds,</span>
-<span class="doccomment">/// the error is cleared.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See this module&#39;s documentation to get a complete example.</span>
-<span class="comment">// TODO(Amanieu): This should use size_t</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_last_error_message</span>(
-    <span class="ident">buffer</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">length</span>: <span class="ident">c_int</span>,
-) -&gt; <span class="ident">c_int</span> {
-    <span class="kw">let</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">buffer_inner</span>) <span class="op">=</span> <span class="ident">buffer</span> {
-        <span class="ident">buffer_inner</span>
-    } <span class="kw">else</span> {
-        <span class="comment">// buffer pointer is null</span>
-        <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
+<span class="doccomment">/// Gets the last error message if any into the provided buffer
+/// `buffer` up to the given `length`.
+///
+/// The `length` parameter must be large enough to store the last
+/// error message. Ideally, the value should come from
+/// [`wasmer_last_error_length`].
+///
+/// The function returns the length of the string in bytes, `-1` if an
+/// error occurs. Potential errors are:
+///
+///  * The `buffer` is a null pointer,
+///  * The `buffer` is too small to hold the error message.
+///
+/// Note: The error message always has a trailing NUL character.
+///
+/// Important note: If the provided `buffer` is non-null, once this
+/// function has been called, regardless whether it fails or succeeds,
+/// the error is cleared.
+///
+/// # Example
+///
+/// See this module&#39;s documentation to get a complete example.
+</span><span class="comment">// TODO(Amanieu): This should use size_t
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_last_error_message(
+    buffer: <span class="prelude-ty">Option</span>&lt;NonNull&lt;c_char&gt;&gt;,
+    length: c_int,
+) -&gt; c_int {
+    <span class="kw">let </span>buffer = <span class="kw">if let </span><span class="prelude-val">Some</span>(buffer_inner) = buffer {
+        buffer_inner
+    } <span class="kw">else </span>{
+        <span class="comment">// buffer pointer is null
+        </span><span class="kw">return </span>-<span class="number">1</span>;
     };
 
-    <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">take_last_error</span>() {
-        <span class="prelude-val">Some</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="number">0</span>,
+    <span class="kw">let </span>error_message = <span class="kw">match </span>take_last_error() {
+        <span class="prelude-val">Some</span>(err) =&gt; err,
+        <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="number">0</span>,
     };
 
-    <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">length</span> <span class="kw">as</span> <span class="ident">usize</span>;
+    <span class="kw">let </span>length = length <span class="kw">as </span>usize;
 
-    <span class="kw">if</span> <span class="ident">error_message</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">length</span> {
-        <span class="comment">// buffer is too small to hold the error message</span>
-        <span class="kw">return</span> <span class="op">-</span><span class="number">1</span>;
+    <span class="kw">if </span>error_message.len() &gt;= length {
+        <span class="comment">// buffer is too small to hold the error message
+        </span><span class="kw">return </span>-<span class="number">1</span>;
     }
 
-    <span class="kw">let</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">slice::from_raw_parts_mut</span>(<span class="ident">buffer</span>.<span class="ident">cast</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>(), <span class="ident">length</span>);
+    <span class="kw">let </span>buffer = slice::from_raw_parts_mut(buffer.cast::&lt;u8&gt;().as_ptr(), length);
 
-    <span class="ident">ptr::copy_nonoverlapping</span>(
-        <span class="ident">error_message</span>.<span class="ident">as_ptr</span>(),
-        <span class="ident">buffer</span>.<span class="ident">as_mut_ptr</span>(),
-        <span class="ident">error_message</span>.<span class="ident">len</span>(),
+    ptr::copy_nonoverlapping(
+        error_message.as_ptr(),
+        buffer.as_mut_ptr(),
+        error_message.len(),
     );
 
-    <span class="comment">// Add a trailing null so people using the string as a `char *` don&#39;t</span>
-    <span class="comment">// accidentally read into garbage.</span>
-    <span class="ident">buffer</span>[<span class="ident">error_message</span>.<span class="ident">len</span>()] <span class="op">=</span> <span class="number">0</span>;
+    <span class="comment">// Add a trailing null so people using the string as a `char *` don&#39;t
+    // accidentally read into garbage.
+    </span>buffer[error_message.len()] = <span class="number">0</span>;
 
-    <span class="ident">error_message</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">c_int</span> <span class="op">+</span> <span class="number">1</span>
-}
+    error_message.len() <span class="kw">as </span>c_int + <span class="number">1
+</span>}
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

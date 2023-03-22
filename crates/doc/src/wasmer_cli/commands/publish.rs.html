@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/publish.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>publish.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/publish.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>publish.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -670,675 +670,675 @@
 <span id="668">668</span>
 <span id="669">669</span>
 <span id="670">670</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">flate2</span>::{<span class="ident">write::GzEncoder</span>, <span class="ident">Compression</span>};
-<span class="kw">use</span> <span class="ident">rusqlite</span>::{<span class="ident">params</span>, <span class="ident">Connection</span>, <span class="ident">OpenFlags</span>, <span class="ident">TransactionBehavior</span>};
-<span class="kw">use</span> <span class="ident">std::fs</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Write</span>};
-<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">tar::Builder</span>;
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
-<span class="kw">use</span> <span class="ident">time</span>::{<span class="self">self</span>, <span class="ident">OffsetDateTime</span>};
-<span class="kw">use</span> <span class="ident">wasmer_registry::publish::SignArchiveResult</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry</span>::{<span class="ident">WasmerConfig</span>, <span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>flate2::{write::GzEncoder, Compression};
+<span class="kw">use </span>rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
+<span class="kw">use </span>std::fs;
+<span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
+<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>tar::Builder;
+<span class="kw">use </span>thiserror::Error;
+<span class="kw">use </span>time::{<span class="self">self</span>, OffsetDateTime};
+<span class="kw">use </span>wasmer_registry::publish::SignArchiveResult;
+<span class="kw">use </span>wasmer_registry::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
-<span class="kw">const</span> <span class="ident">MIGRATIONS</span>: <span class="kw-2">&amp;</span>[(<span class="ident">i32</span>, <span class="kw-2">&amp;</span><span class="ident">str</span>)] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+<span class="kw">const </span>MIGRATIONS: <span class="kw-2">&amp;</span>[(i32, <span class="kw-2">&amp;</span>str)] = <span class="kw-2">&amp;</span>[
     (<span class="number">0</span>, <span class="macro">include_str!</span>(<span class="string">&quot;../../sql/migrations/0000.sql&quot;</span>)),
     (<span class="number">1</span>, <span class="macro">include_str!</span>(<span class="string">&quot;../../sql/migrations/0001.sql&quot;</span>)),
     (<span class="number">2</span>, <span class="macro">include_str!</span>(<span class="string">&quot;../../sql/migrations/0002.sql&quot;</span>)),
 ];
 
-<span class="kw">const</span> <span class="ident">CURRENT_DATA_VERSION</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">MIGRATIONS</span>.<span class="ident">len</span>();
+<span class="kw">const </span>CURRENT_DATA_VERSION: usize = MIGRATIONS.len();
 
-<span class="doccomment">/// CLI options for the `wasmer publish` command</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Publish</span> {
-    <span class="doccomment">/// Registry to publish to</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Run the publish logic without sending anything to the registry server</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;dry-run&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">dry_run</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Run the publish command without any output</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">quiet</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Override the package of the uploaded package in the wasmer.toml</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">package_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Override the package version of the uploaded package in the wasmer.toml</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">semver::Version</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Override the token (by default, it will use the current logged in user)</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Skip validation of the uploaded package</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">no_validate</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Directory containing the `wasmer.toml` (defaults to current root dir)</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;PACKAGE_PATH&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">package_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// CLI options for the `wasmer publish` command
+</span><span class="attribute">#[derive(Debug, Parser)]
+</span><span class="kw">pub struct </span>Publish {
+    <span class="doccomment">/// Registry to publish to
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Run the publish logic without sending anything to the registry server
+    </span><span class="attribute">#[clap(long, name = <span class="string">&quot;dry-run&quot;</span>)]
+    </span><span class="kw">pub </span>dry_run: bool,
+    <span class="doccomment">/// Run the publish command without any output
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>quiet: bool,
+    <span class="doccomment">/// Override the package of the uploaded package in the wasmer.toml
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Override the package version of the uploaded package in the wasmer.toml
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
+    <span class="doccomment">/// Override the token (by default, it will use the current logged in user)
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Skip validation of the uploaded package
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>no_validate: bool,
+    <span class="doccomment">/// Directory containing the `wasmer.toml` (defaults to current root dir)
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;PACKAGE_PATH&quot;</span>)]
+    </span><span class="kw">pub </span>package_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Error</span>)]</span>
-<span class="kw">enum</span> <span class="ident">PublishError</span> {
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Cannot publish without a module.&quot;</span>)]</span>
-    <span class="ident">NoModule</span>,
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unable to publish the \&quot;{module}\&quot; module because \&quot;{}\&quot; is not a file&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>())]</span>
-    <span class="ident">SourceMustBeFile</span> { <span class="ident">module</span>: <span class="ident">String</span>, <span class="ident">path</span>: <span class="ident">PathBuf</span> },
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unable to load the bindings for \&quot;{module}\&quot; because \&quot;{}\&quot; doesn&#39;t exist&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>())]</span>
-    <span class="ident">MissingBindings</span> { <span class="ident">module</span>: <span class="ident">String</span>, <span class="ident">path</span>: <span class="ident">PathBuf</span> },
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error building package when parsing module \&quot;{0}\&quot;: {1}.&quot;</span>)]</span>
-    <span class="ident">ErrorBuildingPackage</span>(<span class="ident">String</span>, <span class="ident">io::Error</span>),
-    <span class="attribute">#[<span class="ident">error</span>(
+<span class="attribute">#[derive(Debug, Error)]
+</span><span class="kw">enum </span>PublishError {
+    <span class="attribute">#[error(<span class="string">&quot;Cannot publish without a module.&quot;</span>)]
+    </span>NoModule,
+    <span class="attribute">#[error(<span class="string">&quot;Unable to publish the \&quot;{module}\&quot; module because \&quot;{}\&quot; is not a file&quot;</span>, path.display())]
+    </span>SourceMustBeFile { module: String, path: PathBuf },
+    <span class="attribute">#[error(<span class="string">&quot;Unable to load the bindings for \&quot;{module}\&quot; because \&quot;{}\&quot; doesn&#39;t exist&quot;</span>, path.display())]
+    </span>MissingBindings { module: String, path: PathBuf },
+    <span class="attribute">#[error(<span class="string">&quot;Error building package when parsing module \&quot;{0}\&quot;: {1}.&quot;</span>)]
+    </span>ErrorBuildingPackage(String, io::Error),
+    <span class="attribute">#[error(
         <span class="string">&quot;Path \&quot;{0}\&quot;, specified in the manifest as part of the package file system does not exist.&quot;</span>,
-    )]</span>
-    <span class="ident">MissingManifestFsPath</span>(<span class="ident">String</span>),
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;When processing the package filesystem, found path \&quot;{0}\&quot; which is not a directory&quot;</span>)]</span>
-    <span class="ident">PackageFileSystemEntryMustBeDirectory</span>(<span class="ident">String</span>),
+    )]
+    </span>MissingManifestFsPath(String),
+    <span class="attribute">#[error(<span class="string">&quot;When processing the package filesystem, found path \&quot;{0}\&quot; which is not a directory&quot;</span>)]
+    </span>PackageFileSystemEntryMustBeDirectory(String),
 }
 
-<span class="kw">impl</span> <span class="ident">Publish</span> {
-    <span class="doccomment">/// Executes `wasmer publish`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">Builder::new</span>(<span class="ident">Vec::new</span>());
+<span class="kw">impl </span>Publish {
+    <span class="doccomment">/// Executes `wasmer publish`
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::new(Vec::new());
 
-        <span class="kw">let</span> <span class="ident">cwd</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">package_path</span>.<span class="ident">as_ref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">std::env::current_dir</span>()<span class="question-mark">?</span>.<span class="ident">join</span>(<span class="ident">s</span>),
-            <span class="prelude-val">None</span> =&gt; <span class="ident">std::env::current_dir</span>()<span class="question-mark">?</span>,
+        <span class="kw">let </span>cwd = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
+            <span class="prelude-val">Some</span>(s) =&gt; std::env::current_dir()<span class="question-mark">?</span>.join(s),
+            <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">manifest_path_buf</span> <span class="op">=</span> <span class="ident">cwd</span>.<span class="ident">join</span>(<span class="string">&quot;wasmer.toml&quot;</span>);
-        <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_path_buf</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find manifest: {e}&quot;</span>))
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">manifest_path_buf</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">wasmer_toml::Manifest::parse</span>(<span class="kw-2">&amp;</span><span class="ident">manifest</span>)<span class="question-mark">?</span>;
-        <span class="ident">manifest</span>.<span class="ident">base_directory_path</span> <span class="op">=</span> <span class="ident">cwd</span>.<span class="ident">clone</span>();
+        <span class="kw">let </span>manifest_path_buf = cwd.join(<span class="string">&quot;wasmer.toml&quot;</span>);
+        <span class="kw">let </span>manifest = std::fs::read_to_string(<span class="kw-2">&amp;</span>manifest_path_buf)
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find manifest: {e}&quot;</span>))
+            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, manifest_path_buf.display()))<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
+        manifest.base_directory_path = cwd.clone();
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">package_name</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">package_name</span>.<span class="ident">as_ref</span>() {
-            <span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">name</span> <span class="op">=</span> <span class="ident">package_name</span>.<span class="ident">to_string</span>();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(package_name) = <span class="self">self</span>.package_name.as_ref() {
+            manifest.package.name = package_name.to_string();
         }
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">version</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">version</span>.<span class="ident">as_ref</span>() {
-            <span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">clone</span>();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = <span class="self">self</span>.version.as_ref() {
+            manifest.package.version = version.clone();
         }
 
-        <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">registry</span>.<span class="ident">as_deref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">wasmer_registry::format_graphql</span>(<span class="ident">s</span>),
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>()
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not load config {e}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>()
+        <span class="kw">let </span>registry = <span class="kw">match </span><span class="self">self</span>.registry.as_deref() {
+            <span class="prelude-val">Some</span>(s) =&gt; wasmer_registry::format_graphql(s),
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir()
+                    .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let </span>config = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir)
+                    .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not load config {e}&quot;</span>))<span class="question-mark">?</span>;
+                config.registry.get_current_registry()
             }
         };
 
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">no_validate</span> {
-            <span class="ident">validate::validate_directory</span>(<span class="kw-2">&amp;</span><span class="ident">manifest</span>, <span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="ident">cwd</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
+        <span class="kw">if </span>!<span class="self">self</span>.no_validate {
+            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, cwd.clone())<span class="question-mark">?</span>;
         }
 
-        <span class="ident">builder</span>.<span class="ident">append_path_with_name</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_path_buf</span>, <span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>)<span class="question-mark">?</span>;
+        builder.append_path_with_name(<span class="kw-2">&amp;</span>manifest_path_buf, PACKAGE_TOML_FALLBACK_NAME)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">manifest_string</span> <span class="op">=</span> <span class="ident">toml::to_string</span>(<span class="kw-2">&amp;</span><span class="ident">manifest</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>manifest_string = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> (<span class="ident">readme</span>, <span class="ident">license</span>) <span class="op">=</span> <span class="ident">construct_tar_gz</span>(<span class="kw-2">&amp;mut</span> <span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="ident">manifest</span>, <span class="kw-2">&amp;</span><span class="ident">cwd</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(readme, license) = construct_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>cwd)<span class="question-mark">?</span>;
 
-        <span class="ident">builder</span>
-            .<span class="ident">finish</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to finish .tar.gz builder: {e}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">tar_archive_data</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">into_inner</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">PublishError::NoModule</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">archive_name</span> <span class="op">=</span> <span class="string">&quot;package.tar.gz&quot;</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">archive_dir</span> <span class="op">=</span> <span class="ident">tempfile::TempDir::new</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">archive_dir_path</span>: <span class="kw-2">&amp;</span><span class="ident">std::path::Path</span> <span class="op">=</span> <span class="ident">archive_dir</span>.<span class="ident">as_ref</span>();
-        <span class="ident">fs::create_dir</span>(<span class="ident">archive_dir_path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm_package&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">archive_path</span> <span class="op">=</span> <span class="ident">archive_dir_path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm_package&quot;</span>).<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">archive_name</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compressed_archive</span> <span class="op">=</span> <span class="ident">fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">archive_path</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">gz_enc</span> <span class="op">=</span> <span class="ident">GzEncoder::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">compressed_archive</span>, <span class="ident">Compression::best</span>());
+        builder
+            .finish()
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to finish .tar.gz builder: {e}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>tar_archive_data = builder.into_inner().map_err(|<span class="kw">_</span>| PublishError::NoModule)<span class="question-mark">?</span>;
+        <span class="kw">let </span>archive_name = <span class="string">&quot;package.tar.gz&quot;</span>.to_string();
+        <span class="kw">let </span>archive_dir = tempfile::TempDir::new()<span class="question-mark">?</span>;
+        <span class="kw">let </span>archive_dir_path: <span class="kw-2">&amp;</span>std::path::Path = archive_dir.as_ref();
+        fs::create_dir(archive_dir_path.join(<span class="string">&quot;wapm_package&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>archive_path = archive_dir_path.join(<span class="string">&quot;wapm_package&quot;</span>).join(<span class="kw-2">&amp;</span>archive_name);
+        <span class="kw">let </span><span class="kw-2">mut </span>compressed_archive = fs::File::create(<span class="kw-2">&amp;</span>archive_path).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>gz_enc = GzEncoder::new(<span class="kw-2">&amp;mut </span>compressed_archive, Compression::best());
 
-        <span class="ident">gz_enc</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">tar_archive_data</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">_compressed_archive</span> <span class="op">=</span> <span class="ident">gz_enc</span>.<span class="ident">finish</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compressed_archive_reader</span> <span class="op">=</span> <span class="ident">fs::File::open</span>(<span class="kw-2">&amp;</span><span class="ident">archive_path</span>)<span class="question-mark">?</span>;
+        gz_enc.write_all(<span class="kw-2">&amp;</span>tar_archive_data).unwrap();
+        <span class="kw">let </span>_compressed_archive = gz_enc.finish().unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>compressed_archive_reader = fs::File::open(<span class="kw-2">&amp;</span>archive_path)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">maybe_signature_data</span> <span class="op">=</span> <span class="ident">sign_compressed_archive</span>(<span class="kw-2">&amp;mut</span> <span class="ident">compressed_archive_reader</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">archived_data_size</span> <span class="op">=</span> <span class="ident">archive_path</span>.<span class="ident">metadata</span>()<span class="question-mark">?</span>.<span class="ident">len</span>();
+        <span class="kw">let </span>maybe_signature_data = sign_compressed_archive(<span class="kw-2">&amp;mut </span>compressed_archive_reader)<span class="question-mark">?</span>;
+        <span class="kw">let </span>archived_data_size = archive_path.metadata()<span class="question-mark">?</span>.len();
 
-        <span class="macro">assert!</span>(<span class="ident">archive_path</span>.<span class="ident">exists</span>());
-        <span class="macro">assert!</span>(<span class="ident">archive_path</span>.<span class="ident">is_file</span>());
+        <span class="macro">assert!</span>(archive_path.exists());
+        <span class="macro">assert!</span>(archive_path.is_file());
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">dry_run</span> {
-            <span class="comment">// dry run: publish is done here</span>
+        <span class="kw">if </span><span class="self">self</span>.dry_run {
+            <span class="comment">// dry run: publish is done here
 
-            <span class="macro">println!</span>(
+            </span><span class="macro">println!</span>(
                 <span class="string">&quot;Successfully published package `{}@{}`&quot;</span>,
-                <span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">name</span>, <span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">version</span>
+                manifest.package.name, manifest.package.version
             );
 
             <span class="macro">log::info!</span>(
-                <span class="string">&quot;Publish succeeded, but package was not published because it was run in dry-run mode&quot;</span>
-            );
+                <span class="string">&quot;Publish succeeded, but package was not published because it was run in dry-run mode&quot;
+            </span>);
 
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
-        <span class="ident">wasmer_registry::publish::try_chunked_uploading</span>(
-            <span class="prelude-val">Some</span>(<span class="ident">registry</span>),
-            <span class="self">self</span>.<span class="ident">token</span>.<span class="ident">clone</span>(),
-            <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">package</span>,
-            <span class="kw-2">&amp;</span><span class="ident">manifest_string</span>,
-            <span class="kw-2">&amp;</span><span class="ident">license</span>,
-            <span class="kw-2">&amp;</span><span class="ident">readme</span>,
-            <span class="kw-2">&amp;</span><span class="ident">archive_name</span>,
-            <span class="kw-2">&amp;</span><span class="ident">archive_path</span>,
-            <span class="kw-2">&amp;</span><span class="ident">maybe_signature_data</span>,
-            <span class="ident">archived_data_size</span>,
-            <span class="self">self</span>.<span class="ident">quiet</span>,
+        wasmer_registry::publish::try_chunked_uploading(
+            <span class="prelude-val">Some</span>(registry),
+            <span class="self">self</span>.token.clone(),
+            <span class="kw-2">&amp;</span>manifest.package,
+            <span class="kw-2">&amp;</span>manifest_string,
+            <span class="kw-2">&amp;</span>license,
+            <span class="kw-2">&amp;</span>readme,
+            <span class="kw-2">&amp;</span>archive_name,
+            <span class="kw-2">&amp;</span>archive_path,
+            <span class="kw-2">&amp;</span>maybe_signature_data,
+            archived_data_size,
+            <span class="self">self</span>.quiet,
         )
-        .<span class="ident">map_err</span>(<span class="ident">on_error</span>)
+        .map_err(on_error)
     }
 }
 
-<span class="kw">fn</span> <span class="ident">construct_tar_gz</span>(
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tar::Builder</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">manifest</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_toml::Manifest</span>,
-    <span class="ident">cwd</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">package</span>;
-    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">module</span>.<span class="ident">as_ref</span>().<span class="ident">ok_or</span>(<span class="ident">PublishError::NoModule</span>)<span class="question-mark">?</span>;
+<span class="kw">fn </span>construct_tar_gz(
+    builder: <span class="kw-2">&amp;mut </span>tar::Builder&lt;Vec&lt;u8&gt;&gt;,
+    manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+    cwd: <span class="kw-2">&amp;</span>Path,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;String&gt;, <span class="prelude-ty">Option</span>&lt;String&gt;), anyhow::Error&gt; {
+    <span class="kw">let </span>package = <span class="kw-2">&amp;</span>manifest.package;
+    <span class="kw">let </span>modules = manifest.module.as_ref().ok_or(PublishError::NoModule)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">readme</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">package</span>.<span class="ident">readme</span>.<span class="ident">as_ref</span>() {
-        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">None</span>,
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">append_path_to_tar_gz</span>(<span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">base_directory_path</span>, <span class="ident">s</span>).<span class="ident">map_err</span>(
-                <span class="op">|</span>(<span class="ident">p</span>, <span class="ident">e</span>)<span class="op">|</span> <span class="ident">PublishError::ErrorBuildingPackage</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">p</span>.<span class="ident">display</span>()), <span class="ident">e</span>),
+    <span class="kw">let </span>readme = <span class="kw">match </span>package.readme.as_ref() {
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+        <span class="prelude-val">Some</span>(s) =&gt; {
+            <span class="kw">let </span>path = append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s).map_err(
+                |(p, e)| PublishError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e),
             )<span class="question-mark">?</span>;
-            <span class="ident">fs::read_to_string</span>(<span class="ident">path</span>).<span class="ident">ok</span>()
+            fs::read_to_string(path).ok()
         }
     };
 
-    <span class="kw">let</span> <span class="ident">license_file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">package</span>.<span class="ident">license_file</span>.<span class="ident">as_ref</span>() {
-        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">None</span>,
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">append_path_to_tar_gz</span>(<span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">base_directory_path</span>, <span class="ident">s</span>).<span class="ident">map_err</span>(
-                <span class="op">|</span>(<span class="ident">p</span>, <span class="ident">e</span>)<span class="op">|</span> <span class="ident">PublishError::ErrorBuildingPackage</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">p</span>.<span class="ident">display</span>()), <span class="ident">e</span>),
+    <span class="kw">let </span>license_file = <span class="kw">match </span>package.license_file.as_ref() {
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+        <span class="prelude-val">Some</span>(s) =&gt; {
+            <span class="kw">let </span>path = append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s).map_err(
+                |(p, e)| PublishError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e),
             )<span class="question-mark">?</span>;
-            <span class="ident">fs::read_to_string</span>(<span class="ident">path</span>).<span class="ident">ok</span>()
+            fs::read_to_string(path).ok()
         }
     };
 
-    <span class="kw">for</span> <span class="ident">module</span> <span class="kw">in</span> <span class="ident">modules</span> {
-        <span class="ident">append_path_to_tar_gz</span>(<span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">base_directory_path</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">source</span>).<span class="ident">map_err</span>(
-            <span class="op">|</span>(<span class="ident">normalized_path</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">PublishError::SourceMustBeFile</span> {
-                <span class="ident">module</span>: <span class="ident">module</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-                <span class="ident">path</span>: <span class="ident">normalized_path</span>,
+    <span class="kw">for </span>module <span class="kw">in </span>modules {
+        append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>module.source).map_err(
+            |(normalized_path, <span class="kw">_</span>)| PublishError::SourceMustBeFile {
+                module: module.name.clone(),
+                path: normalized_path,
             },
         )<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">bindings</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">bindings</span> {
-            <span class="kw">for</span> <span class="ident">path</span> <span class="kw">in</span> <span class="ident">bindings</span>.<span class="ident">referenced_files</span>(<span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">base_directory_path</span>)<span class="question-mark">?</span> {
-                <span class="ident">append_path_to_tar_gz</span>(<span class="ident">builder</span>, <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">base_directory_path</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">map_err</span>(
-                    <span class="op">|</span>(<span class="ident">normalized_path</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">PublishError::MissingBindings</span> {
-                        <span class="ident">module</span>: <span class="ident">module</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-                        <span class="ident">path</span>: <span class="ident">normalized_path</span>,
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
+            <span class="kw">for </span>path <span class="kw">in </span>bindings.referenced_files(<span class="kw-2">&amp;</span>manifest.base_directory_path)<span class="question-mark">? </span>{
+                append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>path).map_err(
+                    |(normalized_path, <span class="kw">_</span>)| PublishError::MissingBindings {
+                        module: module.name.clone(),
+                        path: normalized_path,
                     },
                 )<span class="question-mark">?</span>;
             }
         }
     }
 
-    <span class="comment">// bundle the package filesystem</span>
-    <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">indexmap::IndexMap::default</span>();
-    <span class="kw">for</span> (<span class="ident">_alias</span>, <span class="ident">path</span>) <span class="kw">in</span> <span class="ident">manifest</span>.<span class="ident">fs</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">default</span>).<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="ident">normalized_path</span> <span class="op">=</span> <span class="ident">normalize_path</span>(<span class="ident">cwd</span>, <span class="ident">path</span>);
-        <span class="kw">let</span> <span class="ident">path_metadata</span> <span class="op">=</span> <span class="ident">normalized_path</span>.<span class="ident">metadata</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-            <span class="ident">PublishError::MissingManifestFsPath</span>(<span class="ident">normalized_path</span>.<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>())
+    <span class="comment">// bundle the package filesystem
+    </span><span class="kw">let </span>default = indexmap::IndexMap::default();
+    <span class="kw">for </span>(_alias, path) <span class="kw">in </span>manifest.fs.as_ref().unwrap_or(<span class="kw-2">&amp;</span>default).iter() {
+        <span class="kw">let </span>normalized_path = normalize_path(cwd, path);
+        <span class="kw">let </span>path_metadata = normalized_path.metadata().map_err(|<span class="kw">_</span>| {
+            PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
         })<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">path_metadata</span>.<span class="ident">is_dir</span>() {
-            <span class="ident">builder</span>.<span class="ident">append_dir_all</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">normalized_path</span>)
-        } <span class="kw">else</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">PublishError::PackageFileSystemEntryMustBeDirectory</span>(
-                <span class="ident">path</span>.<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>(),
+        <span class="kw">if </span>path_metadata.is_dir() {
+            builder.append_dir_all(path, <span class="kw-2">&amp;</span>normalized_path)
+        } <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(PublishError::PackageFileSystemEntryMustBeDirectory(
+                path.to_string_lossy().to_string(),
             )
-            .<span class="ident">into</span>());
+            .into());
         }
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-            <span class="ident">PublishError::MissingManifestFsPath</span>(<span class="ident">normalized_path</span>.<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>())
+        .map_err(|<span class="kw">_</span>| {
+            PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
         })<span class="question-mark">?</span>;
     }
 
-    <span class="prelude-val">Ok</span>((<span class="ident">readme</span>, <span class="ident">license_file</span>))
+    <span class="prelude-val">Ok</span>((readme, license_file))
 }
 
-<span class="kw">fn</span> <span class="ident">append_path_to_tar_gz</span>(
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tar::Builder</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">target_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, (<span class="ident">PathBuf</span>, <span class="ident">io::Error</span>)<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">normalized_path</span> <span class="op">=</span> <span class="ident">normalize_path</span>(<span class="ident">base_path</span>, <span class="ident">target_path</span>);
-    <span class="ident">normalized_path</span>
-        .<span class="ident">metadata</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> (<span class="ident">normalized_path</span>.<span class="ident">clone</span>(), <span class="ident">e</span>))<span class="question-mark">?</span>;
-    <span class="ident">builder</span>
-        .<span class="ident">append_path_with_name</span>(<span class="kw-2">&amp;</span><span class="ident">normalized_path</span>, <span class="kw-2">&amp;</span><span class="ident">target_path</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> (<span class="ident">normalized_path</span>.<span class="ident">clone</span>(), <span class="ident">e</span>))<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">normalized_path</span>)
+<span class="kw">fn </span>append_path_to_tar_gz(
+    builder: <span class="kw-2">&amp;mut </span>tar::Builder&lt;Vec&lt;u8&gt;&gt;,
+    base_path: <span class="kw-2">&amp;</span>Path,
+    target_path: <span class="kw-2">&amp;</span>Path,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, (PathBuf, io::Error)&gt; {
+    <span class="kw">let </span>normalized_path = normalize_path(base_path, target_path);
+    normalized_path
+        .metadata()
+        .map_err(|e| (normalized_path.clone(), e))<span class="question-mark">?</span>;
+    builder
+        .append_path_with_name(<span class="kw-2">&amp;</span>normalized_path, target_path)
+        .map_err(|e| (normalized_path.clone(), e))<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(normalized_path)
 }
 
-<span class="kw">fn</span> <span class="ident">on_error</span>(<span class="ident">e</span>: <span class="ident">anyhow::Error</span>) -&gt; <span class="ident">anyhow::Error</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;telemetry&quot;</span>)]</span>
-    <span class="ident">sentry::integrations::anyhow::capture_anyhow</span>(<span class="kw-2">&amp;</span><span class="ident">e</span>);
+<span class="kw">fn </span>on_error(e: anyhow::Error) -&gt; anyhow::Error {
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;telemetry&quot;</span>)]
+    </span>sentry::integrations::anyhow::capture_anyhow(<span class="kw-2">&amp;</span>e);
 
-    <span class="ident">e</span>
+    e
 }
 
-<span class="kw">fn</span> <span class="ident">normalize_path</span>(<span class="ident">cwd</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">cwd</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">components</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">components</span>();
-    <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">is_absolute</span>() {
+<span class="kw">fn </span>normalize_path(cwd: <span class="kw-2">&amp;</span>Path, path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+    <span class="kw">let </span><span class="kw-2">mut </span>out = PathBuf::from(cwd);
+    <span class="kw">let </span><span class="kw-2">mut </span>components = path.components();
+    <span class="kw">if </span>path.is_absolute() {
         <span class="macro">log::warn!</span>(
             <span class="string">&quot;Interpreting absolute path {} as a relative path&quot;</span>,
-            <span class="ident">path</span>.<span class="ident">to_string_lossy</span>()
+            path.to_string_lossy()
         );
-        <span class="ident">components</span>.<span class="ident">next</span>();
+        components.next();
     }
-    <span class="kw">for</span> <span class="ident">comp</span> <span class="kw">in</span> <span class="ident">components</span> {
-        <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">comp</span>);
+    <span class="kw">for </span>comp <span class="kw">in </span>components {
+        out.push(comp);
     }
-    <span class="ident">out</span>
+    out
 }
 
-<span class="doccomment">/// Takes the package archive as a File and attempts to sign it using the active key</span>
-<span class="doccomment">/// returns the public key id used to sign it and the signature string itself</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_compressed_archive</span>(
-    <span class="ident">compressed_archive</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fs::File</span>,
-) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">SignArchiveResult</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">key_db</span> <span class="op">=</span> <span class="ident">open_db</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">personal_key</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">get_active_personal_key</span>(<span class="kw-2">&amp;</span><span class="ident">key_db</span>) {
-        <span class="ident">v</span>
-    } <span class="kw">else</span> {
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">SignArchiveResult::NoKeyRegistered</span>);
+<span class="doccomment">/// Takes the package archive as a File and attempts to sign it using the active key
+/// returns the public key id used to sign it and the signature string itself
+</span><span class="kw">pub fn </span>sign_compressed_archive(
+    compressed_archive: <span class="kw-2">&amp;mut </span>fs::File,
+) -&gt; anyhow::Result&lt;SignArchiveResult&gt; {
+    <span class="kw">let </span>key_db = open_db()<span class="question-mark">?</span>;
+    <span class="kw">let </span>personal_key = <span class="kw">if let </span><span class="prelude-val">Ok</span>(v) = get_active_personal_key(<span class="kw-2">&amp;</span>key_db) {
+        v
+    } <span class="kw">else </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(SignArchiveResult::NoKeyRegistered);
     };
-    <span class="kw">let</span> <span class="ident">password</span> <span class="op">=</span> <span class="ident">rpassword::prompt_password</span>(<span class="macro">format!</span>(
+    <span class="kw">let </span>password = rpassword::prompt_password(<span class="macro">format!</span>(
         <span class="string">&quot;Please enter your password for the key pair {}:&quot;</span>,
-        <span class="kw-2">&amp;</span><span class="ident">personal_key</span>.<span class="ident">public_key_id</span>
+        <span class="kw-2">&amp;</span>personal_key.public_key_id
     ))
-    .<span class="ident">ok</span>();
-    <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">priv_key_location</span>) <span class="op">=</span> <span class="ident">personal_key</span>.<span class="ident">private_key_location</span> {
-        <span class="kw">match</span> <span class="ident">minisign::SecretKey::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key_location</span>, <span class="ident">password</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">priv_key_data</span>) =&gt; <span class="ident">priv_key_data</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+    .ok();
+    <span class="kw">let </span>private_key = <span class="kw">if let </span><span class="prelude-val">Some</span>(priv_key_location) = personal_key.private_key_location {
+        <span class="kw">match </span>minisign::SecretKey::from_file(<span class="kw-2">&amp;</span>priv_key_location, password) {
+            <span class="prelude-val">Ok</span>(priv_key_data) =&gt; priv_key_data,
+            <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">log::error!</span>(
                     <span class="string">&quot;Could not read private key from location {}: {}&quot;</span>,
-                    <span class="ident">priv_key_location</span>,
-                    <span class="ident">e</span>
+                    priv_key_location,
+                    e
                 );
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>.<span class="ident">into</span>());
+                <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
             }
         }
-    } <span class="kw">else</span> {
-        <span class="comment">// TODO: add more info about why this might have happened and what the user can do about it</span>
-        <span class="macro">log::warn!</span>(<span class="string">&quot;Active key does not have a private key location registered with it!&quot;</span>);
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Cannot sign package, no private key&quot;</span>));
+    } <span class="kw">else </span>{
+        <span class="comment">// TODO: add more info about why this might have happened and what the user can do about it
+        </span><span class="macro">log::warn!</span>(<span class="string">&quot;Active key does not have a private key location registered with it!&quot;</span>);
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Cannot sign package, no private key&quot;</span>));
     };
-    <span class="kw">let</span> <span class="ident">public_key</span> <span class="op">=</span> <span class="ident">minisign::PublicKey::from_base64</span>(<span class="kw-2">&amp;</span><span class="ident">personal_key</span>.<span class="ident">public_key_value</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">minisign::sign</span>(
-        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">public_key</span>),
-        <span class="kw-2">&amp;</span><span class="ident">private_key</span>,
-        <span class="ident">compressed_archive</span>,
+    <span class="kw">let </span>public_key = minisign::PublicKey::from_base64(<span class="kw-2">&amp;</span>personal_key.public_key_value)<span class="question-mark">?</span>;
+    <span class="kw">let </span>signature = minisign::sign(
+        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>public_key),
+        <span class="kw-2">&amp;</span>private_key,
+        compressed_archive,
         <span class="prelude-val">None</span>,
         <span class="prelude-val">None</span>,
     )<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">SignArchiveResult::Ok</span> {
-        <span class="ident">public_key_id</span>: <span class="ident">personal_key</span>.<span class="ident">public_key_id</span>,
-        <span class="ident">signature</span>: <span class="ident">signature</span>.<span class="ident">to_string</span>(),
+    <span class="prelude-val">Ok</span>(SignArchiveResult::Ok {
+        public_key_id: personal_key.public_key_id,
+        signature: signature.to_string(),
     })
 }
 
-<span class="doccomment">/// Opens an exclusive read/write connection to the database, creating it if it does not exist</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">open_db</span>() -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">Connection</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span>
-        <span class="ident">WasmerConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">db_path</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_database_file_path</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">conn</span> <span class="op">=</span> <span class="ident">Connection::open_with_flags</span>(
-        <span class="ident">db_path</span>,
-        <span class="ident">OpenFlags::SQLITE_OPEN_CREATE</span>
-            <span class="op">|</span> <span class="ident">OpenFlags::SQLITE_OPEN_READ_WRITE</span>
-            <span class="op">|</span> <span class="ident">OpenFlags::SQLITE_OPEN_FULL_MUTEX</span>,
+<span class="doccomment">/// Opens an exclusive read/write connection to the database, creating it if it does not exist
+</span><span class="kw">pub fn </span>open_db() -&gt; anyhow::Result&lt;Connection&gt; {
+    <span class="kw">let </span>wasmer_dir =
+        WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>db_path = WasmerConfig::get_database_file_path(<span class="kw-2">&amp;</span>wasmer_dir);
+    <span class="kw">let </span><span class="kw-2">mut </span>conn = Connection::open_with_flags(
+        db_path,
+        OpenFlags::SQLITE_OPEN_CREATE
+            | OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_FULL_MUTEX,
     )<span class="question-mark">?</span>;
 
-    <span class="ident">apply_migrations</span>(<span class="kw-2">&amp;mut</span> <span class="ident">conn</span>)<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">conn</span>)
+    apply_migrations(<span class="kw-2">&amp;mut </span>conn)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(conn)
 }
 
-<span class="doccomment">/// Applies migrations to the database</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">apply_migrations</span>(<span class="ident">conn</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Connection</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">user_version</span> <span class="op">=</span> <span class="ident">conn</span>.<span class="ident">pragma_query_value</span>(<span class="prelude-val">None</span>, <span class="string">&quot;user_version&quot;</span>, <span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">get</span>(<span class="number">0</span>))<span class="question-mark">?</span>;
-    <span class="kw">for</span> <span class="ident">data_version</span> <span class="kw">in</span> <span class="ident">user_version</span>..<span class="ident">CURRENT_DATA_VERSION</span> {
-        <span class="macro">log::debug!</span>(<span class="string">&quot;Applying migration {}&quot;</span>, <span class="ident">data_version</span>);
-        <span class="ident">apply_migration</span>(<span class="ident">conn</span>, <span class="ident">data_version</span> <span class="kw">as</span> <span class="ident">i32</span>)<span class="question-mark">?</span>;
+<span class="doccomment">/// Applies migrations to the database
+</span><span class="kw">pub fn </span>apply_migrations(conn: <span class="kw-2">&amp;mut </span>Connection) -&gt; anyhow::Result&lt;()&gt; {
+    <span class="kw">let </span>user_version = conn.pragma_query_value(<span class="prelude-val">None</span>, <span class="string">&quot;user_version&quot;</span>, |val| val.get(<span class="number">0</span>))<span class="question-mark">?</span>;
+    <span class="kw">for </span>data_version <span class="kw">in </span>user_version..CURRENT_DATA_VERSION {
+        <span class="macro">log::debug!</span>(<span class="string">&quot;Applying migration {}&quot;</span>, data_version);
+        apply_migration(conn, data_version <span class="kw">as </span>i32)<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Error</span>)]</span>
-<span class="kw">enum</span> <span class="ident">MigrationError</span> {
-    <span class="attribute">#[<span class="ident">error</span>(
-        <span class="string">&quot;Critical internal error: the data version {0} is not handleded; current data version: {1}&quot;</span>
-    )]</span>
-    <span class="ident">MigrationNumberDoesNotExist</span>(<span class="ident">i32</span>, <span class="ident">i32</span>),
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Critical internal error: failed to commit trasaction migrating to data version {0}&quot;</span>)]</span>
-    <span class="ident">CommitFailed</span>(<span class="ident">i32</span>),
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Critical internal error: transaction failed on migration number {0}: {1}&quot;</span>)]</span>
-    <span class="ident">TransactionFailed</span>(<span class="ident">i32</span>, <span class="ident">String</span>),
+<span class="attribute">#[derive(Debug, Error)]
+</span><span class="kw">enum </span>MigrationError {
+    <span class="attribute">#[error(
+        <span class="string">&quot;Critical internal error: the data version {0} is not handleded; current data version: {1}&quot;
+    </span>)]
+    </span>MigrationNumberDoesNotExist(i32, i32),
+    <span class="attribute">#[error(<span class="string">&quot;Critical internal error: failed to commit trasaction migrating to data version {0}&quot;</span>)]
+    </span>CommitFailed(i32),
+    <span class="attribute">#[error(<span class="string">&quot;Critical internal error: transaction failed on migration number {0}: {1}&quot;</span>)]
+    </span>TransactionFailed(i32, String),
 }
 
-<span class="doccomment">/// Applies migrations to the database and updates the `user_version` pragma.</span>
-<span class="doccomment">/// Every migration must leave the database in a valid state.</span>
-<span class="kw">fn</span> <span class="ident">apply_migration</span>(<span class="ident">conn</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Connection</span>, <span class="ident">migration_number</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">MigrationError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="ident">conn</span>
-        .<span class="ident">transaction_with_behavior</span>(<span class="ident">TransactionBehavior::Immediate</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">MigrationError::TransactionFailed</span>(<span class="ident">migration_number</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
+<span class="doccomment">/// Applies migrations to the database and updates the `user_version` pragma.
+/// Every migration must leave the database in a valid state.
+</span><span class="kw">fn </span>apply_migration(conn: <span class="kw-2">&amp;mut </span>Connection, migration_number: i32) -&gt; <span class="prelude-ty">Result</span>&lt;(), MigrationError&gt; {
+    <span class="kw">let </span>tx = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|e| MigrationError::TransactionFailed(migration_number, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e)))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">migration_to_apply</span> <span class="op">=</span> <span class="ident">MIGRATIONS</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="ident">number</span>, <span class="ident">sql</span>)<span class="op">|</span> {
-            <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">number</span> <span class="op">==</span> <span class="ident">migration_number</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">sql</span>)
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            }
+    <span class="kw">let </span>migration_to_apply = MIGRATIONS
+        .iter()
+        .find_map(|(number, sql)| {
+            <span class="kw">if </span><span class="kw-2">*</span>number == migration_number {
+                <span class="prelude-val">Some</span>(sql)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
         })
-        .<span class="ident">ok_or</span>({
-            <span class="ident">MigrationError::MigrationNumberDoesNotExist</span>(
-                <span class="ident">migration_number</span>,
-                <span class="ident">CURRENT_DATA_VERSION</span> <span class="kw">as</span> <span class="ident">i32</span>,
+        .ok_or({
+            MigrationError::MigrationNumberDoesNotExist(
+                migration_number,
+                CURRENT_DATA_VERSION <span class="kw">as </span>i32,
             )
         })<span class="question-mark">?</span>;
 
-    <span class="ident">tx</span>.<span class="ident">execute_batch</span>(<span class="ident">migration_to_apply</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">MigrationError::TransactionFailed</span>(<span class="ident">migration_number</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
+    tx.execute_batch(migration_to_apply)
+        .map_err(|e| MigrationError::TransactionFailed(migration_number, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e)))<span class="question-mark">?</span>;
 
-    <span class="ident">tx</span>.<span class="ident">pragma_update</span>(<span class="prelude-val">None</span>, <span class="string">&quot;user_version&quot;</span>, <span class="kw-2">&amp;</span>(<span class="ident">migration_number</span> <span class="op">+</span> <span class="number">1</span>))
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">MigrationError::TransactionFailed</span>(<span class="ident">migration_number</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
-    <span class="ident">tx</span>.<span class="ident">commit</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">MigrationError::CommitFailed</span>(<span class="ident">migration_number</span>))
+    tx.pragma_update(<span class="prelude-val">None</span>, <span class="string">&quot;user_version&quot;</span>, migration_number + <span class="number">1</span>)
+        .map_err(|e| MigrationError::TransactionFailed(migration_number, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e)))<span class="question-mark">?</span>;
+    tx.commit()
+        .map_err(|<span class="kw">_</span>| MigrationError::CommitFailed(migration_number))
 }
 
-<span class="doccomment">/// Information about one of the user&#39;s keys</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PersonalKey</span> {
-    <span class="doccomment">/// Flag saying if the key will be used (there can only be one active key at a time)</span>
-    <span class="kw">pub</span> <span class="ident">active</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// The public key&#39;s tag. Used to identify the key pair</span>
-    <span class="kw">pub</span> <span class="ident">public_key_id</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The raw value of the public key in base64</span>
-    <span class="kw">pub</span> <span class="ident">public_key_value</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The location in the file system of the private key</span>
-    <span class="kw">pub</span> <span class="ident">private_key_location</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The type of private/public key this is</span>
-    <span class="kw">pub</span> <span class="ident">key_type_identifier</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The time at which the key was registered with wapm</span>
-    <span class="kw">pub</span> <span class="ident">date_created</span>: <span class="ident">OffsetDateTime</span>,
+<span class="doccomment">/// Information about one of the user&#39;s keys
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>PersonalKey {
+    <span class="doccomment">/// Flag saying if the key will be used (there can only be one active key at a time)
+    </span><span class="kw">pub </span>active: bool,
+    <span class="doccomment">/// The public key&#39;s tag. Used to identify the key pair
+    </span><span class="kw">pub </span>public_key_id: String,
+    <span class="doccomment">/// The raw value of the public key in base64
+    </span><span class="kw">pub </span>public_key_value: String,
+    <span class="doccomment">/// The location in the file system of the private key
+    </span><span class="kw">pub </span>private_key_location: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// The type of private/public key this is
+    </span><span class="kw">pub </span>key_type_identifier: String,
+    <span class="doccomment">/// The time at which the key was registered with wapm
+    </span><span class="kw">pub </span>date_created: OffsetDateTime,
 }
 
-<span class="kw">fn</span> <span class="ident">get_active_personal_key</span>(<span class="ident">conn</span>: <span class="kw-2">&amp;</span><span class="ident">Connection</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">PersonalKey</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stmt</span> <span class="op">=</span> <span class="ident">conn</span>.<span class="ident">prepare</span>(
+<span class="kw">fn </span>get_active_personal_key(conn: <span class="kw-2">&amp;</span>Connection) -&gt; anyhow::Result&lt;PersonalKey&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare(
         <span class="string">&quot;SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys 
          where active = 1&quot;</span>,
     )<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">stmt</span>
-        .<span class="ident">query_map</span>(<span class="macro">params!</span>[], <span class="op">|</span><span class="ident">row</span><span class="op">|</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">PersonalKey</span> {
-                <span class="ident">active</span>: <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">0</span>)<span class="question-mark">?</span>,
-                <span class="ident">public_key_value</span>: <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">1</span>)<span class="question-mark">?</span>,
-                <span class="ident">private_key_location</span>: <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">2</span>)<span class="question-mark">?</span>,
-                <span class="ident">date_created</span>: {
-                    <span class="kw">use</span> <span class="ident">time::format_description::well_known::Rfc3339</span>;
-                    <span class="kw">let</span> <span class="ident">time_str</span>: <span class="ident">String</span> <span class="op">=</span> <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">3</span>)<span class="question-mark">?</span>;
-                    <span class="ident">OffsetDateTime::parse</span>(<span class="kw-2">&amp;</span><span class="ident">time_str</span>, <span class="kw-2">&amp;</span><span class="ident">Rfc3339</span>)
-                        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;Failed to parse time string {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">time_str</span>))
+    <span class="kw">let </span>result = stmt
+        .query_map(<span class="macro">params!</span>[], |row| {
+            <span class="prelude-val">Ok</span>(PersonalKey {
+                active: row.get(<span class="number">0</span>)<span class="question-mark">?</span>,
+                public_key_value: row.get(<span class="number">1</span>)<span class="question-mark">?</span>,
+                private_key_location: row.get(<span class="number">2</span>)<span class="question-mark">?</span>,
+                date_created: {
+                    <span class="kw">use </span>time::format_description::well_known::Rfc3339;
+                    <span class="kw">let </span>time_str: String = row.get(<span class="number">3</span>)<span class="question-mark">?</span>;
+                    OffsetDateTime::parse(<span class="kw-2">&amp;</span>time_str, <span class="kw-2">&amp;</span>Rfc3339)
+                        .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Failed to parse time string {}&quot;</span>, <span class="kw-2">&amp;</span>time_str))
                 },
-                <span class="ident">key_type_identifier</span>: <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">4</span>)<span class="question-mark">?</span>,
-                <span class="ident">public_key_id</span>: <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">5</span>)<span class="question-mark">?</span>,
+                key_type_identifier: row.get(<span class="number">4</span>)<span class="question-mark">?</span>,
+                public_key_id: row.get(<span class="number">5</span>)<span class="question-mark">?</span>,
             })
-        })<span class="question-mark">?</span>
-        .<span class="ident">next</span>();
+        })<span class="question-mark">?
+        </span>.next();
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">res</span><span class="question-mark">?</span>)
-    } <span class="kw">else</span> {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = result {
+        <span class="prelude-val">Ok</span>(res<span class="question-mark">?</span>)
+    } <span class="kw">else </span>{
         <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;No active key found&quot;</span>))
     }
 }
 
-<span class="kw">mod</span> <span class="ident">interfaces</span> {
+<span class="kw">mod </span>interfaces {
 
-    <span class="kw">use</span> <span class="ident">rusqlite</span>::{<span class="ident">params</span>, <span class="ident">Connection</span>, <span class="ident">TransactionBehavior</span>};
+    <span class="kw">use </span>rusqlite::{params, Connection, TransactionBehavior};
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WASM_INTERFACE_EXISTENCE_CHECK</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span>
+    <span class="kw">pub const </span>WASM_INTERFACE_EXISTENCE_CHECK: <span class="kw-2">&amp;</span>str =
         <span class="macro">include_str!</span>(<span class="string">&quot;./sql/wasm_interface_existence_check.sql&quot;</span>);
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">INSERT_WASM_INTERFACE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;./sql/insert_interface.sql&quot;</span>);
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">GET_WASM_INTERFACE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;./sql/get_interface.sql&quot;</span>);
+    <span class="kw">pub const </span>INSERT_WASM_INTERFACE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;./sql/insert_interface.sql&quot;</span>);
+    <span class="kw">pub const </span>GET_WASM_INTERFACE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;./sql/get_interface.sql&quot;</span>);
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">interface_exists</span>(
-        <span class="ident">conn</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Connection</span>,
-        <span class="ident">interface_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">version</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stmt</span> <span class="op">=</span> <span class="ident">conn</span>.<span class="ident">prepare</span>(<span class="ident">WASM_INTERFACE_EXISTENCE_CHECK</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">stmt</span>.<span class="ident">exists</span>(<span class="macro">params!</span>[<span class="ident">interface_name</span>, <span class="ident">version</span>])<span class="question-mark">?</span>)
+    <span class="kw">pub fn </span>interface_exists(
+        conn: <span class="kw-2">&amp;mut </span>Connection,
+        interface_name: <span class="kw-2">&amp;</span>str,
+        version: <span class="kw-2">&amp;</span>str,
+    ) -&gt; anyhow::Result&lt;bool&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare(WASM_INTERFACE_EXISTENCE_CHECK)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(stmt.exists(<span class="macro">params!</span>[interface_name, version])<span class="question-mark">?</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">load_interface_from_db</span>(
-        <span class="ident">conn</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Connection</span>,
-        <span class="ident">interface_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">version</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">wasmer_wasm_interface::Interface</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stmt</span> <span class="op">=</span> <span class="ident">conn</span>.<span class="ident">prepare</span>(<span class="ident">GET_WASM_INTERFACE</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">interface_string</span>: <span class="ident">String</span> <span class="op">=</span>
-            <span class="ident">stmt</span>.<span class="ident">query_row</span>(<span class="macro">params!</span>[<span class="ident">interface_name</span>, <span class="ident">version</span>], <span class="op">|</span><span class="ident">row</span><span class="op">|</span> <span class="ident">row</span>.<span class="ident">get</span>(<span class="number">0</span>))<span class="question-mark">?</span>;
+    <span class="kw">pub fn </span>load_interface_from_db(
+        conn: <span class="kw-2">&amp;mut </span>Connection,
+        interface_name: <span class="kw-2">&amp;</span>str,
+        version: <span class="kw-2">&amp;</span>str,
+    ) -&gt; anyhow::Result&lt;wasmer_wasm_interface::Interface&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare(GET_WASM_INTERFACE)<span class="question-mark">?</span>;
+        <span class="kw">let </span>interface_string: String =
+            stmt.query_row(<span class="macro">params!</span>[interface_name, version], |row| row.get(<span class="number">0</span>))<span class="question-mark">?</span>;
 
-        <span class="ident">wasmer_wasm_interface::parser::parse_interface</span>(<span class="kw-2">&amp;</span><span class="ident">interface_string</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        wasmer_wasm_interface::parser::parse_interface(<span class="kw-2">&amp;</span>interface_string).map_err(|e| {
             <span class="macro">anyhow!</span>(
                 <span class="string">&quot;Failed to parse interface {} version {} in database: {}&quot;</span>,
-                <span class="ident">interface_name</span>,
-                <span class="ident">version</span>,
-                <span class="ident">e</span>
+                interface_name,
+                version,
+                e
             )
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">import_interface</span>(
-        <span class="ident">conn</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Connection</span>,
-        <span class="ident">interface_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">version</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">content</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="comment">// fail if we already have this interface</span>
-        {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">key_check</span> <span class="op">=</span> <span class="ident">conn</span>.<span class="ident">prepare</span>(<span class="ident">WASM_INTERFACE_EXISTENCE_CHECK</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">key_check</span>.<span class="ident">exists</span>(<span class="macro">params!</span>[<span class="ident">interface_name</span>, <span class="ident">version</span>])<span class="question-mark">?</span>;
+    <span class="kw">pub fn </span>import_interface(
+        conn: <span class="kw-2">&amp;mut </span>Connection,
+        interface_name: <span class="kw-2">&amp;</span>str,
+        version: <span class="kw-2">&amp;</span>str,
+        content: <span class="kw-2">&amp;</span>str,
+    ) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="comment">// fail if we already have this interface
+        </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>key_check = conn.prepare(WASM_INTERFACE_EXISTENCE_CHECK)<span class="question-mark">?</span>;
+            <span class="kw">let </span>result = key_check.exists(<span class="macro">params!</span>[interface_name, version])<span class="question-mark">?</span>;
 
-            <span class="kw">if</span> <span class="ident">result</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+            <span class="kw">if </span>result {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
                     <span class="string">&quot;Interface {}, version {} already exists&quot;</span>,
-                    <span class="ident">interface_name</span>,
-                    <span class="ident">version</span>
+                    interface_name,
+                    version
                 ));
             }
         }
 
-        <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="ident">conn</span>.<span class="ident">transaction_with_behavior</span>(<span class="ident">TransactionBehavior::Immediate</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">time_string</span> <span class="op">=</span> <span class="ident">get_current_time_in_format</span>().<span class="ident">expect</span>(<span class="string">&quot;Could not get current time&quot;</span>);
+        <span class="kw">let </span>tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)<span class="question-mark">?</span>;
+        <span class="kw">let </span>time_string = get_current_time_in_format().expect(<span class="string">&quot;Could not get current time&quot;</span>);
 
-        <span class="macro">log::debug!</span>(<span class="string">&quot;Adding interface {:?} {:?}&quot;</span>, <span class="ident">interface_name</span>, <span class="ident">version</span>);
-        <span class="ident">tx</span>.<span class="ident">execute</span>(
-            <span class="ident">INSERT_WASM_INTERFACE</span>,
-            <span class="macro">params!</span>[<span class="ident">interface_name</span>, <span class="ident">version</span>, <span class="ident">time_string</span>, <span class="ident">content</span>],
+        <span class="macro">log::debug!</span>(<span class="string">&quot;Adding interface {:?} {:?}&quot;</span>, interface_name, version);
+        tx.execute(
+            INSERT_WASM_INTERFACE,
+            <span class="macro">params!</span>[interface_name, version, time_string, content],
         )<span class="question-mark">?</span>;
 
-        <span class="ident">tx</span>.<span class="ident">commit</span>()<span class="question-mark">?</span>;
+        tx.commit()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Gets the current time in our standard format</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_current_time_in_format</span>() -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">time::format_description::well_known::Rfc3339</span>;
-        <span class="kw">let</span> <span class="ident">cur_time</span> <span class="op">=</span> <span class="ident">time::OffsetDateTime::now_utc</span>();
-        <span class="ident">cur_time</span>.<span class="ident">format</span>(<span class="kw-2">&amp;</span><span class="ident">Rfc3339</span>).<span class="ident">ok</span>()
+    <span class="doccomment">/// Gets the current time in our standard format
+    </span><span class="kw">pub fn </span>get_current_time_in_format() -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+        <span class="kw">use </span>time::format_description::well_known::Rfc3339;
+        <span class="kw">let </span>cur_time = time::OffsetDateTime::now_utc();
+        cur_time.format(<span class="kw-2">&amp;</span>Rfc3339).ok()
     }
 }
 
-<span class="kw">mod</span> <span class="ident">validate</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::interfaces</span>;
-    <span class="kw">use</span> <span class="ident">std</span>::{
-        <span class="ident">fs</span>,
-        <span class="ident">io::Read</span>,
-        <span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>},
+<span class="kw">mod </span>validate {
+    <span class="kw">use </span><span class="kw">super</span>::interfaces;
+    <span class="kw">use </span>std::{
+        fs,
+        io::Read,
+        path::{Path, PathBuf},
     };
-    <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_registry::interface::InterfaceFromServer</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_wasm_interface</span>::{<span class="ident">validate</span>, <span class="ident">Interface</span>};
+    <span class="kw">use </span>thiserror::Error;
+    <span class="kw">use </span>wasmer_registry::interface::InterfaceFromServer;
+    <span class="kw">use </span>wasmer_wasm_interface::{validate, Interface};
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_directory</span>(
-        <span class="ident">manifest</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_toml::Manifest</span>,
-        <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">pkg_path</span>: <span class="ident">PathBuf</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="comment">// validate as dir</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">modules</span>) <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">module</span>.<span class="ident">as_ref</span>() {
-            <span class="kw">for</span> <span class="ident">module</span> <span class="kw">in</span> <span class="ident">modules</span>.<span class="ident">iter</span>() {
-                <span class="kw">let</span> <span class="ident">source_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">source</span>.<span class="ident">is_relative</span>() {
-                    <span class="ident">manifest</span>.<span class="ident">base_directory_path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">source</span>)
-                } <span class="kw">else</span> {
-                    <span class="ident">module</span>.<span class="ident">source</span>.<span class="ident">clone</span>()
+    <span class="kw">pub fn </span>validate_directory(
+        manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        registry: <span class="kw-2">&amp;</span>str,
+        pkg_path: PathBuf,
+    ) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="comment">// validate as dir
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(modules) = manifest.module.as_ref() {
+            <span class="kw">for </span>module <span class="kw">in </span>modules.iter() {
+                <span class="kw">let </span>source_path = <span class="kw">if </span>module.source.is_relative() {
+                    manifest.base_directory_path.join(<span class="kw-2">&amp;</span>module.source)
+                } <span class="kw">else </span>{
+                    module.source.clone()
                 };
-                <span class="kw">let</span> <span class="ident">source_path_string</span> <span class="op">=</span> <span class="ident">source_path</span>.<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_file</span> <span class="op">=</span>
-                    <span class="ident">fs::File::open</span>(<span class="kw-2">&amp;</span><span class="ident">source_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ValidationError::MissingFile</span> {
-                        <span class="ident">file</span>: <span class="ident">source_path_string</span>.<span class="ident">clone</span>(),
+                <span class="kw">let </span>source_path_string = source_path.to_string_lossy().to_string();
+                <span class="kw">let </span><span class="kw-2">mut </span>wasm_file =
+                    fs::File::open(<span class="kw-2">&amp;</span>source_path).map_err(|<span class="kw">_</span>| ValidationError::MissingFile {
+                        file: source_path_string.clone(),
                     })<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_buffer</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-                <span class="ident">wasm_file</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">wasm_buffer</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-                    <span class="ident">ValidationError::MiscCannotRead</span> {
-                        <span class="ident">file</span>: <span class="ident">source_path_string</span>.<span class="ident">clone</span>(),
-                        <span class="ident">error</span>: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>),
+                <span class="kw">let </span><span class="kw-2">mut </span>wasm_buffer = Vec::new();
+                wasm_file.read_to_end(<span class="kw-2">&amp;mut </span>wasm_buffer).map_err(|err| {
+                    ValidationError::MiscCannotRead {
+                        file: source_path_string.clone(),
+                        error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err),
                     }
                 })<span class="question-mark">?</span>;
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">bindings</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">bindings</span> {
-                    <span class="ident">validate_bindings</span>(<span class="ident">bindings</span>, <span class="kw-2">&amp;</span><span class="ident">manifest</span>.<span class="ident">base_directory_path</span>)<span class="question-mark">?</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
+                    validate_bindings(bindings, <span class="kw-2">&amp;</span>manifest.base_directory_path)<span class="question-mark">?</span>;
                 }
 
-                <span class="comment">// hack, short circuit if no interface for now</span>
-                <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">interfaces</span>.<span class="ident">is_none</span>() {
-                    <span class="kw">return</span> <span class="ident">validate_wasm_and_report_errors_old</span>(
-                        <span class="kw-2">&amp;</span><span class="ident">wasm_buffer</span>[..],
-                        <span class="ident">source_path_string</span>,
+                <span class="comment">// hack, short circuit if no interface for now
+                </span><span class="kw">if </span>module.interfaces.is_none() {
+                    <span class="kw">return </span>validate_wasm_and_report_errors_old(
+                        <span class="kw-2">&amp;</span>wasm_buffer[..],
+                        source_path_string,
                     );
                 }
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">conn</span> <span class="op">=</span> <span class="ident"><span class="kw">super</span>::open_db</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">interface</span>: <span class="ident">Interface</span> <span class="op">=</span> <span class="ident">Default::default</span>();
-                <span class="kw">for</span> (<span class="ident">interface_name</span>, <span class="ident">interface_version</span>) <span class="kw">in</span>
-                    <span class="ident">module</span>.<span class="ident">interfaces</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>().<span class="ident">into_iter</span>()
+                <span class="kw">let </span><span class="kw-2">mut </span>conn = <span class="kw">super</span>::open_db()<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>interface: Interface = Default::default();
+                <span class="kw">for </span>(interface_name, interface_version) <span class="kw">in
+                    </span>module.interfaces.clone().unwrap_or_default().into_iter()
                 {
-                    <span class="kw">if</span> <span class="op">!</span><span class="ident">interfaces::interface_exists</span>(
-                        <span class="kw-2">&amp;mut</span> <span class="ident">conn</span>,
-                        <span class="kw-2">&amp;</span><span class="ident">interface_name</span>,
-                        <span class="kw-2">&amp;</span><span class="ident">interface_version</span>,
-                    )<span class="question-mark">?</span> {
-                        <span class="comment">// download interface and store it if we don&#39;t have it locally</span>
-                        <span class="kw">let</span> <span class="ident">interface_data_from_server</span> <span class="op">=</span> <span class="ident">InterfaceFromServer::get</span>(
-                            <span class="ident">registry</span>,
-                            <span class="ident">interface_name</span>.<span class="ident">clone</span>(),
-                            <span class="ident">interface_version</span>.<span class="ident">clone</span>(),
+                    <span class="kw">if </span>!interfaces::interface_exists(
+                        <span class="kw-2">&amp;mut </span>conn,
+                        <span class="kw-2">&amp;</span>interface_name,
+                        <span class="kw-2">&amp;</span>interface_version,
+                    )<span class="question-mark">? </span>{
+                        <span class="comment">// download interface and store it if we don&#39;t have it locally
+                        </span><span class="kw">let </span>interface_data_from_server = InterfaceFromServer::get(
+                            registry,
+                            interface_name.clone(),
+                            interface_version.clone(),
                         )<span class="question-mark">?</span>;
-                        <span class="ident">interfaces::import_interface</span>(
-                            <span class="kw-2">&amp;mut</span> <span class="ident">conn</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">interface_name</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">interface_version</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">interface_data_from_server</span>.<span class="ident">content</span>,
+                        interfaces::import_interface(
+                            <span class="kw-2">&amp;mut </span>conn,
+                            <span class="kw-2">&amp;</span>interface_name,
+                            <span class="kw-2">&amp;</span>interface_version,
+                            <span class="kw-2">&amp;</span>interface_data_from_server.content,
                         )<span class="question-mark">?</span>;
                     }
-                    <span class="kw">let</span> <span class="ident">sub_interface</span> <span class="op">=</span> <span class="ident">interfaces::load_interface_from_db</span>(
-                        <span class="kw-2">&amp;mut</span> <span class="ident">conn</span>,
-                        <span class="kw-2">&amp;</span><span class="ident">interface_name</span>,
-                        <span class="kw-2">&amp;</span><span class="ident">interface_version</span>,
+                    <span class="kw">let </span>sub_interface = interfaces::load_interface_from_db(
+                        <span class="kw-2">&amp;mut </span>conn,
+                        <span class="kw-2">&amp;</span>interface_name,
+                        <span class="kw-2">&amp;</span>interface_version,
                     )<span class="question-mark">?</span>;
-                    <span class="ident">interface</span> <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">merge</span>(<span class="ident">sub_interface</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                        <span class="macro">anyhow!</span>(<span class="string">&quot;Failed to merge interface {}: {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">interface_name</span>, <span class="ident">e</span>)
+                    interface = interface.merge(sub_interface).map_err(|e| {
+                        <span class="macro">anyhow!</span>(<span class="string">&quot;Failed to merge interface {}: {}&quot;</span>, <span class="kw-2">&amp;</span>interface_name, e)
                     })<span class="question-mark">?</span>;
                 }
-                <span class="ident">validate::validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_buffer</span>, <span class="kw-2">&amp;</span><span class="ident">interface</span>).<span class="ident">map_err</span>(
-                    <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ValidationError::InvalidWasm</span> {
-                        <span class="ident">file</span>: <span class="ident">source_path_string</span>,
-                        <span class="ident">error</span>: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>),
+                validate::validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm_buffer, <span class="kw-2">&amp;</span>interface).map_err(
+                    |e| ValidationError::InvalidWasm {
+                        file: source_path_string,
+                        error: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
                     },
                 )<span class="question-mark">?</span>;
             }
         }
-        <span class="macro">log::debug!</span>(<span class="string">&quot;package at path {:#?} validated&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">pkg_path</span>);
+        <span class="macro">log::debug!</span>(<span class="string">&quot;package at path {:#?} validated&quot;</span>, <span class="kw-2">&amp;</span>pkg_path);
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">validate_bindings</span>(
-        <span class="ident">bindings</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_toml::Bindings</span>,
-        <span class="ident">base_directory_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ValidationError</span><span class="op">&gt;</span> {
-        <span class="comment">// Note: checking for referenced files will make sure they all exist.</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">bindings</span>.<span class="ident">referenced_files</span>(<span class="ident">base_directory_path</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>validate_bindings(
+        bindings: <span class="kw-2">&amp;</span>wasmer_toml::Bindings,
+        base_directory_path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ValidationError&gt; {
+        <span class="comment">// Note: checking for referenced files will make sure they all exist.
+        </span><span class="kw">let _ </span>= bindings.referenced_files(base_directory_path)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Error</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ValidationError</span> {
-        <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;WASM file \&quot;{file}\&quot; detected as invalid because {error}&quot;</span>)]</span>
-        <span class="ident">InvalidWasm</span> { <span class="ident">file</span>: <span class="ident">String</span>, <span class="ident">error</span>: <span class="ident">String</span> },
-        <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Could not find file {file}&quot;</span>)]</span>
-        <span class="ident">MissingFile</span> { <span class="ident">file</span>: <span class="ident">String</span> },
-        <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Failed to read file {file}; {error}&quot;</span>)]</span>
-        <span class="ident">MiscCannotRead</span> { <span class="ident">file</span>: <span class="ident">String</span>, <span class="ident">error</span>: <span class="ident">String</span> },
-        <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-        <span class="ident">Imports</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">wasmer_toml::ImportsError</span>),
+    <span class="attribute">#[derive(Debug, Error)]
+    </span><span class="kw">pub enum </span>ValidationError {
+        <span class="attribute">#[error(<span class="string">&quot;WASM file \&quot;{file}\&quot; detected as invalid because {error}&quot;</span>)]
+        </span>InvalidWasm { file: String, error: String },
+        <span class="attribute">#[error(<span class="string">&quot;Could not find file {file}&quot;</span>)]
+        </span>MissingFile { file: String },
+        <span class="attribute">#[error(<span class="string">&quot;Failed to read file {file}; {error}&quot;</span>)]
+        </span>MiscCannotRead { file: String, error: String },
+        <span class="attribute">#[error(transparent)]
+        </span>Imports(<span class="attribute">#[from] </span>wasmer_toml::ImportsError),
     }
 
-    <span class="comment">// legacy function, validates wasm.  TODO: clean up</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_wasm_and_report_errors_old</span>(
-        <span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">file_name</span>: <span class="ident">String</span>,
-    ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">wasmparser::WasmDecoder</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">wasmparser::ValidatingParser::new</span>(
-            <span class="ident">wasm</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">wasmparser::ValidatingParserConfig</span> {
-                <span class="ident">operator_config</span>: <span class="ident">wasmparser::OperatorValidatorConfig</span> {
-                    <span class="ident">enable_threads</span>: <span class="bool-val">true</span>,
-                    <span class="ident">enable_reference_types</span>: <span class="bool-val">true</span>,
-                    <span class="ident">enable_simd</span>: <span class="bool-val">true</span>,
-                    <span class="ident">enable_bulk_memory</span>: <span class="bool-val">true</span>,
-                    <span class="ident">enable_multi_value</span>: <span class="bool-val">true</span>,
+    <span class="comment">// legacy function, validates wasm.  TODO: clean up
+    </span><span class="kw">pub fn </span>validate_wasm_and_report_errors_old(
+        wasm: <span class="kw-2">&amp;</span>[u8],
+        file_name: String,
+    ) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="kw">use </span>wasmparser::WasmDecoder;
+        <span class="kw">let </span><span class="kw-2">mut </span>parser = wasmparser::ValidatingParser::new(
+            wasm,
+            <span class="prelude-val">Some</span>(wasmparser::ValidatingParserConfig {
+                operator_config: wasmparser::OperatorValidatorConfig {
+                    enable_threads: <span class="bool-val">true</span>,
+                    enable_reference_types: <span class="bool-val">true</span>,
+                    enable_simd: <span class="bool-val">true</span>,
+                    enable_bulk_memory: <span class="bool-val">true</span>,
+                    enable_multi_value: <span class="bool-val">true</span>,
                 },
             }),
         );
-        <span class="kw">loop</span> {
-            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
-            <span class="kw">match</span> <span class="ident">state</span> {
-                <span class="ident">wasmparser::ParserState::EndWasm</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(()),
-                <span class="ident">wasmparser::ParserState::Error</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ValidationError::InvalidWasm</span> {
-                        <span class="ident">file</span>: <span class="ident">file_name</span>,
-                        <span class="ident">error</span>: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>),
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>state = parser.read();
+            <span class="kw">match </span>state {
+                wasmparser::ParserState::EndWasm =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+                wasmparser::ParserState::Error(e) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::InvalidWasm {
+                        file: file_name,
+                        error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e),
                     }
-                    .<span class="ident">into</span>());
+                    .into());
                 }
-                <span class="kw">_</span> =&gt; {}
+                <span class="kw">_ </span>=&gt; {}
             }
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

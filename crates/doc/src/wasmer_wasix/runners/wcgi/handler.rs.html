@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/runners/wcgi/handler.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>handler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/runners/wcgi/handler.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>handler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -304,309 +304,309 @@
 <span id="302">302</span>
 <span id="303">303</span>
 <span id="304">304</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">ops::Deref</span>,
-    <span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>},
-    <span class="ident">pin::Pin</span>,
-    <span class="ident">sync::Arc</span>,
-    <span class="ident">task::Poll</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    ops::Deref,
+    path::{Path, PathBuf},
+    pin::Pin,
+    sync::Arc,
+    task::Poll,
 };
 
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
-<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">Future</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>, <span class="ident">TryFutureExt</span>};
-<span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">Request</span>, <span class="ident">Response</span>};
-<span class="kw">use</span> <span class="ident">hyper</span>::{<span class="ident">service::Service</span>, <span class="ident">Body</span>};
-<span class="kw">use</span> <span class="ident">tokio</span>::{
-    <span class="ident">io</span>::{<span class="ident">AsyncBufReadExt</span>, <span class="ident">AsyncRead</span>, <span class="ident">AsyncWrite</span>, <span class="ident">AsyncWriteExt</span>},
-    <span class="ident">runtime::Handle</span>,
+<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>futures::{Future, FutureExt, StreamExt, TryFutureExt};
+<span class="kw">use </span>http::{Request, Response};
+<span class="kw">use </span>hyper::{service::Service, Body};
+<span class="kw">use </span>tokio::{
+    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt},
+    runtime::Handle,
 };
-<span class="kw">use</span> <span class="ident">tracing::Instrument</span>;
-<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">FileSystem</span>, <span class="ident">PassthruFileSystem</span>, <span class="ident">RootFileSystemBuilder</span>, <span class="ident">TmpFileSystem</span>};
-<span class="kw">use</span> <span class="ident">wasmer::Module</span>;
-<span class="kw">use</span> <span class="ident">wcgi_host::CgiDialect</span>;
+<span class="kw">use </span>tracing::Instrument;
+<span class="kw">use </span>virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
+<span class="kw">use </span>wasmer::Module;
+<span class="kw">use </span>wcgi_host::CgiDialect;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">capabilities::Capabilities</span>,
-    <span class="ident">http::HttpClientCapabilityV1</span>,
-    <span class="ident">runners</span>::{<span class="ident">wcgi::Callbacks</span>, <span class="ident">MappedDirectory</span>, <span class="ident">WapmContainer</span>},
-    <span class="ident">Pipe</span>, <span class="ident">PluggableRuntime</span>, <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiEnv</span>,
+<span class="kw">use crate</span>::{
+    capabilities::Capabilities,
+    http::HttpClientCapabilityV1,
+    runners::{wcgi::Callbacks, MappedDirectory, WapmContainer},
+    Pipe, PluggableRuntime, VirtualTaskManager, WasiEnv,
 };
 
-<span class="doccomment">/// The shared object that manages the instantiaion of WASI executables and</span>
-<span class="doccomment">/// communicating with them via the CGI protocol.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Handler</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">SharedState</span><span class="op">&gt;</span>);
+<span class="doccomment">/// The shared object that manages the instantiaion of WASI executables and
+/// communicating with them via the CGI protocol.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Handler(Arc&lt;SharedState&gt;);
 
-<span class="kw">impl</span> <span class="ident">Handler</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">state</span>: <span class="ident">SharedState</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">Handler</span>(<span class="ident">Arc::new</span>(<span class="ident">state</span>))
+<span class="kw">impl </span>Handler {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(state: SharedState) -&gt; <span class="self">Self </span>{
+        Handler(Arc::new(state))
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">req</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="macro">tracing::debug!</span>(<span class="ident">headers</span><span class="op">=</span><span class="question-mark">?</span><span class="ident">req</span>.<span class="ident">headers</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>, req: Request&lt;Body&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Response&lt;Body&gt;, Error&gt; {
+        <span class="macro">tracing::debug!</span>(headers=<span class="question-mark">?</span>req.headers());
 
-        <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">req</span>.<span class="ident">into_parts</span>();
+        <span class="kw">let </span>(parts, body) = req.into_parts();
 
-        <span class="kw">let</span> (<span class="ident">req_body_sender</span>, <span class="ident">req_body_receiver</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
-        <span class="kw">let</span> (<span class="ident">res_body_sender</span>, <span class="ident">res_body_receiver</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
-        <span class="kw">let</span> (<span class="ident">stderr_sender</span>, <span class="ident">stderr_receiver</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
+        <span class="kw">let </span>(req_body_sender, req_body_receiver) = Pipe::channel();
+        <span class="kw">let </span>(res_body_sender, res_body_receiver) = Pipe::channel();
+        <span class="kw">let </span>(stderr_sender, stderr_receiver) = Pipe::channel();
 
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;Creating the WebAssembly instance&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiEnv::builder</span>(<span class="self">self</span>.<span class="ident">program</span>.<span class="ident">to_string</span>());
+        <span class="kw">let </span>builder = WasiEnv::builder(<span class="self">self</span>.program.to_string());
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request_specific_env</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="self">self</span>.<span class="ident">dialect</span>
-            .<span class="ident">prepare_environment_variables</span>(<span class="ident">parts</span>, <span class="kw-2">&amp;mut</span> <span class="ident">request_specific_env</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>request_specific_env = HashMap::new();
+        <span class="self">self</span>.dialect
+            .prepare_environment_variables(parts, <span class="kw-2">&amp;mut </span>request_specific_env);
 
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">task_manager</span>));
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>
-            .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">env</span>.<span class="ident">iter</span>())
-            .<span class="ident">envs</span>(<span class="ident">request_specific_env</span>)
-            .<span class="ident">args</span>(<span class="self">self</span>.<span class="ident">args</span>.<span class="ident">iter</span>())
-            .<span class="ident">stdin</span>(<span class="ident">Box::new</span>(<span class="ident">req_body_receiver</span>))
-            .<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">res_body_sender</span>))
-            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">stderr_sender</span>))
-            .<span class="ident">capabilities</span>(<span class="ident">Capabilities</span> {
-                <span class="ident">insecure_allow_all</span>: <span class="bool-val">true</span>,
-                <span class="ident">http_client</span>: <span class="ident">HttpClientCapabilityV1::new_allow_all</span>(),
-                <span class="ident">threading</span>: <span class="ident">Default::default</span>(),
+        <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.task_manager));
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = builder
+            .envs(<span class="self">self</span>.env.iter())
+            .envs(request_specific_env)
+            .args(<span class="self">self</span>.args.iter())
+            .stdin(Box::new(req_body_receiver))
+            .stdout(Box::new(res_body_sender))
+            .stderr(Box::new(stderr_sender))
+            .capabilities(Capabilities {
+                insecure_allow_all: <span class="bool-val">true</span>,
+                http_client: HttpClientCapabilityV1::new_allow_all(),
+                threading: Default::default(),
             })
-            .<span class="ident">runtime</span>(<span class="ident">Arc::new</span>(<span class="ident">rt</span>))
-            .<span class="ident">fs</span>(<span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">fs</span>()<span class="question-mark">?</span>))
-            .<span class="ident">preopen_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>))<span class="question-mark">?</span>;
+            .runtime(Arc::new(rt))
+            .fs(Box::new(<span class="self">self</span>.fs()<span class="question-mark">?</span>))
+            .preopen_dir(Path::new(<span class="string">&quot;/&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">for</span> <span class="ident">mapping</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mapped_dirs</span> {
-            <span class="ident">builder</span>
-                .<span class="ident">add_preopen_dir</span>(<span class="kw-2">&amp;</span><span class="ident">mapping</span>.<span class="ident">guest</span>)
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to preopen \&quot;{}\&quot;&quot;</span>, <span class="ident">mapping</span>.<span class="ident">guest</span>))<span class="question-mark">?</span>;
+        <span class="kw">for </span>mapping <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
+            builder
+                .add_preopen_dir(<span class="kw-2">&amp;</span>mapping.guest)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to preopen \&quot;{}\&quot;&quot;</span>, mapping.guest))<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">clone</span>();
+        <span class="kw">let </span>module = <span class="self">self</span>.module.clone();
 
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;Calling into the WCGI executable&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">done</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">task_manager</span>
-            .<span class="ident">runtime</span>()
-            .<span class="ident">spawn_blocking</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> <span class="ident">builder</span>.<span class="ident">run</span>(<span class="ident">module</span>))
-            .<span class="ident">map_err</span>(<span class="ident">Error::from</span>)
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="kw">async</span> { <span class="ident">r</span>.<span class="ident">map_err</span>(<span class="ident">Error::from</span>) });
+        <span class="kw">let </span>done = <span class="self">self
+            </span>.task_manager
+            .runtime()
+            .spawn_blocking(<span class="kw">move </span>|| builder.run(module))
+            .map_err(Error::from)
+            .and_then(|r| <span class="kw">async </span>{ r.map_err(Error::from) });
 
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">task_manager</span>.<span class="ident">runtime</span>().<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">callbacks</span> <span class="op">=</span> <span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">callbacks</span>);
+        <span class="kw">let </span>handle = <span class="self">self</span>.task_manager.runtime().clone();
+        <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.callbacks);
 
-        <span class="ident">handle</span>.<span class="ident">spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="ident">consume_stderr</span>(<span class="ident">stderr_receiver</span>, <span class="ident">callbacks</span>).<span class="kw">await</span>;
+        handle.spawn(
+            <span class="kw">async move </span>{
+                consume_stderr(stderr_receiver, callbacks).<span class="kw">await</span>;
             }
-            .<span class="ident">in_current_span</span>(),
+            .in_current_span(),
         );
 
-        <span class="self">self</span>.<span class="ident">task_manager</span>.<span class="ident">runtime</span>().<span class="ident">spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span>
-                    <span class="ident">drive_request_to_completion</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>, <span class="ident">done</span>, <span class="ident">body</span>, <span class="ident">req_body_sender</span>).<span class="kw">await</span>
-                {
+        <span class="self">self</span>.task_manager.runtime().spawn(
+            <span class="kw">async move </span>{
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
+                    drive_request_to_completion(<span class="kw-2">&amp;</span>handle, done, body, req_body_sender).<span class="kw">await
+                </span>{
                     <span class="macro">tracing::error!</span>(
-                        <span class="ident">error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
-                        <span class="string">&quot;Unable to drive the request to completion&quot;</span>
-                    );
+                        error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        <span class="string">&quot;Unable to drive the request to completion&quot;
+                    </span>);
                 }
             }
-            .<span class="ident">in_current_span</span>(),
+            .in_current_span(),
         );
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res_body_receiver</span> <span class="op">=</span> <span class="ident">tokio::io::BufReader::new</span>(<span class="ident">res_body_receiver</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
 
-        <span class="kw">let</span> <span class="ident">parts</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">dialect</span>
-            .<span class="ident">extract_response_header</span>(<span class="kw-2">&amp;mut</span> <span class="ident">res_body_receiver</span>)
+        <span class="kw">let </span>parts = <span class="self">self
+            </span>.dialect
+            .extract_response_header(<span class="kw-2">&amp;mut </span>res_body_receiver)
             .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">chunks</span> <span class="op">=</span> <span class="ident">futures::stream::try_unfold</span>(<span class="ident">res_body_receiver</span>, <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">r</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">fill_buf</span>().<span class="kw">await</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">chunk</span>) <span class="kw">if</span> <span class="ident">chunk</span>.<span class="ident">is_empty</span>() =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
-                <span class="prelude-val">Ok</span>(<span class="ident">chunk</span>) =&gt; {
-                    <span class="kw">let</span> <span class="ident">chunk</span> <span class="op">=</span> <span class="ident">chunk</span>.<span class="ident">to_vec</span>();
-                    <span class="ident">r</span>.<span class="ident">consume</span>(<span class="ident">chunk</span>.<span class="ident">len</span>());
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((<span class="ident">chunk</span>, <span class="ident">r</span>)))
+        <span class="kw">let </span>chunks = futures::stream::try_unfold(res_body_receiver, |<span class="kw-2">mut </span>r| <span class="kw">async move </span>{
+            <span class="kw">match </span>r.fill_buf().<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>(chunk) <span class="kw">if </span>chunk.is_empty() =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+                <span class="prelude-val">Ok</span>(chunk) =&gt; {
+                    <span class="kw">let </span>chunk = chunk.to_vec();
+                    r.consume(chunk.len());
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((chunk, r)))
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
             }
         });
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">hyper::Body::wrap_stream</span>(<span class="ident">chunks</span>);
+        <span class="kw">let </span>body = hyper::Body::wrap_stream(chunks);
 
-        <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">hyper::Response::from_parts</span>(<span class="ident">parts</span>, <span class="ident">body</span>);
+        <span class="kw">let </span>response = hyper::Response::from_parts(parts, body);
 
-        <span class="prelude-val">Ok</span>(<span class="ident">response</span>)
+        <span class="prelude-val">Ok</span>(response)
     }
 
-    <span class="kw">fn</span> <span class="ident">fs</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TmpFileSystem</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">root_fs</span> <span class="op">=</span> <span class="ident">RootFileSystemBuilder::new</span>().<span class="ident">build</span>();
+    <span class="kw">fn </span>fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TmpFileSystem, Error&gt; {
+        <span class="kw">let </span>root_fs = RootFileSystemBuilder::new().build();
 
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">mapped_dirs</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">let</span> <span class="ident">fs_backing</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span>
-                <span class="ident">Arc::new</span>(<span class="ident">PassthruFileSystem::new</span>(<span class="ident"><span class="kw">crate</span>::default_fs_backing</span>()));
+        <span class="kw">if </span>!<span class="self">self</span>.mapped_dirs.is_empty() {
+            <span class="kw">let </span>fs_backing: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
+                Arc::new(PassthruFileSystem::new(<span class="kw">crate</span>::default_fs_backing()));
 
-            <span class="kw">for</span> <span class="ident">MappedDirectory</span> { <span class="ident">host</span>, <span class="ident">guest</span> } <span class="kw">in</span> <span class="self">self</span>.<span class="ident">mapped_dirs</span>.<span class="ident">iter</span>() {
-                <span class="kw">let</span> <span class="ident">guest</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">guest</span>.<span class="ident">starts_with</span>(<span class="string">&#39;/&#39;</span>) {
-                    <span class="bool-val">true</span> =&gt; <span class="ident">PathBuf::from</span>(<span class="ident">guest</span>),
-                    <span class="bool-val">false</span> =&gt; <span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>).<span class="ident">join</span>(<span class="ident">guest</span>),
+            <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="self">self</span>.mapped_dirs.iter() {
+                <span class="kw">let </span>guest = <span class="kw">match </span>guest.starts_with(<span class="string">&#39;/&#39;</span>) {
+                    <span class="bool-val">true </span>=&gt; PathBuf::from(guest),
+                    <span class="bool-val">false </span>=&gt; Path::new(<span class="string">&quot;/&quot;</span>).join(guest),
                 };
                 <span class="macro">tracing::debug!</span>(
-                    <span class="ident">host</span><span class="op">=</span><span class="op">%</span><span class="ident">host</span>.<span class="ident">display</span>(),
-                    <span class="ident">guest</span><span class="op">=</span><span class="op">%</span><span class="ident">guest</span>.<span class="ident">display</span>(),
+                    host=%host.display(),
+                    guest=%guest.display(),
                     <span class="string">&quot;mounting host directory&quot;</span>,
                 );
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">guest</span>.<span class="ident">parent</span>() {
-                    <span class="ident">create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">root_fs</span>, <span class="ident">parent</span>)
-                        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, <span class="ident">parent</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = guest.parent() {
+                    create_dir_all(<span class="kw-2">&amp;</span>root_fs, parent)
+                        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, parent.display()))<span class="question-mark">?</span>;
                 }
 
-                <span class="ident">root_fs</span>
-                    .<span class="ident">mount</span>(<span class="ident">guest</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">fs_backing</span>, <span class="ident">host</span>.<span class="ident">clone</span>())
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+                root_fs
+                    .mount(guest.clone(), <span class="kw-2">&amp;</span>fs_backing, host.clone())
+                    .with_context(|| {
                         <span class="macro">format!</span>(
                             <span class="string">&quot;Unable to mount \&quot;{}\&quot; to \&quot;{}\&quot;&quot;</span>,
-                            <span class="ident">host</span>.<span class="ident">display</span>(),
-                            <span class="ident">guest</span>.<span class="ident">display</span>()
+                            host.display(),
+                            guest.display()
                         )
                     })
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">dbg!</span>(<span class="ident">e</span>))<span class="question-mark">?</span>;
+                    .map_err(|e| <span class="macro">dbg!</span>(e))<span class="question-mark">?</span>;
             }
         }
 
-        <span class="prelude-val">Ok</span>(<span class="ident">root_fs</span>)
+        <span class="prelude-val">Ok</span>(root_fs)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">Handler</span> {
-    <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">SharedState</span><span class="op">&gt;</span>;
+<span class="kw">impl </span>Deref <span class="kw">for </span>Handler {
+    <span class="kw">type </span>Target = Arc&lt;SharedState&gt;;
 
-    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Target</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>
-    }
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+    </span>}
 }
 
-<span class="kw">fn</span> <span class="ident">create_dir_all</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">path</span>).<span class="ident">is_ok</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+<span class="kw">fn </span>create_dir_all(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    <span class="kw">if </span>fs.metadata(path).is_ok() {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     }
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">parent</span>() {
-        <span class="ident">create_dir_all</span>(<span class="ident">fs</span>, <span class="ident">parent</span>)<span class="question-mark">?</span>;
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+        create_dir_all(fs, parent)<span class="question-mark">?</span>;
     }
 
-    <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
+    fs.create_dir(path)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Drive the request to completion by streaming the request body to the</span>
-<span class="doccomment">/// instance and waiting for it to exit.</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">drive_request_to_completion</span>(
-    <span class="ident">handle</span>: <span class="kw-2">&amp;</span><span class="ident">Handle</span>,
-    <span class="ident">done</span>: <span class="kw">impl</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw-2">mut</span> <span class="ident">request_body</span>: <span class="ident">hyper::Body</span>,
-    <span class="kw-2">mut</span> <span class="ident">instance_stdin</span>: <span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Unpin</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">request_body_send</span> <span class="op">=</span> <span class="ident">handle</span>
-        .<span class="ident">spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="comment">// Copy the request into our instance, chunk-by-chunk. If the instance</span>
-                <span class="comment">// dies before we finish writing the body, the instance&#39;s side of the</span>
-                <span class="comment">// pipe will be automatically closed and we&#39;ll error out.</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">request_size</span> <span class="op">=</span> <span class="number">0</span>;
-                <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">res</span>) <span class="op">=</span> <span class="ident">request_body</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-                    <span class="comment">// FIXME(theduke): figure out how to propagate a body error to the</span>
-                    <span class="comment">// CGI instance.</span>
-                    <span class="kw">let</span> <span class="ident">chunk</span> <span class="op">=</span> <span class="ident">res</span><span class="question-mark">?</span>;
-                    <span class="ident">request_size</span> <span class="op">+</span><span class="op">=</span> <span class="ident">chunk</span>.<span class="ident">len</span>();
-                    <span class="ident">instance_stdin</span>.<span class="ident">write_all</span>(<span class="ident">chunk</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="doccomment">/// Drive the request to completion by streaming the request body to the
+/// instance and waiting for it to exit.
+</span><span class="kw">async fn </span>drive_request_to_completion(
+    handle: <span class="kw-2">&amp;</span>Handle,
+    done: <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
+    <span class="kw-2">mut </span>request_body: hyper::Body,
+    <span class="kw-2">mut </span>instance_stdin: <span class="kw">impl </span>AsyncWrite + Send + Unpin + <span class="lifetime">&#39;static</span>,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    <span class="kw">let </span>request_body_send = handle
+        .spawn(
+            <span class="kw">async move </span>{
+                <span class="comment">// Copy the request into our instance, chunk-by-chunk. If the instance
+                // dies before we finish writing the body, the instance&#39;s side of the
+                // pipe will be automatically closed and we&#39;ll error out.
+                </span><span class="kw">let </span><span class="kw-2">mut </span>request_size = <span class="number">0</span>;
+                <span class="kw">while let </span><span class="prelude-val">Some</span>(res) = request_body.next().<span class="kw">await </span>{
+                    <span class="comment">// FIXME(theduke): figure out how to propagate a body error to the
+                    // CGI instance.
+                    </span><span class="kw">let </span>chunk = res<span class="question-mark">?</span>;
+                    request_size += chunk.len();
+                    instance_stdin.write_all(chunk.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
                 }
 
-                <span class="ident">instance_stdin</span>.<span class="ident">shutdown</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+                instance_stdin.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="macro">tracing::debug!</span>(
-                    <span class="ident">request_size</span>,
-                    <span class="string">&quot;Finished forwarding the request to the WCGI server&quot;</span>
-                );
+                    request_size,
+                    <span class="string">&quot;Finished forwarding the request to the WCGI server&quot;
+                </span>);
 
-                <span class="prelude-val">Ok</span>::<span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span>(())
+                <span class="prelude-val">Ok</span>::&lt;(), Error&gt;(())
             }
-            .<span class="ident">in_current_span</span>(),
+            .in_current_span(),
         )
-        .<span class="ident">map_err</span>(<span class="ident">Error::from</span>)
-        .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="kw">async</span> { <span class="ident">r</span> });
+        .map_err(Error::from)
+        .and_then(|r| <span class="kw">async </span>{ r });
 
-    <span class="macro">futures::try_join!</span>(<span class="ident">done</span>, <span class="ident">request_body_send</span>)<span class="question-mark">?</span>;
+    <span class="macro">futures::try_join!</span>(done, request_body_send)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Read the instance&#39;s stderr, taking care to preserve output even when WASI</span>
-<span class="doccomment">/// pipe errors occur so users still have *something* they use for</span>
-<span class="doccomment">/// troubleshooting.</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">consume_stderr</span>(
-    <span class="ident">stderr</span>: <span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Unpin</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">callbacks</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Callbacks</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Read the instance&#39;s stderr, taking care to preserve output even when WASI
+/// pipe errors occur so users still have *something* they use for
+/// troubleshooting.
+</span><span class="kw">async fn </span>consume_stderr(
+    stderr: <span class="kw">impl </span>AsyncRead + Send + Unpin + <span class="lifetime">&#39;static</span>,
+    callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
 ) {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="ident">tokio::io::BufReader::new</span>(<span class="ident">stderr</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>stderr = tokio::io::BufReader::new(stderr);
 
-    <span class="comment">// Note: we don&#39;t want to just read_to_end() because a reading error</span>
-    <span class="comment">// would cause us to lose all of stderr. At least this way we&#39;ll be</span>
-    <span class="comment">// able to show users the partial result.</span>
-    <span class="kw">loop</span> {
-        <span class="kw">match</span> <span class="ident">stderr</span>.<span class="ident">fill_buf</span>().<span class="kw">await</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">chunk</span>) <span class="kw">if</span> <span class="ident">chunk</span>.<span class="ident">is_empty</span>() =&gt; {
-                <span class="comment">// EOF - the instance&#39;s side of the pipe was closed.</span>
-                <span class="kw">break</span>;
+    <span class="comment">// Note: we don&#39;t want to just read_to_end() because a reading error
+    // would cause us to lose all of stderr. At least this way we&#39;ll be
+    // able to show users the partial result.
+    </span><span class="kw">loop </span>{
+        <span class="kw">match </span>stderr.fill_buf().<span class="kw">await </span>{
+            <span class="prelude-val">Ok</span>(chunk) <span class="kw">if </span>chunk.is_empty() =&gt; {
+                <span class="comment">// EOF - the instance&#39;s side of the pipe was closed.
+                </span><span class="kw">break</span>;
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">chunk</span>) =&gt; {
-                <span class="ident">callbacks</span>.<span class="ident">on_stderr</span>(<span class="ident">chunk</span>);
-                <span class="kw">let</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="ident">chunk</span>.<span class="ident">len</span>();
-                <span class="ident">stderr</span>.<span class="ident">consume</span>(<span class="ident">bytes_read</span>);
+            <span class="prelude-val">Ok</span>(chunk) =&gt; {
+                callbacks.on_stderr(chunk);
+                <span class="kw">let </span>bytes_read = chunk.len();
+                stderr.consume(bytes_read);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="ident">callbacks</span>.<span class="ident">on_stderr_error</span>(<span class="ident">e</span>);
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                callbacks.on_stderr_error(e);
                 <span class="kw">break</span>;
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">derivative::Derivative</span>)]</span>
-<span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">SharedState</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">program</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">env</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MappedDirectory</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">container</span>: <span class="ident">WapmContainer</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">module</span>: <span class="ident">Module</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">dialect</span>: <span class="ident">CgiDialect</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">task_manager</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span> <span class="op">=</span> <span class="string">&quot;ignore&quot;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">callbacks</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Callbacks</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone, derivative::Derivative)]
+#[derivative(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SharedState {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) program: String,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) env: HashMap&lt;String, String&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) mapped_dirs: Vec&lt;MappedDirectory&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) container: WapmContainer,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) module: Module,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) dialect: CgiDialect,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) task_manager: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
+    <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Service</span><span class="op">&lt;</span><span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Handler</span> {
-    <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>;
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Error</span>;
-    <span class="kw">type</span> <span class="ident">Future</span> <span class="op">=</span> <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">impl </span>Service&lt;Request&lt;Body&gt;&gt; <span class="kw">for </span>Handler {
+    <span class="kw">type </span>Response = Response&lt;Body&gt;;
+    <span class="kw">type </span>Error = Error;
+    <span class="kw">type </span>Future = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Response&lt;Body&gt;, Error&gt;&gt; + Send&gt;&gt;;
 
-    <span class="kw">fn</span> <span class="ident">poll_ready</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="comment">// TODO: We probably should implement some sort of backpressure here...</span>
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    <span class="kw">fn </span>poll_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
+        <span class="comment">// TODO: We probably should implement some sort of backpressure here...
+        </span>Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 
-    <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>) -&gt; <span class="ident"><span class="self">Self</span>::Future</span> {
-        <span class="comment">// Note: all fields are reference-counted so cloning is pretty cheap</span>
-        <span class="kw">let</span> <span class="ident">handler</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">fut</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">handler</span>.<span class="ident">handle</span>(<span class="ident">request</span>).<span class="kw">await</span> };
-        <span class="ident">fut</span>.<span class="ident">boxed</span>()
+    <span class="kw">fn </span>call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request: Request&lt;Body&gt;) -&gt; <span class="self">Self</span>::Future {
+        <span class="comment">// Note: all fields are reference-counted so cloning is pretty cheap
+        </span><span class="kw">let </span>handler = <span class="self">self</span>.clone();
+        <span class="kw">let </span>fut = <span class="kw">async move </span>{ handler.handle(request).<span class="kw">await </span>};
+        fut.boxed()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

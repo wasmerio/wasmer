@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/artifact.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>artifact.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/artifact.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>artifact.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -856,667 +856,673 @@
 <span id="856">856</span>
 <span id="857">857</span>
 <span id="858">858</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`</span>
-<span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
+//! to allow compiling and instantiating to be done as separate steps.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::link::link_module</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ArtifactBuild</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ArtifactCreate</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Features</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ModuleEnvironment</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">register_frame_info</span>, <span class="ident">resolve_imports</span>, <span class="ident">FunctionExtent</span>, <span class="ident">GlobalFrameInfoRegistration</span>,
-    <span class="ident">InstantiationError</span>, <span class="ident">RuntimeError</span>, <span class="ident">Tunables</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::engine::link::link_module;
+<span class="kw">use </span><span class="kw">crate</span>::ArtifactBuild;
+<span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
+<span class="kw">use </span><span class="kw">crate</span>::Features;
+<span class="kw">use </span><span class="kw">crate</span>::ModuleEnvironment;
+<span class="kw">use crate</span>::{
+    register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, RuntimeError, Tunables,
 };
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Compiler</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">ModuleTranslationState</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Engine</span>, <span class="ident">EngineInner</span>};
-<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering::SeqCst</span>};
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_object</span>::{<span class="ident">emit_compilation</span>, <span class="ident">emit_data</span>, <span class="ident">get_object_for_target</span>, <span class="ident">Object</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadata</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types::CompileModuleInfo</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::MetadataHeader</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types::SerializableCompilation</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">DataInitializer</span>, <span class="ident">DeserializeError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>,
-    <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Target</span>,
+<span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+</span><span class="kw">use crate</span>::{Compiler, FunctionBodyData, ModuleTranslationState};
+<span class="kw">use crate</span>::{Engine, EngineInner};
+<span class="kw">use </span>enumset::EnumSet;
+<span class="attribute">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
+</span><span class="kw">use </span>std::mem;
+<span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::sync::Mutex;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+</span><span class="kw">use </span>wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
+<span class="attribute">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
+</span><span class="kw">use </span>wasmer_types::compilation::symbols::ModuleMetadata;
+<span class="kw">use </span>wasmer_types::entity::{BoxedSlice, PrimaryMap};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+</span><span class="kw">use </span>wasmer_types::CompileModuleInfo;
+<span class="kw">use </span>wasmer_types::MetadataHeader;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-load&quot;</span>)]
+</span><span class="kw">use </span>wasmer_types::SerializableCompilation;
+<span class="kw">use </span>wasmer_types::{
+    CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex, Target,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">SerializableModule</span>, <span class="ident">SerializeError</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">StoreObjects</span>, <span class="ident">TrapHandlerFn</span>, <span class="ident">VMExtern</span>, <span class="ident">VMInstance</span>};
+<span class="kw">use </span>wasmer_types::{SerializableModule, SerializeError};
+<span class="kw">use </span>wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
+<span class="kw">use </span>wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AllocatedArtifact</span> {
-    <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
-    <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Some(_) only if this is not a deserialized static artifact</span>
-    <span class="ident">frame_info_registration</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">finished_function_lengths</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
+<span class="kw">pub struct </span>AllocatedArtifact {
+    finished_functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
+    finished_function_call_trampolines: BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
+    finished_dynamic_function_trampolines: BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt;,
+    signatures: BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
+    <span class="doccomment">/// Some(_) only if this is not a deserialized static artifact
+    </span>frame_info_registration: <span class="prelude-ty">Option</span>&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt;&gt;&gt;,
+    finished_function_lengths: BoxedSlice&lt;LocalFunctionIndex, usize&gt;,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="doccomment">/// A unique identifier for an Artifact.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArtifactId</span> {
-    <span class="ident">id</span>: <span class="ident">usize</span>,
+<span class="attribute">#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+</span><span class="doccomment">/// A unique identifier for an Artifact.
+</span><span class="kw">pub struct </span>ArtifactId {
+    id: usize,
 }
 
-<span class="kw">impl</span> <span class="ident">ArtifactId</span> {
-    <span class="doccomment">/// Format this identifier as a string.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
+<span class="kw">impl </span>ArtifactId {
+    <span class="doccomment">/// Format this identifier as a string.
+    </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">ArtifactId</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::default</span>()
+<span class="kw">impl </span>Clone <span class="kw">for </span>ArtifactId {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::default()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ArtifactId</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">static</span> <span class="ident">NEXT_ID</span>: <span class="ident">AtomicUsize</span> <span class="op">=</span> <span class="ident">AtomicUsize::new</span>(<span class="number">0</span>);
-        <span class="self">Self</span> {
-            <span class="ident">id</span>: <span class="ident">NEXT_ID</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">SeqCst</span>),
+<span class="kw">impl </span>Default <span class="kw">for </span>ArtifactId {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">static </span>NEXT_ID: AtomicUsize = AtomicUsize::new(<span class="number">0</span>);
+        <span class="self">Self </span>{
+            id: NEXT_ID.fetch_add(<span class="number">1</span>, SeqCst),
         }
     }
 }
 
-<span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Artifact</span> {
-    <span class="ident">id</span>: <span class="ident">ArtifactId</span>,
-    <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
-    <span class="comment">// The artifact will only be allocated in memory in case we can execute it</span>
-    <span class="comment">// (that means, if the target != host then this will be None).</span>
-    <span class="ident">allocated</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">AllocatedArtifact</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A compiled wasm module, ready to be instantiated.
+</span><span class="kw">pub struct </span>Artifact {
+    id: ArtifactId,
+    artifact: ArtifactBuild,
+    <span class="comment">// The artifact will only be allocated in memory in case we can execute it
+    // (that means, if the target != host then this will be None).
+    </span>allocated: <span class="prelude-ty">Option</span>&lt;AllocatedArtifact&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Artifact</span> {
-    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_engine</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner_mut</span>();
-        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident">ModuleEnvironment::new</span>();
-        <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError::Wasm</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">translation</span>.<span class="ident">module</span>;
-        <span class="kw">let</span> <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">memories</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">memory_type</span><span class="op">|</span> <span class="ident">tunables</span>.<span class="ident">memory_style</span>(<span class="ident">memory_type</span>))
-            .<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">tables</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">table_type</span><span class="op">|</span> <span class="ident">tunables</span>.<span class="ident">table_style</span>(<span class="ident">table_type</span>))
-            .<span class="ident">collect</span>();
+<span class="kw">impl </span>Artifact {
+    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="kw">pub fn </span>new(
+        engine: <span class="kw-2">&amp;</span>Engine,
+        data: <span class="kw-2">&amp;</span>[u8],
+        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner_engine = engine.inner_mut();
+        <span class="kw">let </span>environ = ModuleEnvironment::new();
+        <span class="kw">let </span>translation = environ.translate(data).map_err(CompileError::Wasm)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = translation.module;
+        <span class="kw">let </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; = module
+            .memories
+            .values()
+            .map(|memory_type| tunables.memory_style(memory_type))
+            .collect();
+        <span class="kw">let </span>table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt; = module
+            .tables
+            .values()
+            .map(|table_type| tunables.table_style(table_type))
+            .collect();
 
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">ArtifactBuild::new</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>,
-            <span class="ident">data</span>,
-            <span class="ident">engine</span>.<span class="ident">target</span>(),
-            <span class="ident">memory_styles</span>,
-            <span class="ident">table_styles</span>,
+        <span class="kw">let </span>artifact = ArtifactBuild::new(
+            <span class="kw-2">&amp;mut </span>inner_engine,
+            data,
+            engine.target(),
+            memory_styles,
+            table_styles,
         )<span class="question-mark">?</span>;
 
-        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>, <span class="ident">engine</span>.<span class="ident">target</span>())
+        <span class="self">Self</span>::from_parts(<span class="kw-2">&amp;mut </span>inner_engine, artifact, engine.target())
     }
 
-    <span class="doccomment">/// This indicates if the Artifact is allocated and can be run by the current</span>
-    <span class="doccomment">/// host. In case it can&#39;t be run (for example, if the artifact is cross compiled to</span>
-    <span class="doccomment">/// other architecture), it will return false.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allocated</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">allocated</span>.<span class="ident">is_some</span>()
+    <span class="doccomment">/// This indicates if the Artifact is allocated and can be run by the current
+    /// host. In case it can&#39;t be run (for example, if the artifact is cross compiled to
+    /// other architecture), it will return false.
+    </span><span class="kw">pub fn </span>allocated(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.allocated.is_some()
     }
 
-    <span class="doccomment">/// A unique identifier for this object.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This exists to allow us to compare two Artifacts for equality. Otherwise,</span>
-    <span class="doccomment">/// comparing two trait objects unsafely relies on implementation details</span>
-    <span class="doccomment">/// of trait representation.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ArtifactId</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>
+    <span class="doccomment">/// A unique identifier for this object.
+    ///
+    /// This exists to allow us to compare two Artifacts for equality. Otherwise,
+    /// comparing two trait objects unsafely relies on implementation details
+    /// of trait representation.
+    </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ArtifactId {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.id
     }
 
-    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">_engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>, <span class="ident">_data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
-            <span class="string">&quot;Compilation is not enabled in the engine&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
+    </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
+    </span><span class="kw">pub fn </span>new(_engine: <span class="kw-2">&amp;</span>Engine, _data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="prelude-val">Err</span>(CompileError::Codegen(
+            <span class="string">&quot;Compilation is not enabled in the engine&quot;</span>.to_string(),
         ))
     }
 
-    <span class="doccomment">/// Deserialize a ArtifactBuild</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// This function is unsafe because rkyv reads directly without validating</span>
-    <span class="doccomment">/// the data.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">ArtifactBuild::is_deserializable</span>(<span class="ident">bytes</span>) {
-            <span class="kw">let</span> <span class="ident">static_artifact</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::deserialize_object</span>(<span class="ident">engine</span>, <span class="ident">bytes</span>);
-            <span class="kw">match</span> <span class="ident">static_artifact</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">v</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">v</span>);
+    <span class="doccomment">/// Deserialize a ArtifactBuild
+    ///
+    /// # Safety
+    /// This function is unsafe because rkyv reads directly without validating
+    /// the data.
+    </span><span class="kw">pub unsafe fn </span>deserialize(engine: <span class="kw-2">&amp;</span>Engine, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">if </span>!ArtifactBuild::is_deserializable(bytes) {
+            <span class="kw">let </span>static_artifact = <span class="self">Self</span>::deserialize_object(engine, bytes);
+            <span class="kw">match </span>static_artifact {
+                <span class="prelude-val">Ok</span>(v) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(v);
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Could not deserialize as static object: {}&quot;</span>, <span class="ident">err</span>);
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;Could not deserialize as static object: {}&quot;</span>, err);
                 }
             }
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Incompatible</span>(
-                <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
             ));
         }
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">ArtifactBuild::MAGIC_HEADER</span>.<span class="ident">len</span>(), <span class="ident">bytes</span>.<span class="ident">len</span>())<span class="question-mark">?</span>;
+        <span class="kw">let </span>bytes = <span class="self">Self</span>::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">metadata_len</span> <span class="op">=</span> <span class="ident">MetadataHeader::parse</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">metadata_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">MetadataHeader::LEN</span>, <span class="ident">bytes</span>.<span class="ident">len</span>())<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">metadata_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">metadata_slice</span>, <span class="number">0</span>, <span class="ident">metadata_len</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_len = MetadataHeader::parse(bytes)<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(metadata_slice, <span class="number">0</span>, metadata_len)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">serializable</span> <span class="op">=</span> <span class="ident">SerializableModule::deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">ArtifactBuild::from_serializable</span>(<span class="ident">serializable</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_engine</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner_mut</span>();
-        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>, <span class="ident">engine</span>.<span class="ident">target</span>())
-            .<span class="ident">map_err</span>(<span class="ident">DeserializeError::Compiler</span>)
+        <span class="kw">let </span>serializable = SerializableModule::deserialize(metadata_slice)<span class="question-mark">?</span>;
+        <span class="kw">let </span>artifact = ArtifactBuild::from_serializable(serializable);
+        <span class="kw">let </span><span class="kw-2">mut </span>inner_engine = engine.inner_mut();
+        <span class="self">Self</span>::from_parts(<span class="kw-2">&amp;mut </span>inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
     }
 
-    <span class="doccomment">/// Construct a `ArtifactBuild` from component parts.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_parts</span>(
-        <span class="ident">engine_inner</span>: <span class="kw-2">&amp;mut</span> <span class="ident">EngineInner</span>,
-        <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">target</span>.<span class="ident">is_native</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-                <span class="ident">id</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">artifact</span>,
-                <span class="ident">allocated</span>: <span class="prelude-val">None</span>,
+    <span class="doccomment">/// Construct a `ArtifactBuild` from component parts.
+    </span><span class="kw">pub fn </span>from_parts(
+        engine_inner: <span class="kw-2">&amp;mut </span>EngineInner,
+        artifact: ArtifactBuild,
+        target: <span class="kw-2">&amp;</span>Target,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="kw">if </span>!target.is_native() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                id: Default::default(),
+                artifact,
+                allocated: <span class="prelude-val">None</span>,
             });
         }
-        <span class="kw">let</span> <span class="ident">module_info</span> <span class="op">=</span> <span class="ident">artifact</span>.<span class="ident">module_info</span>();
-        <span class="kw">let</span> (
-            <span class="ident">finished_functions</span>,
-            <span class="ident">finished_function_call_trampolines</span>,
-            <span class="ident">finished_dynamic_function_trampolines</span>,
-            <span class="ident">custom_sections</span>,
-        ) <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">allocate</span>(
-            <span class="ident">module_info</span>,
-            <span class="ident">artifact</span>.<span class="ident">get_function_bodies_ref</span>(),
-            <span class="ident">artifact</span>.<span class="ident">get_function_call_trampolines_ref</span>(),
-            <span class="ident">artifact</span>.<span class="ident">get_dynamic_function_trampolines_ref</span>(),
-            <span class="ident">artifact</span>.<span class="ident">get_custom_sections_ref</span>(),
+        <span class="kw">let </span>module_info = artifact.module_info();
+        <span class="kw">let </span>(
+            finished_functions,
+            finished_function_call_trampolines,
+            finished_dynamic_function_trampolines,
+            custom_sections,
+        ) = engine_inner.allocate(
+            module_info,
+            artifact.get_function_bodies_ref(),
+            artifact.get_function_call_trampolines_ref(),
+            artifact.get_dynamic_function_trampolines_ref(),
+            artifact.get_custom_sections_ref(),
         )<span class="question-mark">?</span>;
 
-        <span class="ident">link_module</span>(
-            <span class="ident">module_info</span>,
-            <span class="kw-2">&amp;</span><span class="ident">finished_functions</span>,
-            <span class="ident">artifact</span>.<span class="ident">get_function_relocations</span>(),
-            <span class="kw-2">&amp;</span><span class="ident">custom_sections</span>,
-            <span class="ident">artifact</span>.<span class="ident">get_custom_section_relocations_ref</span>(),
-            <span class="ident">artifact</span>.<span class="ident">get_libcall_trampolines</span>(),
-            <span class="ident">artifact</span>.<span class="ident">get_libcall_trampoline_len</span>(),
+        link_module(
+            module_info,
+            <span class="kw-2">&amp;</span>finished_functions,
+            artifact.get_function_relocations(),
+            <span class="kw-2">&amp;</span>custom_sections,
+            artifact.get_custom_section_relocations_ref(),
+            artifact.get_libcall_trampolines(),
+            artifact.get_libcall_trampoline_len(),
         );
 
-        <span class="comment">// Compute indices into the shared signature table.</span>
-        <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">signature_registry</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">signatures</span>();
-            <span class="ident">module_info</span>
-                .<span class="ident">signatures</span>
-                .<span class="ident">values</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">sig</span><span class="op">|</span> <span class="ident">signature_registry</span>.<span class="ident">register</span>(<span class="ident">sig</span>))
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+        <span class="comment">// Compute indices into the shared signature table.
+        </span><span class="kw">let </span>signatures = {
+            <span class="kw">let </span>signature_registry = engine_inner.signatures();
+            module_info
+                .signatures
+                .values()
+                .map(|sig| signature_registry.register(sig))
+                .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
         };
 
-        <span class="kw">let</span> <span class="ident">eh_frame</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">artifact</span>.<span class="ident">get_debug_ref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">debug</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">eh_frame_section_size</span> <span class="op">=</span> <span class="ident">artifact</span>.<span class="ident">get_custom_sections_ref</span>()[<span class="ident">debug</span>.<span class="ident">eh_frame</span>]
-                    .<span class="ident">bytes</span>
-                    .<span class="ident">len</span>();
-                <span class="kw">let</span> <span class="ident">eh_frame_section_pointer</span> <span class="op">=</span> <span class="ident">custom_sections</span>[<span class="ident">debug</span>.<span class="ident">eh_frame</span>];
-                <span class="prelude-val">Some</span>(<span class="kw">unsafe</span> {
-                    <span class="ident">std::slice::from_raw_parts</span>(<span class="kw-2">*</span><span class="ident">eh_frame_section_pointer</span>, <span class="ident">eh_frame_section_size</span>)
+        <span class="kw">let </span>eh_frame = <span class="kw">match </span>artifact.get_debug_ref() {
+            <span class="prelude-val">Some</span>(debug) =&gt; {
+                <span class="kw">let </span>eh_frame_section_size = artifact.get_custom_sections_ref()[debug.eh_frame]
+                    .bytes
+                    .len();
+                <span class="kw">let </span>eh_frame_section_pointer = custom_sections[debug.eh_frame];
+                <span class="prelude-val">Some</span>(<span class="kw">unsafe </span>{
+                    std::slice::from_raw_parts(<span class="kw-2">*</span>eh_frame_section_pointer, eh_frame_section_size)
                 })
             }
-            <span class="prelude-val">None</span> =&gt; <span class="prelude-val">None</span>,
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         };
 
-        <span class="comment">// Make all code compiled thus far executable.</span>
-        <span class="ident">engine_inner</span>.<span class="ident">publish_compiled_code</span>();
+        <span class="comment">// Make all code compiled thus far executable.
+        </span>engine_inner.publish_compiled_code();
 
-        <span class="ident">engine_inner</span>.<span class="ident">publish_eh_frame</span>(<span class="ident">eh_frame</span>)<span class="question-mark">?</span>;
+        engine_inner.publish_eh_frame(eh_frame)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">finished_function_lengths</span> <span class="op">=</span> <span class="ident">finished_functions</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">extent</span><span class="op">|</span> <span class="ident">extent</span>.<span class="ident">length</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">finished_functions</span> <span class="op">=</span> <span class="ident">finished_functions</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">extent</span><span class="op">|</span> <span class="ident">extent</span>.<span class="ident">ptr</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">finished_function_call_trampolines</span> <span class="op">=</span>
-            <span class="ident">finished_function_call_trampolines</span>.<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">finished_dynamic_function_trampolines</span> <span class="op">=</span>
-            <span class="ident">finished_dynamic_function_trampolines</span>.<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>();
+        <span class="kw">let </span>finished_function_lengths = finished_functions
+            .values()
+            .map(|extent| extent.length)
+            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, usize&gt;&gt;()
+            .into_boxed_slice();
+        <span class="kw">let </span>finished_functions = finished_functions
+            .values()
+            .map(|extent| extent.ptr)
+            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, FunctionBodyPtr&gt;&gt;()
+            .into_boxed_slice();
+        <span class="kw">let </span>finished_function_call_trampolines =
+            finished_function_call_trampolines.into_boxed_slice();
+        <span class="kw">let </span>finished_dynamic_function_trampolines =
+            finished_dynamic_function_trampolines.into_boxed_slice();
+        <span class="kw">let </span>signatures = signatures.into_boxed_slice();
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">id</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">artifact</span>,
-            <span class="ident">allocated</span>: <span class="prelude-val">Some</span>(<span class="ident">AllocatedArtifact</span> {
-                <span class="ident">finished_functions</span>,
-                <span class="ident">finished_function_call_trampolines</span>,
-                <span class="ident">finished_dynamic_function_trampolines</span>,
-                <span class="ident">signatures</span>,
-                <span class="ident">frame_info_registration</span>: <span class="prelude-val">Some</span>(<span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>)),
-                <span class="ident">finished_function_lengths</span>,
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            id: Default::default(),
+            artifact,
+            allocated: <span class="prelude-val">Some</span>(AllocatedArtifact {
+                finished_functions,
+                finished_function_call_trampolines,
+                finished_dynamic_function_trampolines,
+                signatures,
+                frame_info_registration: <span class="prelude-val">Some</span>(Mutex::new(<span class="prelude-val">None</span>)),
+                finished_function_lengths,
             }),
         })
     }
 
-    <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_deserializable</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">bool</span> {
-        <span class="ident">ArtifactBuild::is_deserializable</span>(<span class="ident">bytes</span>)
+    <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.
+    </span><span class="kw">pub fn </span>is_deserializable(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+        ArtifactBuild::is_deserializable(bytes)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">id</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">id</span>
+<span class="kw">impl </span>PartialEq <span class="kw">for </span>Artifact {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.id == other.id
     }
 }
-<span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Artifact</span> {}
+<span class="kw">impl </span>Eq <span class="kw">for </span>Artifact {}
 
-<span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Artifact&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;artifact_id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;module_info&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module_info</span>())
-            .<span class="ident">finish</span>()
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">ArtifactCreate</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
-    <span class="kw">fn</span> <span class="ident">set_module_info_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">set_module_info_name</span>(<span class="ident">name</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">create_module_info</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_info</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">features</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">cpu_features</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">data_initializers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">OwnedDataInitializer</span>] {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">data_initializers</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">memory_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">memory_styles</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">table_styles</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">serialize</span>()
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Artifact {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Artifact&quot;</span>)
+            .field(<span class="string">&quot;artifact_id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+            .field(<span class="string">&quot;module_info&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.module_info())
+            .finish()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Artifact</span> {
-    <span class="doccomment">/// Register thie `Artifact` stack frame information into the global scope.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is required to ensure that any traps can be properly symbolicated.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">frame_info_registration</span>) <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">allocated</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-            .<span class="ident">frame_info_registration</span>
-            .<span class="ident">as_ref</span>()
+<span class="kw">impl </span>ArtifactCreate <span class="kw">for </span>Artifact {
+    <span class="kw">fn </span>set_module_info_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: String) -&gt; bool {
+        <span class="self">self</span>.artifact.set_module_info_name(name)
+    }
+
+    <span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt; {
+        <span class="self">self</span>.artifact.create_module_info()
+    }
+
+    <span class="kw">fn </span>module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
+        <span class="self">self</span>.artifact.module_info()
+    }
+
+    <span class="kw">fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features {
+        <span class="self">self</span>.artifact.features()
+    }
+
+    <span class="kw">fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EnumSet&lt;CpuFeature&gt; {
+        <span class="self">self</span>.artifact.cpu_features()
+    }
+
+    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[OwnedDataInitializer] {
+        <span class="self">self</span>.artifact.data_initializers()
+    }
+
+    <span class="kw">fn </span>memory_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; {
+        <span class="self">self</span>.artifact.memory_styles()
+    }
+
+    <span class="kw">fn </span>table_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt; {
+        <span class="self">self</span>.artifact.table_styles()
+    }
+
+    <span class="kw">fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt; {
+        <span class="self">self</span>.artifact.serialize()
+    }
+}
+
+<span class="kw">impl </span>Artifact {
+    <span class="doccomment">/// Register thie `Artifact` stack frame information into the global scope.
+    ///
+    /// This is required to ensure that any traps can be properly symbolicated.
+    </span><span class="kw">pub fn </span>register_frame_info(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(frame_info_registration) = <span class="self">self
+            </span>.allocated
+            .as_ref()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .frame_info_registration
+            .as_ref()
         {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">frame_info_registration</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let </span><span class="kw-2">mut </span>info = frame_info_registration.lock().unwrap();
 
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">is_some</span>() {
+            <span class="kw">if </span>info.is_some() {
                 <span class="kw">return</span>;
             }
 
-            <span class="kw">let</span> <span class="ident">finished_function_extents</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">allocated</span>
-                .<span class="ident">as_ref</span>()
-                .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-                .<span class="ident">finished_functions</span>
-                .<span class="ident">values</span>()
-                .<span class="ident">copied</span>()
-                .<span class="ident">zip</span>(
-                    <span class="self">self</span>.<span class="ident">allocated</span>
-                        .<span class="ident">as_ref</span>()
-                        .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-                        .<span class="ident">finished_function_lengths</span>
-                        .<span class="ident">values</span>()
-                        .<span class="ident">copied</span>(),
+            <span class="kw">let </span>finished_function_extents = <span class="self">self
+                </span>.allocated
+                .as_ref()
+                .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+                .finished_functions
+                .values()
+                .copied()
+                .zip(
+                    <span class="self">self</span>.allocated
+                        .as_ref()
+                        .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+                        .finished_function_lengths
+                        .values()
+                        .copied(),
                 )
-                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">ptr</span>, <span class="ident">length</span>)<span class="op">|</span> <span class="ident">FunctionExtent</span> { <span class="ident">ptr</span>, <span class="ident">length</span> })
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                .<span class="ident">into_boxed_slice</span>();
+                .map(|(ptr, length)| FunctionExtent { ptr, length })
+                .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;()
+                .into_boxed_slice();
 
-            <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">get_frame_info_ref</span>();
-            <span class="kw-2">*</span><span class="ident">info</span> <span class="op">=</span> <span class="ident">register_frame_info</span>(
-                <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">create_module_info</span>(),
-                <span class="kw-2">&amp;</span><span class="ident">finished_function_extents</span>,
-                <span class="ident">frame_infos</span>.<span class="ident">clone</span>(),
+            <span class="kw">let </span>frame_infos = <span class="self">self</span>.artifact.get_frame_info_ref();
+            <span class="kw-2">*</span>info = register_frame_info(
+                <span class="self">self</span>.artifact.create_module_info(),
+                <span class="kw-2">&amp;</span>finished_function_extents,
+                frame_infos.clone(),
             );
         }
     }
 
-    <span class="doccomment">/// Returns the functions allocated in memory or this `Artifact`</span>
-    <span class="doccomment">/// ready to be run.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_functions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>
-            .<span class="ident">allocated</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-            .<span class="ident">finished_functions</span>
+    <span class="doccomment">/// Returns the functions allocated in memory or this `Artifact`
+    /// ready to be run.
+    </span><span class="kw">pub fn </span>finished_functions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self
+            </span>.allocated
+            .as_ref()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .finished_functions
     }
 
-    <span class="doccomment">/// Returns the function call trampolines allocated in memory of this</span>
-    <span class="doccomment">/// `Artifact`, ready to be run.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_function_call_trampolines</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>
-            .<span class="ident">allocated</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-            .<span class="ident">finished_function_call_trampolines</span>
+    <span class="doccomment">/// Returns the function call trampolines allocated in memory of this
+    /// `Artifact`, ready to be run.
+    </span><span class="kw">pub fn </span>finished_function_call_trampolines(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMTrampoline&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self
+            </span>.allocated
+            .as_ref()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .finished_function_call_trampolines
     }
 
-    <span class="doccomment">/// Returns the dynamic function trampolines allocated in memory</span>
-    <span class="doccomment">/// of this `Artifact`, ready to be run.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_dynamic_function_trampolines</span>(
+    <span class="doccomment">/// Returns the dynamic function trampolines allocated in memory
+    /// of this `Artifact`, ready to be run.
+    </span><span class="kw">pub fn </span>finished_dynamic_function_trampolines(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>
-            .<span class="ident">allocated</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-            .<span class="ident">finished_dynamic_function_trampolines</span>
+    ) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self
+            </span>.allocated
+            .as_ref()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .finished_dynamic_function_trampolines
     }
 
-    <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signatures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>
-            .<span class="ident">allocated</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
-            .<span class="ident">signatures</span>
+    <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.
+    </span><span class="kw">pub fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self
+            </span>.allocated
+            .as_ref()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .signatures
     }
 
-    <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">preinstantiate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating
+    </span><span class="attribute">#[allow(clippy::result_large_err)]
+    </span><span class="kw">pub fn </span>preinstantiate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Crate an `Instance` from this `Artifact`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See [`VMInstance::new`].</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">instantiate</span>(
+    <span class="doccomment">/// Crate an `Instance` from this `Artifact`.
+    ///
+    /// # Safety
+    ///
+    /// See [`VMInstance::new`].
+    </span><span class="attribute">#[allow(clippy::result_large_err)]
+    </span><span class="kw">pub unsafe fn </span>instantiate(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-        <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">VMExtern</span>],
-        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMInstance</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
-        <span class="comment">// Validate the CPU features this module was compiled with against the</span>
-        <span class="comment">// host CPU features.</span>
-        <span class="kw">let</span> <span class="ident">host_cpu_features</span> <span class="op">=</span> <span class="ident">CpuFeature::for_host</span>();
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">host_cpu_features</span>.<span class="ident">is_superset</span>(<span class="self">self</span>.<span class="ident">cpu_features</span>()) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstantiationError::CpuFeature</span>(<span class="macro">format!</span>(
+        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+        imports: <span class="kw-2">&amp;</span>[VMExtern],
+        context: <span class="kw-2">&amp;mut </span>StoreObjects,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMInstance, InstantiationError&gt; {
+        <span class="comment">// Validate the CPU features this module was compiled with against the
+        // host CPU features.
+        </span><span class="kw">let </span>host_cpu_features = CpuFeature::for_host();
+        <span class="kw">if </span>!host_cpu_features.is_superset(<span class="self">self</span>.cpu_features()) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(InstantiationError::CpuFeature(<span class="macro">format!</span>(
                 <span class="string">&quot;{:?}&quot;</span>,
-                <span class="self">self</span>.<span class="ident">cpu_features</span>().<span class="ident">difference</span>(<span class="ident">host_cpu_features</span>)
+                <span class="self">self</span>.cpu_features().difference(host_cpu_features)
             )));
         }
 
-        <span class="self">self</span>.<span class="ident">preinstantiate</span>()<span class="question-mark">?</span>;
+        <span class="self">self</span>.preinstantiate()<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">create_module_info</span>();
-        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">resolve_imports</span>(
-            <span class="kw-2">&amp;</span><span class="ident">module</span>,
-            <span class="ident">imports</span>,
-            <span class="ident">context</span>,
-            <span class="self">self</span>.<span class="ident">finished_dynamic_function_trampolines</span>(),
-            <span class="self">self</span>.<span class="ident">memory_styles</span>(),
-            <span class="self">self</span>.<span class="ident">table_styles</span>(),
+        <span class="kw">let </span>module = <span class="self">self</span>.create_module_info();
+        <span class="kw">let </span>imports = resolve_imports(
+            <span class="kw-2">&amp;</span>module,
+            imports,
+            context,
+            <span class="self">self</span>.finished_dynamic_function_trampolines(),
+            <span class="self">self</span>.memory_styles(),
+            <span class="self">self</span>.table_styles(),
         )
-        .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>;
+        .map_err(InstantiationError::Link)<span class="question-mark">?</span>;
 
-        <span class="comment">// Get pointers to where metadata about local memories should live in VM memory.</span>
-        <span class="comment">// Get pointers to where metadata about local tables should live in VM memory.</span>
+        <span class="comment">// Get pointers to where metadata about local memories should live in VM memory.
+        // Get pointers to where metadata about local tables should live in VM memory.
 
-        <span class="kw">let</span> (<span class="ident">allocator</span>, <span class="ident">memory_definition_locations</span>, <span class="ident">table_definition_locations</span>) <span class="op">=</span>
-            <span class="ident">InstanceAllocator::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>);
-        <span class="kw">let</span> <span class="ident">finished_memories</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_memories</span>(
-                <span class="ident">context</span>,
-                <span class="kw-2">&amp;</span><span class="ident">module</span>,
-                <span class="self">self</span>.<span class="ident">memory_styles</span>(),
-                <span class="kw-2">&amp;</span><span class="ident">memory_definition_locations</span>,
+        </span><span class="kw">let </span>(allocator, memory_definition_locations, table_definition_locations) =
+            InstanceAllocator::new(<span class="kw-2">&amp;</span>module);
+        <span class="kw">let </span>finished_memories = tunables
+            .create_memories(
+                context,
+                <span class="kw-2">&amp;</span>module,
+                <span class="self">self</span>.memory_styles(),
+                <span class="kw-2">&amp;</span>memory_definition_locations,
             )
-            .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>
-            .<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">finished_tables</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_tables</span>(
-                <span class="ident">context</span>,
-                <span class="kw-2">&amp;</span><span class="ident">module</span>,
-                <span class="self">self</span>.<span class="ident">table_styles</span>(),
-                <span class="kw-2">&amp;</span><span class="ident">table_definition_locations</span>,
+            .map_err(InstantiationError::Link)<span class="question-mark">?
+            </span>.into_boxed_slice();
+        <span class="kw">let </span>finished_tables = tunables
+            .create_tables(
+                context,
+                <span class="kw-2">&amp;</span>module,
+                <span class="self">self</span>.table_styles(),
+                <span class="kw-2">&amp;</span>table_definition_locations,
             )
-            .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>
-            .<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">finished_globals</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_globals</span>(<span class="ident">context</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>)
-            .<span class="ident">map_err</span>(<span class="ident">InstantiationError::Link</span>)<span class="question-mark">?</span>
-            .<span class="ident">into_boxed_slice</span>();
+            .map_err(InstantiationError::Link)<span class="question-mark">?
+            </span>.into_boxed_slice();
+        <span class="kw">let </span>finished_globals = tunables
+            .create_globals(context, <span class="kw-2">&amp;</span>module)
+            .map_err(InstantiationError::Link)<span class="question-mark">?
+            </span>.into_boxed_slice();
 
-        <span class="self">self</span>.<span class="ident">register_frame_info</span>();
+        <span class="self">self</span>.register_frame_info();
 
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">VMInstance::new</span>(
-            <span class="ident">allocator</span>,
-            <span class="ident">module</span>,
-            <span class="ident">context</span>,
-            <span class="self">self</span>.<span class="ident">finished_functions</span>().<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">finished_function_call_trampolines</span>().<span class="ident">clone</span>(),
-            <span class="ident">finished_memories</span>,
-            <span class="ident">finished_tables</span>,
-            <span class="ident">finished_globals</span>,
-            <span class="ident">imports</span>,
-            <span class="self">self</span>.<span class="ident">signatures</span>().<span class="ident">clone</span>(),
+        <span class="kw">let </span>handle = VMInstance::new(
+            allocator,
+            module,
+            context,
+            <span class="self">self</span>.finished_functions().clone(),
+            <span class="self">self</span>.finished_function_call_trampolines().clone(),
+            finished_memories,
+            finished_tables,
+            finished_globals,
+            imports,
+            <span class="self">self</span>.signatures().clone(),
         )
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">trap</span><span class="op">|</span> <span class="ident">InstantiationError::Start</span>(<span class="ident">RuntimeError::from_trap</span>(<span class="ident">trap</span>)))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
+        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(handle)
     }
 
-    <span class="doccomment">/// Finishes the instantiation of a just created `VMInstance`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See [`VMInstance::finish_instantiation`].</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">finish_instantiation</span>(
+    <span class="doccomment">/// Finishes the instantiation of a just created `VMInstance`.
+    ///
+    /// # Safety
+    ///
+    /// See [`VMInstance::finish_instantiation`].
+    </span><span class="attribute">#[allow(clippy::result_large_err)]
+    </span><span class="kw">pub unsafe fn </span>finish_instantiation(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">trap_handler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">TrapHandlerFn</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">handle</span>: <span class="kw-2">&amp;mut</span> <span class="ident">VMInstance</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">data_initializers</span>()
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">init</span><span class="op">|</span> <span class="ident">DataInitializer</span> {
-                <span class="ident">location</span>: <span class="ident">init</span>.<span class="ident">location</span>.<span class="ident">clone</span>(),
-                <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">init</span>.<span class="ident">data</span>,
+        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+        handle: <span class="kw-2">&amp;mut </span>VMInstance,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
+        <span class="kw">let </span>data_initializers = <span class="self">self
+            </span>.data_initializers()
+            .iter()
+            .map(|init| DataInitializer {
+                location: init.location.clone(),
+                data: <span class="kw-2">&amp;</span>init.data,
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">handle</span>
-            .<span class="ident">finish_instantiation</span>(<span class="ident">trap_handler</span>, <span class="kw-2">&amp;</span><span class="ident">data_initializers</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">trap</span><span class="op">|</span> <span class="ident">InstantiationError::Start</span>(<span class="ident">RuntimeError::from_trap</span>(<span class="ident">trap</span>)))
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        handle
+            .finish_instantiation(trap_handler, <span class="kw-2">&amp;</span>data_initializers)
+            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-    <span class="doccomment">/// Generate a compilation</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_metadata</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
-        <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>,
-        <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-        <span class="ident">features</span>: <span class="kw-2">&amp;</span><span class="ident">Features</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="attribute">#[allow(clippy::type_complexity)]
+    #[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+    </span><span class="doccomment">/// Generate a compilation
+    </span><span class="kw">pub fn </span>generate_metadata&lt;<span class="lifetime">&#39;data</span>&gt;(
+        data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8],
+        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
+        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+        features: <span class="kw-2">&amp;</span>Features,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            <span class="ident">CompileModuleInfo</span>,
-            <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-            <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-            <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ModuleTranslationState</span><span class="op">&gt;</span>,
+            CompileModuleInfo,
+            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;data</span>&gt;&gt;,
+            Vec&lt;DataInitializer&lt;<span class="lifetime">&#39;data</span>&gt;&gt;,
+            <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
         ),
-        <span class="ident">CompileError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident">ModuleEnvironment::new</span>();
-        <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError::Wasm</span>)<span class="question-mark">?</span>;
+        CompileError,
+    &gt; {
+        <span class="kw">let </span>environ = ModuleEnvironment::new();
+        <span class="kw">let </span>translation = environ.translate(data).map_err(CompileError::Wasm)<span class="question-mark">?</span>;
 
-        <span class="comment">// We try to apply the middleware first</span>
-        <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::ModuleMiddlewareChain</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">translation</span>.<span class="ident">module</span>;
-        <span class="kw">let</span> <span class="ident">middlewares</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_middlewares</span>();
-        <span class="ident">middlewares</span>.<span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;mut</span> <span class="ident">module</span>);
+        <span class="comment">// We try to apply the middleware first
+        </span><span class="kw">use </span><span class="kw">crate</span>::translator::ModuleMiddlewareChain;
+        <span class="kw">let </span><span class="kw-2">mut </span>module = translation.module;
+        <span class="kw">let </span>middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(<span class="kw-2">&amp;mut </span>module);
 
-        <span class="kw">let</span> <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">memories</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">memory_type</span><span class="op">|</span> <span class="ident">tunables</span>.<span class="ident">memory_style</span>(<span class="ident">memory_type</span>))
-            .<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">tables</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">table_type</span><span class="op">|</span> <span class="ident">tunables</span>.<span class="ident">table_style</span>(<span class="ident">table_type</span>))
-            .<span class="ident">collect</span>();
+        <span class="kw">let </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; = module
+            .memories
+            .values()
+            .map(|memory_type| tunables.memory_style(memory_type))
+            .collect();
+        <span class="kw">let </span>table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt; = module
+            .tables
+            .values()
+            .map(|table_type| tunables.table_style(table_type))
+            .collect();
 
-        <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
-            <span class="ident">module</span>: <span class="ident">Arc::new</span>(<span class="ident">module</span>),
-            <span class="ident">features</span>: <span class="ident">features</span>.<span class="ident">clone</span>(),
-            <span class="ident">memory_styles</span>,
-            <span class="ident">table_styles</span>,
+        <span class="kw">let </span>compile_info = CompileModuleInfo {
+            module: Arc::new(module),
+            features: features.clone(),
+            memory_styles,
+            table_styles,
         };
         <span class="prelude-val">Ok</span>((
-            <span class="ident">compile_info</span>,
-            <span class="ident">translation</span>.<span class="ident">function_body_inputs</span>,
-            <span class="ident">translation</span>.<span class="ident">data_initializers</span>,
-            <span class="ident">translation</span>.<span class="ident">module_translation_state</span>,
+            compile_info,
+            translation.function_body_inputs,
+            translation.data_initializers,
+            translation.module_translation_state,
         ))
     }
 
-    <span class="doccomment">/// Generate the metadata object for the module</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">metadata</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span>, <span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
-        <span class="ident">metadata_prefix</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> <span class="ident">Target</span>,
-        <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-        <span class="ident">features</span>: <span class="kw-2">&amp;</span><span class="ident">Features</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="doccomment">/// Generate the metadata object for the module
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+    #[allow(clippy::type_complexity)]
+    </span><span class="kw">pub fn </span>metadata&lt;<span class="lifetime">&#39;data</span>, <span class="lifetime">&#39;a</span>&gt;(
+        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
+        data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+        metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+        target: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>Target,
+        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+        features: <span class="kw-2">&amp;</span>Features,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            <span class="ident">ModuleMetadata</span>,
-            <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ModuleTranslationState</span><span class="op">&gt;</span>,
-            <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+            ModuleMetadata,
+            <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
+            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
         ),
-        <span class="ident">CompileError</span>,
-    <span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-        <span class="kw">let</span> (<span class="ident">compile_info</span>, <span class="ident">function_body_inputs</span>, <span class="ident">data_initializers</span>, <span class="ident">module_translation</span>) <span class="op">=</span>
-            <span class="ident"><span class="self">Self</span>::generate_metadata</span>(<span class="ident">data</span>, <span class="ident">compiler</span>, <span class="ident">tunables</span>, <span class="ident">features</span>)<span class="question-mark">?</span>;
+        CompileError,
+    &gt; {
+        <span class="attribute">#[allow(dead_code)]
+        </span><span class="kw">let </span>(compile_info, function_body_inputs, data_initializers, module_translation) =
+            <span class="self">Self</span>::generate_metadata(data, compiler, tunables, features)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="ident">data_initializers</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="ident">OwnedDataInitializer::new</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_boxed_slice</span>();
+        <span class="kw">let </span>data_initializers = data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_boxed_slice();
 
-        <span class="comment">// TODO: we currently supply all-zero function body lengths.</span>
-        <span class="comment">// We don&#39;t know the lengths until they&#39;re compiled, yet we have to</span>
-        <span class="comment">// supply the metadata as an input to the compile.</span>
-        <span class="kw">let</span> <span class="ident">function_body_lengths</span> <span class="op">=</span> <span class="ident">function_body_inputs</span>
-            .<span class="ident">keys</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">_function_body</span><span class="op">|</span> <span class="number">0u64</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="comment">// TODO: we currently supply all-zero function body lengths.
+        // We don&#39;t know the lengths until they&#39;re compiled, yet we have to
+        // supply the metadata as an input to the compile.
+        </span><span class="kw">let </span>function_body_lengths = function_body_inputs
+            .keys()
+            .map(|_function_body| <span class="number">0u64</span>)
+            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, u64&gt;&gt;();
 
-        <span class="kw">let</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata</span> {
-            <span class="ident">compile_info</span>,
-            <span class="ident">prefix</span>: <span class="ident">metadata_prefix</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>()).<span class="ident">unwrap_or_default</span>(),
-            <span class="ident">data_initializers</span>,
-            <span class="ident">function_body_lengths</span>,
-            <span class="ident">cpu_features</span>: <span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">as_u64</span>(),
+        <span class="kw">let </span>metadata = ModuleMetadata {
+            compile_info,
+            prefix: metadata_prefix.map(|s| s.to_string()).unwrap_or_default(),
+            data_initializers,
+            function_body_lengths,
+            cpu_features: target.cpu_features().as_u64(),
         };
 
-        <span class="prelude-val">Ok</span>((<span class="ident">metadata</span>, <span class="ident">module_translation</span>, <span class="ident">function_body_inputs</span>))
+        <span class="prelude-val">Ok</span>((metadata, module_translation, function_body_inputs))
     }
 
-    <span class="doccomment">/// Compile a module into an object file, which can be statically linked against.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The `metadata_prefix` is an optional prefix for the object name to make the</span>
-    <span class="doccomment">/// function names in the object file unique. When set, the function names will</span>
-    <span class="doccomment">/// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable</span>
-    <span class="doccomment">/// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.</span>
-    <span class="doccomment">///</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_object</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
-        <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">metadata_prefix</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> <span class="ident">Target</span>,
-        <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
-        <span class="ident">features</span>: <span class="kw-2">&amp;</span><span class="ident">Features</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="doccomment">/// Compile a module into an object file, which can be statically linked against.
+    ///
+    /// The `metadata_prefix` is an optional prefix for the object name to make the
+    /// function names in the object file unique. When set, the function names will
+    /// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable
+    /// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.
+    ///
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+    </span><span class="kw">pub fn </span>generate_object&lt;<span class="lifetime">&#39;data</span>&gt;(
+        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
+        data: <span class="kw-2">&amp;</span>[u8],
+        metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+        target: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>Target,
+        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+        features: <span class="kw-2">&amp;</span>Features,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            <span class="ident">ModuleInfo</span>,
-            <span class="ident">Object</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>,
-            <span class="ident">usize</span>,
-            <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer_types::SymbolRegistry</span><span class="op">&gt;</span>,
+            ModuleInfo,
+            Object&lt;<span class="lifetime">&#39;data</span>&gt;,
+            usize,
+            Box&lt;<span class="kw">dyn </span>wasmer_types::SymbolRegistry&gt;,
         ),
-        <span class="ident">CompileError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">compilation::symbols::ModuleMetadataSymbolRegistry</span>, <span class="ident">SymbolRegistry</span>};
+        CompileError,
+    &gt; {
+        <span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, SymbolRegistry};
 
-        <span class="kw">fn</span> <span class="ident">to_compile_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">std::error::Error</span>) -&gt; <span class="ident">CompileError</span> {
-            <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>))
+        <span class="kw">fn </span>to_compile_error(err: <span class="kw">impl </span>std::error::Error) -&gt; CompileError {
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err))
         }
 
-        <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">triple</span>();
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">metadata</span>, <span class="ident">module_translation</span>, <span class="ident">function_body_inputs</span>) <span class="op">=</span>
-            <span class="ident"><span class="self">Self</span>::metadata</span>(<span class="ident">compiler</span>, <span class="ident">data</span>, <span class="ident">metadata_prefix</span>, <span class="ident">target</span>, <span class="ident">tunables</span>, <span class="ident">features</span>)
-                .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>target_triple = target.triple();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>metadata, module_translation, function_body_inputs) =
+            <span class="self">Self</span>::metadata(compiler, data, metadata_prefix, target, tunables, features)
+                .map_err(to_compile_error)<span class="question-mark">?</span>;
 
         <span class="comment">/*
         In the C file we need:
@@ -1533,186 +1539,186 @@
         - LocalFunctionIndex -&gt; FunctionBodyPtr // finished functions
         - FunctionIndex -&gt; FunctionBodyPtr // finished dynamic function trampolines
         - SignatureIndex -&gt; VMSharedSignatureindextureIndex // signatures
-         */</span>
+         */
 
-        <span class="kw">let</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">serialize</span>().<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata_binary</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()).<span class="ident">into_bytes</span>());
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">serialized_data</span>);
+        </span><span class="kw">let </span>serialized_data = metadata.serialize().map_err(to_compile_error)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>metadata_binary = <span class="macro">vec!</span>[];
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
+        metadata_binary.extend(serialized_data);
 
-        <span class="kw">let</span> (<span class="ident">_compile_info</span>, <span class="ident">symbol_registry</span>) <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">split</span>();
+        <span class="kw">let </span>(_compile_info, symbol_registry) = metadata.split();
 
-        <span class="kw">let</span> <span class="ident">compilation</span>: <span class="ident">wasmer_types::compilation::function::Compilation</span> <span class="op">=</span> <span class="ident">compiler</span>
-            .<span class="ident">compile_module</span>(
-                <span class="ident">target</span>,
-                <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>,
-                <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
-                <span class="ident">function_body_inputs</span>,
+        <span class="kw">let </span>compilation: wasmer_types::compilation::function::Compilation = compiler
+            .compile_module(
+                target,
+                <span class="kw-2">&amp;</span>metadata.compile_info,
+                module_translation.as_ref().unwrap(),
+                function_body_inputs,
             )<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="ident">target_triple</span>).<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>obj = get_object_for_target(target_triple).map_err(to_compile_error)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">object_name</span> <span class="op">=</span> <span class="ident">ModuleMetadataSymbolRegistry</span> {
-            <span class="ident">prefix</span>: <span class="ident">metadata_prefix</span>.<span class="ident">unwrap_or_default</span>().<span class="ident">to_string</span>(),
+        <span class="kw">let </span>object_name = ModuleMetadataSymbolRegistry {
+            prefix: metadata_prefix.unwrap_or_default().to_string(),
         }
-        .<span class="ident">symbol_to_name</span>(<span class="ident">wasmer_types::Symbol::Metadata</span>);
+        .symbol_to_name(wasmer_types::Symbol::Metadata);
 
-        <span class="ident">emit_data</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">object_name</span>.<span class="ident">as_bytes</span>(), <span class="kw-2">&amp;</span><span class="ident">metadata_binary</span>, <span class="number">1</span>)
-            .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+        emit_data(<span class="kw-2">&amp;mut </span>obj, object_name.as_bytes(), <span class="kw-2">&amp;</span>metadata_binary, <span class="number">1</span>)
+            .map_err(to_compile_error)<span class="question-mark">?</span>;
 
-        <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="ident">target_triple</span>)
-            .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
+        emit_compilation(<span class="kw-2">&amp;mut </span>obj, compilation, <span class="kw-2">&amp;</span>symbol_registry, target_triple)
+            .map_err(to_compile_error)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((
-            <span class="ident">Arc::try_unwrap</span>(<span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">obj</span>,
-            <span class="ident">metadata_binary</span>.<span class="ident">len</span>(),
-            <span class="ident">Box::new</span>(<span class="ident">symbol_registry</span>),
+            Arc::try_unwrap(metadata.compile_info.module).unwrap(),
+            obj,
+            metadata_binary.len(),
+            Box::new(symbol_registry),
         ))
     }
 
-    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// The object must be a valid static object generated by wasmer.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize_object</span>(
-        <span class="ident">_engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>,
-        <span class="ident">_bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Compiler</span>(
-            <span class="ident">CompileError::UnsupportedFeature</span>(<span class="string">&quot;static load is not compiled in&quot;</span>.<span class="ident">to_string</span>()),
+    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file
+    ///
+    /// # Safety
+    /// The object must be a valid static object generated by wasmer.
+    </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
+    </span><span class="kw">pub unsafe fn </span>deserialize_object(
+        _engine: <span class="kw-2">&amp;</span>Engine,
+        _bytes: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="prelude-val">Err</span>(DeserializeError::Compiler(
+            CompileError::UnsupportedFeature(<span class="string">&quot;static load is not compiled in&quot;</span>.to_string()),
         ))
     }
 
-    <span class="kw">fn</span> <span class="ident">get_byte_slice</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">end</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> (<span class="ident">start</span> <span class="op">==</span> <span class="ident">end</span> <span class="op">&amp;&amp;</span> <span class="ident">input</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">start</span>)
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">start</span> <span class="op">&lt;</span> <span class="ident">end</span> <span class="op">&amp;&amp;</span> <span class="ident">input</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">start</span> <span class="op">&amp;&amp;</span> <span class="ident">input</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">end</span>)
+    <span class="kw">fn </span>get_byte_slice(input: <span class="kw-2">&amp;</span>[u8], start: usize, end: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>[u8], DeserializeError&gt; {
+        <span class="kw">if </span>(start == end &amp;&amp; input.len() &gt; start)
+            || (start &lt; end &amp;&amp; input.len() &gt; start &amp;&amp; input.len() &gt;= end)
         {
-            <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="ident">input</span>[<span class="ident">start</span>..<span class="ident">end</span>])
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::InvalidByteLength</span> {
-                <span class="ident">expected</span>: <span class="ident">end</span> <span class="op">-</span> <span class="ident">start</span>,
-                <span class="ident">got</span>: <span class="ident">input</span>.<span class="ident">len</span>(),
+            <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>input[start..end])
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(DeserializeError::InvalidByteLength {
+                expected: end - start,
+                got: input.len(),
             })
         }
     }
 
-    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// The object must be a valid static object generated by wasmer.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize_object</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="ident">Engine</span>,
-        <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">metadata_len</span> <span class="op">=</span> <span class="ident">MetadataHeader::parse</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">metadata_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">MetadataHeader::LEN</span>, <span class="ident">bytes</span>.<span class="ident">len</span>())<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">metadata_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">metadata_slice</span>, <span class="number">0</span>, <span class="ident">metadata_len</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">metadata</span>: <span class="ident">ModuleMetadata</span> <span class="op">=</span> <span class="ident">ModuleMetadata::deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
+    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file
+    ///
+    /// # Safety
+    /// The object must be a valid static object generated by wasmer.
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-load&quot;</span>)]
+    </span><span class="kw">pub unsafe fn </span>deserialize_object(
+        engine: <span class="kw-2">&amp;</span>Engine,
+        bytes: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span>metadata_len = MetadataHeader::parse(bytes)<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(metadata_slice, <span class="number">0</span>, metadata_len)<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)<span class="question-mark">?</span>;
 
-        <span class="kw">const</span> <span class="ident">WORD_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">byte_buffer</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="ident">WORD_SIZE</span>];
+        <span class="kw">const </span>WORD_SIZE: usize = mem::size_of::&lt;usize&gt;();
+        <span class="kw">let </span><span class="kw-2">mut </span>byte_buffer = [<span class="number">0u8</span>; WORD_SIZE];
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cur_offset</span> <span class="op">=</span> <span class="ident">MetadataHeader::LEN</span> <span class="op">+</span> <span class="ident">metadata_len</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>cur_offset = MetadataHeader::LEN + metadata_len;
 
-        <span class="kw">let</span> <span class="ident">byte_buffer_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">cur_offset</span>, <span class="ident">cur_offset</span> <span class="op">+</span> <span class="ident">WORD_SIZE</span>)<span class="question-mark">?</span>;
-        <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>].<span class="ident">clone_from_slice</span>(<span class="ident">byte_buffer_slice</span>);
-        <span class="ident">cur_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">WORD_SIZE</span>;
+        <span class="kw">let </span>byte_buffer_slice = <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+        byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+        cur_offset += WORD_SIZE;
 
-        <span class="kw">let</span> <span class="ident">num_finished_functions</span> <span class="op">=</span> <span class="ident">usize::from_ne_bytes</span>(<span class="ident">byte_buffer</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">finished_functions</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> <span class="op">=</span>
-            <span class="ident">PrimaryMap::new</span>();
+        <span class="kw">let </span>num_finished_functions = usize::from_ne_bytes(byte_buffer);
+        <span class="kw">let </span><span class="kw-2">mut </span>finished_functions: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyPtr&gt; =
+            PrimaryMap::new();
 
-        <span class="kw">let</span> <span class="ident">engine_inner</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner</span>();
-        <span class="kw">let</span> <span class="ident">signature_registry</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">signatures</span>();
+        <span class="kw">let </span>engine_inner = engine.inner();
+        <span class="kw">let </span>signature_registry = engine_inner.signatures();
 
-        <span class="comment">// read finished functions in order now...</span>
-        <span class="kw">for</span> <span class="ident">_i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_finished_functions</span> {
-            <span class="kw">let</span> <span class="ident">byte_buffer_slice</span> <span class="op">=</span>
-                <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">cur_offset</span>, <span class="ident">cur_offset</span> <span class="op">+</span> <span class="ident">WORD_SIZE</span>)<span class="question-mark">?</span>;
-            <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>].<span class="ident">clone_from_slice</span>(<span class="ident">byte_buffer_slice</span>);
-            <span class="kw">let</span> <span class="ident">fp</span> <span class="op">=</span> <span class="ident">FunctionBodyPtr</span>(<span class="ident">usize::from_ne_bytes</span>(<span class="ident">byte_buffer</span>) <span class="kw">as</span> <span class="kw">_</span>);
-            <span class="ident">cur_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">WORD_SIZE</span>;
+        <span class="comment">// read finished functions in order now...
+        </span><span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..num_finished_functions {
+            <span class="kw">let </span>byte_buffer_slice =
+                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+            <span class="kw">let </span>fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) <span class="kw">as _</span>);
+            cur_offset += WORD_SIZE;
 
-            <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.</span>
-            <span class="ident">finished_functions</span>.<span class="ident">push</span>(<span class="ident">fp</span>);
+            <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+            </span>finished_functions.push(fp);
         }
 
-        <span class="comment">// We register all the signatures</span>
-        <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> {
-            <span class="ident">metadata</span>
-                .<span class="ident">compile_info</span>
-                .<span class="ident">module</span>
-                .<span class="ident">signatures</span>
-                .<span class="ident">values</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">sig</span><span class="op">|</span> <span class="ident">signature_registry</span>.<span class="ident">register</span>(<span class="ident">sig</span>))
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+        <span class="comment">// We register all the signatures
+        </span><span class="kw">let </span>signatures = {
+            metadata
+                .compile_info
+                .module
+                .signatures
+                .values()
+                .map(|sig| signature_registry.register(sig))
+                .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
         };
 
-        <span class="comment">// read trampolines in order</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">finished_function_call_trampolines</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
+        <span class="comment">// read trampolines in order
+        </span><span class="kw">let </span><span class="kw-2">mut </span>finished_function_call_trampolines = PrimaryMap::new();
 
-        <span class="kw">let</span> <span class="ident">byte_buffer_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">cur_offset</span>, <span class="ident">cur_offset</span> <span class="op">+</span> <span class="ident">WORD_SIZE</span>)<span class="question-mark">?</span>;
-        <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>].<span class="ident">clone_from_slice</span>(<span class="ident">byte_buffer_slice</span>);
-        <span class="ident">cur_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">WORD_SIZE</span>;
-        <span class="kw">let</span> <span class="ident">num_function_trampolines</span> <span class="op">=</span> <span class="ident">usize::from_ne_bytes</span>(<span class="ident">byte_buffer</span>);
-        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_function_trampolines</span> {
-            <span class="kw">let</span> <span class="ident">byte_buffer_slice</span> <span class="op">=</span>
-                <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">cur_offset</span>, <span class="ident">cur_offset</span> <span class="op">+</span> <span class="ident">WORD_SIZE</span>)<span class="question-mark">?</span>;
-            <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>].<span class="ident">clone_from_slice</span>(<span class="ident">byte_buffer_slice</span>);
-            <span class="ident">cur_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">WORD_SIZE</span>;
-            <span class="kw">let</span> <span class="ident">trampoline_ptr_bytes</span> <span class="op">=</span> <span class="ident">usize::from_ne_bytes</span>(<span class="ident">byte_buffer</span>);
-            <span class="kw">let</span> <span class="ident">trampoline</span> <span class="op">=</span> <span class="ident">mem::transmute</span>::<span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>(<span class="ident">trampoline_ptr_bytes</span>);
-            <span class="ident">finished_function_call_trampolines</span>.<span class="ident">push</span>(<span class="ident">trampoline</span>);
-            <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.</span>
+        <span class="kw">let </span>byte_buffer_slice = <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+        byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+        cur_offset += WORD_SIZE;
+        <span class="kw">let </span>num_function_trampolines = usize::from_ne_bytes(byte_buffer);
+        <span class="kw">for _ in </span><span class="number">0</span>..num_function_trampolines {
+            <span class="kw">let </span>byte_buffer_slice =
+                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+            cur_offset += WORD_SIZE;
+            <span class="kw">let </span>trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
+            <span class="kw">let </span>trampoline = mem::transmute::&lt;usize, VMTrampoline&gt;(trampoline_ptr_bytes);
+            finished_function_call_trampolines.push(trampoline);
+            <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+        </span>}
+
+        <span class="comment">// read dynamic function trampolines in order now...
+        </span><span class="kw">let </span><span class="kw-2">mut </span>finished_dynamic_function_trampolines = PrimaryMap::new();
+        <span class="kw">let </span>byte_buffer_slice = <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+        byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+        cur_offset += WORD_SIZE;
+        <span class="kw">let </span>num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
+        <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..num_dynamic_trampoline_functions {
+            <span class="kw">let </span>byte_buffer_slice =
+                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+            <span class="kw">let </span>fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) <span class="kw">as _</span>);
+            cur_offset += WORD_SIZE;
+
+            <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+
+            </span>finished_dynamic_function_trampolines.push(fp);
         }
 
-        <span class="comment">// read dynamic function trampolines in order now...</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">finished_dynamic_function_trampolines</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="kw">let</span> <span class="ident">byte_buffer_slice</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">cur_offset</span>, <span class="ident">cur_offset</span> <span class="op">+</span> <span class="ident">WORD_SIZE</span>)<span class="question-mark">?</span>;
-        <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>].<span class="ident">clone_from_slice</span>(<span class="ident">byte_buffer_slice</span>);
-        <span class="ident">cur_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">WORD_SIZE</span>;
-        <span class="kw">let</span> <span class="ident">num_dynamic_trampoline_functions</span> <span class="op">=</span> <span class="ident">usize::from_ne_bytes</span>(<span class="ident">byte_buffer</span>);
-        <span class="kw">for</span> <span class="ident">_i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_dynamic_trampoline_functions</span> {
-            <span class="kw">let</span> <span class="ident">byte_buffer_slice</span> <span class="op">=</span>
-                <span class="ident"><span class="self">Self</span>::get_byte_slice</span>(<span class="ident">bytes</span>, <span class="ident">cur_offset</span>, <span class="ident">cur_offset</span> <span class="op">+</span> <span class="ident">WORD_SIZE</span>)<span class="question-mark">?</span>;
-            <span class="ident">byte_buffer</span>[<span class="number">0</span>..<span class="ident">WORD_SIZE</span>].<span class="ident">clone_from_slice</span>(<span class="ident">byte_buffer_slice</span>);
-            <span class="kw">let</span> <span class="ident">fp</span> <span class="op">=</span> <span class="ident">FunctionBodyPtr</span>(<span class="ident">usize::from_ne_bytes</span>(<span class="ident">byte_buffer</span>) <span class="kw">as</span> <span class="kw">_</span>);
-            <span class="ident">cur_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">WORD_SIZE</span>;
-
-            <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.</span>
-
-            <span class="ident">finished_dynamic_function_trampolines</span>.<span class="ident">push</span>(<span class="ident">fp</span>);
-        }
-
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">ArtifactBuild::from_serializable</span>(<span class="ident">SerializableModule</span> {
-            <span class="ident">compilation</span>: <span class="ident">SerializableCompilation::default</span>(),
-            <span class="ident">compile_info</span>: <span class="ident">metadata</span>.<span class="ident">compile_info</span>,
-            <span class="ident">data_initializers</span>: <span class="ident">metadata</span>.<span class="ident">data_initializers</span>,
-            <span class="ident">cpu_features</span>: <span class="ident">metadata</span>.<span class="ident">cpu_features</span>,
+        <span class="kw">let </span>artifact = ArtifactBuild::from_serializable(SerializableModule {
+            compilation: SerializableCompilation::default(),
+            compile_info: metadata.compile_info,
+            data_initializers: metadata.data_initializers,
+            cpu_features: metadata.cpu_features,
         });
 
-        <span class="kw">let</span> <span class="ident">finished_function_lengths</span> <span class="op">=</span> <span class="ident">finished_functions</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="number">0</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_boxed_slice</span>();
+        <span class="kw">let </span>finished_function_lengths = finished_functions
+            .values()
+            .map(|<span class="kw">_</span>| <span class="number">0</span>)
+            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, usize&gt;&gt;()
+            .into_boxed_slice();
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">id</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">artifact</span>,
-            <span class="ident">allocated</span>: <span class="prelude-val">Some</span>(<span class="ident">AllocatedArtifact</span> {
-                <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),
-                <span class="ident">finished_function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>
-                    .<span class="ident">into_boxed_slice</span>(),
-                <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">finished_dynamic_function_trampolines</span>
-                    .<span class="ident">into_boxed_slice</span>(),
-                <span class="ident">signatures</span>: <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>(),
-                <span class="ident">finished_function_lengths</span>,
-                <span class="ident">frame_info_registration</span>: <span class="prelude-val">None</span>,
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            id: Default::default(),
+            artifact,
+            allocated: <span class="prelude-val">Some</span>(AllocatedArtifact {
+                finished_functions: finished_functions.into_boxed_slice(),
+                finished_function_call_trampolines: finished_function_call_trampolines
+                    .into_boxed_slice(),
+                finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                    .into_boxed_slice(),
+                signatures: signatures.into_boxed_slice(),
+                finished_function_lengths,
+                frame_info_registration: <span class="prelude-val">None</span>,
             }),
         })
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

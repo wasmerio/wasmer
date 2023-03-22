@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -1099,1106 +1099,1106 @@
 <span id="1099">1099</span>
 <span id="1100">1100</span>
 <span id="1101">1101</span>
-</pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
-<span class="doccomment">//! root directory.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```console</span>
-<span class="doccomment">//! $ make update-graphql-schema</span>
-<span class="doccomment">//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql &gt; lib/registry/graphql/schema.graphql</span>
-<span class="doccomment">//! ```</span>
+</pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.
+//!
+//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
+//! root directory.
+//!
+//! ```console
+//! $ make update-graphql-schema
+//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql &gt; lib/registry/graphql/schema.graphql
+//! ```
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">api</span>;
-<span class="kw">mod</span> <span class="ident">client</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">config</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">graphql</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">interface</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">login</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">package</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">publish</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
+</span><span class="kw">pub mod </span>api;
+<span class="kw">mod </span>client;
+<span class="kw">pub mod </span>config;
+<span class="kw">pub mod </span>graphql;
+<span class="kw">pub mod </span>interface;
+<span class="kw">pub mod </span>login;
+<span class="kw">pub mod </span>package;
+<span class="kw">pub mod </span>publish;
+<span class="kw">pub mod </span>types;
+<span class="kw">pub mod </span>utils;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">client::RegistryClient</span>;
+<span class="kw">pub use </span>client::RegistryClient;
 
-<span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-<span class="kw">use</span> <span class="ident">core::ops::Range</span>;
-<span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
-<span class="kw">use</span> <span class="ident">reqwest::header</span>::{<span class="ident">ACCEPT</span>, <span class="ident">RANGE</span>};
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Read</span>, <span class="ident">Write</span>};
-<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="kw">use</span> <span class="ident">tar::EntryType</span>;
-<span class="kw">use</span> <span class="ident">url::Url</span>;
+<span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>core::ops::Range;
+<span class="kw">use </span>graphql_client::GraphQLQuery;
+<span class="kw">use </span>reqwest::header::{ACCEPT, RANGE};
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::io::{Read, Write};
+<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>tar::EntryType;
+<span class="kw">use </span>url::Url;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils::normalize_path</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">config</span>::{<span class="ident">format_graphql</span>, <span class="ident">WasmerConfig</span>},
-    <span class="ident">graphql::queries::get_bindings_query::ProgrammingLanguage</span>,
-    <span class="ident">package::Package</span>,
+<span class="kw">use </span><span class="kw">crate</span>::utils::normalize_path;
+<span class="kw">pub use crate</span>::{
+    config::{format_graphql, WasmerConfig},
+    graphql::queries::get_bindings_query::ProgrammingLanguage,
+    package::Package,
 };
 
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PACKAGE_TOML_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.toml&quot;</span>;
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wapm.toml&quot;</span>;
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GLOBAL_CONFIG_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.toml&quot;</span>;
+<span class="kw">pub static </span>PACKAGE_TOML_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.toml&quot;</span>;
+<span class="kw">pub static </span>PACKAGE_TOML_FALLBACK_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wapm.toml&quot;</span>;
+<span class="kw">pub static </span>GLOBAL_CONFIG_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.toml&quot;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PackageDownloadInfo</span> {
-    <span class="kw">pub</span> <span class="ident">registry</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">package</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">version</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">is_latest_version</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">commands</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">manifest</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">pirita_url</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+</span><span class="kw">pub struct </span>PackageDownloadInfo {
+    <span class="kw">pub </span>registry: String,
+    <span class="kw">pub </span>package: String,
+    <span class="kw">pub </span>version: String,
+    <span class="kw">pub </span>is_latest_version: bool,
+    <span class="kw">pub </span>commands: String,
+    <span class="kw">pub </span>manifest: String,
+    <span class="kw">pub </span>url: String,
+    <span class="kw">pub </span>pirita_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_package_local_dir</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">version</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
-    <span class="kw">let</span> <span class="ident">url_hash</span> <span class="op">=</span> <span class="ident">Package::hash_url</span>(<span class="ident">url</span>);
-    <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">checkouts_dir</span>.<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{url_hash}@{version}&quot;</span>));
-    <span class="prelude-val">Some</span>(<span class="ident">dir</span>)
+<span class="kw">pub fn </span>get_package_local_dir(wasmer_dir: <span class="kw-2">&amp;</span>Path, url: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
+    <span class="kw">let </span>checkouts_dir = get_checkouts_dir(wasmer_dir);
+    <span class="kw">let </span>url_hash = Package::hash_url(url);
+    <span class="kw">let </span>dir = checkouts_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{url_hash}@{version}&quot;</span>));
+    <span class="prelude-val">Some</span>(dir)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_finding_local_command</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">cmd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">local_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>);
-    <span class="kw">for</span> <span class="ident">p</span> <span class="kw">in</span> <span class="ident">local_packages</span> {
-        <span class="kw">let</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">get_commands</span>();
+<span class="kw">pub fn </span>try_finding_local_command(wasmer_dir: <span class="kw-2">&amp;</span>Path, cmd: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;LocalPackage&gt; {
+    <span class="kw">let </span>local_packages = get_all_local_packages(wasmer_dir);
+    <span class="kw">for </span>p <span class="kw">in </span>local_packages {
+        <span class="kw">let </span>commands = p.get_commands();
 
-        <span class="kw">if</span> <span class="ident">commands</span>.<span class="ident">unwrap_or_default</span>().<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span> <span class="op">==</span> <span class="ident">cmd</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">p</span>);
+        <span class="kw">if </span>commands.unwrap_or_default().iter().any(|c| c == cmd) {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(p);
         }
     }
-    <span class="prelude-val">None</span>
+    <span class="prelude-val">None
+</span>}
+
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>LocalPackage {
+    <span class="kw">pub </span>registry: String,
+    <span class="kw">pub </span>name: String,
+    <span class="kw">pub </span>version: String,
+    <span class="kw">pub </span>path: PathBuf,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalPackage</span> {
-    <span class="kw">pub</span> <span class="ident">registry</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">version</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">LocalPackage</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>LocalPackage {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         <span class="macro">write!</span>(
-            <span class="ident">f</span>,
+            f,
             <span class="string">&quot;{}@{} (registry {}, located at {})&quot;</span>,
-            <span class="self">self</span>.<span class="ident">name</span>,
-            <span class="self">self</span>.<span class="ident">version</span>,
-            <span class="self">self</span>.<span class="ident">registry</span>,
-            <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()
+            <span class="self">self</span>.name,
+            <span class="self">self</span>.version,
+            <span class="self">self</span>.registry,
+            <span class="self">self</span>.path.display()
         )
     }
 }
 
-<span class="kw">impl</span> <span class="ident">LocalPackage</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>())
+<span class="kw">impl </span>LocalPackage {
+    <span class="kw">pub fn </span>get_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.path.clone())
     }
 
-    <span class="doccomment">/// Returns the wasmer.toml path if it exists</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_wasmer_toml_path</span>(<span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FILE_NAME</span>);
-        <span class="kw">let</span> <span class="ident">fallback_path</span> <span class="op">=</span> <span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>);
-        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">exists</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">fallback_path</span>.<span class="ident">exists</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">fallback_path</span>)
-        } <span class="kw">else</span> {
+    <span class="doccomment">/// Returns the wasmer.toml path if it exists
+    </span><span class="kw">pub fn </span>get_wasmer_toml_path(base_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {
+        <span class="kw">let </span>path = base_path.join(PACKAGE_TOML_FILE_NAME);
+        <span class="kw">let </span>fallback_path = base_path.join(PACKAGE_TOML_FALLBACK_NAME);
+        <span class="kw">if </span>path.exists() {
+            <span class="prelude-val">Ok</span>(path)
+        } <span class="kw">else if </span>fallback_path.exists() {
+            <span class="prelude-val">Ok</span>(fallback_path)
+        } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;neither {} nor {} exists&quot;</span>,
-                <span class="ident">path</span>.<span class="ident">display</span>(),
-                <span class="ident">fallback_path</span>.<span class="ident">display</span>()
+                path.display(),
+                fallback_path.display()
             ))
         }
     }
 
-    <span class="doccomment">/// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_toml</span>(<span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FILE_NAME</span>))
-            .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>)))
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
+    <span class="doccomment">/// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback
+    </span><span class="kw">pub fn </span>read_toml(base_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, String&gt; {
+        <span class="kw">let </span>wasmer_toml = std::fs::read_to_string(base_path.join(PACKAGE_TOML_FILE_NAME))
+            .or_else(|<span class="kw">_</span>| std::fs::read_to_string(base_path.join(PACKAGE_TOML_FALLBACK_NAME)))
+            .map_err(|<span class="kw">_</span>| {
                 <span class="macro">format!</span>(
                     <span class="string">&quot;Path {} has no {PACKAGE_TOML_FILE_NAME} or {PACKAGE_TOML_FALLBACK_NAME}&quot;</span>,
-                    <span class="ident">base_path</span>.<span class="ident">display</span>()
+                    base_path.display()
                 )
             })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_toml</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Could not parse toml for {:?}: {e}&quot;</span>, <span class="ident">base_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_toml</span>)
+        <span class="kw">let </span>wasmer_toml = toml::from_str::&lt;wasmer_toml::Manifest&gt;(<span class="kw-2">&amp;</span>wasmer_toml)
+            .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not parse toml for {:?}: {e}&quot;</span>, base_path.display()))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(wasmer_toml)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_commands</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_path</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">toml_parsed</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::read_toml</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">toml_parsed</span>
-            .<span class="ident">command</span>
-            .<span class="ident">unwrap_or_default</span>()
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">get_name</span>())
-            .<span class="ident">collect</span>())
+    <span class="kw">pub fn </span>get_commands(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, String&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.get_path()<span class="question-mark">?</span>;
+        <span class="kw">let </span>toml_parsed = <span class="self">Self</span>::read_toml(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(toml_parsed
+            .command
+            .unwrap_or_default()
+            .iter()
+            .map(|c| c.get_name())
+            .collect())
     }
 }
 
-<span class="doccomment">/// Returns the (manifest, .wasm file name), given a package dir</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_executable_file_from_path</span>(
-    <span class="ident">package_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">command</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">wasmer_toml::Manifest</span>, <span class="ident">PathBuf</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">LocalPackage::read_toml</span>(<span class="ident">package_dir</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+<span class="doccomment">/// Returns the (manifest, .wasm file name), given a package dir
+</span><span class="kw">pub fn </span>get_executable_file_from_path(
+    package_dir: <span class="kw-2">&amp;</span>Path,
+    command: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(wasmer_toml::Manifest, PathBuf), anyhow::Error&gt; {
+    <span class="kw">let </span>wasmer_toml = LocalPackage::read_toml(package_dir).map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">clone</span>();
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">clone</span>();
+    <span class="kw">let </span>name = wasmer_toml.package.name.clone();
+    <span class="kw">let </span>version = wasmer_toml.package.version.clone();
 
-    <span class="kw">let</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">command</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>();
-    <span class="kw">let</span> <span class="ident">entrypoint_module</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">command</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">commands</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">get_name</span>() <span class="op">==</span> <span class="ident">s</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+    <span class="kw">let </span>commands = wasmer_toml.command.clone().unwrap_or_default();
+    <span class="kw">let </span>entrypoint_module = <span class="kw">match </span>command {
+        <span class="prelude-val">Some</span>(s) =&gt; commands.iter().find(|c| c.get_name() == s).ok_or_else(|| {
             <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Cannot run {name}@{version}: package has no command {s:?}&quot;</span>)
         })<span class="question-mark">?</span>,
-        <span class="prelude-val">None</span> =&gt; {
-            <span class="kw">if</span> <span class="ident">commands</span>.<span class="ident">is_empty</span>() {
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="kw">if </span>commands.is_empty() {
                 <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;Cannot run {name}@{version}: package has no commands&quot;</span>
-                ))
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">commands</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-                <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="ident">commands</span>[<span class="number">0</span>])
-            } <span class="kw">else</span> {
-                <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;  -&gt; wasmer run {name}@{version} --command-name={0}&quot;</span>, <span class="ident">commands</span>.<span class="ident">first</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">get_name</span>()).<span class="ident">unwrap</span>()))
-                .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">commands</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, <span class="ident">c</span>.<span class="ident">get_name</span>())).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>().<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>)))
-                .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;You can run any of those by using the --command-name=COMMAND flag&quot;</span>))
-                .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;The `{name}@{version}` package doesn&#39;t have a default entrypoint, but has multiple available commands:&quot;</span>))
-            }<span class="question-mark">?</span>
-        }
+                    <span class="string">&quot;Cannot run {name}@{version}: package has no commands&quot;
+                </span>))
+            } <span class="kw">else if </span>commands.len() == <span class="number">1 </span>{
+                <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>commands[<span class="number">0</span>])
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;  -&gt; wasmer run {name}@{version} --command-name={0}&quot;</span>, commands.first().map(|f| f.get_name()).unwrap()))
+                .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, commands.iter().map(|c| <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, c.get_name())).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">&quot;, &quot;</span>)))
+                .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;You can run any of those by using the --command-name=COMMAND flag&quot;</span>))
+                .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;The `{name}@{version}` package doesn&#39;t have a default entrypoint, but has multiple available commands:&quot;</span>))
+            }<span class="question-mark">?
+        </span>}
     };
 
-    <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">entrypoint_module</span>.<span class="ident">get_module</span>();
-    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">module</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>();
-    <span class="kw">let</span> <span class="ident">entrypoint_module</span> <span class="op">=</span> <span class="ident">modules</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">find</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">name</span> <span class="op">==</span> <span class="ident">module_name</span>)
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+    <span class="kw">let </span>module_name = entrypoint_module.get_module();
+    <span class="kw">let </span>modules = wasmer_toml.module.clone().unwrap_or_default();
+    <span class="kw">let </span>entrypoint_module = modules
+        .iter()
+        .find(|m| m.name == module_name)
+        .ok_or_else(|| {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;Cannot run {name}@{version}: module {module_name} not found in {GLOBAL_CONFIG_FILE_NAME}&quot;</span>
-            )
+                <span class="string">&quot;Cannot run {name}@{version}: module {module_name} not found in {GLOBAL_CONFIG_FILE_NAME}&quot;
+            </span>)
         })<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">entrypoint_source</span> <span class="op">=</span> <span class="ident">package_dir</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">entrypoint_module</span>.<span class="ident">source</span>);
+    <span class="kw">let </span>entrypoint_source = package_dir.join(<span class="kw-2">&amp;</span>entrypoint_module.source);
 
-    <span class="prelude-val">Ok</span>((<span class="ident">wasmer_toml</span>, <span class="ident">entrypoint_source</span>))
+    <span class="prelude-val">Ok</span>((wasmer_toml, entrypoint_source))
 }
 
-<span class="kw">fn</span> <span class="ident">get_all_names_in_dir</span>(<span class="ident">dir</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">PathBuf</span>, <span class="ident">String</span>)<span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">dir</span>.<span class="ident">is_dir</span>() {
-        <span class="kw">return</span> <span class="ident">Vec::new</span>();
+<span class="kw">fn </span>get_all_names_in_dir(dir: <span class="kw-2">&amp;</span>PathBuf) -&gt; Vec&lt;(PathBuf, String)&gt; {
+    <span class="kw">if </span>!dir.is_dir() {
+        <span class="kw">return </span>Vec::new();
     }
 
-    <span class="kw">let</span> <span class="ident">read_dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">dir</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
-        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span> <span class="ident">Vec::new</span>(),
+    <span class="kw">let </span>read_dir = <span class="kw">match </span>std::fs::read_dir(dir) {
+        <span class="prelude-val">Ok</span>(o) =&gt; o,
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>Vec::new(),
     };
 
-    <span class="kw">let</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">read_dir</span>
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">res</span><span class="op">|</span> <span class="ident">res</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">path</span>()))
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">std::io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let </span>entries = read_dir
+        .map(|res| res.map(|e| e.path()))
+        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, std::io::Error&gt;&gt;();
 
-    <span class="kw">let</span> <span class="ident">registry_entries</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">entries</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
-        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span> <span class="ident">Vec::new</span>(),
+    <span class="kw">let </span>registry_entries = <span class="kw">match </span>entries {
+        <span class="prelude-val">Ok</span>(o) =&gt; o,
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>Vec::new(),
     };
 
-    <span class="ident">registry_entries</span>
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">re</span><span class="op">|</span> <span class="prelude-val">Some</span>((<span class="ident">re</span>.<span class="ident">clone</span>(), <span class="ident">re</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">to_string</span>())))
-        .<span class="ident">collect</span>()
+    registry_entries
+        .into_iter()
+        .filter_map(|re| <span class="prelude-val">Some</span>((re.clone(), re.file_name()<span class="question-mark">?</span>.to_str()<span class="question-mark">?</span>.to_string())))
+        .collect()
 }
 
-<span class="doccomment">/// Returns a list of all locally installed packages</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">packages</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+<span class="doccomment">/// Returns a list of all locally installed packages
+</span><span class="kw">pub fn </span>get_all_local_packages(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;LocalPackage&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>packages = Vec::new();
 
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
+    <span class="kw">let </span>checkouts_dir = get_checkouts_dir(wasmer_dir);
 
-    <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">url_hash_with_version</span>) <span class="kw">in</span> <span class="ident">get_all_names_in_dir</span>(<span class="kw-2">&amp;</span><span class="ident">checkouts_dir</span>) {
-        <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">LocalPackage::read_toml</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
+    <span class="kw">for </span>(path, url_hash_with_version) <span class="kw">in </span>get_all_names_in_dir(<span class="kw-2">&amp;</span>checkouts_dir) {
+        <span class="kw">let </span>manifest = <span class="kw">match </span>LocalPackage::read_toml(<span class="kw-2">&amp;</span>path) {
+            <span class="prelude-val">Ok</span>(o) =&gt; o,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
         };
-        <span class="kw">let</span> <span class="ident">url_hash</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">url_hash_with_version</span>.<span class="ident">split</span>(<span class="string">&#39;@&#39;</span>).<span class="ident">next</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-            <span class="prelude-val">None</span> =&gt; <span class="kw">continue</span>,
+        <span class="kw">let </span>url_hash = <span class="kw">match </span>url_hash_with_version.split(<span class="string">&#39;@&#39;</span>).next() {
+            <span class="prelude-val">Some</span>(s) =&gt; s,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
         };
-        <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span>
-            <span class="ident">Url::parse</span>(<span class="kw-2">&amp;</span><span class="ident">Package::unhash_url</span>(<span class="ident">url_hash</span>)).<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">origin</span>().<span class="ident">ascii_serialization</span>());
-        <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">package</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
+        <span class="kw">let </span>package =
+            Url::parse(<span class="kw-2">&amp;</span>Package::unhash_url(url_hash)).map(|s| s.origin().ascii_serialization());
+        <span class="kw">let </span>host = <span class="kw">match </span>package {
+            <span class="prelude-val">Ok</span>(s) =&gt; s,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
         };
-        <span class="ident">packages</span>.<span class="ident">push</span>(<span class="ident">LocalPackage</span> {
-            <span class="ident">registry</span>: <span class="ident">host</span>,
-            <span class="ident">name</span>: <span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">name</span>,
-            <span class="ident">version</span>: <span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">to_string</span>(),
-            <span class="ident">path</span>,
+        packages.push(LocalPackage {
+            registry: host,
+            name: manifest.package.name,
+            version: manifest.package.version.to_string(),
+            path,
         });
     }
 
-    <span class="ident">packages</span>
+    packages
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_local_package</span>(
-    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
-    <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>)
-        .<span class="ident">iter</span>()
-        .<span class="ident">find</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
-            <span class="kw">if</span> <span class="ident">p</span>.<span class="ident">name</span> <span class="op">!</span><span class="op">=</span> <span class="ident">name</span> {
-                <span class="kw">return</span> <span class="bool-val">false</span>;
+<span class="kw">pub fn </span>get_local_package(
+    wasmer_dir: <span class="kw-2">&amp;</span>Path,
+    name: <span class="kw-2">&amp;</span>str,
+    version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Option</span>&lt;LocalPackage&gt; {
+    get_all_local_packages(wasmer_dir)
+        .iter()
+        .find(|p| {
+            <span class="kw">if </span>p.name != name {
+                <span class="kw">return </span><span class="bool-val">false</span>;
             }
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">version</span> {
-                <span class="kw">if</span> <span class="ident">p</span>.<span class="ident">version</span> <span class="op">!</span><span class="op">=</span> <span class="ident">v</span> {
-                    <span class="kw">return</span> <span class="bool-val">false</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = version {
+                <span class="kw">if </span>p.version != v {
+                    <span class="kw">return </span><span class="bool-val">false</span>;
                 }
             }
-            <span class="bool-val">true</span>
-        })
-        .<span class="ident">cloned</span>()
+            <span class="bool-val">true
+        </span>})
+        .cloned()
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">query_command_from_registry</span>(
-    <span class="ident">registry_url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">command_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PackageDownloadInfo</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
-        <span class="ident">execute_query</span>,
-        <span class="ident">queries</span>::{<span class="ident">get_package_by_command_query</span>, <span class="ident">GetPackageByCommandQuery</span>},
+<span class="kw">pub fn </span>query_command_from_registry(
+    registry_url: <span class="kw-2">&amp;</span>str,
+    command_name: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PackageDownloadInfo, String&gt; {
+    <span class="kw">use </span><span class="kw">crate</span>::graphql::{
+        execute_query,
+        queries::{get_package_by_command_query, GetPackageByCommandQuery},
     };
 
-    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">GetPackageByCommandQuery::build_query</span>(<span class="ident">get_package_by_command_query::Variables</span> {
-        <span class="ident">command_name</span>: <span class="ident">command_name</span>.<span class="ident">to_string</span>(),
+    <span class="kw">let </span>q = GetPackageByCommandQuery::build_query(get_package_by_command_query::Variables {
+        command_name: command_name.to_string(),
     });
 
-    <span class="kw">let</span> <span class="ident">response</span>: <span class="ident">get_package_by_command_query::ResponseData</span> <span class="op">=</span> <span class="ident">execute_query</span>(<span class="ident">registry_url</span>, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Error sending GetPackageByCommandQuery:  {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>response: get_package_by_command_query::ResponseData = execute_query(registry_url, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>q)
+        .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error sending GetPackageByCommandQuery:  {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">response</span>
-        .<span class="ident">get_command</span>
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;GetPackageByCommandQuery: no get_command&quot;</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
+    <span class="kw">let </span>command = response
+        .get_command
+        .ok_or_else(|| <span class="string">&quot;GetPackageByCommandQuery: no get_command&quot;</span>.to_string())<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">package</span>.<span class="ident">display_name</span>;
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">version</span>;
-    <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">distribution</span>.<span class="ident">download_url</span>;
-    <span class="kw">let</span> <span class="ident">pirita_url</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">distribution</span>.<span class="ident">pirita_download_url</span>;
+    <span class="kw">let </span>package = command.package_version.package.display_name;
+    <span class="kw">let </span>version = command.package_version.version;
+    <span class="kw">let </span>url = command.package_version.distribution.download_url;
+    <span class="kw">let </span>pirita_url = command.package_version.distribution.pirita_download_url;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">PackageDownloadInfo</span> {
-        <span class="ident">registry</span>: <span class="ident">registry_url</span>.<span class="ident">to_string</span>(),
-        <span class="ident">package</span>,
-        <span class="ident">version</span>,
-        <span class="ident">is_latest_version</span>: <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">is_last_version</span>,
-        <span class="ident">manifest</span>: <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">manifest</span>,
-        <span class="ident">commands</span>: <span class="ident">command_name</span>.<span class="ident">to_string</span>(),
-        <span class="ident">url</span>,
-        <span class="ident">pirita_url</span>,
+    <span class="prelude-val">Ok</span>(PackageDownloadInfo {
+        registry: registry_url.to_string(),
+        package,
+        version,
+        is_latest_version: command.package_version.is_last_version,
+        manifest: command.package_version.manifest,
+        commands: command_name.to_string(),
+        url,
+        pirita_url,
     })
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">QueryPackageError</span> {
-    <span class="ident">ErrorSendingQuery</span>(<span class="ident">String</span>),
-    <span class="ident">NoPackageFound</span> {
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+</span><span class="kw">pub enum </span>QueryPackageError {
+    ErrorSendingQuery(String),
+    NoPackageFound {
+        name: String,
+        version: <span class="prelude-ty">Option</span>&lt;String&gt;,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">QueryPackageError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="ident">q</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;error sending query: {q}&quot;</span>),
-            <span class="ident">QueryPackageError::NoPackageFound</span> { <span class="ident">name</span>, <span class="ident">version</span> } =&gt; {
-                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;no package found for {name:?} (version = {version:?})&quot;</span>)
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>QueryPackageError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            QueryPackageError::ErrorSendingQuery(q) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;error sending query: {q}&quot;</span>),
+            QueryPackageError::NoPackageFound { name, version } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;no package found for {name:?} (version = {version:?})&quot;</span>)
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GetIfPackageHasNewVersionResult</span> {
-    <span class="comment">// if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed</span>
-    <span class="ident">UseLocalAlreadyInstalled</span> {
-        <span class="ident">registry_host</span>: <span class="ident">String</span>,
-        <span class="ident">namespace</span>: <span class="ident">String</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">version</span>: <span class="ident">String</span>,
-        <span class="ident">path</span>: <span class="ident">PathBuf</span>,
+<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+</span><span class="kw">pub enum </span>GetIfPackageHasNewVersionResult {
+    <span class="comment">// if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed
+    </span>UseLocalAlreadyInstalled {
+        registry_host: String,
+        namespace: String,
+        name: String,
+        version: String,
+        path: PathBuf,
     },
-    <span class="comment">// if version = None, check for the latest version</span>
-    <span class="ident">LocalVersionMayBeOutdated</span> {
-        <span class="ident">registry_host</span>: <span class="ident">String</span>,
-        <span class="ident">namespace</span>: <span class="ident">String</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="doccomment">/// Versions that are already installed + whether they are</span>
-        <span class="doccomment">/// older (true) or younger (false) than the timeout</span>
-        <span class="ident">installed_versions</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">bool</span>)<span class="op">&gt;</span>,
+    <span class="comment">// if version = None, check for the latest version
+    </span>LocalVersionMayBeOutdated {
+        registry_host: String,
+        namespace: String,
+        name: String,
+        <span class="doccomment">/// Versions that are already installed + whether they are
+        /// older (true) or younger (false) than the timeout
+        </span>installed_versions: Vec&lt;(String, bool)&gt;,
     },
-    <span class="comment">// registry / namespace / name / version doesn&#39;t exist yet</span>
-    <span class="ident">PackageNotInstalledYet</span> {
-        <span class="ident">registry_url</span>: <span class="ident">String</span>,
-        <span class="ident">namespace</span>: <span class="ident">String</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="comment">// registry / namespace / name / version doesn&#39;t exist yet
+    </span>PackageNotInstalledYet {
+        registry_url: String,
+        namespace: String,
+        name: String,
+        version: <span class="prelude-ty">Option</span>&lt;String&gt;,
     },
 }
 
-<span class="doccomment">/// Returns the download info of the packages, on error returns all the available packages</span>
-<span class="doccomment">/// i.e. ((&quot;foo/python&quot;, &quot;wapm.io&quot;), (&quot;bar/python&quot; &quot;wapm.io&quot;)))</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">query_package_from_registry</span>(
-    <span class="ident">registry_url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PackageDownloadInfo</span>, <span class="ident">QueryPackageError</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
-        <span class="ident">execute_query</span>,
-        <span class="ident">queries</span>::{<span class="ident">get_package_version_query</span>, <span class="ident">GetPackageVersionQuery</span>},
+<span class="doccomment">/// Returns the download info of the packages, on error returns all the available packages
+/// i.e. ((&quot;foo/python&quot;, &quot;wapm.io&quot;), (&quot;bar/python&quot; &quot;wapm.io&quot;)))
+</span><span class="kw">pub fn </span>query_package_from_registry(
+    registry_url: <span class="kw-2">&amp;</span>str,
+    name: <span class="kw-2">&amp;</span>str,
+    version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PackageDownloadInfo, QueryPackageError&gt; {
+    <span class="kw">use </span><span class="kw">crate</span>::graphql::{
+        execute_query,
+        queries::{get_package_version_query, GetPackageVersionQuery},
     };
 
-    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">GetPackageVersionQuery::build_query</span>(<span class="ident">get_package_version_query::Variables</span> {
-        <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-        <span class="ident">version</span>: <span class="ident">version</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>()),
+    <span class="kw">let </span>q = GetPackageVersionQuery::build_query(get_package_version_query::Variables {
+        name: name.to_string(),
+        version: version.map(|s| s.to_string()),
     });
 
-    <span class="kw">let</span> <span class="ident">response</span>: <span class="ident">get_package_version_query::ResponseData</span> <span class="op">=</span> <span class="ident">execute_query</span>(<span class="ident">registry_url</span>, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="macro">format!</span>(<span class="string">&quot;Error sending GetPackagesQuery: {e}&quot;</span>))
+    <span class="kw">let </span>response: get_package_version_query::ResponseData = execute_query(registry_url, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>q)
+        .map_err(|e| {
+            QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;Error sending GetPackagesQuery: {e}&quot;</span>))
         })<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">package_version</span>.<span class="ident">as_ref</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="macro">format!</span>(<span class="string">&quot;no package version for {name:?}&quot;</span>))
+    <span class="kw">let </span>v = response.package_version.as_ref().ok_or_else(|| {
+        QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;no package version for {name:?}&quot;</span>))
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">manifest</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-        <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid manifest for crate {name:?}: {e}&quot;</span>))
+    <span class="kw">let </span>manifest = toml::from_str::&lt;wasmer_toml::Manifest&gt;(<span class="kw-2">&amp;</span>v.manifest).map_err(|e| {
+        QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;Invalid manifest for crate {name:?}: {e}&quot;</span>))
     })<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">PackageDownloadInfo</span> {
-        <span class="ident">registry</span>: <span class="ident">registry_url</span>.<span class="ident">to_string</span>(),
-        <span class="ident">package</span>: <span class="ident">v</span>.<span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
+    <span class="prelude-val">Ok</span>(PackageDownloadInfo {
+        registry: registry_url.to_string(),
+        package: v.package.name.clone(),
 
-        <span class="ident">version</span>: <span class="ident">v</span>.<span class="ident">version</span>.<span class="ident">clone</span>(),
-        <span class="ident">is_latest_version</span>: <span class="ident">v</span>.<span class="ident">is_last_version</span>,
-        <span class="ident">manifest</span>: <span class="ident">v</span>.<span class="ident">manifest</span>.<span class="ident">clone</span>(),
+        version: v.version.clone(),
+        is_latest_version: v.is_last_version,
+        manifest: v.manifest.clone(),
 
-        <span class="ident">commands</span>: <span class="ident">manifest</span>
-            .<span class="ident">command</span>
-            .<span class="ident">unwrap_or_default</span>()
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">get_name</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>),
+        commands: manifest
+            .command
+            .unwrap_or_default()
+            .iter()
+            .map(|s| s.get_name())
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(<span class="string">&quot;, &quot;</span>),
 
-        <span class="ident">url</span>: <span class="ident">v</span>.<span class="ident">distribution</span>.<span class="ident">download_url</span>.<span class="ident">clone</span>(),
-        <span class="ident">pirita_url</span>: <span class="ident">v</span>.<span class="ident">distribution</span>.<span class="ident">pirita_download_url</span>.<span class="ident">clone</span>(),
+        url: v.distribution.download_url.clone(),
+        pirita_url: v.distribution.pirita_download_url.clone(),
     })
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
-    <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="string">&quot;checkouts&quot;</span>)
+<span class="kw">pub fn </span>get_checkouts_dir(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+    wasmer_dir.join(<span class="string">&quot;checkouts&quot;</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_webc_dir</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
-    <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="string">&quot;webc&quot;</span>)
+<span class="kw">pub fn </span>get_webc_dir(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+    wasmer_dir.join(<span class="string">&quot;webc&quot;</span>)
 }
 
-<span class="doccomment">/// Convenience function that will unpack .tar.gz files and .tar.bz</span>
-<span class="doccomment">/// files to a target directory (does NOT remove the original .tar.gz)</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_unpack_targz</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(
-    <span class="ident">target_targz_path</span>: <span class="ident">P</span>,
-    <span class="ident">target_path</span>: <span class="ident">P</span>,
-    <span class="ident">strip_toplevel</span>: <span class="ident">bool</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">target_targz_path</span>.<span class="ident">as_ref</span>().<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>();
-    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::utils::normalize_path</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>);
-    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>);
+<span class="doccomment">/// Convenience function that will unpack .tar.gz files and .tar.bz
+/// files to a target directory (does NOT remove the original .tar.gz)
+</span><span class="kw">pub fn </span>try_unpack_targz&lt;P: AsRef&lt;Path&gt;&gt;(
+    target_targz_path: P,
+    target_path: P,
+    strip_toplevel: bool,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {
+    <span class="kw">let </span>target_targz_path = target_targz_path.as_ref().to_string_lossy().to_string();
+    <span class="kw">let </span>target_targz_path = <span class="kw">crate</span>::utils::normalize_path(<span class="kw-2">&amp;</span>target_targz_path);
+    <span class="kw">let </span>target_targz_path = Path::new(<span class="kw-2">&amp;</span>target_targz_path);
 
-    <span class="kw">let</span> <span class="ident">target_path</span> <span class="op">=</span> <span class="ident">target_path</span>.<span class="ident">as_ref</span>().<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>();
-    <span class="kw">let</span> <span class="ident">target_path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::utils::normalize_path</span>(<span class="kw-2">&amp;</span><span class="ident">target_path</span>);
-    <span class="kw">let</span> <span class="ident">target_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">target_path</span>);
+    <span class="kw">let </span>target_path = target_path.as_ref().to_string_lossy().to_string();
+    <span class="kw">let </span>target_path = <span class="kw">crate</span>::utils::normalize_path(<span class="kw-2">&amp;</span>target_path);
+    <span class="kw">let </span>target_path = Path::new(<span class="kw-2">&amp;</span>target_path);
 
-    <span class="kw">let</span> <span class="ident">open_file</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
-        <span class="ident">std::fs::File::open</span>(<span class="ident">target_targz_path</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to open {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))
+    <span class="kw">let </span>open_file = || {
+        std::fs::File::open(target_targz_path)
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to open {}: {e}&quot;</span>, target_targz_path.display()))
     };
 
-    <span class="kw">let</span> <span class="ident">try_decode_gz</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">open_file</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">gz_decoded</span> <span class="op">=</span> <span class="ident">flate2::read::GzDecoder::new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>);
-        <span class="kw">let</span> <span class="ident">ar</span> <span class="op">=</span> <span class="ident">tar::Archive::new</span>(<span class="ident">gz_decoded</span>);
-        <span class="kw">if</span> <span class="ident">strip_toplevel</span> {
-            <span class="ident">unpack_sans_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+    <span class="kw">let </span>try_decode_gz = || {
+        <span class="kw">let </span>file = open_file()<span class="question-mark">?</span>;
+        <span class="kw">let </span>gz_decoded = flate2::read::GzDecoder::new(<span class="kw-2">&amp;</span>file);
+        <span class="kw">let </span>ar = tar::Archive::new(gz_decoded);
+        <span class="kw">if </span>strip_toplevel {
+            unpack_sans_parent(ar, target_path).map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;failed to unpack (gz_ar_unpack_sans_parent) {}: {e}&quot;</span>,
-                    <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
+                    target_targz_path.display()
                 )
             })
-        } <span class="kw">else</span> {
-            <span class="ident">unpack_with_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        } <span class="kw">else </span>{
+            unpack_with_parent(ar, target_path).map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;failed to unpack (gz_ar_unpack) {}: {e}&quot;</span>,
-                    <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
+                    target_targz_path.display()
                 )
             })
         }
     };
 
-    <span class="kw">let</span> <span class="ident">try_decode_xz</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">open_file</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">decomp</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bufread</span> <span class="op">=</span> <span class="ident">std::io::BufReader::new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>);
-        <span class="ident">lzma_rs::xz_decompress</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bufread</span>, <span class="kw-2">&amp;mut</span> <span class="ident">decomp</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+    <span class="kw">let </span>try_decode_xz = || {
+        <span class="kw">let </span>file = open_file()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>decomp: Vec&lt;u8&gt; = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>bufread = std::io::BufReader::new(<span class="kw-2">&amp;</span>file);
+        lzma_rs::xz_decompress(<span class="kw-2">&amp;mut </span>bufread, <span class="kw-2">&amp;mut </span>decomp).map_err(|e| {
             <span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;failed to unpack (try_decode_xz) {}: {e}&quot;</span>,
-                <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
+                target_targz_path.display()
             )
         })<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">cursor</span> <span class="op">=</span> <span class="ident">std::io::Cursor::new</span>(<span class="ident">decomp</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ar</span> <span class="op">=</span> <span class="ident">tar::Archive::new</span>(<span class="ident">cursor</span>);
-        <span class="kw">if</span> <span class="ident">strip_toplevel</span> {
-            <span class="ident">unpack_sans_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        <span class="kw">let </span>cursor = std::io::Cursor::new(decomp);
+        <span class="kw">let </span><span class="kw-2">mut </span>ar = tar::Archive::new(cursor);
+        <span class="kw">if </span>strip_toplevel {
+            unpack_sans_parent(ar, target_path).map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;failed to unpack (sans parent) {}: {e}&quot;</span>,
-                    <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
+                    target_targz_path.display()
                 )
             })
-        } <span class="kw">else</span> {
-            <span class="ident">ar</span>.<span class="ident">unpack</span>(<span class="kw-2">&amp;</span><span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        } <span class="kw">else </span>{
+            ar.unpack(target_path).map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;failed to unpack (with parent) {}: {e}&quot;</span>,
-                    <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
+                    target_targz_path.display()
                 )
             })
         }
     };
 
-    <span class="ident">try_decode_gz</span>().<span class="ident">or_else</span>(<span class="op">|</span><span class="ident">e1</span><span class="op">|</span> {
-        <span class="ident">try_decode_xz</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e2</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not decode gz: {e1}, could not decode xz: {e2}&quot;</span>))
+    try_decode_gz().or_else(|e1| {
+        try_decode_xz()
+            .map_err(|e2| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not decode gz: {e1}, could not decode xz: {e2}&quot;</span>))
     })<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>).<span class="ident">to_path_buf</span>())
+    <span class="prelude-val">Ok</span>(Path::new(<span class="kw-2">&amp;</span>target_targz_path).to_path_buf())
 }
 
-<span class="doccomment">/// Whether the top-level directory should be stripped</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">download_and_unpack_targz</span>(
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">target_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">strip_toplevel</span>: <span class="ident">bool</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempfile::TempDir::new</span>()<span class="question-mark">?</span>;
+<span class="doccomment">/// Whether the top-level directory should be stripped
+</span><span class="kw">pub fn </span>download_and_unpack_targz(
+    url: <span class="kw-2">&amp;</span>str,
+    target_path: <span class="kw-2">&amp;</span>Path,
+    strip_toplevel: bool,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {
+    <span class="kw">let </span>tempdir = tempfile::TempDir::new()<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">tempdir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;package.tar.gz&quot;</span>);
+    <span class="kw">let </span>target_targz_path = tempdir.path().join(<span class="string">&quot;package.tar.gz&quot;</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">reqwest::blocking::get</span>(<span class="ident">url</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>resp = reqwest::blocking::get(url)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::create(<span class="kw-2">&amp;</span>target_targz_path).map_err(|e| {
             <span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>,
-                <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
+                target_targz_path.display()
             )
         })<span class="question-mark">?</span>;
 
-        <span class="ident">resp</span>.<span class="ident">copy_to</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+        resp.copy_to(<span class="kw-2">&amp;mut </span>file)
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
     }
 
-    <span class="ident">try_unpack_targz</span>(<span class="ident">target_targz_path</span>.<span class="ident">as_path</span>(), <span class="ident">target_path</span>, <span class="ident">strip_toplevel</span>)
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not download {url}&quot;</span>))<span class="question-mark">?</span>;
+    try_unpack_targz(target_targz_path.as_path(), target_path, strip_toplevel)
+        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not download {url}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">target_path</span>.<span class="ident">to_path_buf</span>())
+    <span class="prelude-val">Ok</span>(target_path.to_path_buf())
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unpack_with_parent</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="ident">archive</span>: <span class="ident">tar::Archive</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>, <span class="ident">dst</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">R</span>: <span class="ident">std::io::Read</span>,
+<span class="kw">pub fn </span>unpack_with_parent&lt;R&gt;(<span class="kw-2">mut </span>archive: tar::Archive&lt;R&gt;, dst: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;
+<span class="kw">where
+    </span>R: std::io::Read,
 {
-    <span class="kw">use</span> <span class="ident">std::path::Component::Normal</span>;
+    <span class="kw">use </span>std::path::Component::Normal;
 
-    <span class="kw">let</span> <span class="ident">dst_normalized</span> <span class="op">=</span> <span class="ident">normalize_path</span>(<span class="ident">dst</span>.<span class="ident">to_string_lossy</span>().<span class="ident">as_ref</span>());
+    <span class="kw">let </span>dst_normalized = normalize_path(dst.to_string_lossy().as_ref());
 
-    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">archive</span>.<span class="ident">entries</span>()<span class="question-mark">?</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">path</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">entry</span>
-            .<span class="ident">path</span>()<span class="question-mark">?</span>
-            .<span class="ident">components</span>()
-            .<span class="ident">skip</span>(<span class="number">1</span>) <span class="comment">// strip top-level directory</span>
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="macro">matches!</span>(<span class="ident">c</span>, <span class="ident">Normal</span>(<span class="kw">_</span>))) <span class="comment">// prevent traversal attacks</span>
-            .<span class="ident">collect</span>();
-        <span class="kw">if</span> <span class="ident">entry</span>.<span class="ident">header</span>().<span class="ident">entry_type</span>().<span class="ident">is_file</span>() {
-            <span class="ident">entry</span>.<span class="ident">unpack_in</span>(<span class="kw-2">&amp;</span><span class="ident">dst_normalized</span>)<span class="question-mark">?</span>;
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">entry</span>.<span class="ident">header</span>().<span class="ident">entry_type</span>() <span class="op">==</span> <span class="ident">EntryType::Directory</span> {
-            <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">dst_normalized</span>).<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>))<span class="question-mark">?</span>;
+    <span class="kw">for </span>entry <span class="kw">in </span>archive.entries()<span class="question-mark">? </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>entry = entry<span class="question-mark">?</span>;
+        <span class="kw">let </span>path: PathBuf = entry
+            .path()<span class="question-mark">?
+            </span>.components()
+            .skip(<span class="number">1</span>) <span class="comment">// strip top-level directory
+            </span>.filter(|c| <span class="macro">matches!</span>(c, Normal(<span class="kw">_</span>))) <span class="comment">// prevent traversal attacks
+            </span>.collect();
+        <span class="kw">if </span>entry.header().entry_type().is_file() {
+            entry.unpack_in(<span class="kw-2">&amp;</span>dst_normalized)<span class="question-mark">?</span>;
+        } <span class="kw">else if </span>entry.header().entry_type() == EntryType::Directory {
+            std::fs::create_dir_all(<span class="kw-2">&amp;</span>Path::new(<span class="kw-2">&amp;</span>dst_normalized).join(<span class="kw-2">&amp;</span>path))<span class="question-mark">?</span>;
         }
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unpack_sans_parent</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>(<span class="kw-2">mut</span> <span class="ident">archive</span>: <span class="ident">tar::Archive</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>, <span class="ident">dst</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">R</span>: <span class="ident">std::io::Read</span>,
+<span class="kw">pub fn </span>unpack_sans_parent&lt;R&gt;(<span class="kw-2">mut </span>archive: tar::Archive&lt;R&gt;, dst: <span class="kw-2">&amp;</span>Path) -&gt; std::io::Result&lt;()&gt;
+<span class="kw">where
+    </span>R: std::io::Read,
 {
-    <span class="kw">use</span> <span class="ident">std::path::Component::Normal</span>;
+    <span class="kw">use </span>std::path::Component::Normal;
 
-    <span class="kw">let</span> <span class="ident">dst_normalized</span> <span class="op">=</span> <span class="ident">normalize_path</span>(<span class="ident">dst</span>.<span class="ident">to_string_lossy</span>().<span class="ident">as_ref</span>());
+    <span class="kw">let </span>dst_normalized = normalize_path(dst.to_string_lossy().as_ref());
 
-    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">archive</span>.<span class="ident">entries</span>()<span class="question-mark">?</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">path</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">entry</span>
-            .<span class="ident">path</span>()<span class="question-mark">?</span>
-            .<span class="ident">components</span>()
-            .<span class="ident">skip</span>(<span class="number">1</span>) <span class="comment">// strip top-level directory</span>
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="macro">matches!</span>(<span class="ident">c</span>, <span class="ident">Normal</span>(<span class="kw">_</span>))) <span class="comment">// prevent traversal attacks</span>
-            .<span class="ident">collect</span>();
-        <span class="ident">entry</span>.<span class="ident">unpack</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">dst_normalized</span>).<span class="ident">join</span>(<span class="ident">path</span>))<span class="question-mark">?</span>;
+    <span class="kw">for </span>entry <span class="kw">in </span>archive.entries()<span class="question-mark">? </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>entry = entry<span class="question-mark">?</span>;
+        <span class="kw">let </span>path: PathBuf = entry
+            .path()<span class="question-mark">?
+            </span>.components()
+            .skip(<span class="number">1</span>) <span class="comment">// strip top-level directory
+            </span>.filter(|c| <span class="macro">matches!</span>(c, Normal(<span class="kw">_</span>))) <span class="comment">// prevent traversal attacks
+            </span>.collect();
+        entry.unpack(Path::new(<span class="kw-2">&amp;</span>dst_normalized).join(path))<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Installs the .tar.gz if it doesn&#39;t yet exist, returns the</span>
-<span class="doccomment">/// (package dir, entrypoint .wasm file path)</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">install_package</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">fs_extra::dir::copy</span>;
+<span class="doccomment">/// Installs the .tar.gz if it doesn&#39;t yet exist, returns the
+/// (package dir, entrypoint .wasm file path)
+</span><span class="kw">pub fn </span>install_package(wasmer_dir: <span class="kw-2">&amp;</span>Path, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {
+    <span class="kw">use </span>fs_extra::dir::copy;
 
-    <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempfile::TempDir::new</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not create download temp dir: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>tempdir = tempfile::TempDir::new()
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not create download temp dir: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">tempdir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;package.tar.gz&quot;</span>);
-    <span class="kw">let</span> <span class="ident">unpacked_targz_path</span> <span class="op">=</span> <span class="ident">tempdir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;package&quot;</span>);
-    <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">unpacked_targz_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+    <span class="kw">let </span>target_targz_path = tempdir.path().join(<span class="string">&quot;package.tar.gz&quot;</span>);
+    <span class="kw">let </span>unpacked_targz_path = tempdir.path().join(<span class="string">&quot;package&quot;</span>);
+    std::fs::create_dir_all(<span class="kw-2">&amp;</span>unpacked_targz_path).map_err(|e| {
         <span class="macro">anyhow::anyhow!</span>(
             <span class="string">&quot;could not create dir {}: {e}&quot;</span>,
-            <span class="ident">unpacked_targz_path</span>.<span class="ident">display</span>()
+            unpacked_targz_path.display()
         )
     })<span class="question-mark">?</span>;
 
-    <span class="ident">get_targz_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="ident">target_targz_path</span>.<span class="ident">clone</span>()))
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+    get_targz_bytes(url, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(target_targz_path.clone()))
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="ident">try_unpack_targz</span>(
-        <span class="ident">target_targz_path</span>.<span class="ident">as_path</span>(),
-        <span class="ident">unpacked_targz_path</span>.<span class="ident">as_path</span>(),
+    try_unpack_targz(
+        target_targz_path.as_path(),
+        unpacked_targz_path.as_path(),
         <span class="bool-val">false</span>,
     )
-    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not unpack file downloaded from {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+    .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not unpack file downloaded from {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="comment">// read {unpacked}/wasmer.toml to get the name + version number</span>
-    <span class="kw">let</span> <span class="ident">toml_parsed</span> <span class="op">=</span> <span class="ident">LocalPackage::read_toml</span>(<span class="kw-2">&amp;</span><span class="ident">unpacked_targz_path</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error reading package name / version number: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="comment">// read {unpacked}/wasmer.toml to get the name + version number
+    </span><span class="kw">let </span>toml_parsed = LocalPackage::read_toml(<span class="kw-2">&amp;</span>unpacked_targz_path)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error reading package name / version number: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">toml_parsed</span>.<span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">to_string</span>();
+    <span class="kw">let </span>version = toml_parsed.package.version.to_string();
 
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
+    <span class="kw">let </span>checkouts_dir = <span class="kw">crate</span>::get_checkouts_dir(wasmer_dir);
 
-    <span class="kw">let</span> <span class="ident">installation_path</span> <span class="op">=</span>
-        <span class="ident">checkouts_dir</span>.<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}@{version}&quot;</span>, <span class="ident">Package::hash_url</span>(<span class="ident">url</span>.<span class="ident">as_ref</span>())));
+    <span class="kw">let </span>installation_path =
+        checkouts_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{}@{version}&quot;</span>, Package::hash_url(url.as_ref())));
 
-    <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">installation_path</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not create installation path for {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+    std::fs::create_dir_all(<span class="kw-2">&amp;</span>installation_path)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not create installation path for {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">options</span> <span class="op">=</span> <span class="ident">fs_extra::dir::CopyOptions::new</span>();
-    <span class="ident">options</span>.<span class="ident">content_only</span> <span class="op">=</span> <span class="bool-val">true</span>;
-    <span class="ident">options</span>.<span class="ident">overwrite</span> <span class="op">=</span> <span class="bool-val">true</span>;
-    <span class="ident">copy</span>(<span class="kw-2">&amp;</span><span class="ident">unpacked_targz_path</span>, <span class="kw-2">&amp;</span><span class="ident">installation_path</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>options = fs_extra::dir::CopyOptions::new();
+    options.content_only = <span class="bool-val">true</span>;
+    options.overwrite = <span class="bool-val">true</span>;
+    copy(<span class="kw-2">&amp;</span>unpacked_targz_path, <span class="kw-2">&amp;</span>installation_path, <span class="kw-2">&amp;</span>options)<span class="question-mark">?</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">filetime::set_file_mtime</span>(
-        <span class="ident">LocalPackage::get_wasmer_toml_path</span>(<span class="kw-2">&amp;</span><span class="ident">installation_path</span>)<span class="question-mark">?</span>,
-        <span class="ident">filetime::FileTime::now</span>(),
+    <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;wasi&quot;</span>))]
+    </span><span class="kw">let _ </span>= filetime::set_file_mtime(
+        LocalPackage::get_wasmer_toml_path(<span class="kw-2">&amp;</span>installation_path)<span class="question-mark">?</span>,
+        filetime::FileTime::now(),
     );
 
-    <span class="prelude-val">Ok</span>(<span class="ident">installation_path</span>)
+    <span class="prelude-val">Ok</span>(installation_path)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami</span>(
-    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-    <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::queries</span>::{<span class="ident">who_am_i_query</span>, <span class="ident">WhoAmIQuery</span>};
+<span class="kw">pub fn </span>whoami(
+    wasmer_dir: <span class="kw-2">&amp;</span>Path,
+    registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    token: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(String, String), anyhow::Error&gt; {
+    <span class="kw">use </span><span class="kw">crate</span>::graphql::queries::{who_am_i_query, WhoAmIQuery};
 
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="ident">wasmer_dir</span>);
+    <span class="kw">let </span>config = WasmerConfig::from_file(wasmer_dir);
 
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">config</span>
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{registry:?}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>config = config
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;{registry:?}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">registry</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">format_graphql</span>(<span class="ident">s</span>),
-        <span class="prelude-val">None</span> =&gt; <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>(),
+    <span class="kw">let </span>registry = <span class="kw">match </span>registry {
+        <span class="prelude-val">Some</span>(s) =&gt; format_graphql(s),
+        <span class="prelude-val">None </span>=&gt; config.registry.get_current_registry(),
     };
 
-    <span class="kw">let</span> <span class="ident">login_token</span> <span class="op">=</span> <span class="ident">token</span>
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
-        .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>))
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, <span class="ident">registry</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>login_token = token
+        .map(|s| s.to_string())
+        .or_else(|| config.registry.get_login_token_for_registry(<span class="kw-2">&amp;</span>registry))
+        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, registry))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">WhoAmIQuery::build_query</span>(<span class="ident">who_am_i_query::Variables</span> {});
-    <span class="kw">let</span> <span class="ident">response</span>: <span class="ident">who_am_i_query::ResponseData</span> <span class="op">=</span>
-        <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">login_token</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{registry:?}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
+    <span class="kw">let </span>response: who_am_i_query::ResponseData =
+        <span class="kw">crate</span>::graphql::execute_query(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>login_token, <span class="kw-2">&amp;</span>q)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;{registry:?}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">username</span> <span class="op">=</span> <span class="ident">response</span>
-        .<span class="ident">viewer</span>
-        .<span class="ident">as_ref</span>()
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, <span class="ident">registry</span>))<span class="question-mark">?</span>
-        .<span class="ident">username</span>
-        .<span class="ident">to_string</span>();
+    <span class="kw">let </span>username = response
+        .viewer
+        .as_ref()
+        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, registry))<span class="question-mark">?
+        </span>.username
+        .to_string();
 
-    <span class="prelude-val">Ok</span>((<span class="ident">registry</span>, <span class="ident">username</span>))
+    <span class="prelude-val">Ok</span>((registry, username))
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_if_registry_present</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::queries</span>::{<span class="ident">test_if_registry_present</span>, <span class="ident">TestIfRegistryPresent</span>};
+<span class="kw">pub fn </span>test_if_registry_present(registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt; {
+    <span class="kw">use </span><span class="kw">crate</span>::graphql::queries::{test_if_registry_present, TestIfRegistryPresent};
 
-    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">TestIfRegistryPresent::build_query</span>(<span class="ident">test_if_registry_present::Variables</span> {});
-    <span class="ident"><span class="kw">crate</span>::graphql::execute_query_modifier_inner_check_json</span>(
-        <span class="ident">registry</span>,
+    <span class="kw">let </span>q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
+    <span class="kw">crate</span>::graphql::execute_query_modifier_inner_check_json(
+        registry,
         <span class="string">&quot;&quot;</span>,
-        <span class="kw-2">&amp;</span><span class="ident">q</span>,
-        <span class="prelude-val">Some</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)),
-        <span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>,
+        <span class="kw-2">&amp;</span>q,
+        <span class="prelude-val">Some</span>(Duration::from_secs(<span class="number">1</span>)),
+        |f| f,
     )
-    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_available_registries</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="ident">wasmer_dir</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">registries</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="kw">for</span> <span class="ident">login</span> <span class="kw">in</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">tokens</span> {
-        <span class="ident">registries</span>.<span class="ident">push</span>(<span class="ident">format_graphql</span>(<span class="kw-2">&amp;</span><span class="ident">login</span>.<span class="ident">registry</span>));
+<span class="kw">pub fn </span>get_all_available_registries(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, String&gt; {
+    <span class="kw">let </span>config = WasmerConfig::from_file(wasmer_dir)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>registries = Vec::new();
+    <span class="kw">for </span>login <span class="kw">in </span>config.registry.tokens {
+        registries.push(format_graphql(<span class="kw-2">&amp;</span>login.registry));
     }
-    <span class="prelude-val">Ok</span>(<span class="ident">registries</span>)
+    <span class="prelude-val">Ok</span>(registries)
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RemoteWebcInfo</span> {
-    <span class="kw">pub</span> <span class="ident">checksum</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">manifest</span>: <span class="ident">webc::metadata::Manifest</span>,
+<span class="attribute">#[derive(Debug, PartialEq, Clone)]
+</span><span class="kw">pub struct </span>RemoteWebcInfo {
+    <span class="kw">pub </span>checksum: String,
+    <span class="kw">pub </span>manifest: webc::metadata::Manifest,
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">install_webc_package</span>(
-    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
-    <span class="ident">checksum</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="ident">tokio::runtime::Builder::new_multi_thread</span>()
-        .<span class="ident">enable_all</span>()
-        .<span class="ident">build</span>()
-        .<span class="ident">unwrap</span>()
-        .<span class="ident">block_on</span>(<span class="kw">async</span> { <span class="ident">install_webc_package_inner</span>(<span class="ident">wasmer_dir</span>, <span class="ident">url</span>, <span class="ident">checksum</span>).<span class="kw">await</span> })
+<span class="kw">pub fn </span>install_webc_package(
+    wasmer_dir: <span class="kw-2">&amp;</span>Path,
+    url: <span class="kw-2">&amp;</span>Url,
+    checksum: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(<span class="kw">async </span>{ install_webc_package_inner(wasmer_dir, url, checksum).<span class="kw">await </span>})
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">install_webc_package_inner</span>(
-    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
-    <span class="ident">checksum</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">futures_util::StreamExt</span>;
+<span class="kw">async fn </span>install_webc_package_inner(
+    wasmer_dir: <span class="kw-2">&amp;</span>Path,
+    url: <span class="kw-2">&amp;</span>Url,
+    checksum: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">use </span>futures_util::StreamExt;
 
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_webc_dir</span>(<span class="ident">wasmer_dir</span>);
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
-    <span class="kw">let</span> <span class="ident">webc_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">join</span>(<span class="ident">checksum</span>);
+    <span class="kw">let </span>path = get_webc_dir(wasmer_dir);
+    <span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>path);
+    <span class="kw">let </span>webc_path = path.join(checksum);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">webc_path</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">webc_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::create(<span class="kw-2">&amp;</span>webc_path)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, webc_path.display()))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">reqwest::Client::builder</span>();
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::graphql::proxy::maybe_set_up_proxy</span>(<span class="ident">builder</span>)<span class="question-mark">?</span>;
-        <span class="ident">builder</span>
-            .<span class="ident">redirect</span>(<span class="ident">reqwest::redirect::Policy::limited</span>(<span class="number">10</span>))
-            .<span class="ident">build</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .<span class="ident">context</span>(<span class="string">&quot;install_webc_package: failed to build reqwest Client&quot;</span>)<span class="question-mark">?</span>
-    };
+    <span class="kw">let </span>client = {
+        <span class="kw">let </span>builder = reqwest::Client::builder();
+        <span class="kw">let </span>builder = <span class="kw">crate</span>::graphql::proxy::maybe_set_up_proxy(builder)<span class="question-mark">?</span>;
+        builder
+            .redirect(reqwest::redirect::Policy::limited(<span class="number">10</span>))
+            .build()
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .context(<span class="string">&quot;install_webc_package: failed to build reqwest Client&quot;</span>)<span class="question-mark">?
+    </span>};
 
-    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">client</span>
-        .<span class="ident">get</span>(<span class="ident">url</span>.<span class="ident">clone</span>())
-        .<span class="ident">header</span>(<span class="ident">ACCEPT</span>, <span class="string">&quot;application/webc&quot;</span>)
-        .<span class="ident">send</span>()
-        .<span class="kw">await</span>
-        .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">response</span><span class="op">|</span> <span class="ident">response</span>.<span class="ident">error_for_status</span>())
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;install_webc_package: failed to GET {url}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>res = client
+        .get(url.clone())
+        .header(ACCEPT, <span class="string">&quot;application/webc&quot;</span>)
+        .send()
+        .<span class="kw">await
+        </span>.and_then(|response| response.error_for_status())
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;install_webc_package: failed to GET {url}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">bytes_stream</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>stream = res.bytes_stream();
 
-    <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">item</span>) <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">item</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;install_webc_package: failed to GET {url}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">item</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(item) = stream.next().<span class="kw">await </span>{
+        <span class="kw">let </span>item = item
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;install_webc_package: failed to GET {url}&quot;</span>))<span class="question-mark">?</span>;
+        file.write_all(<span class="kw-2">&amp;</span>item)
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .context(<span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;install_webc_package: failed to write chunk to {}&quot;</span>,
-                <span class="ident">webc_path</span>.<span class="ident">display</span>()
+                webc_path.display()
             ))<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Returns a list of all installed webc packages</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
-    <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="ident">wasmer_dir</span>)
+<span class="doccomment">/// Returns a list of all installed webc packages
+</span><span class="kw">pub fn </span>get_all_installed_webc_packages(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;RemoteWebcInfo&gt; {
+    get_all_installed_webc_packages_inner(wasmer_dir)
 }
 
-<span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">get_webc_dir</span>(<span class="ident">wasmer_dir</span>);
+<span class="kw">fn </span>get_all_installed_webc_packages_inner(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;RemoteWebcInfo&gt; {
+    <span class="kw">let </span>dir = get_webc_dir(wasmer_dir);
 
-    <span class="kw">let</span> <span class="ident">read_dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">dir</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span> <span class="ident">Vec::new</span>(),
+    <span class="kw">let </span>read_dir = <span class="kw">match </span>std::fs::read_dir(dir) {
+        <span class="prelude-val">Ok</span>(s) =&gt; s,
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span>Vec::new(),
     };
 
-    <span class="ident">read_dir</span>
-        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">path</span>()))
-        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">path</span><span class="op">|</span> {
-            <span class="ident">webc::v1::WebCMmap::parse</span>(
-                <span class="ident">path</span>,
-                <span class="kw-2">&amp;</span><span class="ident">webc::v1::ParseOptions</span> {
-                    <span class="ident">parse_atoms</span>: <span class="bool-val">false</span>,
-                    <span class="ident">parse_volumes</span>: <span class="bool-val">false</span>,
-                    ..<span class="ident">Default::default</span>()
+    read_dir
+        .filter_map(|r| <span class="prelude-val">Some</span>(r.ok()<span class="question-mark">?</span>.path()))
+        .filter_map(|path| {
+            webc::v1::WebCMmap::parse(
+                path,
+                <span class="kw-2">&amp;</span>webc::v1::ParseOptions {
+                    parse_atoms: <span class="bool-val">false</span>,
+                    parse_volumes: <span class="bool-val">false</span>,
+                    ..Default::default()
                 },
             )
-            .<span class="ident">ok</span>()
+            .ok()
         })
-        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">webc</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">checksum</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">s</span>.<span class="ident">data</span>)<span class="question-mark">?</span>.<span class="ident">to_vec</span>();
-            <span class="kw">let</span> <span class="ident">hex_string</span> <span class="op">=</span> <span class="ident">get_checksum_hash</span>(<span class="kw-2">&amp;</span><span class="ident">checksum</span>);
-            <span class="prelude-val">Some</span>(<span class="ident">RemoteWebcInfo</span> {
-                <span class="ident">checksum</span>: <span class="ident">hex_string</span>,
-                <span class="ident">manifest</span>: <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">clone</span>(),
+        .filter_map(|webc| {
+            <span class="kw">let </span>checksum = webc.checksum.as_ref().map(|s| <span class="kw-2">&amp;</span>s.data)<span class="question-mark">?</span>.to_vec();
+            <span class="kw">let </span>hex_string = get_checksum_hash(<span class="kw-2">&amp;</span>checksum);
+            <span class="prelude-val">Some</span>(RemoteWebcInfo {
+                checksum: hex_string,
+                manifest: webc.manifest.clone(),
             })
         })
-        .<span class="ident">collect</span>()
+        .collect()
 }
 
-<span class="doccomment">/// The checksum of the webc file has a bunch of zeros at the end</span>
-<span class="doccomment">/// (it&#39;s currently encoded that way in the webc format). This function</span>
-<span class="doccomment">/// strips the zeros because otherwise the filename would become too long.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// So:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `3ea47cb0000000000000` -&gt; `3ea47cb`</span>
-<span class="doccomment">///</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_checksum_hash</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">to_vec</span>();
-    <span class="kw">while</span> <span class="ident">checksum</span>.<span class="ident">last</span>().<span class="ident">copied</span>() <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="number">0</span>) {
-        <span class="ident">checksum</span>.<span class="ident">pop</span>();
+<span class="doccomment">/// The checksum of the webc file has a bunch of zeros at the end
+/// (it&#39;s currently encoded that way in the webc format). This function
+/// strips the zeros because otherwise the filename would become too long.
+///
+/// So:
+///
+/// `3ea47cb0000000000000` -&gt; `3ea47cb`
+///
+</span><span class="kw">pub fn </span>get_checksum_hash(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
+    <span class="kw">let </span><span class="kw-2">mut </span>checksum = bytes.to_vec();
+    <span class="kw">while </span>checksum.last().copied() == <span class="prelude-val">Some</span>(<span class="number">0</span>) {
+        checksum.pop();
     }
-    <span class="ident">hex::encode</span>(<span class="kw-2">&amp;</span><span class="ident">checksum</span>).<span class="ident">chars</span>().<span class="ident">take</span>(<span class="number">64</span>).<span class="ident">collect</span>()
+    hex::encode(<span class="kw-2">&amp;</span>checksum).chars().take(<span class="number">64</span>).collect()
 }
 
-<span class="doccomment">/// Returns the checksum of the .webc file, so that we can check whether the</span>
-<span class="doccomment">/// file is already installed before downloading it</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_remote_webc_checksum</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
-    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">request_max_bytes</span>), <span class="prelude-val">None</span>)
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;note: use --registry to change the registry URL&quot;</span>))<span class="question-mark">?</span>
-        .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>
-        .<span class="ident">to_vec</span>();
-    <span class="prelude-val">Ok</span>(<span class="ident">get_checksum_hash</span>(<span class="kw-2">&amp;</span><span class="ident">checksum</span>))
+<span class="doccomment">/// Returns the checksum of the .webc file, so that we can check whether the
+/// file is already installed before downloading it
+</span><span class="kw">pub fn </span>get_remote_webc_checksum(url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;String, anyhow::Error&gt; {
+    <span class="kw">let </span>request_max_bytes = webc::v1::WebC::get_signature_offset_start() + <span class="number">4 </span>+ <span class="number">1024 </span>+ <span class="number">8 </span>+ <span class="number">8</span>;
+    <span class="kw">let </span>data = get_webc_bytes(url, <span class="prelude-val">Some</span>(<span class="number">0</span>..request_max_bytes), <span class="prelude-val">None</span>)
+        .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;note: use --registry to change the registry URL&quot;</span>))<span class="question-mark">?
+        </span>.unwrap();
+    <span class="kw">let </span>checksum = webc::v1::WebC::get_checksum_bytes(<span class="kw-2">&amp;</span>data)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?
+        </span>.to_vec();
+    <span class="prelude-val">Ok</span>(get_checksum_hash(<span class="kw-2">&amp;</span>checksum))
 }
 
-<span class="doccomment">/// Before fetching the entire file from a remote URL, just fetch the manifest</span>
-<span class="doccomment">/// so we can see if the package has already been installed</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_remote_webc_manifest</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="comment">// Request up unti manifest size / manifest len</span>
-    <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
-    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">request_max_bytes</span>), <span class="prelude-val">None</span>)<span class="question-mark">?</span>.<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="string">&quot;WebC::get_checksum_bytes failed&quot;</span>)<span class="question-mark">?</span>
-        .<span class="ident">to_vec</span>();
-    <span class="kw">let</span> <span class="ident">hex_string</span> <span class="op">=</span> <span class="ident">get_checksum_hash</span>(<span class="kw-2">&amp;</span><span class="ident">checksum</span>);
+<span class="doccomment">/// Before fetching the entire file from a remote URL, just fetch the manifest
+/// so we can see if the package has already been installed
+</span><span class="kw">pub fn </span>get_remote_webc_manifest(url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteWebcInfo, anyhow::Error&gt; {
+    <span class="comment">// Request up unti manifest size / manifest len
+    </span><span class="kw">let </span>request_max_bytes = webc::v1::WebC::get_signature_offset_start() + <span class="number">4 </span>+ <span class="number">1024 </span>+ <span class="number">8 </span>+ <span class="number">8</span>;
+    <span class="kw">let </span>data = get_webc_bytes(url, <span class="prelude-val">Some</span>(<span class="number">0</span>..request_max_bytes), <span class="prelude-val">None</span>)<span class="question-mark">?</span>.unwrap();
+    <span class="kw">let </span>checksum = webc::v1::WebC::get_checksum_bytes(<span class="kw-2">&amp;</span>data)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="string">&quot;WebC::get_checksum_bytes failed&quot;</span>)<span class="question-mark">?
+        </span>.to_vec();
+    <span class="kw">let </span>hex_string = get_checksum_hash(<span class="kw-2">&amp;</span>checksum);
 
-    <span class="kw">let</span> (<span class="ident">manifest_start</span>, <span class="ident">manifest_len</span>) <span class="op">=</span> <span class="ident">webc::v1::WebC::get_manifest_offset_size</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="string">&quot;WebC::get_manifest_offset_size failed&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">data_with_manifest</span> <span class="op">=</span>
-        <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">manifest_start</span> <span class="op">+</span> <span class="ident">manifest_len</span>), <span class="prelude-val">None</span>)<span class="question-mark">?</span>.<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_manifest</span>(<span class="kw-2">&amp;</span><span class="ident">data_with_manifest</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="string">&quot;WebC::get_manifest failed&quot;</span>)<span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">RemoteWebcInfo</span> {
-        <span class="ident">checksum</span>: <span class="ident">hex_string</span>,
-        <span class="ident">manifest</span>,
+    <span class="kw">let </span>(manifest_start, manifest_len) = webc::v1::WebC::get_manifest_offset_size(<span class="kw-2">&amp;</span>data)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="string">&quot;WebC::get_manifest_offset_size failed&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>data_with_manifest =
+        get_webc_bytes(url, <span class="prelude-val">Some</span>(<span class="number">0</span>..manifest_start + manifest_len), <span class="prelude-val">None</span>)<span class="question-mark">?</span>.unwrap();
+    <span class="kw">let </span>manifest = webc::v1::WebC::get_manifest(<span class="kw-2">&amp;</span>data_with_manifest)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="string">&quot;WebC::get_manifest failed&quot;</span>)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(RemoteWebcInfo {
+        checksum: hex_string,
+        manifest,
     })
 }
 
-<span class="kw">fn</span> <span class="ident">setup_client</span>(
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
-    <span class="ident">application_type</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">reqwest::blocking::RequestBuilder</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">reqwest::blocking::Client::builder</span>();
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::graphql::proxy::maybe_set_up_proxy_blocking</span>(<span class="ident">builder</span>)
-            .<span class="ident">context</span>(<span class="string">&quot;setup_webc_client&quot;</span>)<span class="question-mark">?</span>;
-        <span class="ident">builder</span>
-            .<span class="ident">redirect</span>(<span class="ident">reqwest::redirect::Policy::limited</span>(<span class="number">10</span>))
-            .<span class="ident">build</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .<span class="ident">context</span>(<span class="string">&quot;setup_webc_client: builder.build() failed&quot;</span>)<span class="question-mark">?</span>
-    };
+<span class="kw">fn </span>setup_client(
+    url: <span class="kw-2">&amp;</span>Url,
+    application_type: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;reqwest::blocking::RequestBuilder, anyhow::Error&gt; {
+    <span class="kw">let </span>client = {
+        <span class="kw">let </span>builder = reqwest::blocking::Client::builder();
+        <span class="kw">let </span>builder = <span class="kw">crate</span>::graphql::proxy::maybe_set_up_proxy_blocking(builder)
+            .context(<span class="string">&quot;setup_webc_client&quot;</span>)<span class="question-mark">?</span>;
+        builder
+            .redirect(reqwest::redirect::Policy::limited(<span class="number">10</span>))
+            .build()
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .context(<span class="string">&quot;setup_webc_client: builder.build() failed&quot;</span>)<span class="question-mark">?
+    </span>};
 
-    <span class="prelude-val">Ok</span>(<span class="ident">client</span>.<span class="ident">get</span>(<span class="ident">url</span>.<span class="ident">clone</span>()).<span class="ident">header</span>(<span class="ident">ACCEPT</span>, <span class="ident">application_type</span>))
+    <span class="prelude-val">Ok</span>(client.get(url.clone()).header(ACCEPT, application_type))
 }
 
-<span class="kw">fn</span> <span class="ident">get_webc_bytes</span>(
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
-    <span class="ident">range</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stream_response_into</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="ident">get_bytes</span>(<span class="ident">url</span>, <span class="ident">range</span>, <span class="string">&quot;application/webc&quot;</span>, <span class="ident">stream_response_into</span>)
+<span class="kw">fn </span>get_webc_bytes(
+    url: <span class="kw-2">&amp;</span>Url,
+    range: <span class="prelude-ty">Option</span>&lt;Range&lt;usize&gt;&gt;,
+    stream_response_into: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, anyhow::Error&gt; {
+    get_bytes(url, range, <span class="string">&quot;application/webc&quot;</span>, stream_response_into)
 }
 
-<span class="kw">fn</span> <span class="ident">get_targz_bytes</span>(
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
-    <span class="ident">range</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stream_response_into</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="ident">get_bytes</span>(<span class="ident">url</span>, <span class="ident">range</span>, <span class="string">&quot;application/tar+gzip&quot;</span>, <span class="ident">stream_response_into</span>)
+<span class="kw">fn </span>get_targz_bytes(
+    url: <span class="kw-2">&amp;</span>Url,
+    range: <span class="prelude-ty">Option</span>&lt;Range&lt;usize&gt;&gt;,
+    stream_response_into: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, anyhow::Error&gt; {
+    get_bytes(url, range, <span class="string">&quot;application/tar+gzip&quot;</span>, stream_response_into)
 }
 
-<span class="kw">fn</span> <span class="ident">get_bytes</span>(
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
-    <span class="ident">range</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">application_type</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>,
-    <span class="ident">stream_response_into</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="comment">// curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H &quot;Accept: application/webc&quot; --output python.webc</span>
+<span class="kw">fn </span>get_bytes(
+    url: <span class="kw-2">&amp;</span>Url,
+    range: <span class="prelude-ty">Option</span>&lt;Range&lt;usize&gt;&gt;,
+    application_type: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+    stream_response_into: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, anyhow::Error&gt; {
+    <span class="comment">// curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H &quot;Accept: application/webc&quot; --output python.webc
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">setup_client</span>(<span class="ident">url</span>, <span class="ident">application_type</span>)<span class="question-mark">?</span>;
+    </span><span class="kw">let </span><span class="kw-2">mut </span>res = setup_client(url, application_type)<span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">range</span>) <span class="op">=</span> <span class="ident">range</span>.<span class="ident">as_ref</span>() {
-        <span class="ident">res</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">header</span>(<span class="ident">RANGE</span>, <span class="macro">format!</span>(<span class="string">&quot;bytes={}-{}&quot;</span>, <span class="ident">range</span>.<span class="ident">start</span>, <span class="ident">range</span>.<span class="ident">end</span>));
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(range) = range.as_ref() {
+        res = res.header(RANGE, <span class="macro">format!</span>(<span class="string">&quot;bytes={}-{}&quot;</span>, range.start, range.end));
     }
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">res</span>
-        .<span class="ident">send</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="string">&quot;send() failed&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>res = res
+        .send()
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="string">&quot;send() failed&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">status</span>().<span class="ident">is_redirection</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;redirect: {:?}&quot;</span>, <span class="ident">res</span>.<span class="ident">status</span>()));
+    <span class="kw">if </span>res.status().is_redirection() {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;redirect: {:?}&quot;</span>, res.status()));
     }
 
-    <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">status</span>().<span class="ident">is_server_error</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;server error: {:?}&quot;</span>, <span class="ident">res</span>.<span class="ident">status</span>()));
+    <span class="kw">if </span>res.status().is_server_error() {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;server error: {:?}&quot;</span>, res.status()));
     }
 
-    <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">status</span>().<span class="ident">is_client_error</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;client error: {:?}&quot;</span>, <span class="ident">res</span>.<span class="ident">status</span>()));
+    <span class="kw">if </span>res.status().is_client_error() {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;client error: {:?}&quot;</span>, res.status()));
     }
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">path</span>) <span class="op">=</span> <span class="ident">stream_response_into</span>.<span class="ident">as_ref</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="ident">path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>())
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = stream_response_into.as_ref() {
+        <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::create(path).map_err(|e| {
+            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>, path.display())
         })<span class="question-mark">?</span>;
 
-        <span class="ident">res</span>.<span class="ident">copy_to</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>())
+        res.copy_to(<span class="kw-2">&amp;mut </span>file)
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .map_err(|e| {
+                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>, path.display())
             })<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="ident">application_type</span> <span class="op">==</span> <span class="string">&quot;application/webc&quot;</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">100</span>];
-            <span class="ident">file</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid webc downloaded from {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
-            <span class="kw">if</span> <span class="ident">buf</span>[<span class="number">0</span>..<span class="ident">webc::MAGIC</span>.<span class="ident">len</span>()] <span class="op">!</span><span class="op">=</span> <span class="ident">webc::MAGIC</span>[..] {
-                <span class="kw">let</span> <span class="ident">first_100_bytes</span> <span class="op">=</span> <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>);
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid webc bytes: {first_100_bytes:?}&quot;</span>));
+        <span class="kw">if </span>application_type == <span class="string">&quot;application/webc&quot; </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">100</span>];
+            file.read_exact(<span class="kw-2">&amp;mut </span>buf)
+                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid webc downloaded from {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">if </span>buf[<span class="number">0</span>..webc::MAGIC.len()] != webc::MAGIC[..] {
+                <span class="kw">let </span>first_100_bytes = String::from_utf8_lossy(<span class="kw-2">&amp;</span>buf);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid webc bytes: {first_100_bytes:?}&quot;</span>));
             }
         }
 
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-    } <span class="kw">else</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">res</span>
-            .<span class="ident">bytes</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .<span class="ident">context</span>(<span class="string">&quot;bytes() failed&quot;</span>)<span class="question-mark">?</span>;
+    } <span class="kw">else </span>{
+        <span class="kw">let </span>bytes = res
+            .bytes()
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .context(<span class="string">&quot;bytes() failed&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="ident">application_type</span> <span class="op">==</span> <span class="string">&quot;application/webc&quot;</span>
-            <span class="op">&amp;&amp;</span> (<span class="ident">range</span>.<span class="ident">is_none</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">range</span>.<span class="ident">unwrap</span>().<span class="ident">start</span> <span class="op">==</span> <span class="number">0</span>)
-            <span class="op">&amp;&amp;</span> <span class="ident">bytes</span>[<span class="number">0</span>..<span class="ident">webc::MAGIC</span>.<span class="ident">len</span>()] <span class="op">!</span><span class="op">=</span> <span class="ident">webc::MAGIC</span>[..]
+        <span class="kw">if </span>application_type == <span class="string">&quot;application/webc&quot;
+            </span>&amp;&amp; (range.is_none() || range.unwrap().start == <span class="number">0</span>)
+            &amp;&amp; bytes[<span class="number">0</span>..webc::MAGIC.len()] != webc::MAGIC[..]
         {
-            <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">iter</span>().<span class="ident">copied</span>().<span class="ident">take</span>(<span class="number">100</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-            <span class="kw">let</span> <span class="ident">first_100_bytes</span> <span class="op">=</span> <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>);
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid webc bytes: {first_100_bytes:?}&quot;</span>));
+            <span class="kw">let </span>bytes = bytes.iter().copied().take(<span class="number">100</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+            <span class="kw">let </span>first_100_bytes = String::from_utf8_lossy(<span class="kw-2">&amp;</span>bytes);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid webc bytes: {first_100_bytes:?}&quot;</span>));
         }
 
-        <span class="comment">// else if &quot;application/tar+gzip&quot; - we would need to uncompress the response here</span>
-        <span class="comment">// since failure responses are very small, this will fail during unpacking instead</span>
+        <span class="comment">// else if &quot;application/tar+gzip&quot; - we would need to uncompress the response here
+        // since failure responses are very small, this will fail during unpacking instead
 
-        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">bytes</span>.<span class="ident">to_vec</span>()))
+        </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(bytes.to_vec()))
     }
 }
 
-<span class="comment">// TODO: this test is segfaulting only on linux-musl, no other OS</span>
-<span class="comment">// See https://github.com/wasmerio/wasmer/pull/3215</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;musl&quot;</span>))]</span>
-<span class="attribute">#[<span class="ident">test</span>]</span>
-<span class="kw">fn</span> <span class="ident">test_install_package</span>() {
+<span class="comment">// TODO: this test is segfaulting only on linux-musl, no other OS
+// See https://github.com/wasmerio/wasmer/pull/3215
+</span><span class="attribute">#[cfg(not(target_env = <span class="string">&quot;musl&quot;</span>))]
+#[test]
+</span><span class="kw">fn </span>test_install_package() {
     <span class="macro">println!</span>(<span class="string">&quot;test install package...&quot;</span>);
-    <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>;
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">test_if_registry_present</span>(<span class="ident">registry</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
+    <span class="kw">let </span>registry = <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>;
+    <span class="kw">if </span>!test_if_registry_present(registry).unwrap_or(<span class="bool-val">false</span>) {
         <span class="macro">panic!</span>(<span class="string">&quot;registry.wapm.io not reachable, test will fail&quot;</span>);
     }
     <span class="macro">println!</span>(<span class="string">&quot;registry present&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">wabt</span> <span class="op">=</span> <span class="ident">query_package_from_registry</span>(<span class="ident">registry</span>, <span class="string">&quot;wasmer/wabt&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;1.0.29&quot;</span>)).<span class="ident">unwrap</span>();
+    <span class="kw">let </span>wabt = query_package_from_registry(registry, <span class="string">&quot;wasmer/wabt&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;1.0.29&quot;</span>)).unwrap();
 
     <span class="macro">println!</span>(<span class="string">&quot;wabt queried: {wabt:#?}&quot;</span>);
 
-    <span class="macro">assert_eq!</span>(<span class="ident">wabt</span>.<span class="ident">registry</span>, <span class="ident">registry</span>);
-    <span class="macro">assert_eq!</span>(<span class="ident">wabt</span>.<span class="ident">package</span>, <span class="string">&quot;wasmer/wabt&quot;</span>);
-    <span class="macro">assert_eq!</span>(<span class="ident">wabt</span>.<span class="ident">version</span>, <span class="string">&quot;1.0.29&quot;</span>);
+    <span class="macro">assert_eq!</span>(wabt.registry, registry);
+    <span class="macro">assert_eq!</span>(wabt.package, <span class="string">&quot;wasmer/wabt&quot;</span>);
+    <span class="macro">assert_eq!</span>(wabt.version, <span class="string">&quot;1.0.29&quot;</span>);
     <span class="macro">assert_eq!</span>(
-        <span class="ident">wabt</span>.<span class="ident">commands</span>,
-        <span class="string">&quot;wat2wasm, wast2json, wasm2wat, wasm-interp, wasm-validate, wasm-strip&quot;</span>
-    );
+        wabt.commands,
+        <span class="string">&quot;wat2wasm, wast2json, wasm2wat, wasm-interp, wasm-validate, wasm-strip&quot;
+    </span>);
     <span class="macro">assert_eq!</span>(
-        <span class="ident">wabt</span>.<span class="ident">url</span>,
-        <span class="string">&quot;https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz&quot;</span>.<span class="ident">to_string</span>()
+        wabt.url,
+        <span class="string">&quot;https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz&quot;</span>.to_string()
     );
 
-    <span class="kw">let</span> <span class="ident">fake_wasmer_dir</span> <span class="op">=</span> <span class="ident">tempfile::TempDir::new</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">fake_wasmer_dir</span>.<span class="ident">path</span>();
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">install_package</span>(<span class="ident">wasmer_dir</span>, <span class="kw-2">&amp;</span><span class="ident">url::Url::parse</span>(<span class="kw-2">&amp;</span><span class="ident">wabt</span>.<span class="ident">url</span>).<span class="ident">unwrap</span>()).<span class="ident">unwrap</span>();
+    <span class="kw">let </span>fake_wasmer_dir = tempfile::TempDir::new().unwrap();
+    <span class="kw">let </span>wasmer_dir = fake_wasmer_dir.path();
+    <span class="kw">let </span>path = install_package(wasmer_dir, <span class="kw-2">&amp;</span>url::Url::parse(<span class="kw-2">&amp;</span>wabt.url).unwrap()).unwrap();
 
     <span class="macro">println!</span>(<span class="string">&quot;package installed: {path:?}&quot;</span>);
 
     <span class="macro">assert_eq!</span>(
-        <span class="ident">path</span>,
-        <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>).<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}@1.0.29&quot;</span>, <span class="ident">Package::hash_url</span>(<span class="kw-2">&amp;</span><span class="ident">wabt</span>.<span class="ident">url</span>)))
+        path,
+        get_checkouts_dir(wasmer_dir).join(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}@1.0.29&quot;</span>, Package::hash_url(<span class="kw-2">&amp;</span>wabt.url)))
     );
 
-    <span class="kw">let</span> <span class="ident">all_installed_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>);
+    <span class="kw">let </span>all_installed_packages = get_all_local_packages(wasmer_dir);
 
-    <span class="kw">let</span> <span class="ident">is_installed</span> <span class="op">=</span> <span class="ident">all_installed_packages</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">any</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">name</span> <span class="op">==</span> <span class="string">&quot;wasmer/wabt&quot;</span> <span class="op">&amp;&amp;</span> <span class="ident">p</span>.<span class="ident">version</span> <span class="op">==</span> <span class="string">&quot;1.0.29&quot;</span>);
+    <span class="kw">let </span>is_installed = all_installed_packages
+        .iter()
+        .any(|p| p.name == <span class="string">&quot;wasmer/wabt&quot; </span>&amp;&amp; p.version == <span class="string">&quot;1.0.29&quot;</span>);
 
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">is_installed</span> {
-        <span class="kw">let</span> <span class="ident">panic_str</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>)
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{} {} {}&quot;</span>, <span class="ident">p</span>.<span class="ident">registry</span>, <span class="ident">p</span>.<span class="ident">name</span>, <span class="ident">p</span>.<span class="ident">version</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">join</span>(<span class="string">&quot;\r\n&quot;</span>);
+    <span class="kw">if </span>!is_installed {
+        <span class="kw">let </span>panic_str = get_all_local_packages(wasmer_dir)
+            .iter()
+            .map(|p| <span class="macro">format!</span>(<span class="string">&quot;{} {} {}&quot;</span>, p.registry, p.name, p.version))
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(<span class="string">&quot;\r\n&quot;</span>);
         <span class="macro">panic!</span>(<span class="string">&quot;get all local packages: failed to install:\r\n{panic_str}&quot;</span>);
     }
 
     <span class="macro">println!</span>(<span class="string">&quot;ok, done&quot;</span>);
 }
 
-<span class="doccomment">/// A library that exposes bindings to a WAPM package.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Bindings</span> {
-    <span class="doccomment">/// A unique ID specifying this set of bindings.</span>
-    <span class="kw">pub</span> <span class="ident">id</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The URL which can be used to download the files that were generated</span>
-    <span class="doccomment">/// (typically as a `*.tar.gz` file).</span>
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The programming language these bindings are written in.</span>
-    <span class="kw">pub</span> <span class="ident">language</span>: <span class="ident">ProgrammingLanguage</span>,
-    <span class="doccomment">/// The generator used to generate these bindings.</span>
-    <span class="kw">pub</span> <span class="ident">generator</span>: <span class="ident">BindingsGenerator</span>,
+<span class="doccomment">/// A library that exposes bindings to a WAPM package.
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Bindings {
+    <span class="doccomment">/// A unique ID specifying this set of bindings.
+    </span><span class="kw">pub </span>id: String,
+    <span class="doccomment">/// The URL which can be used to download the files that were generated
+    /// (typically as a `*.tar.gz` file).
+    </span><span class="kw">pub </span>url: String,
+    <span class="doccomment">/// The programming language these bindings are written in.
+    </span><span class="kw">pub </span>language: ProgrammingLanguage,
+    <span class="doccomment">/// The generator used to generate these bindings.
+    </span><span class="kw">pub </span>generator: BindingsGenerator,
 }
 
-<span class="doccomment">/// The generator used to create [`Bindings`].</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BindingsGenerator</span> {
-    <span class="doccomment">/// A unique ID specifying this generator.</span>
-    <span class="kw">pub</span> <span class="ident">id</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The generator package&#39;s name (e.g. `wasmer/wasmer-pack`).</span>
-    <span class="kw">pub</span> <span class="ident">package_name</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The exact package version.</span>
-    <span class="kw">pub</span> <span class="ident">version</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// The name of the command that was used for generating bindings.</span>
-    <span class="kw">pub</span> <span class="ident">command</span>: <span class="ident">String</span>,
+<span class="doccomment">/// The generator used to create [`Bindings`].
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>BindingsGenerator {
+    <span class="doccomment">/// A unique ID specifying this generator.
+    </span><span class="kw">pub </span>id: String,
+    <span class="doccomment">/// The generator package&#39;s name (e.g. `wasmer/wasmer-pack`).
+    </span><span class="kw">pub </span>package_name: String,
+    <span class="doccomment">/// The exact package version.
+    </span><span class="kw">pub </span>version: String,
+    <span class="doccomment">/// The name of the command that was used for generating bindings.
+    </span><span class="kw">pub </span>command: String,
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">BindingsGenerator</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">let</span> <span class="ident">BindingsGenerator</span> {
-            <span class="ident">package_name</span>,
-            <span class="ident">version</span>,
-            <span class="ident">command</span>,
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>BindingsGenerator {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="kw">let </span>BindingsGenerator {
+            package_name,
+            version,
+            command,
             ..
-        } <span class="op">=</span> <span class="self">self</span>;
+        } = <span class="self">self</span>;
 
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{package_name}@{version}:{command}&quot;</span>)<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(f, <span class="string">&quot;{package_name}@{version}:{command}&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// List all bindings associated with a particular package.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// If a version number isn&#39;t provided, this will default to the most recently</span>
-<span class="doccomment">/// published version.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">list_bindings</span>(
-    <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Bindings</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::queries</span>::{
-        <span class="ident">get_bindings_query</span>::{<span class="ident">ResponseData</span>, <span class="ident">Variables</span>},
-        <span class="ident">GetBindingsQuery</span>,
+<span class="doccomment">/// List all bindings associated with a particular package.
+///
+/// If a version number isn&#39;t provided, this will default to the most recently
+/// published version.
+</span><span class="kw">pub fn </span>list_bindings(
+    registry: <span class="kw-2">&amp;</span>str,
+    name: <span class="kw-2">&amp;</span>str,
+    version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bindings&gt;, anyhow::Error&gt; {
+    <span class="kw">use </span><span class="kw">crate</span>::graphql::queries::{
+        get_bindings_query::{ResponseData, Variables},
+        GetBindingsQuery,
     };
 
-    <span class="kw">let</span> <span class="ident">variables</span> <span class="op">=</span> <span class="ident">Variables</span> {
-        <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-        <span class="ident">version</span>: <span class="ident">version</span>.<span class="ident">map</span>(<span class="ident">String::from</span>),
+    <span class="kw">let </span>variables = Variables {
+        name: name.to_string(),
+        version: version.map(String::from),
     };
 
-    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">GetBindingsQuery::build_query</span>(<span class="ident">variables</span>);
-    <span class="kw">let</span> <span class="ident">response</span>: <span class="ident">ResponseData</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>(<span class="ident">registry</span>, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>q = GetBindingsQuery::build_query(variables);
+    <span class="kw">let </span>response: ResponseData = <span class="kw">crate</span>::graphql::execute_query(registry, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">package_version</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">package_version</span>.<span class="ident">context</span>(<span class="string">&quot;Package not found&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>package_version = response.package_version.context(<span class="string">&quot;Package not found&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bindings_packages</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>bindings_packages = Vec::new();
 
-    <span class="kw">for</span> <span class="ident">b</span> <span class="kw">in</span> <span class="ident">package_version</span>.<span class="ident">bindings</span>.<span class="ident">into_iter</span>().<span class="ident">flatten</span>() {
-        <span class="kw">let</span> <span class="ident">pkg</span> <span class="op">=</span> <span class="ident">Bindings</span> {
-            <span class="ident">id</span>: <span class="ident">b</span>.<span class="ident">id</span>,
-            <span class="ident">url</span>: <span class="ident">b</span>.<span class="ident">url</span>,
-            <span class="ident">language</span>: <span class="ident">b</span>.<span class="ident">language</span>,
-            <span class="ident">generator</span>: <span class="ident">BindingsGenerator</span> {
-                <span class="ident">id</span>: <span class="ident">b</span>.<span class="ident">generator</span>.<span class="ident">package_version</span>.<span class="ident">id</span>,
-                <span class="ident">package_name</span>: <span class="ident">b</span>.<span class="ident">generator</span>.<span class="ident">package_version</span>.<span class="ident">package</span>.<span class="ident">name</span>,
-                <span class="ident">version</span>: <span class="ident">b</span>.<span class="ident">generator</span>.<span class="ident">package_version</span>.<span class="ident">version</span>,
-                <span class="ident">command</span>: <span class="ident">b</span>.<span class="ident">generator</span>.<span class="ident">command_name</span>,
+    <span class="kw">for </span>b <span class="kw">in </span>package_version.bindings.into_iter().flatten() {
+        <span class="kw">let </span>pkg = Bindings {
+            id: b.id,
+            url: b.url,
+            language: b.language,
+            generator: BindingsGenerator {
+                id: b.generator.package_version.id,
+                package_name: b.generator.package_version.package.name,
+                version: b.generator.package_version.version,
+                command: b.generator.command_name,
             },
         };
-        <span class="ident">bindings_packages</span>.<span class="ident">push</span>(<span class="ident">pkg</span>);
+        bindings_packages.push(pkg);
     }
 
-    <span class="prelude-val">Ok</span>(<span class="ident">bindings_packages</span>)
+    <span class="prelude-val">Ok</span>(bindings_packages)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

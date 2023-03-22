@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/probestack.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>probestack.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/probestack.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>probestack.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -62,69 +62,69 @@
 <span id="62">62</span>
 <span id="63">63</span>
 <span id="64">64</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! This section defines the `PROBESTACK` intrinsic which is used in the</span>
-<span class="doccomment">//! implementation of &quot;stack probes&quot; on certain platforms.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The purpose of a stack probe is to provide a static guarantee that if a</span>
-<span class="doccomment">//! thread has a guard page then a stack overflow is guaranteed to hit that</span>
-<span class="doccomment">//! guard page. If a function did not have a stack probe then there&#39;s a risk of</span>
-<span class="doccomment">//! having a stack frame *larger* than the guard page, so a function call could</span>
-<span class="doccomment">//! skip over the guard page entirely and then later hit maybe the heap or</span>
-<span class="doccomment">//! another thread, possibly leading to security vulnerabilities such as [The</span>
-<span class="doccomment">//! Stack Clash], for example.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! [The Stack Clash]: https://blog.qualys.com/securitylabs/2017/06/19/the-stack-clash</span>
+</span><span class="doccomment">//! This section defines the `PROBESTACK` intrinsic which is used in the
+//! implementation of &quot;stack probes&quot; on certain platforms.
+//!
+//! The purpose of a stack probe is to provide a static guarantee that if a
+//! thread has a guard page then a stack overflow is guaranteed to hit that
+//! guard page. If a function did not have a stack probe then there&#39;s a risk of
+//! having a stack frame *larger* than the guard page, so a function call could
+//! skip over the guard page entirely and then later hit maybe the heap or
+//! another thread, possibly leading to security vulnerabilities such as [The
+//! Stack Clash], for example.
+//!
+//! [The Stack Clash]: https://blog.qualys.com/securitylabs/2017/06/19/the-stack-clash
 
-<span class="comment">// A declaration for the stack probe function in Rust&#39;s standard library, for</span>
-<span class="comment">// catching callstack overflow.</span>
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
-            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>,
-            <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;msvc&quot;</span>,
-            <span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>
-            ))]</span> {
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__chkstk</span>();
+</span><span class="comment">// A declaration for the stack probe function in Rust&#39;s standard library, for
+// catching callstack overflow.
+</span><span class="macro">cfg_if::cfg_if! </span>{
+    <span class="kw">if </span><span class="attribute">#[cfg(all(
+            target_os = <span class="string">&quot;windows&quot;</span>,
+            target_env = <span class="string">&quot;msvc&quot;</span>,
+            target_pointer_width = <span class="string">&quot;64&quot;
+            </span>))] </span>{
+        <span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+            <span class="kw">pub fn </span>__chkstk();
         }
-        <span class="doccomment">/// The probestack for 64bit Windows when compiled with MSVC (note the double underscore)</span>
-        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">__chkstk</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
-            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>,
-            <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;msvc&quot;</span>,
-            <span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;32&quot;</span>
-            ))]</span> {
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_chkstk</span>();
+        <span class="doccomment">/// The probestack for 64bit Windows when compiled with MSVC (note the double underscore)
+        </span><span class="kw">pub const </span>PROBESTACK: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = __chkstk;
+    } <span class="kw">else if </span><span class="attribute">#[cfg(all(
+            target_os = <span class="string">&quot;windows&quot;</span>,
+            target_env = <span class="string">&quot;msvc&quot;</span>,
+            target_pointer_width = <span class="string">&quot;32&quot;
+            </span>))] </span>{
+        <span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+            <span class="kw">pub fn </span>_chkstk();
         }
-        <span class="doccomment">/// The probestack for 32bit Windows when compiled with MSVC (note the singular underscore)</span>
-        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">_chkstk</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>, <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;gnu&quot;</span>))]</span> {
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="comment">// ___chkstk (note the triple underscore) is implemented in compiler-builtins/src/x86_64.rs</span>
-            <span class="comment">// by the Rust compiler for the MinGW target</span>
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>, <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;gnu&quot;</span>))]</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___chkstk</span>();
+        <span class="doccomment">/// The probestack for 32bit Windows when compiled with MSVC (note the singular underscore)
+        </span><span class="kw">pub const </span>PROBESTACK: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = _chkstk;
+    } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;windows&quot;</span>, target_env = <span class="string">&quot;gnu&quot;</span>))] </span>{
+        <span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+            <span class="comment">// ___chkstk (note the triple underscore) is implemented in compiler-builtins/src/x86_64.rs
+            // by the Rust compiler for the MinGW target
+            </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;windows&quot;</span>, target_env = <span class="string">&quot;gnu&quot;</span>))]
+            </span><span class="kw">pub fn </span>___chkstk();
         }
-        <span class="doccomment">/// The probestack for Windows when compiled with GNU</span>
-        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">___chkstk</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>)))]</span> {
-        <span class="comment">// As per</span>
-        <span class="comment">// https://github.com/rust-lang/compiler-builtins/blob/cae3e6ea23739166504f9f9fb50ec070097979d4/src/probestack.rs#L39,</span>
-        <span class="comment">// LLVM only has stack-probe support on x86-64 and x86. Thus, on any other CPU</span>
-        <span class="comment">// architecture, we simply use an empty stack-probe function.</span>
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">empty_probestack</span>() {}
-        <span class="doccomment">/// A default probestack for other architectures</span>
-        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">empty_probestack</span>;
-    } <span class="kw">else</span> {
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__rust_probestack</span>();
+        <span class="doccomment">/// The probestack for Windows when compiled with GNU
+        </span><span class="kw">pub const </span>PROBESTACK: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = ___chkstk;
+    } <span class="kw">else if </span><span class="attribute">#[cfg(not(any(target_arch = <span class="string">&quot;x86_64&quot;</span>, target_arch = <span class="string">&quot;x86&quot;</span>)))] </span>{
+        <span class="comment">// As per
+        // https://github.com/rust-lang/compiler-builtins/blob/cae3e6ea23739166504f9f9fb50ec070097979d4/src/probestack.rs#L39,
+        // LLVM only has stack-probe support on x86-64 and x86. Thus, on any other CPU
+        // architecture, we simply use an empty stack-probe function.
+        </span><span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>empty_probestack() {}
+        <span class="doccomment">/// A default probestack for other architectures
+        </span><span class="kw">pub const </span>PROBESTACK: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = empty_probestack;
+    } <span class="kw">else </span>{
+        <span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+            <span class="kw">pub fn </span>__rust_probestack();
         }
-        <span class="doccomment">/// The probestack based on the Rust probestack</span>
-        <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">__rust_probestack</span>;
+        <span class="doccomment">/// The probestack based on the Rust probestack
+        </span><span class="kw">pub static </span>PROBESTACK: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = __rust_probestack;
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

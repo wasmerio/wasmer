@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/function.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/function.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -137,144 +137,144 @@
 <span id="137">137</span>
 <span id="138">138</span>
 <span id="139">139</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly</span>
-<span class="doccomment">//! module (`CompiledFunction`).</span>
+</span><span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly
+//! module (`CompiledFunction`).
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::trap::TrapInformation</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">CompiledFunctionUnwindInfo</span>, <span class="ident">FunctionAddressMap</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">CustomSection</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>,
+</span><span class="kw">use </span><span class="kw">super</span>::trap::TrapInformation;
+<span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
+<span class="kw">use crate</span>::{CompiledFunctionUnwindInfo, FunctionAddressMap};
+<span class="kw">use crate</span>::{
+    CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
 };
-<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="doccomment">/// The frame info for a Compiled function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This structure is only used for reconstructing</span>
-<span class="doccomment">/// the frame information after a `Trap`.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompiledFunctionFrameInfo</span> {
-    <span class="doccomment">/// The traps (in the function body).</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Code offsets of the traps MUST be in ascending order.</span>
-    <span class="kw">pub</span> <span class="ident">traps</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TrapInformation</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The frame info for a Compiled function.
+///
+/// This structure is only used for reconstructing
+/// the frame information after a `Trap`.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
+</span><span class="kw">pub struct </span>CompiledFunctionFrameInfo {
+    <span class="doccomment">/// The traps (in the function body).
+    ///
+    /// Code offsets of the traps MUST be in ascending order.
+    </span><span class="kw">pub </span>traps: Vec&lt;TrapInformation&gt;,
 
-    <span class="doccomment">/// The address map.</span>
-    <span class="kw">pub</span> <span class="ident">address_map</span>: <span class="ident">FunctionAddressMap</span>,
+    <span class="doccomment">/// The address map.
+    </span><span class="kw">pub </span>address_map: FunctionAddressMap,
 }
 
-<span class="doccomment">/// The function body.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionBody</span> {
-    <span class="doccomment">/// The function body bytes.</span>
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">with</span> <span class="op">=</span> <span class="string">&quot;serde_bytes&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The function body.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>FunctionBody {
+    <span class="doccomment">/// The function body bytes.
+    </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(with = <span class="string">&quot;serde_bytes&quot;</span>))]
+    </span><span class="kw">pub </span>body: Vec&lt;u8&gt;,
 
-    <span class="doccomment">/// The function unwind info</span>
-    <span class="kw">pub</span> <span class="ident">unwind_info</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CompiledFunctionUnwindInfo</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The function unwind info
+    </span><span class="kw">pub </span>unwind_info: <span class="prelude-ty">Option</span>&lt;CompiledFunctionUnwindInfo&gt;,
 }
 
-<span class="doccomment">/// The result of compiling a WebAssembly function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This structure only have the compiled information data</span>
-<span class="doccomment">/// (function bytecode body, relocations, traps, jump tables</span>
-<span class="doccomment">/// and unwind information).</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompiledFunction</span> {
-    <span class="doccomment">/// The function body.</span>
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">FunctionBody</span>,
+<span class="doccomment">/// The result of compiling a WebAssembly function.
+///
+/// This structure only have the compiled information data
+/// (function bytecode body, relocations, traps, jump tables
+/// and unwind information).
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>CompiledFunction {
+    <span class="doccomment">/// The function body.
+    </span><span class="kw">pub </span>body: FunctionBody,
 
-    <span class="doccomment">/// The relocations (in the body)</span>
-    <span class="kw">pub</span> <span class="ident">relocations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The relocations (in the body)
+    </span><span class="kw">pub </span>relocations: Vec&lt;Relocation&gt;,
 
-    <span class="doccomment">/// The frame information.</span>
-    <span class="kw">pub</span> <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span>,
+    <span class="doccomment">/// The frame information.
+    </span><span class="kw">pub </span>frame_info: CompiledFunctionFrameInfo,
 }
 
-<span class="doccomment">/// The compiled functions map (index in the Wasm -&gt; function)</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Functions</span> <span class="op">=</span> <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunction</span><span class="op">&gt;</span>;
+<span class="doccomment">/// The compiled functions map (index in the Wasm -&gt; function)
+</span><span class="kw">pub type </span>Functions = PrimaryMap&lt;LocalFunctionIndex, CompiledFunction&gt;;
 
-<span class="doccomment">/// The custom sections for a Compilation.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CustomSections</span> <span class="op">=</span> <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">CustomSection</span><span class="op">&gt;</span>;
+<span class="doccomment">/// The custom sections for a Compilation.
+</span><span class="kw">pub type </span>CustomSections = PrimaryMap&lt;SectionIndex, CustomSection&gt;;
 
-<span class="doccomment">/// The DWARF information for this Compilation.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It is used for retrieving the unwind information once an exception</span>
-<span class="doccomment">/// happens.</span>
-<span class="doccomment">/// In the future this structure may also hold other information useful</span>
-<span class="doccomment">/// for debugging.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Dwarf</span> {
-    <span class="doccomment">/// The section index in the [`Compilation`] that corresponds to the exception frames.</span>
-    <span class="doccomment">/// [Learn</span>
-    <span class="doccomment">/// more](https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html).</span>
-    <span class="kw">pub</span> <span class="ident">eh_frame</span>: <span class="ident">SectionIndex</span>,
+<span class="doccomment">/// The DWARF information for this Compilation.
+///
+/// It is used for retrieving the unwind information once an exception
+/// happens.
+/// In the future this structure may also hold other information useful
+/// for debugging.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>Dwarf {
+    <span class="doccomment">/// The section index in the [`Compilation`] that corresponds to the exception frames.
+    /// [Learn
+    /// more](https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html).
+    </span><span class="kw">pub </span>eh_frame: SectionIndex,
 }
 
-<span class="kw">impl</span> <span class="ident">Dwarf</span> {
-    <span class="doccomment">/// Creates a `Dwarf` struct with the corresponding indices for its sections</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">eh_frame</span>: <span class="ident">SectionIndex</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">eh_frame</span> }
+<span class="kw">impl </span>Dwarf {
+    <span class="doccomment">/// Creates a `Dwarf` struct with the corresponding indices for its sections
+    </span><span class="kw">pub fn </span>new(eh_frame: SectionIndex) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ eh_frame }
     }
 }
 
-<span class="doccomment">/// The result of compiling a WebAssembly module&#39;s functions.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Compilation</span> {
-    <span class="doccomment">/// Compiled code for the function bodies.</span>
-    <span class="kw">pub</span> <span class="ident">functions</span>: <span class="ident">Functions</span>,
+<span class="doccomment">/// The result of compiling a WebAssembly module&#39;s functions.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Compilation {
+    <span class="doccomment">/// Compiled code for the function bodies.
+    </span><span class="kw">pub </span>functions: Functions,
 
-    <span class="doccomment">/// Custom sections for the module.</span>
-    <span class="doccomment">/// It will hold the data, for example, for constants used in a</span>
-    <span class="doccomment">/// function, global variables, rodata_64, hot/cold function partitioning, ...</span>
-    <span class="kw">pub</span> <span class="ident">custom_sections</span>: <span class="ident">CustomSections</span>,
+    <span class="doccomment">/// Custom sections for the module.
+    /// It will hold the data, for example, for constants used in a
+    /// function, global variables, rodata_64, hot/cold function partitioning, ...
+    </span><span class="kw">pub </span>custom_sections: CustomSections,
 
-    <span class="doccomment">/// Trampolines to call a function defined locally in the wasm via a</span>
-    <span class="doccomment">/// provided `Vec` of values.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This allows us to call easily Wasm functions, such as:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// let func = instance.exports.get_function(&quot;my_func&quot;);</span>
-    <span class="doccomment">/// func.call(&amp;[Value::I32(1)]);</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="ident">function_call_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Trampolines to call a function defined locally in the wasm via a
+    /// provided `Vec` of values.
+    ///
+    /// This allows us to call easily Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// let func = instance.exports.get_function(&quot;my_func&quot;);
+    /// func.call(&amp;[Value::I32(1)]);
+    /// ```
+    </span><span class="kw">pub </span>function_call_trampolines: PrimaryMap&lt;SignatureIndex, FunctionBody&gt;,
 
-    <span class="doccomment">/// Trampolines to call a dynamic function defined in</span>
-    <span class="doccomment">/// a host, from a Wasm module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This allows us to create dynamic Wasm functions, such as:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// fn my_func(values: &amp;[Val]) -&gt; Result&lt;Vec&lt;Val&gt;, RuntimeError&gt; {</span>
-    <span class="doccomment">///     // do something</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);</span>
-    <span class="doccomment">/// let imports = imports!{</span>
-    <span class="doccomment">///     &quot;namespace&quot; =&gt; {</span>
-    <span class="doccomment">///         &quot;my_func&quot; =&gt; Function::new(&amp;store, my_func_type, my_func),</span>
-    <span class="doccomment">///     }</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note: Dynamic function trampolines are only compiled for imported function types.</span>
-    <span class="kw">pub</span> <span class="ident">dynamic_function_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Trampolines to call a dynamic function defined in
+    /// a host, from a Wasm module.
+    ///
+    /// This allows us to create dynamic Wasm functions, such as:
+    ///
+    /// ```ignore
+    /// fn my_func(values: &amp;[Val]) -&gt; Result&lt;Vec&lt;Val&gt;, RuntimeError&gt; {
+    ///     // do something
+    /// }
+    ///
+    /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
+    /// let imports = imports!{
+    ///     &quot;namespace&quot; =&gt; {
+    ///         &quot;my_func&quot; =&gt; Function::new(&amp;store, my_func_type, my_func),
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Note: Dynamic function trampolines are only compiled for imported function types.
+    </span><span class="kw">pub </span>dynamic_function_trampolines: PrimaryMap&lt;FunctionIndex, FunctionBody&gt;,
 
-    <span class="doccomment">/// Section ids corresponding to the Dwarf debug info</span>
-    <span class="kw">pub</span> <span class="ident">debug</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Section ids corresponding to the Dwarf debug info
+    </span><span class="kw">pub </span>debug: <span class="prelude-ty">Option</span>&lt;Dwarf&gt;,
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/entity/packed_option.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>packed_option.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/entity/packed_option.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>packed_option.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -173,180 +173,180 @@
 <span id="173">173</span>
 <span id="174">174</span>
 <span id="175">175</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Compact representation of `Option&lt;T&gt;` for types with a reserved value.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Small types are often used in tables and linked lists where an</span>
-<span class="doccomment">//! `Option&lt;T&gt;` is needed. Unfortunately, that would double the size of the tables</span>
-<span class="doccomment">//! because `Option&lt;T&gt;` is twice as big as `T`.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! This module provides a `PackedOption&lt;T&gt;` for types that have a reserved value that can be used</span>
-<span class="doccomment">//! to represent `None`.</span>
+</span><span class="doccomment">//! Compact representation of `Option&lt;T&gt;` for types with a reserved value.
+//!
+//! Small types are often used in tables and linked lists where an
+//! `Option&lt;T&gt;` is needed. Unfortunately, that would double the size of the tables
+//! because `Option&lt;T&gt;` is twice as big as `T`.
+//!
+//! This module provides a `PackedOption&lt;T&gt;` for types that have a reserved value that can be used
+//! to represent `None`.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::mem</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::mem;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="doccomment">/// Types that have a reserved value which can&#39;t be created any other way.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ReservedValue</span> {
-    <span class="doccomment">/// Create an instance of the reserved value.</span>
-    <span class="kw">fn</span> <span class="ident">reserved_value</span>() -&gt; <span class="self">Self</span>;
-    <span class="doccomment">/// Checks whether value is the reserved one.</span>
-    <span class="kw">fn</span> <span class="ident">is_reserved_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span>;
+<span class="doccomment">/// Types that have a reserved value which can&#39;t be created any other way.
+</span><span class="kw">pub trait </span>ReservedValue {
+    <span class="doccomment">/// Create an instance of the reserved value.
+    </span><span class="kw">fn </span>reserved_value() -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Checks whether value is the reserved one.
+    </span><span class="kw">fn </span>is_reserved_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 }
 
-<span class="doccomment">/// Packed representation of `Option&lt;T&gt;`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ReservedValue</span><span class="op">&gt;</span>(<span class="ident">T</span>);
+<span class="doccomment">/// Packed representation of `Option&lt;T&gt;`.
+</span><span class="attribute">#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>PackedOption&lt;T: ReservedValue&gt;(T);
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ReservedValue</span><span class="op">&gt;</span> <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Returns `true` if the packed option is a `None` value.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_none</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">is_reserved_value</span>()
+<span class="kw">impl</span>&lt;T: ReservedValue&gt; PackedOption&lt;T&gt; {
+    <span class="doccomment">/// Returns `true` if the packed option is a `None` value.
+    </span><span class="kw">pub fn </span>is_none(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.<span class="number">0</span>.is_reserved_value()
     }
 
-    <span class="doccomment">/// Returns `true` if the packed option is a `Some` value.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="op">!</span><span class="self">self</span>.<span class="number">0</span>.<span class="ident">is_reserved_value</span>()
+    <span class="doccomment">/// Returns `true` if the packed option is a `Some` value.
+    </span><span class="kw">pub fn </span>is_some(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        !<span class="self">self</span>.<span class="number">0</span>.is_reserved_value()
     }
 
-    <span class="doccomment">/// Expand the packed option into a normal `Option`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">expand</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_none</span>() {
-            <span class="prelude-val">None</span>
-        } <span class="kw">else</span> {
+    <span class="doccomment">/// Expand the packed option into a normal `Option`.
+    </span><span class="kw">pub fn </span>expand(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
+        <span class="kw">if </span><span class="self">self</span>.is_none() {
+            <span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
             <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="number">0</span>)
         }
     }
 
-    <span class="doccomment">/// Maps a `PackedOption&lt;T&gt;` to `Option&lt;U&gt;` by applying a function to a contained value.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">map</span><span class="op">&lt;</span><span class="ident">U</span>, <span class="ident">F</span><span class="op">&gt;</span>(<span class="self">self</span>, <span class="ident">f</span>: <span class="ident">F</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">U</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="ident">T</span>) -&gt; <span class="ident">U</span>,
+    <span class="doccomment">/// Maps a `PackedOption&lt;T&gt;` to `Option&lt;U&gt;` by applying a function to a contained value.
+    </span><span class="kw">pub fn </span>map&lt;U, F&gt;(<span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Option</span>&lt;U&gt;
+    <span class="kw">where
+        </span>F: FnOnce(T) -&gt; U,
     {
-        <span class="self">self</span>.<span class="ident">expand</span>().<span class="ident">map</span>(<span class="ident">f</span>)
+        <span class="self">self</span>.expand().map(f)
     }
 
-    <span class="doccomment">/// Unwrap a packed `Some` value or panic.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unwrap</span>(<span class="self">self</span>) -&gt; <span class="ident">T</span> {
-        <span class="self">self</span>.<span class="ident">expand</span>().<span class="ident">unwrap</span>()
+    <span class="doccomment">/// Unwrap a packed `Some` value or panic.
+    </span><span class="kw">pub fn </span>unwrap(<span class="self">self</span>) -&gt; T {
+        <span class="self">self</span>.expand().unwrap()
     }
 
-    <span class="doccomment">/// Unwrap a packed `Some` value or panic.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">expect</span>(<span class="self">self</span>, <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">T</span> {
-        <span class="self">self</span>.<span class="ident">expand</span>().<span class="ident">expect</span>(<span class="ident">msg</span>)
+    <span class="doccomment">/// Unwrap a packed `Some` value or panic.
+    </span><span class="kw">pub fn </span>expect(<span class="self">self</span>, msg: <span class="kw-2">&amp;</span>str) -&gt; T {
+        <span class="self">self</span>.expand().expect(msg)
     }
 
-    <span class="doccomment">/// Takes the value out of the packed option, leaving a `None` in its place.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">take</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="ident">mem::replace</span>(<span class="self">self</span>, <span class="prelude-val">None</span>.<span class="ident">into</span>()).<span class="ident">expand</span>()
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ReservedValue</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Create a default packed option representing `None`.</span>
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">T::reserved_value</span>())
+    <span class="doccomment">/// Takes the value out of the packed option, leaving a `None` in its place.
+    </span><span class="kw">pub fn </span>take(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
+        mem::replace(<span class="self">self</span>, <span class="prelude-val">None</span>.into()).expand()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ReservedValue</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Convert `t` into a packed `Some(x)`.</span>
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">t</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span> {
+<span class="kw">impl</span>&lt;T: ReservedValue&gt; Default <span class="kw">for </span>PackedOption&lt;T&gt; {
+    <span class="doccomment">/// Create a default packed option representing `None`.
+    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(T::reserved_value())
+    }
+}
+
+<span class="kw">impl</span>&lt;T: ReservedValue&gt; From&lt;T&gt; <span class="kw">for </span>PackedOption&lt;T&gt; {
+    <span class="doccomment">/// Convert `t` into a packed `Some(x)`.
+    </span><span class="kw">fn </span>from(t: T) -&gt; <span class="self">Self </span>{
         <span class="macro">debug_assert!</span>(
-            <span class="op">!</span><span class="ident">t</span>.<span class="ident">is_reserved_value</span>(),
-            <span class="string">&quot;Can&#39;t make a PackedOption from the reserved value.&quot;</span>
-        );
-        <span class="self">Self</span>(<span class="ident">t</span>)
+            !t.is_reserved_value(),
+            <span class="string">&quot;Can&#39;t make a PackedOption from the reserved value.&quot;
+        </span>);
+        <span class="self">Self</span>(t)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ReservedValue</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Convert an option into its packed equivalent.</span>
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">opt</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">opt</span> {
-            <span class="prelude-val">None</span> =&gt; <span class="ident"><span class="self">Self</span>::default</span>(),
-            <span class="prelude-val">Some</span>(<span class="ident">t</span>) =&gt; <span class="ident">t</span>.<span class="ident">into</span>(),
+<span class="kw">impl</span>&lt;T: ReservedValue&gt; From&lt;<span class="prelude-ty">Option</span>&lt;T&gt;&gt; <span class="kw">for </span>PackedOption&lt;T&gt; {
+    <span class="doccomment">/// Convert an option into its packed equivalent.
+    </span><span class="kw">fn </span>from(opt: <span class="prelude-ty">Option</span>&lt;T&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>opt {
+            <span class="prelude-val">None </span>=&gt; <span class="self">Self</span>::default(),
+            <span class="prelude-val">Some</span>(t) =&gt; t.into(),
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">ReservedValue</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">other</span>.<span class="ident">expand</span>()
+<span class="kw">impl</span>&lt;T: ReservedValue&gt; From&lt;PackedOption&lt;T&gt;&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;T&gt; {
+    <span class="kw">fn </span>from(other: PackedOption&lt;T&gt;) -&gt; <span class="self">Self </span>{
+        other.expand()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">ReservedValue</span> <span class="op">+</span> <span class="ident">fmt::Debug</span>,
+<span class="kw">impl</span>&lt;T&gt; fmt::Debug <span class="kw">for </span>PackedOption&lt;T&gt;
+<span class="kw">where
+    </span>T: ReservedValue + fmt::Debug,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_none</span>() {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;None&quot;</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Some({:?})&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">if </span><span class="self">self</span>.is_none() {
+            <span class="macro">write!</span>(f, <span class="string">&quot;None&quot;</span>)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;Some({:?})&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="comment">// Dummy entity class, with no Copy or Clone.</span>
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">NoC</span>(<span class="ident">u32</span>);
+    <span class="comment">// Dummy entity class, with no Copy or Clone.
+    </span><span class="attribute">#[derive(Debug, PartialEq, Eq)]
+    </span><span class="kw">struct </span>NoC(u32);
 
-    <span class="kw">impl</span> <span class="ident">ReservedValue</span> <span class="kw">for</span> <span class="ident">NoC</span> {
-        <span class="kw">fn</span> <span class="ident">reserved_value</span>() -&gt; <span class="self">Self</span> {
+    <span class="kw">impl </span>ReservedValue <span class="kw">for </span>NoC {
+        <span class="kw">fn </span>reserved_value() -&gt; <span class="self">Self </span>{
             <span class="self">Self</span>(<span class="number">13</span>)
         }
 
-        <span class="kw">fn</span> <span class="ident">is_reserved_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-            <span class="self">self</span>.<span class="number">0</span> <span class="op">==</span> <span class="number">13</span>
-        }
+        <span class="kw">fn </span>is_reserved_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+            <span class="self">self</span>.<span class="number">0 </span>== <span class="number">13
+        </span>}
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">moves</span>() {
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">NoC</span>(<span class="number">3</span>);
-        <span class="kw">let</span> <span class="ident">somex</span>: <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">NoC</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into</span>();
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">somex</span>.<span class="ident">is_none</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">somex</span>.<span class="ident">expand</span>(), <span class="prelude-val">Some</span>(<span class="ident">NoC</span>(<span class="number">3</span>)));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>moves() {
+        <span class="kw">let </span>x = NoC(<span class="number">3</span>);
+        <span class="kw">let </span>somex: PackedOption&lt;NoC&gt; = x.into();
+        <span class="macro">assert!</span>(!somex.is_none());
+        <span class="macro">assert_eq!</span>(somex.expand(), <span class="prelude-val">Some</span>(NoC(<span class="number">3</span>)));
 
-        <span class="kw">let</span> <span class="ident">none</span>: <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">NoC</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">None</span>.<span class="ident">into</span>();
-        <span class="macro">assert!</span>(<span class="ident">none</span>.<span class="ident">is_none</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">none</span>.<span class="ident">expand</span>(), <span class="prelude-val">None</span>);
+        <span class="kw">let </span>none: PackedOption&lt;NoC&gt; = <span class="prelude-val">None</span>.into();
+        <span class="macro">assert!</span>(none.is_none());
+        <span class="macro">assert_eq!</span>(none.expand(), <span class="prelude-val">None</span>);
     }
 
-    <span class="comment">// Dummy entity class, with Copy.</span>
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">Ent</span>(<span class="ident">u32</span>);
+    <span class="comment">// Dummy entity class, with Copy.
+    </span><span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    </span><span class="kw">struct </span>Ent(u32);
 
-    <span class="kw">impl</span> <span class="ident">ReservedValue</span> <span class="kw">for</span> <span class="ident">Ent</span> {
-        <span class="kw">fn</span> <span class="ident">reserved_value</span>() -&gt; <span class="self">Self</span> {
+    <span class="kw">impl </span>ReservedValue <span class="kw">for </span>Ent {
+        <span class="kw">fn </span>reserved_value() -&gt; <span class="self">Self </span>{
             <span class="self">Self</span>(<span class="number">13</span>)
         }
 
-        <span class="kw">fn</span> <span class="ident">is_reserved_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-            <span class="self">self</span>.<span class="number">0</span> <span class="op">==</span> <span class="number">13</span>
-        }
+        <span class="kw">fn </span>is_reserved_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+            <span class="self">self</span>.<span class="number">0 </span>== <span class="number">13
+        </span>}
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">copies</span>() {
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Ent</span>(<span class="number">2</span>);
-        <span class="kw">let</span> <span class="ident">some</span>: <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">Ent</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into</span>();
-        <span class="kw">let</span> <span class="ident">some2</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ent</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">some</span>.<span class="ident">expand</span>(), <span class="ident">some2</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">some</span>, <span class="ident">x</span>.<span class="ident">into</span>());
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>copies() {
+        <span class="kw">let </span>x = Ent(<span class="number">2</span>);
+        <span class="kw">let </span>some: PackedOption&lt;Ent&gt; = x.into();
+        <span class="kw">let </span>some2: <span class="prelude-ty">Option</span>&lt;Ent&gt; = x.into();
+        <span class="macro">assert_eq!</span>(some.expand(), some2);
+        <span class="macro">assert_eq!</span>(some, x.into());
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

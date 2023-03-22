@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/vmcontext.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>vmcontext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/vmcontext.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>vmcontext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -804,811 +804,811 @@
 <span id="804">804</span>
 <span id="805">805</span>
 <span id="806">806</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! This file declares `VMContext` and several related structs which contain</span>
-<span class="doccomment">//! fields that compiled wasm code accesses directly.</span>
+</span><span class="doccomment">//! This file declares `VMContext` and several related structs which contain
+//! fields that compiled wasm code accesses directly.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::global::VMGlobal</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance::Instance</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory::VMMemory</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::InternalStoreHandle</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::{<span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMFunctionBody</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMTable</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMFunction</span>};
-<span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
-<span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicPtr</span>, <span class="ident">Ordering</span>};
-<span class="kw">use</span> <span class="ident">std::u32</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::global::VMGlobal;
+<span class="kw">use </span><span class="kw">crate</span>::instance::Instance;
+<span class="kw">use </span><span class="kw">crate</span>::memory::VMMemory;
+<span class="kw">use </span><span class="kw">crate</span>::store::InternalStoreHandle;
+<span class="kw">use </span><span class="kw">crate</span>::trap::{Trap, TrapCode};
+<span class="kw">use </span><span class="kw">crate</span>::VMFunctionBody;
+<span class="kw">use </span><span class="kw">crate</span>::VMTable;
+<span class="kw">use crate</span>::{VMBuiltinFunctionIndex, VMFunction};
+<span class="kw">use </span>std::convert::TryFrom;
+<span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
+<span class="kw">use </span>std::sync::atomic::{AtomicPtr, Ordering};
+<span class="kw">use </span>std::u32;
+<span class="kw">use </span>wasmer_types::RawValue;
 
-<span class="doccomment">/// Union representing the first parameter passed when calling a function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It may either be a pointer to the [`VMContext`] if it&#39;s a Wasm function</span>
-<span class="doccomment">/// or a pointer to arbitrary data controlled by the host if it&#39;s a host function.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">VMFunctionContext</span> {
-    <span class="doccomment">/// Wasm functions take a pointer to [`VMContext`].</span>
-    <span class="kw">pub</span> <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="doccomment">/// Host functions can have custom environments.</span>
-    <span class="kw">pub</span> <span class="ident">host_env</span>: <span class="kw-2">*mut</span> <span class="ident">std::ffi::c_void</span>,
+<span class="doccomment">/// Union representing the first parameter passed when calling a function.
+///
+/// It may either be a pointer to the [`VMContext`] if it&#39;s a Wasm function
+/// or a pointer to arbitrary data controlled by the host if it&#39;s a host function.
+</span><span class="attribute">#[derive(Copy, Clone, Eq)]
+</span><span class="kw">pub union </span>VMFunctionContext {
+    <span class="doccomment">/// Wasm functions take a pointer to [`VMContext`].
+    </span><span class="kw">pub </span>vmctx: <span class="kw-2">*mut </span>VMContext,
+    <span class="doccomment">/// Host functions can have custom environments.
+    </span><span class="kw">pub </span>host_env: <span class="kw-2">*mut </span>std::ffi::c_void,
 }
 
-<span class="kw">impl</span> <span class="ident">VMFunctionContext</span> {
-    <span class="doccomment">/// Check whether the pointer stored is null or not.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_null</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">host_env</span>.<span class="ident">is_null</span>() }
+<span class="kw">impl </span>VMFunctionContext {
+    <span class="doccomment">/// Check whether the pointer stored is null or not.
+    </span><span class="kw">pub fn </span>is_null(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">unsafe </span>{ <span class="self">self</span>.host_env.is_null() }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">VMFunctionContext</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;VMFunctionContext&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;vmctx_or_hostenv&quot;</span>, <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">host_env</span> })
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>VMFunctionContext {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">&quot;VMFunctionContext&quot;</span>)
+            .field(<span class="string">&quot;vmctx_or_hostenv&quot;</span>, <span class="kw">unsafe </span>{ <span class="kw-2">&amp;</span><span class="self">self</span>.host_env })
+            .finish()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::cmp::PartialEq</span> <span class="kw">for</span> <span class="ident">VMFunctionContext</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rhs</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">host_env</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">==</span> <span class="ident">rhs</span>.<span class="ident">host_env</span> <span class="kw">as</span> <span class="ident">usize</span> }
+<span class="kw">impl </span>std::cmp::PartialEq <span class="kw">for </span>VMFunctionContext {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, rhs: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="kw">unsafe </span>{ <span class="self">self</span>.host_env <span class="kw">as </span>usize == rhs.host_env <span class="kw">as </span>usize }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::hash::Hash</span> <span class="kw">for</span> <span class="ident">VMFunctionContext</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">std::hash::Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
-        <span class="kw">unsafe</span> {
-            <span class="self">self</span>.<span class="ident">vmctx</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
+<span class="kw">impl </span>std::hash::Hash <span class="kw">for </span>VMFunctionContext {
+    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="kw">unsafe </span>{
+            <span class="self">self</span>.vmctx.hash(state);
         }
     }
 }
 
-<span class="doccomment">/// An imported function.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMFunctionImport</span> {
-    <span class="doccomment">/// A pointer to the imported function body.</span>
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
+<span class="doccomment">/// An imported function.
+</span><span class="attribute">#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMFunctionImport {
+    <span class="doccomment">/// A pointer to the imported function body.
+    </span><span class="kw">pub </span>body: <span class="kw-2">*const </span>VMFunctionBody,
 
-    <span class="doccomment">/// A pointer to the `VMContext` that owns the function or host env data.</span>
-    <span class="kw">pub</span> <span class="ident">environment</span>: <span class="ident">VMFunctionContext</span>,
+    <span class="doccomment">/// A pointer to the `VMContext` that owns the function or host env data.
+    </span><span class="kw">pub </span>environment: VMFunctionContext,
 
-    <span class="doccomment">/// Handle to the `VMFunction` in the context.</span>
-    <span class="kw">pub</span> <span class="ident">handle</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Handle to the `VMFunction` in the context.
+    </span><span class="kw">pub </span>handle: InternalStoreHandle&lt;VMFunction&gt;,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmfunction_import</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMFunctionImport</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::VMOffsets</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmfunction_import {
+    <span class="kw">use </span><span class="kw">super</span>::VMFunctionImport;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
+    <span class="kw">use </span>wasmer_types::VMOffsets;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmfunction_import_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmfunction_import_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMFunctionImport</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmfunction_import</span>())
+            size_of::&lt;VMFunctionImport&gt;(),
+            usize::from(offsets.size_of_vmfunction_import())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMFunctionImport</span>, <span class="ident">body</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmfunction_import_body</span>())
+            <span class="macro">offset_of!</span>(VMFunctionImport, body),
+            usize::from(offsets.vmfunction_import_body())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMFunctionImport</span>, <span class="ident">environment</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmfunction_import_vmctx</span>())
+            <span class="macro">offset_of!</span>(VMFunctionImport, environment),
+            usize::from(offsets.vmfunction_import_vmctx())
         );
     }
 }
 
-<span class="doccomment">/// The `VMDynamicFunctionContext` is the context that dynamic</span>
-<span class="doccomment">/// functions will receive when called (rather than `vmctx`).</span>
-<span class="doccomment">/// A dynamic function is a function for which we don&#39;t know the signature</span>
-<span class="doccomment">/// until runtime.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// As such, we need to expose the dynamic function `context`</span>
-<span class="doccomment">/// containing the relevant context for running the function indicated</span>
-<span class="doccomment">/// in `address`.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// The address of the inner dynamic function.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note: The function must be on the form of</span>
-    <span class="doccomment">/// `(*mut T, SignatureIndex, *mut i128)`.</span>
-    <span class="kw">pub</span> <span class="ident">address</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
+<span class="doccomment">/// The `VMDynamicFunctionContext` is the context that dynamic
+/// functions will receive when called (rather than `vmctx`).
+/// A dynamic function is a function for which we don&#39;t know the signature
+/// until runtime.
+///
+/// As such, we need to expose the dynamic function `context`
+/// containing the relevant context for running the function indicated
+/// in `address`.
+</span><span class="attribute">#[repr(C)]
+</span><span class="kw">pub struct </span>VMDynamicFunctionContext&lt;T&gt; {
+    <span class="doccomment">/// The address of the inner dynamic function.
+    ///
+    /// Note: The function must be on the form of
+    /// `(*mut T, SignatureIndex, *mut i128)`.
+    </span><span class="kw">pub </span>address: <span class="kw-2">*const </span>VMFunctionBody,
 
-    <span class="doccomment">/// The context that the inner dynamic function will receive.</span>
-    <span class="kw">pub</span> <span class="ident">ctx</span>: <span class="ident">T</span>,
+    <span class="doccomment">/// The context that the inner dynamic function will receive.
+    </span><span class="kw">pub </span>ctx: T,
 }
 
-<span class="comment">// The `ctx` itself must be `Send`, `address` can be passed between</span>
-<span class="comment">// threads because all usage is `unsafe` and synchronized.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
-<span class="comment">// The `ctx` itself must be `Sync`, `address` can be shared between</span>
-<span class="comment">// threads because all usage is `unsafe` and synchronized.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
+<span class="comment">// The `ctx` itself must be `Send`, `address` can be passed between
+// threads because all usage is `unsafe` and synchronized.
+</span><span class="kw">unsafe impl</span>&lt;T: Sized + Send + Sync&gt; Send <span class="kw">for </span>VMDynamicFunctionContext&lt;T&gt; {}
+<span class="comment">// The `ctx` itself must be `Sync`, `address` can be shared between
+// threads because all usage is `unsafe` and synchronized.
+</span><span class="kw">unsafe impl</span>&lt;T: Sized + Send + Sync&gt; Sync <span class="kw">for </span>VMDynamicFunctionContext&lt;T&gt; {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">address</span>: <span class="self">self</span>.<span class="ident">address</span>,
-            <span class="ident">ctx</span>: <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">clone</span>(),
+<span class="kw">impl</span>&lt;T: Sized + Clone + Send + Sync&gt; Clone <span class="kw">for </span>VMDynamicFunctionContext&lt;T&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            address: <span class="self">self</span>.address,
+            ctx: <span class="self">self</span>.ctx.clone(),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmdynamicfunction_import_context</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMDynamicFunctionContext</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmdynamicfunction_import_context {
+    <span class="kw">use </span><span class="kw">super</span>::VMDynamicFunctionContext;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmdynamicfunction_import_context_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmdynamicfunction_import_context_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmdynamicfunction_import_context</span>())
+            size_of::&lt;VMDynamicFunctionContext&lt;usize&gt;&gt;(),
+            usize::from(offsets.size_of_vmdynamicfunction_import_context())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">address</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmdynamicfunction_import_context_address</span>())
+            <span class="macro">offset_of!</span>(VMDynamicFunctionContext&lt;usize&gt;, address),
+            usize::from(offsets.vmdynamicfunction_import_context_address())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">ctx</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmdynamicfunction_import_context_ctx</span>())
-        );
-    }
-}
-
-<span class="doccomment">/// A function kind is a calling convention into and out of wasm code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">VMFunctionKind</span> {
-    <span class="doccomment">/// A static function has the native signature:</span>
-    <span class="doccomment">/// `extern &quot;C&quot; (vmctx, arg1, arg2...) -&gt; (result1, result2, ...)`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is the default for functions that are defined:</span>
-    <span class="doccomment">/// 1. In the Host, natively</span>
-    <span class="doccomment">/// 2. In the WebAssembly file</span>
-    <span class="ident">Static</span>,
-
-    <span class="doccomment">/// A dynamic function has the native signature:</span>
-    <span class="doccomment">/// `extern &quot;C&quot; (ctx, &amp;[Value]) -&gt; Vec&lt;Value&gt;`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is the default for functions that are defined:</span>
-    <span class="doccomment">/// 1. In the Host, dynamically</span>
-    <span class="ident">Dynamic</span>,
-}
-
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly table</span>
-<span class="doccomment">/// imported from another instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMTableImport</span> {
-    <span class="doccomment">/// A pointer to the imported table description.</span>
-    <span class="kw">pub</span> <span class="ident">definition</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-
-    <span class="doccomment">/// Handle to the `VMTable` in the context.</span>
-    <span class="kw">pub</span> <span class="ident">handle</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span>,
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmtable_import</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMTableImport</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmtable_import_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMTableImport</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmtable_import</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMTableImport</span>, <span class="ident">definition</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmtable_import_definition</span>())
+            <span class="macro">offset_of!</span>(VMDynamicFunctionContext&lt;usize&gt;, ctx),
+            usize::from(offsets.vmdynamicfunction_import_context_ctx())
         );
     }
 }
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear</span>
-<span class="doccomment">/// memory imported from another instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemoryImport</span> {
-    <span class="doccomment">/// A pointer to the imported memory description.</span>
-    <span class="kw">pub</span> <span class="ident">definition</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A function kind is a calling convention into and out of wasm code.
+</span><span class="attribute">#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
+</span><span class="kw">pub enum </span>VMFunctionKind {
+    <span class="doccomment">/// A static function has the native signature:
+    /// `extern &quot;C&quot; (vmctx, arg1, arg2...) -&gt; (result1, result2, ...)`.
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, natively
+    /// 2. In the WebAssembly file
+    </span>Static,
 
-    <span class="doccomment">/// A handle to the `Memory` that owns the memory description.</span>
-    <span class="kw">pub</span> <span class="ident">handle</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// A dynamic function has the native signature:
+    /// `extern &quot;C&quot; (ctx, &amp;[Value]) -&gt; Vec&lt;Value&gt;`.
+    ///
+    /// This is the default for functions that are defined:
+    /// 1. In the Host, dynamically
+    </span>Dynamic,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmmemory_import</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMMemoryImport</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly table
+/// imported from another instance.
+</span><span class="attribute">#[derive(Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMTableImport {
+    <span class="doccomment">/// A pointer to the imported table description.
+    </span><span class="kw">pub </span>definition: NonNull&lt;VMTableDefinition&gt;,
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmmemory_import_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="doccomment">/// Handle to the `VMTable` in the context.
+    </span><span class="kw">pub </span>handle: InternalStoreHandle&lt;VMTable&gt;,
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmtable_import {
+    <span class="kw">use </span><span class="kw">super</span>::VMTableImport;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmtable_import_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMMemoryImport</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmmemory_import</span>())
+            size_of::&lt;VMTableImport&gt;(),
+            usize::from(offsets.size_of_vmtable_import())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryImport</span>, <span class="ident">definition</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_import_definition</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryImport</span>, <span class="ident">handle</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_import_handle</span>())
+            <span class="macro">offset_of!</span>(VMTableImport, definition),
+            usize::from(offsets.vmtable_import_definition())
         );
     }
 }
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global</span>
-<span class="doccomment">/// variable imported from another instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMGlobalImport</span> {
-    <span class="doccomment">/// A pointer to the imported global variable description.</span>
-    <span class="kw">pub</span> <span class="ident">definition</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear
+/// memory imported from another instance.
+</span><span class="attribute">#[derive(Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMMemoryImport {
+    <span class="doccomment">/// A pointer to the imported memory description.
+    </span><span class="kw">pub </span>definition: NonNull&lt;VMMemoryDefinition&gt;,
 
-    <span class="doccomment">/// A handle to the `Global` that owns the global description.</span>
-    <span class="kw">pub</span> <span class="ident">handle</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// A handle to the `Memory` that owns the memory description.
+    </span><span class="kw">pub </span>handle: InternalStoreHandle&lt;VMMemory&gt;,
 }
 
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
-<span class="doccomment">/// is the user&#39;s responsibility to synchronize. Additionally, all operations</span>
-<span class="doccomment">/// on `from` are thread-safe through the use of a mutex in [`Global`].</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMGlobalImport</span> {}
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
-<span class="doccomment">/// is the user&#39;s responsibility to synchronize. And because it&#39;s `Clone`, there&#39;s</span>
-<span class="doccomment">/// really no difference between passing it by reference or by value as far as</span>
-<span class="doccomment">/// correctness in a multi-threaded context is concerned.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMGlobalImport</span> {}
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmmemory_import {
+    <span class="kw">use </span><span class="kw">super</span>::VMMemoryImport;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmglobal_import</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMGlobalImport</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmglobal_import_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmmemory_import_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalImport</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmglobal_import</span>())
+            size_of::&lt;VMMemoryImport&gt;(),
+            usize::from(offsets.size_of_vmmemory_import())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMGlobalImport</span>, <span class="ident">definition</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmglobal_import_definition</span>())
+            <span class="macro">offset_of!</span>(VMMemoryImport, definition),
+            usize::from(offsets.vmmemory_import_definition())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(VMMemoryImport, handle),
+            usize::from(offsets.vmmemory_import_handle())
         );
     }
 }
 
-<span class="doccomment">/// Do an unsynchronized, non-atomic `memory.copy` for the memory.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Returns a `Trap` error when the source or destination ranges are out of</span>
-<span class="doccomment">/// bounds.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// The memory is not copied atomically and is not synchronized: it&#39;s the</span>
-<span class="doccomment">/// caller&#39;s responsibility to synchronize.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_copy</span>(
-    <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">src</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="comment">// https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy</span>
-    <span class="kw">if</span> <span class="ident">src</span>
-        .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-        .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">n</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span>)
-        <span class="op">|</span><span class="op">|</span> <span class="ident">dst</span>
-            .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-            .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span>)
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global
+/// variable imported from another instance.
+</span><span class="attribute">#[derive(Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMGlobalImport {
+    <span class="doccomment">/// A pointer to the imported global variable description.
+    </span><span class="kw">pub </span>definition: NonNull&lt;VMGlobalDefinition&gt;,
+
+    <span class="doccomment">/// A handle to the `Global` that owns the global description.
+    </span><span class="kw">pub </span>handle: InternalStoreHandle&lt;VMGlobal&gt;,
+}
+
+<span class="doccomment">/// # Safety
+/// This data is safe to share between threads because it&#39;s plain data that
+/// is the user&#39;s responsibility to synchronize. Additionally, all operations
+/// on `from` are thread-safe through the use of a mutex in [`Global`].
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMGlobalImport {}
+<span class="doccomment">/// # Safety
+/// This data is safe to share between threads because it&#39;s plain data that
+/// is the user&#39;s responsibility to synchronize. And because it&#39;s `Clone`, there&#39;s
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+</span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMGlobalImport {}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmglobal_import {
+    <span class="kw">use </span><span class="kw">super</span>::VMGlobalImport;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmglobal_import_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+        <span class="macro">assert_eq!</span>(
+            size_of::&lt;VMGlobalImport&gt;(),
+            usize::from(offsets.size_of_vmglobal_import())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(VMGlobalImport, definition),
+            usize::from(offsets.vmglobal_import_definition())
+        );
+    }
+}
+
+<span class="doccomment">/// Do an unsynchronized, non-atomic `memory.copy` for the memory.
+///
+/// # Errors
+///
+/// Returns a `Trap` error when the source or destination ranges are out of
+/// bounds.
+///
+/// # Safety
+/// The memory is not copied atomically and is not synchronized: it&#39;s the
+/// caller&#39;s responsibility to synchronize.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>memory_copy(
+    mem: <span class="kw-2">&amp;</span>VMMemoryDefinition,
+    dst: u32,
+    src: u32,
+    len: u32,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+    <span class="comment">// https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
+    </span><span class="kw">if </span>src
+        .checked_add(len)
+        .map_or(<span class="bool-val">true</span>, |n| usize::try_from(n).unwrap() &gt; mem.current_length)
+        || dst
+            .checked_add(len)
+            .map_or(<span class="bool-val">true</span>, |m| usize::try_from(m).unwrap() &gt; mem.current_length)
     {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::HeapAccessOutOfBounds));
     }
 
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">src</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let </span>dst = usize::try_from(dst).unwrap();
+    <span class="kw">let </span>src = usize::try_from(src).unwrap();
 
-    <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
-    <span class="comment">// everything is safe.</span>
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">dst</span>);
-    <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">add</span>(<span class="ident">src</span>);
-    <span class="ident">ptr::copy</span>(<span class="ident">src</span>, <span class="ident">dst</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
+    <span class="comment">// Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    </span><span class="kw">let </span>dst = mem.base.add(dst);
+    <span class="kw">let </span>src = mem.base.add(src);
+    ptr::copy(src, dst, len <span class="kw">as </span>usize);
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Perform the `memory.fill` operation for the memory in an unsynchronized,</span>
-<span class="doccomment">/// non-atomic way.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Returns a `Trap` error if the memory range is out of bounds.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// The memory is not filled atomically and is not synchronized: it&#39;s the</span>
-<span class="doccomment">/// caller&#39;s responsibility to synchronize.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_fill</span>(
-    <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">dst</span>
-        .<span class="ident">checked_add</span>(<span class="ident">len</span>)
-        .<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">usize::try_from</span>(<span class="ident">m</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span>)
+<span class="doccomment">/// Perform the `memory.fill` operation for the memory in an unsynchronized,
+/// non-atomic way.
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds.
+///
+/// # Safety
+/// The memory is not filled atomically and is not synchronized: it&#39;s the
+/// caller&#39;s responsibility to synchronize.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>memory_fill(
+    mem: <span class="kw-2">&amp;</span>VMMemoryDefinition,
+    dst: u32,
+    val: u32,
+    len: u32,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+    <span class="kw">if </span>dst
+        .checked_add(len)
+        .map_or(<span class="bool-val">true</span>, |m| usize::try_from(m).unwrap() &gt; mem.current_length)
     {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::HeapAccessOutOfBounds));
     }
 
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">isize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span> <span class="kw">as</span> <span class="ident">u8</span>;
+    <span class="kw">let </span>dst = isize::try_from(dst).unwrap();
+    <span class="kw">let </span>val = val <span class="kw">as </span>u8;
 
-    <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
-    <span class="comment">// everything is safe.</span>
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">offset</span>(<span class="ident">dst</span>);
-    <span class="ident">ptr::write_bytes</span>(<span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>);
+    <span class="comment">// Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    </span><span class="kw">let </span>dst = mem.base.offset(dst);
+    ptr::write_bytes(dst, val, len <span class="kw">as </span>usize);
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Perform the `memory32.atomic.check32` operation for the memory. Return 0 if same, 1 if different</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Returns a `Trap` error if the memory range is out of bounds or 32bits unligned.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// memory access is unsafe</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory32_atomic_check32</span>(
-    <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u32</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">usize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span> {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
+<span class="doccomment">/// Perform the `memory32.atomic.check32` operation for the memory. Return 0 if same, 1 if different
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds or 32bits unligned.
+///
+/// # Safety
+/// memory access is unsafe
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>memory32_atomic_check32(
+    mem: <span class="kw-2">&amp;</span>VMMemoryDefinition,
+    dst: u32,
+    val: u32,
+) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+    <span class="kw">if </span>usize::try_from(dst).unwrap() &gt; mem.current_length {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::HeapAccessOutOfBounds));
     }
 
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">isize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
-    <span class="kw">if</span> <span class="ident">dst</span> <span class="op">&amp;</span> <span class="number">0b11</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::UnalignedAtomic</span>));
+    <span class="kw">let </span>dst = isize::try_from(dst).unwrap();
+    <span class="kw">if </span>dst &amp; <span class="number">0b11 </span>!= <span class="number">0 </span>{
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::UnalignedAtomic));
     }
 
-    <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
-    <span class="comment">// everything is safe.</span>
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">offset</span>(<span class="ident">dst</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>;
-    <span class="kw">let</span> <span class="ident">atomic_dst</span> <span class="op">=</span> <span class="ident">AtomicPtr::new</span>(<span class="ident">dst</span>);
-    <span class="kw">let</span> <span class="ident">read_val</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">atomic_dst</span>.<span class="ident">load</span>(<span class="ident">Ordering::Acquire</span>);
-    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">read_val</span> <span class="op">==</span> <span class="ident">val</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="number">1</span> };
-    <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+    <span class="comment">// Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    </span><span class="kw">let </span>dst = mem.base.offset(dst) <span class="kw">as </span><span class="kw-2">*mut </span>u32;
+    <span class="kw">let </span>atomic_dst = AtomicPtr::new(dst);
+    <span class="kw">let </span>read_val = <span class="kw-2">*</span>atomic_dst.load(Ordering::Acquire);
+    <span class="kw">let </span>ret = <span class="kw">if </span>read_val == val { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
+    <span class="prelude-val">Ok</span>(ret)
 }
 
-<span class="doccomment">/// Perform the `memory32.atomic.check64` operation for the memory. Return 0 if same, 1 if different</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Returns a `Trap` error if the memory range is out of bounds or 64bits unaligned.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// memory access is unsafe</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory32_atomic_check64</span>(
-    <span class="ident">mem</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u64</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">usize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>() <span class="op">&gt;</span> <span class="ident">mem</span>.<span class="ident">current_length</span> {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::HeapAccessOutOfBounds</span>));
+<span class="doccomment">/// Perform the `memory32.atomic.check64` operation for the memory. Return 0 if same, 1 if different
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds or 64bits unaligned.
+///
+/// # Safety
+/// memory access is unsafe
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>memory32_atomic_check64(
+    mem: <span class="kw-2">&amp;</span>VMMemoryDefinition,
+    dst: u32,
+    val: u64,
+) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+    <span class="kw">if </span>usize::try_from(dst).unwrap() &gt; mem.current_length {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::HeapAccessOutOfBounds));
     }
 
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">isize::try_from</span>(<span class="ident">dst</span>).<span class="ident">unwrap</span>();
-    <span class="kw">if</span> <span class="ident">dst</span> <span class="op">&amp;</span> <span class="number">0b111</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::UnalignedAtomic</span>));
+    <span class="kw">let </span>dst = isize::try_from(dst).unwrap();
+    <span class="kw">if </span>dst &amp; <span class="number">0b111 </span>!= <span class="number">0 </span>{
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::UnalignedAtomic));
     }
 
-    <span class="comment">// Bounds and casts are checked above, by this point we know that</span>
-    <span class="comment">// everything is safe.</span>
-    <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">base</span>.<span class="ident">offset</span>(<span class="ident">dst</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u64</span>;
-    <span class="kw">let</span> <span class="ident">atomic_dst</span> <span class="op">=</span> <span class="ident">AtomicPtr::new</span>(<span class="ident">dst</span>);
-    <span class="kw">let</span> <span class="ident">read_val</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">atomic_dst</span>.<span class="ident">load</span>(<span class="ident">Ordering::Acquire</span>);
-    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">read_val</span> <span class="op">==</span> <span class="ident">val</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="number">1</span> };
-    <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+    <span class="comment">// Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    </span><span class="kw">let </span>dst = mem.base.offset(dst) <span class="kw">as </span><span class="kw-2">*mut </span>u64;
+    <span class="kw">let </span>atomic_dst = AtomicPtr::new(dst);
+    <span class="kw">let </span>read_val = <span class="kw-2">*</span>atomic_dst.load(Ordering::Acquire);
+    <span class="kw">let </span>ret = <span class="kw">if </span>read_val == val { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
+    <span class="prelude-val">Ok</span>(ret)
 }
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly table</span>
-<span class="doccomment">/// defined within the instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMTableDefinition</span> {
-    <span class="doccomment">/// Pointer to the table data.</span>
-    <span class="kw">pub</span> <span class="ident">base</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly table
+/// defined within the instance.
+</span><span class="attribute">#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMTableDefinition {
+    <span class="doccomment">/// Pointer to the table data.
+    </span><span class="kw">pub </span>base: <span class="kw-2">*mut </span>u8,
 
-    <span class="doccomment">/// The current number of elements in the table.</span>
-    <span class="kw">pub</span> <span class="ident">current_elements</span>: <span class="ident">u32</span>,
+    <span class="doccomment">/// The current number of elements in the table.
+    </span><span class="kw">pub </span>current_elements: u32,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmtable_definition</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMTableDefinition</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmtable_definition {
+    <span class="kw">use </span><span class="kw">super</span>::VMTableDefinition;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmtable_definition_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmtable_definition_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmtable_definition</span>())
+            size_of::&lt;VMTableDefinition&gt;(),
+            usize::from(offsets.size_of_vmtable_definition())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMTableDefinition</span>, <span class="ident">base</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmtable_definition_base</span>())
+            <span class="macro">offset_of!</span>(VMTableDefinition, base),
+            usize::from(offsets.vmtable_definition_base())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMTableDefinition</span>, <span class="ident">current_elements</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmtable_definition_current_elements</span>())
+            <span class="macro">offset_of!</span>(VMTableDefinition, current_elements),
+            usize::from(offsets.vmtable_definition_current_elements())
         );
     }
 }
 
-<span class="doccomment">/// The storage for a WebAssembly global defined within the instance.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// TODO: Pack the globals more densely, rather than using the same size</span>
-<span class="doccomment">/// for every type.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>, <span class="ident">align</span>(<span class="number">16</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMGlobalDefinition</span> {
-    <span class="doccomment">/// Raw value of the global.</span>
-    <span class="kw">pub</span> <span class="ident">val</span>: <span class="ident">RawValue</span>,
+<span class="doccomment">/// The storage for a WebAssembly global defined within the instance.
+///
+/// TODO: Pack the globals more densely, rather than using the same size
+/// for every type.
+</span><span class="attribute">#[derive(Debug, Clone)]
+#[repr(C, align(<span class="number">16</span>))]
+</span><span class="kw">pub struct </span>VMGlobalDefinition {
+    <span class="doccomment">/// Raw value of the global.
+    </span><span class="kw">pub </span>val: RawValue,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmglobal_definition</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMGlobalDefinition</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">VMFuncRef</span>, <span class="ident">VMOffsets</span>};
-    <span class="kw">use</span> <span class="ident">more_asserts::assert_ge</span>;
-    <span class="kw">use</span> <span class="ident">std::mem</span>::{<span class="ident">align_of</span>, <span class="ident">size_of</span>};
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmglobal_definition {
+    <span class="kw">use </span><span class="kw">super</span>::VMGlobalDefinition;
+    <span class="kw">use crate</span>::{VMFuncRef, VMOffsets};
+    <span class="kw">use </span>more_asserts::assert_ge;
+    <span class="kw">use </span>std::mem::{align_of, size_of};
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmglobal_definition_alignment</span>() {
-        <span class="macro">assert_ge!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>());
-        <span class="macro">assert_ge!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>());
-        <span class="macro">assert_ge!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span>());
-        <span class="macro">assert_ge!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">f64</span><span class="op">&gt;</span>());
-        <span class="macro">assert_ge!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMFuncRef</span><span class="op">&gt;</span>());
-        <span class="macro">assert_ge!</span>(<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(), <span class="ident">align_of</span>::<span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="number">16</span>]<span class="op">&gt;</span>());
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmglobal_definition_alignment() {
+        <span class="macro">assert_ge!</span>(align_of::&lt;VMGlobalDefinition&gt;(), align_of::&lt;i32&gt;());
+        <span class="macro">assert_ge!</span>(align_of::&lt;VMGlobalDefinition&gt;(), align_of::&lt;i64&gt;());
+        <span class="macro">assert_ge!</span>(align_of::&lt;VMGlobalDefinition&gt;(), align_of::&lt;f32&gt;());
+        <span class="macro">assert_ge!</span>(align_of::&lt;VMGlobalDefinition&gt;(), align_of::&lt;f64&gt;());
+        <span class="macro">assert_ge!</span>(align_of::&lt;VMGlobalDefinition&gt;(), align_of::&lt;VMFuncRef&gt;());
+        <span class="macro">assert_ge!</span>(align_of::&lt;VMGlobalDefinition&gt;(), align_of::&lt;[u8; <span class="number">16</span>]&gt;());
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmglobal_definition_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmglobal_definition_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">VMGlobalDefinition</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmglobal_local</span>())
+            size_of::&lt;<span class="kw-2">*const </span>VMGlobalDefinition&gt;(),
+            usize::from(offsets.size_of_vmglobal_local())
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmglobal_begins_aligned</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">offsets</span>.<span class="ident">vmctx_globals_begin</span>() <span class="op">%</span> <span class="number">16</span>, <span class="number">0</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmglobal_begins_aligned() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+        <span class="macro">assert_eq!</span>(offsets.vmctx_globals_begin() % <span class="number">16</span>, <span class="number">0</span>);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">VMGlobalDefinition</span> {
-    <span class="doccomment">/// Construct a `VMGlobalDefinition`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">val</span>: <span class="ident">Default::default</span>(),
+<span class="kw">impl </span>VMGlobalDefinition {
+    <span class="doccomment">/// Construct a `VMGlobalDefinition`.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            val: Default::default(),
         }
     }
 }
 
-<span class="doccomment">/// An index into the shared signature registry, usable for checking signatures</span>
-<span class="doccomment">/// at indirect calls.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMSharedSignatureIndex</span>(<span class="ident">u32</span>);
+<span class="doccomment">/// An index into the shared signature registry, usable for checking signatures
+/// at indirect calls.
+</span><span class="attribute">#[repr(C)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
+</span><span class="kw">pub struct </span>VMSharedSignatureIndex(u32);
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmshared_signature_index</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMSharedSignatureIndex</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMOffsets</span>};
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmshared_signature_index {
+    <span class="kw">use </span><span class="kw">super</span>::VMSharedSignatureIndex;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::{ModuleInfo, TargetSharedSignatureIndex, VMOffsets};
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmshared_signature_index</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmshared_signature_index() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmshared_signature_index</span>())
+            size_of::&lt;VMSharedSignatureIndex&gt;(),
+            usize::from(offsets.size_of_vmshared_signature_index())
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_target_shared_signature_index</span>() {
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_target_shared_signature_index() {
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>(),
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">TargetSharedSignatureIndex</span><span class="op">&gt;</span>()
-        );
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">VMSharedSignatureIndex</span> {
-    <span class="doccomment">/// Create a new `VMSharedSignatureIndex`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">value</span>: <span class="ident">u32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">value</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">VMSharedSignatureIndex</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">u32::MAX</span>)
-    }
-}
-
-<span class="doccomment">/// The VM caller-checked &quot;anyfunc&quot; record, for caller-side signature checking.</span>
-<span class="doccomment">/// It consists of the actual function pointer and a signature id to be checked</span>
-<span class="doccomment">/// by the caller.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMCallerCheckedAnyfunc</span> {
-    <span class="doccomment">/// Function body.</span>
-    <span class="kw">pub</span> <span class="ident">func_ptr</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
-    <span class="doccomment">/// Function signature id.</span>
-    <span class="kw">pub</span> <span class="ident">type_index</span>: <span class="ident">VMSharedSignatureIndex</span>,
-    <span class="doccomment">/// Function `VMContext` or host env.</span>
-    <span class="kw">pub</span> <span class="ident">vmctx</span>: <span class="ident">VMFunctionContext</span>,
-    <span class="doccomment">/// Address of the function call trampoline to invoke this function using</span>
-    <span class="doccomment">/// a dynamic argument list.</span>
-    <span class="kw">pub</span> <span class="ident">call_trampoline</span>: <span class="ident">VMTrampoline</span>,
-    <span class="comment">// If more elements are added here, remember to add offset_of tests below!</span>
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmcaller_checked_anyfunc</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMCallerCheckedAnyfunc</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmcaller_checked_anyfunc_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMCallerCheckedAnyfunc</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmcaller_checked_anyfunc</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">func_ptr</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmcaller_checked_anyfunc_func_ptr</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">type_index</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmcaller_checked_anyfunc_type_index</span>())
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">vmctx</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmcaller_checked_anyfunc_vmctx</span>())
+            size_of::&lt;VMSharedSignatureIndex&gt;(),
+            size_of::&lt;TargetSharedSignatureIndex&gt;()
         );
     }
 }
 
-<span class="doccomment">/// An array that stores addresses of builtin functions. We translate code</span>
-<span class="doccomment">/// to use indirect calls. This way, we don&#39;t have to patch the code.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMBuiltinFunctionsArray</span> {
-    <span class="ident">ptrs</span>: [<span class="ident">usize</span>; <span class="ident"><span class="self">Self</span>::len</span>()],
-}
-
-<span class="kw">impl</span> <span class="ident">VMBuiltinFunctionsArray</span> {
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">len</span>() -&gt; <span class="ident">usize</span> {
-        <span class="ident">VMBuiltinFunctionIndex::builtin_functions_total_number</span>() <span class="kw">as</span> <span class="ident">usize</span>
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">initialized</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::libcalls</span>::<span class="kw-2">*</span>;
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptrs</span> <span class="op">=</span> [<span class="number">0</span>; <span class="ident"><span class="self">Self</span>::len</span>()];
-
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory32_grow_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_grow</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory32_grow_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_grow</span> <span class="kw">as</span> <span class="ident">usize</span>;
-
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory32_size_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory32_size_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>;
-
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_copy_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_copy</span> <span class="kw">as</span> <span class="ident">usize</span>;
-
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_init_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_init</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_elem_drop_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_elem_drop</span> <span class="kw">as</span> <span class="ident">usize</span>;
-
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory_copy_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory_copy_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory_fill_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory_fill_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory_init_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_init</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_data_drop_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_data_drop</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_raise_trap_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_raise_trap</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_size_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_table_size_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_grow_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_table_grow_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_get_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_table_get_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_set_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_table_set_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_func_ref_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_func_ref</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_table_fill_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_table_fill</span> <span class="kw">as</span> <span class="ident">usize</span>;
-
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory_atomic_wait32_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_atomic_wait32</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_atomic_wait32</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory_atomic_wait64_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_atomic_wait64</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_atomic_wait64</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_memory_atomic_notify_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_memory32_atomic_notify</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="ident">ptrs</span>[<span class="ident">VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index</span>().<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">usize</span>] <span class="op">=</span>
-            <span class="ident">wasmer_vm_imported_memory32_atomic_notify</span> <span class="kw">as</span> <span class="ident">usize</span>;
-
-        <span class="macro">debug_assert!</span>(<span class="ident">ptrs</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">all</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>));
-
-        <span class="self">Self</span> { <span class="ident">ptrs</span> }
+<span class="kw">impl </span>VMSharedSignatureIndex {
+    <span class="doccomment">/// Create a new `VMSharedSignatureIndex`.
+    </span><span class="kw">pub fn </span>new(value: u32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(value)
     }
 }
 
-<span class="doccomment">/// The VM &quot;context&quot;, which is pointed to by the `vmctx` arg in the compiler.</span>
-<span class="doccomment">/// This has information about globals, memories, tables, and other runtime</span>
-<span class="doccomment">/// state associated with the current instance.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The struct here is empty, as the sizes of these fields are dynamic, and</span>
-<span class="doccomment">/// we can&#39;t describe them in Rust&#39;s type system. Sufficient memory is</span>
-<span class="doccomment">/// allocated at runtime.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// TODO: We could move the globals into the `vmctx` allocation too.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>, <span class="ident">align</span>(<span class="number">16</span>))]</span> <span class="comment">// align 16 since globals are aligned to that and contained inside</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMContext</span> {}
-
-<span class="kw">impl</span> <span class="ident">VMContext</span> {
-    <span class="doccomment">/// Return a mutable reference to the associated `Instance`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// This is unsafe because it doesn&#39;t work on just any `VMContext`, it must</span>
-    <span class="doccomment">/// be a `VMContext` allocated as part of an `Instance`.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">instance</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Instance</span> {
-        <span class="kw-2">&amp;</span><span class="kw-2">*</span>((<span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="self">Self</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>).<span class="ident">offset</span>(<span class="op">-</span><span class="ident">Instance::vmctx_offset</span>()) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">Instance</span>)
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">instance_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Instance</span> {
-        <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span>((<span class="self">self</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="self">Self</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>).<span class="ident">offset</span>(<span class="op">-</span><span class="ident">Instance::vmctx_offset</span>()) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">Instance</span>)
+<span class="kw">impl </span>Default <span class="kw">for </span>VMSharedSignatureIndex {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(u32::MAX)
     }
 }
 
-<span class="doccomment">///</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">VMTrampoline</span> <span class="op">=</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(
-    <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,        <span class="comment">// callee vmctx</span>
-    <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>, <span class="comment">// function we&#39;re actually calling</span>
-    <span class="kw-2">*mut</span> <span class="ident">RawValue</span>,         <span class="comment">// space for arguments and return values</span>
-);
+<span class="doccomment">/// The VM caller-checked &quot;anyfunc&quot; record, for caller-side signature checking.
+/// It consists of the actual function pointer and a signature id to be checked
+/// by the caller.
+</span><span class="attribute">#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMCallerCheckedAnyfunc {
+    <span class="doccomment">/// Function body.
+    </span><span class="kw">pub </span>func_ptr: <span class="kw-2">*const </span>VMFunctionBody,
+    <span class="doccomment">/// Function signature id.
+    </span><span class="kw">pub </span>type_index: VMSharedSignatureIndex,
+    <span class="doccomment">/// Function `VMContext` or host env.
+    </span><span class="kw">pub </span>vmctx: VMFunctionContext,
+    <span class="doccomment">/// Address of the function call trampoline to invoke this function using
+    /// a dynamic argument list.
+    </span><span class="kw">pub </span>call_trampoline: VMTrampoline,
+    <span class="comment">// If more elements are added here, remember to add offset_of tests below!
+</span>}
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear</span>
-<span class="doccomment">/// memory defined within the instance, namely the start address and the</span>
-<span class="doccomment">/// size in bytes.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemoryDefinition</span> {
-    <span class="doccomment">/// The start address which is always valid, even if the memory grows.</span>
-    <span class="kw">pub</span> <span class="ident">base</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmcaller_checked_anyfunc {
+    <span class="kw">use </span><span class="kw">super</span>::VMCallerCheckedAnyfunc;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
 
-    <span class="doccomment">/// The current logical size of this linear memory in bytes.</span>
-    <span class="kw">pub</span> <span class="ident">current_length</span>: <span class="ident">usize</span>,
-}
-
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
-<span class="doccomment">/// is the user&#39;s responsibility to synchronize.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This data is safe to share between threads because it&#39;s plain data that</span>
-<span class="doccomment">/// is the user&#39;s responsibility to synchronize. And it&#39;s `Copy` so there&#39;s</span>
-<span class="doccomment">/// really no difference between passing it by reference or by value as far as</span>
-<span class="doccomment">/// correctness in a multi-threaded context is concerned.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMMemoryDefinition</span> {}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_vmmemory_definition</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::VMMemoryDefinition</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ModuleInfo</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMOffsets</span>;
-    <span class="kw">use</span> <span class="ident">memoffset::offset_of</span>;
-    <span class="kw">use</span> <span class="ident">std::mem::size_of</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">check_vmmemory_definition_offsets</span>() {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">ModuleInfo::new</span>();
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">size_of</span>::<span class="op">&lt;</span><span class="kw-2">*mut</span> <span class="ident">u8</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmcaller_checked_anyfunc_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">size_of</span>::<span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>(),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmmemory_definition</span>())
+            size_of::&lt;VMCallerCheckedAnyfunc&gt;(),
+            usize::from(offsets.size_of_vmcaller_checked_anyfunc())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">base</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_base</span>())
+            <span class="macro">offset_of!</span>(VMCallerCheckedAnyfunc, func_ptr),
+            usize::from(offsets.vmcaller_checked_anyfunc_func_ptr())
         );
         <span class="macro">assert_eq!</span>(
-            <span class="macro">offset_of!</span>(<span class="ident">VMMemoryDefinition</span>, <span class="ident">current_length</span>),
-            <span class="ident">usize::from</span>(<span class="ident">offsets</span>.<span class="ident">vmmemory_definition_current_length</span>())
+            <span class="macro">offset_of!</span>(VMCallerCheckedAnyfunc, type_index),
+            usize::from(offsets.vmcaller_checked_anyfunc_type_index())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(VMCallerCheckedAnyfunc, vmctx),
+            usize::from(offsets.vmcaller_checked_anyfunc_vmctx())
+        );
+    }
+}
+
+<span class="doccomment">/// An array that stores addresses of builtin functions. We translate code
+/// to use indirect calls. This way, we don&#39;t have to patch the code.
+</span><span class="attribute">#[repr(C)]
+</span><span class="kw">pub struct </span>VMBuiltinFunctionsArray {
+    ptrs: [usize; <span class="self">Self</span>::len()],
+}
+
+<span class="kw">impl </span>VMBuiltinFunctionsArray {
+    <span class="kw">pub const fn </span>len() -&gt; usize {
+        VMBuiltinFunctionIndex::builtin_functions_total_number() <span class="kw">as </span>usize
+    }
+
+    <span class="kw">pub fn </span>initialized() -&gt; <span class="self">Self </span>{
+        <span class="kw">use </span><span class="kw">crate</span>::libcalls::<span class="kw-2">*</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>ptrs = [<span class="number">0</span>; <span class="self">Self</span>::len()];
+
+        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_grow <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_grow <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_size <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_size <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_copy <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_init <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_elem_drop <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_copy <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_copy <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_fill <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_fill <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_init <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_data_drop <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_raise_trap <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_size <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_table_size <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_grow <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_table_grow <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_get <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_table_get <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_set_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_set <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_set_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_table_set <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_func_ref_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_func_ref <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_table_fill <span class="kw">as </span>usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_memory_atomic_wait32_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_atomic_wait32 <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_atomic_wait32 <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_atomic_wait64_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_atomic_wait64 <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_atomic_wait64 <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_atomic_notify_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_memory32_atomic_notify <span class="kw">as </span>usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() <span class="kw">as </span>usize] =
+            wasmer_vm_imported_memory32_atomic_notify <span class="kw">as </span>usize;
+
+        <span class="macro">debug_assert!</span>(ptrs.iter().cloned().all(|p| p != <span class="number">0</span>));
+
+        <span class="self">Self </span>{ ptrs }
+    }
+}
+
+<span class="doccomment">/// The VM &quot;context&quot;, which is pointed to by the `vmctx` arg in the compiler.
+/// This has information about globals, memories, tables, and other runtime
+/// state associated with the current instance.
+///
+/// The struct here is empty, as the sizes of these fields are dynamic, and
+/// we can&#39;t describe them in Rust&#39;s type system. Sufficient memory is
+/// allocated at runtime.
+///
+/// TODO: We could move the globals into the `vmctx` allocation too.
+</span><span class="attribute">#[derive(Debug)]
+#[repr(C, align(<span class="number">16</span>))] </span><span class="comment">// align 16 since globals are aligned to that and contained inside
+</span><span class="kw">pub struct </span>VMContext {}
+
+<span class="kw">impl </span>VMContext {
+    <span class="doccomment">/// Return a mutable reference to the associated `Instance`.
+    ///
+    /// # Safety
+    /// This is unsafe because it doesn&#39;t work on just any `VMContext`, it must
+    /// be a `VMContext` allocated as part of an `Instance`.
+    </span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+    #[inline]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Instance {
+        <span class="kw-2">&amp;*</span>((<span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self </span><span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(-Instance::vmctx_offset()) <span class="kw">as </span><span class="kw-2">*const </span>Instance)
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>instance_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Instance {
+        <span class="kw-2">&amp;mut *</span>((<span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self </span><span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(-Instance::vmctx_offset()) <span class="kw">as </span><span class="kw-2">*mut </span>Instance)
+    }
+}
+
+<span class="doccomment">///
+</span><span class="kw">pub type </span>VMTrampoline = <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
+    <span class="kw-2">*mut </span>VMContext,        <span class="comment">// callee vmctx
+    </span><span class="kw-2">*const </span>VMFunctionBody, <span class="comment">// function we&#39;re actually calling
+    </span><span class="kw-2">*mut </span>RawValue,         <span class="comment">// space for arguments and return values
+</span>);
+
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear
+/// memory defined within the instance, namely the start address and the
+/// size in bytes.
+</span><span class="attribute">#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>VMMemoryDefinition {
+    <span class="doccomment">/// The start address which is always valid, even if the memory grows.
+    </span><span class="kw">pub </span>base: <span class="kw-2">*mut </span>u8,
+
+    <span class="doccomment">/// The current logical size of this linear memory in bytes.
+    </span><span class="kw">pub </span>current_length: usize,
+}
+
+<span class="doccomment">/// # Safety
+/// This data is safe to share between threads because it&#39;s plain data that
+/// is the user&#39;s responsibility to synchronize.
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMMemoryDefinition {}
+<span class="doccomment">/// # Safety
+/// This data is safe to share between threads because it&#39;s plain data that
+/// is the user&#39;s responsibility to synchronize. And it&#39;s `Copy` so there&#39;s
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+</span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMMemoryDefinition {}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmmemory_definition {
+    <span class="kw">use </span><span class="kw">super</span>::VMMemoryDefinition;
+    <span class="kw">use </span><span class="kw">crate</span>::ModuleInfo;
+    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+    <span class="kw">use </span>memoffset::offset_of;
+    <span class="kw">use </span>std::mem::size_of;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>check_vmmemory_definition_offsets() {
+        <span class="kw">let </span>module = ModuleInfo::new();
+        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+        <span class="macro">assert_eq!</span>(
+            size_of::&lt;VMMemoryDefinition&gt;(),
+            usize::from(offsets.size_of_vmmemory_definition())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(VMMemoryDefinition, base),
+            usize::from(offsets.vmmemory_definition_base())
+        );
+        <span class="macro">assert_eq!</span>(
+            <span class="macro">offset_of!</span>(VMMemoryDefinition, current_length),
+            usize::from(offsets.vmmemory_definition_current_length())
         );
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

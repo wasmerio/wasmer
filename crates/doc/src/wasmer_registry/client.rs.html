@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/client.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/client.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -98,105 +98,105 @@
 <span id="98">98</span>
 <span id="99">99</span>
 <span id="100">100</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-<span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
-<span class="kw">use</span> <span class="ident">url::Url</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>graphql_client::GraphQLQuery;
+<span class="kw">use </span>url::Url;
 
-<span class="doccomment">/// API client for the Wasmer registry.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RegistryClient</span> {
-    <span class="ident">client</span>: <span class="ident">reqwest::Client</span>,
-    <span class="ident">endpoint</span>: <span class="ident">Url</span>,
-    <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// API client for the Wasmer registry.
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>RegistryClient {
+    client: reqwest::Client,
+    endpoint: Url,
+    token: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">RegistryClient</span> {
-    <span class="doccomment">/// Construct a new registry.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">endpoint</span>: <span class="ident">Url</span>, <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">user_agent</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">user_agent</span> <span class="op">=</span> <span class="ident">user_agent</span>.<span class="ident">unwrap_or_else</span>(<span class="ident"><span class="self">Self</span>::default_user_agent</span>);
-        <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">reqwest::Client::builder</span>()
-            .<span class="ident">user_agent</span>(<span class="ident">user_agent</span>)
-            .<span class="ident">build</span>()
-            .<span class="ident">unwrap</span>();
-        <span class="self">Self</span> {
-            <span class="ident">client</span>,
-            <span class="ident">endpoint</span>,
-            <span class="ident">token</span>,
+<span class="kw">impl </span>RegistryClient {
+    <span class="doccomment">/// Construct a new registry.
+    </span><span class="kw">pub fn </span>new(endpoint: Url, token: <span class="prelude-ty">Option</span>&lt;String&gt;, user_agent: <span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>user_agent = user_agent.unwrap_or_else(<span class="self">Self</span>::default_user_agent);
+        <span class="kw">let </span>client = reqwest::Client::builder()
+            .user_agent(user_agent)
+            .build()
+            .unwrap();
+        <span class="self">Self </span>{
+            client,
+            endpoint,
+            token,
         }
     }
 
-    <span class="doccomment">/// Construct a client from a [`crate::config::RegistryLogin`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_registry</span>(<span class="ident">registry</span>: <span class="ident"><span class="kw">crate</span>::config::RegistryLogin</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">endpoint</span> <span class="op">=</span> <span class="ident">registry</span>.<span class="ident">registry</span>.<span class="ident">parse</span>().<span class="ident">context</span>(<span class="string">&quot;Invalid registry URL&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">endpoint</span>, <span class="prelude-val">Some</span>(<span class="ident">registry</span>.<span class="ident">token</span>), <span class="prelude-val">None</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">client</span>)
+    <span class="doccomment">/// Construct a client from a [`crate::config::RegistryLogin`].
+    </span><span class="kw">pub fn </span>from_registry(registry: <span class="kw">crate</span>::config::RegistryLogin) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
+        <span class="kw">let </span>endpoint = registry.registry.parse().context(<span class="string">&quot;Invalid registry URL&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">Self</span>::new(endpoint, <span class="prelude-val">Some</span>(registry.token), <span class="prelude-val">None</span>);
+        <span class="prelude-val">Ok</span>(client)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">default_user_agent</span>() -&gt; <span class="ident">String</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>default_user_agent() -&gt; String {
         <span class="macro">format!</span>(
             <span class="string">&quot;wasmer/{} {} {}&quot;</span>,
             <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>),
-            <span class="ident">whoami::platform</span>(),
-            <span class="ident"><span class="kw">crate</span>::graphql::whoami_distro</span>(),
+            whoami::platform(),
+            <span class="kw">crate</span>::graphql::whoami_distro(),
         )
     }
 
-    <span class="doccomment">/// Set the GraphQL API endpoint.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_endpoint</span>(<span class="self">self</span>, <span class="ident">endpoint</span>: <span class="ident">Url</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">endpoint</span>, ..<span class="self">self</span> }
+    <span class="doccomment">/// Set the GraphQL API endpoint.
+    </span><span class="kw">pub fn </span>with_endpoint(<span class="self">self</span>, endpoint: Url) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ endpoint, ..<span class="self">self </span>}
     }
 
-    <span class="doccomment">/// Set the authentication token.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_token</span>(<span class="self">self</span>, <span class="ident">token</span>: <span class="ident">String</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">token</span>: <span class="prelude-val">Some</span>(<span class="ident">token</span>),
-            ..<span class="self">self</span>
-        }
+    <span class="doccomment">/// Set the authentication token.
+    </span><span class="kw">pub fn </span>with_token(<span class="self">self</span>, token: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            token: <span class="prelude-val">Some</span>(token),
+            ..<span class="self">self
+        </span>}
     }
 
-    <span class="doccomment">/// Execute a GraphQL query.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">execute_unchecked</span><span class="op">&lt;</span><span class="ident">Q</span>: <span class="ident">GraphQLQuery</span><span class="op">&gt;</span>(
+    <span class="doccomment">/// Execute a GraphQL query.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>execute_unchecked&lt;Q: GraphQLQuery&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">vars</span>: <span class="ident">Q::Variables</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">graphql_client::Response</span><span class="op">&lt;</span><span class="ident">Q::ResponseData</span><span class="op">&gt;</span>, <span class="ident">reqwest::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">Q::build_query</span>(<span class="ident">vars</span>);
+        vars: Q::Variables,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;graphql_client::Response&lt;Q::ResponseData&gt;, reqwest::Error&gt; {
+        <span class="kw">let </span>body = Q::build_query(vars);
 
-        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">client</span>.<span class="ident">post</span>(<span class="self">self</span>.<span class="ident">endpoint</span>.<span class="ident">as_str</span>());
+        <span class="kw">let </span>req = <span class="self">self</span>.client.post(<span class="self">self</span>.endpoint.as_str());
 
-        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">token</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">token</span> {
-            <span class="ident">req</span>.<span class="ident">bearer_auth</span>(<span class="ident">token</span>)
-        } <span class="kw">else</span> {
-            <span class="ident">req</span>
+        <span class="kw">let </span>req = <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = <span class="kw-2">&amp;</span><span class="self">self</span>.token {
+            req.bearer_auth(token)
+        } <span class="kw">else </span>{
+            req
         };
-        <span class="ident">req</span>.<span class="ident">json</span>(<span class="kw-2">&amp;</span><span class="ident">body</span>)
-            .<span class="ident">send</span>()
-            .<span class="kw">await</span><span class="question-mark">?</span>
-            .<span class="ident">error_for_status</span>()<span class="question-mark">?</span>
-            .<span class="ident">json</span>::<span class="op">&lt;</span><span class="ident">graphql_client::Response</span><span class="op">&lt;</span><span class="ident">Q::ResponseData</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="kw">await</span>
-    }
+        req.json(<span class="kw-2">&amp;</span>body)
+            .send()
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.error_for_status()<span class="question-mark">?
+            </span>.json::&lt;graphql_client::Response&lt;Q::ResponseData&gt;&gt;()
+            .<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Execute a GraphQL query, and convert a response with errors to a Rust error.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">execute</span><span class="op">&lt;</span><span class="ident">Q</span>: <span class="ident">GraphQLQuery</span><span class="op">&gt;</span>(
+    <span class="doccomment">/// Execute a GraphQL query, and convert a response with errors to a Rust error.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>execute&lt;Q: GraphQLQuery&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">vars</span>: <span class="ident">Q::Variables</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Q::ResponseData</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">execute_unchecked</span>::<span class="op">&lt;</span><span class="ident">Q</span><span class="op">&gt;</span>(<span class="ident">vars</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        vars: Q::Variables,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Q::ResponseData, anyhow::Error&gt; {
+        <span class="kw">let </span>res = <span class="self">self</span>.execute_unchecked::&lt;Q&gt;(vars).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">match</span> (<span class="ident">res</span>.<span class="ident">data</span>, <span class="ident">res</span>.<span class="ident">errors</span>) {
-            (<span class="kw">_</span>, <span class="prelude-val">Some</span>(<span class="ident">errors</span>)) =&gt; {
-                <span class="comment">// TODO: Better error forwaring with a custom error type.</span>
-                <span class="kw">let</span> <span class="ident">errors</span> <span class="op">=</span> <span class="ident">errors</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">to_string</span>())
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                    .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>);
+        <span class="kw">match </span>(res.data, res.errors) {
+            (<span class="kw">_</span>, <span class="prelude-val">Some</span>(errors)) =&gt; {
+                <span class="comment">// TODO: Better error forwaring with a custom error type.
+                </span><span class="kw">let </span>errors = errors
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                    .join(<span class="string">&quot;, &quot;</span>);
                 <span class="macro">anyhow::bail!</span>(<span class="string">&quot;GraphQL error: {errors}&quot;</span>);
             }
-            (<span class="prelude-val">Some</span>(<span class="ident">data</span>), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">data</span>),
+            (<span class="prelude-val">Some</span>(data), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(data),
             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;GraphQL response contained no data&quot;</span>),
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

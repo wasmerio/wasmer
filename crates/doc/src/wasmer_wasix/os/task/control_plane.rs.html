@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/task/control_plane.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>control_plane.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/task/control_plane.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>control_plane.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -238,243 +238,243 @@
 <span id="236">236</span>
 <span id="237">237</span>
 <span id="238">238</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">sync</span>::{
-        <span class="ident">atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering</span>},
-        <span class="ident">Arc</span>, <span class="ident">RwLock</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, RwLock,
     },
 };
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">WasiProcess</span>, <span class="ident">WasiProcessId</span>};
+<span class="kw">use crate</span>::{WasiProcess, WasiProcessId};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiControlPlane</span> {
-    <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">State</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>WasiControlPlane {
+    state: Arc&lt;State&gt;,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiControlPlaneHandle</span> {
-    <span class="ident">inner</span>: <span class="ident">std::sync::Weak</span><span class="op">&lt;</span><span class="ident">State</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>WasiControlPlaneHandle {
+    inner: std::sync::Weak&lt;State&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">WasiControlPlaneHandle</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">State</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc::downgrade</span>(<span class="ident">inner</span>),
+<span class="kw">impl </span>WasiControlPlaneHandle {
+    <span class="kw">fn </span>new(inner: <span class="kw-2">&amp;</span>Arc&lt;State&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            inner: Arc::downgrade(inner),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">upgrade</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiControlPlane</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">upgrade</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">state</span><span class="op">|</span> <span class="ident">WasiControlPlane</span> { <span class="ident">state</span> })
+    <span class="kw">pub fn </span>upgrade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;WasiControlPlane&gt; {
+        <span class="self">self</span>.inner.upgrade().map(|state| WasiControlPlane { state })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">must_upgrade</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiControlPlane</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">upgrade</span>().<span class="ident">expect</span>(<span class="string">&quot;control plane unavailable&quot;</span>);
-        <span class="ident">WasiControlPlane</span> { <span class="ident">state</span> }
+    <span class="kw">pub fn </span>must_upgrade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiControlPlane {
+        <span class="kw">let </span>state = <span class="self">self</span>.inner.upgrade().expect(<span class="string">&quot;control plane unavailable&quot;</span>);
+        WasiControlPlane { state }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ControlPlaneConfig</span> {
-    <span class="doccomment">/// Total number of tasks (processes + threads) that can be spawned.</span>
-    <span class="kw">pub</span> <span class="ident">max_task_count</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>ControlPlaneConfig {
+    <span class="doccomment">/// Total number of tasks (processes + threads) that can be spawned.
+    </span><span class="kw">pub </span>max_task_count: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">ControlPlaneConfig</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">max_task_count</span>: <span class="prelude-val">None</span>,
+<span class="kw">impl </span>ControlPlaneConfig {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            max_task_count: <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ControlPlaneConfig</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
+<span class="kw">impl </span>Default <span class="kw">for </span>ControlPlaneConfig {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">State</span> {
-    <span class="ident">config</span>: <span class="ident">ControlPlaneConfig</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">struct </span>State {
+    config: ControlPlaneConfig,
 
-    <span class="doccomment">/// Total number of active tasks (threads) across all processes.</span>
-    <span class="ident">task_count</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicUsize</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Total number of active tasks (threads) across all processes.
+    </span>task_count: Arc&lt;AtomicUsize&gt;,
 
-    <span class="doccomment">/// Mutable state.</span>
-    <span class="ident">mutable</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">MutableState</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Mutable state.
+    </span>mutable: RwLock&lt;MutableState&gt;,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">MutableState</span> {
-    <span class="doccomment">/// Seed used to generate process ID&#39;s</span>
-    <span class="ident">process_seed</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The processes running on this machine</span>
-    <span class="ident">processes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">WasiProcessId</span>, <span class="ident">WasiProcess</span><span class="op">&gt;</span>,
-    <span class="comment">// TODO: keep a queue of terminated process ids for id reuse.</span>
-}
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">struct </span>MutableState {
+    <span class="doccomment">/// Seed used to generate process ID&#39;s
+    </span>process_seed: u32,
+    <span class="doccomment">/// The processes running on this machine
+    </span>processes: HashMap&lt;WasiProcessId, WasiProcess&gt;,
+    <span class="comment">// TODO: keep a queue of terminated process ids for id reuse.
+</span>}
 
-<span class="kw">impl</span> <span class="ident">WasiControlPlane</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">config</span>: <span class="ident">ControlPlaneConfig</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">state</span>: <span class="ident">Arc::new</span>(<span class="ident">State</span> {
-                <span class="ident">config</span>,
-                <span class="ident">task_count</span>: <span class="ident">Arc::new</span>(<span class="ident">AtomicUsize::new</span>(<span class="number">0</span>)),
-                <span class="ident">mutable</span>: <span class="ident">RwLock::new</span>(<span class="ident">MutableState</span> {
-                    <span class="ident">process_seed</span>: <span class="number">0</span>,
-                    <span class="ident">processes</span>: <span class="ident">Default::default</span>(),
+<span class="kw">impl </span>WasiControlPlane {
+    <span class="kw">pub fn </span>new(config: ControlPlaneConfig) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            state: Arc::new(State {
+                config,
+                task_count: Arc::new(AtomicUsize::new(<span class="number">0</span>)),
+                mutable: RwLock::new(MutableState {
+                    process_seed: <span class="number">0</span>,
+                    processes: Default::default(),
                 }),
             }),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiControlPlaneHandle</span> {
-        <span class="ident">WasiControlPlaneHandle::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">state</span>)
+    <span class="kw">pub fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiControlPlaneHandle {
+        WasiControlPlaneHandle::new(<span class="kw-2">&amp;</span><span class="self">self</span>.state)
     }
 
-    <span class="doccomment">/// Get the current count of active tasks (threads).</span>
-    <span class="kw">fn</span> <span class="ident">active_task_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">task_count</span>.<span class="ident">load</span>(<span class="ident">Ordering::SeqCst</span>)
+    <span class="doccomment">/// Get the current count of active tasks (threads).
+    </span><span class="kw">fn </span>active_task_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.state.task_count.load(Ordering::SeqCst)
     }
 
-    <span class="doccomment">/// Register a new task.</span>
-    <span class="doccomment">///</span>
-    <span class="comment">// Currently just increments the task counter.</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">register_task</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskCountGuard</span>, <span class="ident">ControlPlaneError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">task_count</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::SeqCst</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">config</span>.<span class="ident">max_task_count</span> {
-            <span class="kw">if</span> <span class="ident">count</span> <span class="op">&gt;</span> <span class="ident">max</span> {
-                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">task_count</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">Ordering::SeqCst</span>);
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ControlPlaneError::TaskLimitReached</span> { <span class="ident">max</span>: <span class="ident">count</span> });
+    <span class="doccomment">/// Register a new task.
+    ///
+    </span><span class="comment">// Currently just increments the task counter.
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>register_task(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TaskCountGuard, ControlPlaneError&gt; {
+        <span class="kw">let </span>count = <span class="self">self</span>.state.task_count.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(max) = <span class="self">self</span>.state.config.max_task_count {
+            <span class="kw">if </span>count &gt; max {
+                <span class="self">self</span>.state.task_count.fetch_sub(<span class="number">1</span>, Ordering::SeqCst);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ControlPlaneError::TaskLimitReached { max: count });
             }
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">TaskCountGuard</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">task_count</span>.<span class="ident">clone</span>()))
+        <span class="prelude-val">Ok</span>(TaskCountGuard(<span class="self">self</span>.state.task_count.clone()))
     }
 
-    <span class="doccomment">/// Creates a new process</span>
-    <span class="comment">// FIXME: De-register terminated processes!</span>
-    <span class="comment">// Currently they just accumulate.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_process</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiProcess</span>, <span class="ident">ControlPlaneError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">config</span>.<span class="ident">max_task_count</span> {
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">active_task_count</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">max</span> {
-                <span class="comment">// NOTE: task count is not incremented here, only when new threads are spawned.</span>
-                <span class="comment">// A process will always have a main thread.</span>
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">ControlPlaneError::TaskLimitReached</span> { <span class="ident">max</span> });
+    <span class="doccomment">/// Creates a new process
+    </span><span class="comment">// FIXME: De-register terminated processes!
+    // Currently they just accumulate.
+    </span><span class="kw">pub fn </span>new_process(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiProcess, ControlPlaneError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(max) = <span class="self">self</span>.state.config.max_task_count {
+            <span class="kw">if </span><span class="self">self</span>.active_task_count() &gt;= max {
+                <span class="comment">// NOTE: task count is not incremented here, only when new threads are spawned.
+                // A process will always have a main thread.
+                </span><span class="kw">return </span><span class="prelude-val">Err</span>(ControlPlaneError::TaskLimitReached { max });
             }
         }
 
-        <span class="comment">// Create the process first to do all the allocations before locking.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">proc</span> <span class="op">=</span> <span class="ident">WasiProcess::new</span>(<span class="ident">WasiProcessId::from</span>(<span class="number">0</span>), <span class="self">self</span>.<span class="ident">handle</span>());
+        <span class="comment">// Create the process first to do all the allocations before locking.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>proc = WasiProcess::new(WasiProcessId::from(<span class="number">0</span>), <span class="self">self</span>.handle());
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mutable</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">mutable</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>mutable = <span class="self">self</span>.state.mutable.write().unwrap();
 
-        <span class="kw">let</span> <span class="ident">pid</span> <span class="op">=</span> <span class="ident">mutable</span>.<span class="ident">next_process_id</span>()<span class="question-mark">?</span>;
-        <span class="ident">proc</span>.<span class="ident">set_pid</span>(<span class="ident">pid</span>);
-        <span class="ident">mutable</span>.<span class="ident">processes</span>.<span class="ident">insert</span>(<span class="ident">pid</span>, <span class="ident">proc</span>.<span class="ident">clone</span>());
-        <span class="prelude-val">Ok</span>(<span class="ident">proc</span>)
+        <span class="kw">let </span>pid = mutable.next_process_id()<span class="question-mark">?</span>;
+        proc.set_pid(pid);
+        mutable.processes.insert(pid, proc.clone());
+        <span class="prelude-val">Ok</span>(proc)
     }
 
-    <span class="doccomment">/// Generates a new process ID</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiProcessId</span>, <span class="ident">ControlPlaneError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mutable</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">mutable</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="ident">mutable</span>.<span class="ident">next_process_id</span>()
+    <span class="doccomment">/// Generates a new process ID
+    </span><span class="kw">pub fn </span>generate_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiProcessId, ControlPlaneError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>mutable = <span class="self">self</span>.state.mutable.write().unwrap();
+        mutable.next_process_id()
     }
 
-    <span class="doccomment">/// Gets a reference to a running process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_process</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pid</span>: <span class="ident">WasiProcessId</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiProcess</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">state</span>
-            .<span class="ident">mutable</span>
-            .<span class="ident">read</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">processes</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">pid</span>)
-            .<span class="ident">cloned</span>()
+    <span class="doccomment">/// Gets a reference to a running process
+    </span><span class="kw">pub fn </span>get_process(<span class="kw-2">&amp;</span><span class="self">self</span>, pid: WasiProcessId) -&gt; <span class="prelude-ty">Option</span>&lt;WasiProcess&gt; {
+        <span class="self">self</span>.state
+            .mutable
+            .read()
+            .unwrap()
+            .processes
+            .get(<span class="kw-2">&amp;</span>pid)
+            .cloned()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MutableState</span> {
-    <span class="kw">fn</span> <span class="ident">next_process_id</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiProcessId</span>, <span class="ident">ControlPlaneError</span><span class="op">&gt;</span> {
-        <span class="comment">// TODO: reuse terminated ids, handle wrap-around, ...</span>
-        <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">process_seed</span>.<span class="ident">checked_add</span>(<span class="number">1</span>).<span class="ident">ok_or</span>({
-            <span class="ident">ControlPlaneError::TaskLimitReached</span> {
-                <span class="ident">max</span>: <span class="ident">u32::MAX</span> <span class="kw">as</span> <span class="ident">usize</span>,
+<span class="kw">impl </span>MutableState {
+    <span class="kw">fn </span>next_process_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiProcessId, ControlPlaneError&gt; {
+        <span class="comment">// TODO: reuse terminated ids, handle wrap-around, ...
+        </span><span class="kw">let </span>id = <span class="self">self</span>.process_seed.checked_add(<span class="number">1</span>).ok_or({
+            ControlPlaneError::TaskLimitReached {
+                max: u32::MAX <span class="kw">as </span>usize,
             }
         })<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">process_seed</span> <span class="op">=</span> <span class="ident">id</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">WasiProcessId::from</span>(<span class="ident">id</span>))
+        <span class="self">self</span>.process_seed = id;
+        <span class="prelude-val">Ok</span>(WasiProcessId::from(id))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WasiControlPlane</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">ControlPlaneConfig::default</span>();
-        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">config</span>)
+<span class="kw">impl </span>Default <span class="kw">for </span>WasiControlPlane {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>config = ControlPlaneConfig::default();
+        <span class="self">Self</span>::new(config)
     }
 }
 
-<span class="doccomment">/// Guard that ensures the [`WasiControlPlane`] task counter is decremented when dropped.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TaskCountGuard</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicUsize</span><span class="op">&gt;</span>);
+<span class="doccomment">/// Guard that ensures the [`WasiControlPlane`] task counter is decremented when dropped.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>TaskCountGuard(Arc&lt;AtomicUsize&gt;);
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">TaskCountGuard</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">Ordering::SeqCst</span>);
+<span class="kw">impl </span>Drop <span class="kw">for </span>TaskCountGuard {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.<span class="number">0</span>.fetch_sub(<span class="number">1</span>, Ordering::SeqCst);
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">thiserror::Error</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ControlPlaneError</span> {
-    <span class="doccomment">/// The maximum number of execution tasks has been reached.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;The maximum number of execution tasks has been reached ({max})&quot;</span>)]</span>
-    <span class="ident">TaskLimitReached</span> {
-        <span class="doccomment">/// The maximum number of tasks.</span>
-        <span class="ident">max</span>: <span class="ident">usize</span>,
+<span class="attribute">#[derive(thiserror::Error, PartialEq, Eq, Clone, Debug)]
+</span><span class="kw">pub enum </span>ControlPlaneError {
+    <span class="doccomment">/// The maximum number of execution tasks has been reached.
+    </span><span class="attribute">#[error(<span class="string">&quot;The maximum number of execution tasks has been reached ({max})&quot;</span>)]
+    </span>TaskLimitReached {
+        <span class="doccomment">/// The maximum number of tasks.
+        </span>max: usize,
     },
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="doccomment">/// Simple test to ensure task limits are respected.</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_control_plane_task_limits</span>() {
-        <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">WasiControlPlane::new</span>(<span class="ident">ControlPlaneConfig</span> {
-            <span class="ident">max_task_count</span>: <span class="prelude-val">Some</span>(<span class="number">2</span>),
+    <span class="doccomment">/// Simple test to ensure task limits are respected.
+    </span><span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_control_plane_task_limits() {
+        <span class="kw">let </span>p = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: <span class="prelude-val">Some</span>(<span class="number">2</span>),
         });
 
-        <span class="kw">let</span> <span class="ident">p1</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">new_process</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">_t1</span> <span class="op">=</span> <span class="ident">p1</span>.<span class="ident">new_thread</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">_t2</span> <span class="op">=</span> <span class="ident">p1</span>.<span class="ident">new_thread</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let </span>p1 = p.new_process().unwrap();
+        <span class="kw">let </span>_t1 = p1.new_thread().unwrap();
+        <span class="kw">let </span>_t2 = p1.new_thread().unwrap();
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">p</span>.<span class="ident">new_process</span>().<span class="ident">unwrap_err</span>(),
-            <span class="ident">ControlPlaneError::TaskLimitReached</span> { <span class="ident">max</span>: <span class="number">2</span> }
+            p.new_process().unwrap_err(),
+            ControlPlaneError::TaskLimitReached { max: <span class="number">2 </span>}
         );
     }
 
-    <span class="doccomment">/// Simple test to ensure task limits are respected and that thread drop guards work.</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_control_plane_task_limits_with_dropped_threads</span>() {
-        <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">WasiControlPlane::new</span>(<span class="ident">ControlPlaneConfig</span> {
-            <span class="ident">max_task_count</span>: <span class="prelude-val">Some</span>(<span class="number">2</span>),
+    <span class="doccomment">/// Simple test to ensure task limits are respected and that thread drop guards work.
+    </span><span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_control_plane_task_limits_with_dropped_threads() {
+        <span class="kw">let </span>p = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: <span class="prelude-val">Some</span>(<span class="number">2</span>),
         });
 
-        <span class="kw">let</span> <span class="ident">p1</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">new_process</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let </span>p1 = p.new_process().unwrap();
 
-        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
-            <span class="kw">let</span> <span class="ident">_thread</span> <span class="op">=</span> <span class="ident">p1</span>.<span class="ident">new_thread</span>().<span class="ident">unwrap</span>();
+        <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
+            <span class="kw">let </span>_thread = p1.new_thread().unwrap();
         }
 
-        <span class="kw">let</span> <span class="ident">_t1</span> <span class="op">=</span> <span class="ident">p1</span>.<span class="ident">new_thread</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">_t2</span> <span class="op">=</span> <span class="ident">p1</span>.<span class="ident">new_thread</span>().<span class="ident">unwrap</span>();
+        <span class="kw">let </span>_t1 = p1.new_thread().unwrap();
+        <span class="kw">let </span>_t2 = p1.new_thread().unwrap();
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">p</span>.<span class="ident">new_process</span>().<span class="ident">unwrap_err</span>(),
-            <span class="ident">ControlPlaneError::TaskLimitReached</span> { <span class="ident">max</span>: <span class="number">2</span> }
+            p.new_process().unwrap_err(),
+            ControlPlaneError::TaskLimitReached { max: <span class="number">2 </span>}
         );
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

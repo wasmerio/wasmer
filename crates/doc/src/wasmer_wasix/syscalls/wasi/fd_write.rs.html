@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/syscalls/wasi/fd_write.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fd_write.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/syscalls/wasi/fd_write.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fd_write.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -262,267 +262,267 @@
 <span id="260">260</span>
 <span id="261">261</span>
 <span id="262">262</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// ### `fd_write()`</span>
-<span class="doccomment">/// Write data to the file descriptor</span>
-<span class="doccomment">/// Inputs:</span>
-<span class="doccomment">/// - `Fd`</span>
-<span class="doccomment">///     File descriptor (opened with writing) to write to</span>
-<span class="doccomment">/// - `const __wasi_ciovec_t *iovs`</span>
-<span class="doccomment">///     List of vectors to read data from</span>
-<span class="doccomment">/// - `u32 iovs_len`</span>
-<span class="doccomment">///     Length of data in `iovs`</span>
-<span class="doccomment">/// Output:</span>
-<span class="doccomment">/// - `u32 *nwritten`</span>
-<span class="doccomment">///     Number of bytes written</span>
-<span class="doccomment">/// Errors:</span>
-<span class="doccomment">///</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">fd</span>, <span class="ident">nwritten</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_write</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
-    <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">iovs_len</span>: <span class="ident">M::Offset</span>,
-    <span class="ident">nwritten</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">M::Offset</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">inodes</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">inodes</span>.<span class="ident">clone</span>();
+<span class="doccomment">/// ### `fd_write()`
+/// Write data to the file descriptor
+/// Inputs:
+/// - `Fd`
+///     File descriptor (opened with writing) to write to
+/// - `const __wasi_ciovec_t *iovs`
+///     List of vectors to read data from
+/// - `u32 iovs_len`
+///     Length of data in `iovs`
+/// Output:
+/// - `u32 *nwritten`
+///     Number of bytes written
+/// Errors:
+///
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(fd, nwritten = field::Empty), ret, err)]
+</span><span class="kw">pub fn </span>fd_write&lt;M: MemorySize&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    iovs: WasmPtr&lt;__wasi_ciovec_t&lt;M&gt;, M&gt;,
+    iovs_len: M::Offset,
+    nwritten: WasmPtr&lt;M::Offset, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="kw">let </span>offset = {
+        <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+        <span class="kw">let </span>state = env.state.clone();
+        <span class="kw">let </span>inodes = state.inodes.clone();
 
-        <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
-        <span class="ident">fd_entry</span>.<span class="ident">offset</span>.<span class="ident">load</span>(<span class="ident">Ordering::Acquire</span>) <span class="kw">as</span> <span class="ident">usize</span>
+        <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
+        fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
     };
 
-    <span class="ident">fd_write_internal</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">iovs</span>, <span class="ident">iovs_len</span>, <span class="ident">offset</span>, <span class="ident">nwritten</span>, <span class="bool-val">true</span>)
+    fd_write_internal::&lt;M&gt;(ctx, fd, iovs, iovs_len, offset, nwritten, <span class="bool-val">true</span>)
 }
 
-<span class="doccomment">/// ### `fd_pwrite()`</span>
-<span class="doccomment">/// Write to a file without adjusting its offset</span>
-<span class="doccomment">/// Inputs:</span>
-<span class="doccomment">/// - `Fd`</span>
-<span class="doccomment">///     File descriptor (opened with writing) to write to</span>
-<span class="doccomment">/// - `const __wasi_ciovec_t *iovs`</span>
-<span class="doccomment">///     List of vectors to read data from</span>
-<span class="doccomment">/// - `u32 iovs_len`</span>
-<span class="doccomment">///     Length of data in `iovs`</span>
-<span class="doccomment">/// - `Filesize offset`</span>
-<span class="doccomment">///     The offset to write at</span>
-<span class="doccomment">/// Output:</span>
-<span class="doccomment">/// - `u32 *nwritten`</span>
-<span class="doccomment">///     Number of bytes written</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">nwritten</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_pwrite</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
-    <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">iovs_len</span>: <span class="ident">M::Offset</span>,
-    <span class="ident">offset</span>: <span class="ident">Filesize</span>,
-    <span class="ident">nwritten</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">M::Offset</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="ident">fd_write_internal</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">fd</span>, <span class="ident">iovs</span>, <span class="ident">iovs_len</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="ident">nwritten</span>, <span class="bool-val">false</span>)
+<span class="doccomment">/// ### `fd_pwrite()`
+/// Write to a file without adjusting its offset
+/// Inputs:
+/// - `Fd`
+///     File descriptor (opened with writing) to write to
+/// - `const __wasi_ciovec_t *iovs`
+///     List of vectors to read data from
+/// - `u32 iovs_len`
+///     Length of data in `iovs`
+/// - `Filesize offset`
+///     The offset to write at
+/// Output:
+/// - `u32 *nwritten`
+///     Number of bytes written
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(fd, offset, nwritten = field::Empty), ret, err)]
+</span><span class="kw">pub fn </span>fd_pwrite&lt;M: MemorySize&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    iovs: WasmPtr&lt;__wasi_ciovec_t&lt;M&gt;, M&gt;,
+    iovs_len: M::Offset,
+    offset: Filesize,
+    nwritten: WasmPtr&lt;M::Offset, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    fd_write_internal::&lt;M&gt;(ctx, fd, iovs, iovs_len, offset <span class="kw">as </span>usize, nwritten, <span class="bool-val">false</span>)
 }
 
-<span class="doccomment">/// ### `fd_pwrite()`</span>
-<span class="doccomment">/// Write to a file without adjusting its offset</span>
-<span class="doccomment">/// Inputs:</span>
-<span class="doccomment">/// - `Fd`</span>
-<span class="doccomment">///     File descriptor (opened with writing) to write to</span>
-<span class="doccomment">/// - `const __wasi_ciovec_t *iovs`</span>
-<span class="doccomment">///     List of vectors to read data from</span>
-<span class="doccomment">/// - `u32 iovs_len`</span>
-<span class="doccomment">///     Length of data in `iovs`</span>
-<span class="doccomment">/// - `Filesize offset`</span>
-<span class="doccomment">///     The offset to write at</span>
-<span class="doccomment">/// Output:</span>
-<span class="doccomment">/// - `u32 *nwritten`</span>
-<span class="doccomment">///     Number of bytes written</span>
-<span class="kw">fn</span> <span class="ident">fd_write_internal</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
-    <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">iovs_len</span>: <span class="ident">M::Offset</span>,
-    <span class="ident">offset</span>: <span class="ident">usize</span>,
-    <span class="ident">nwritten</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">M::Offset</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">should_update_cursor</span>: <span class="ident">bool</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">wasi_try_ok!</span>(<span class="ident">WasiEnv::process_signals_and_exit</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>)<span class="question-mark">?</span>);
+<span class="doccomment">/// ### `fd_pwrite()`
+/// Write to a file without adjusting its offset
+/// Inputs:
+/// - `Fd`
+///     File descriptor (opened with writing) to write to
+/// - `const __wasi_ciovec_t *iovs`
+///     List of vectors to read data from
+/// - `u32 iovs_len`
+///     Length of data in `iovs`
+/// - `Filesize offset`
+///     The offset to write at
+/// Output:
+/// - `u32 *nwritten`
+///     Number of bytes written
+</span><span class="kw">fn </span>fd_write_internal&lt;M: MemorySize&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    iovs: WasmPtr&lt;__wasi_ciovec_t&lt;M&gt;, M&gt;,
+    iovs_len: M::Offset,
+    offset: usize,
+    nwritten: WasmPtr&lt;M::Offset, M&gt;,
+    should_update_cursor: bool,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">clone</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">iovs_arr</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">iovs</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">iovs_len</span>));
+    <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+    <span class="kw">let </span>state = env.state.clone();
+    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len));
 
-    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
-    <span class="kw">let</span> <span class="ident">is_stdio</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">is_stdio</span>;
+    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>is_stdio = fd_entry.is_stdio;
 
-    <span class="kw">let</span> <span class="ident">bytes_written</span> <span class="op">=</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">is_stdio</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">fd_entry</span>.<span class="ident">rights</span>.<span class="ident">contains</span>(<span class="ident">Rights::FD_WRITE</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Access</span>);
+    <span class="kw">let </span>bytes_written = {
+        <span class="kw">if </span>!is_stdio &amp;&amp; !fd_entry.rights.contains(Rights::FD_WRITE) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
 
-        <span class="kw">let</span> <span class="ident">fd_flags</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">flags</span>;
+        <span class="kw">let </span>fd_flags = fd_entry.flags;
 
-        <span class="kw">let</span> (<span class="ident">bytes_written</span>, <span class="ident">can_update_cursor</span>) <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">iovs_arr</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">iovs_arr</span>.<span class="ident">access</span>());
+        <span class="kw">let </span>(bytes_written, can_update_cursor) = {
+            <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(iovs_arr.access());
 
-            <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">memory</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>.<span class="ident">write</span>();
-            <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>() {
-                <span class="ident">Kind::File</span> { <span class="ident">handle</span>, .. } =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
-                        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">clone</span>();
-                        <span class="ident">drop</span>(<span class="ident">guard</span>);
+            <span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>guard = fd_entry.inode.write();
+            <span class="kw">match </span>guard.deref_mut() {
+                Kind::File { handle, .. } =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
+                        <span class="kw">let </span>handle = handle.clone();
+                        drop(guard);
 
-                        <span class="kw">let</span> <span class="ident">written</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">__asyncify_light</span>(
-                            <span class="ident">env</span>,
-                            <span class="kw">if</span> <span class="ident">fd_entry</span>.<span class="ident">flags</span>.<span class="ident">contains</span>(<span class="ident">Fdflags::NONBLOCK</span>) {
-                                <span class="prelude-val">Some</span>(<span class="ident">Duration::ZERO</span>)
-                            } <span class="kw">else</span> {
-                                <span class="prelude-val">None</span>
-                            },
-                            <span class="kw">async</span> {
-                                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                                <span class="kw">if</span> <span class="op">!</span><span class="ident">is_stdio</span> {
-                                    <span class="ident">handle</span>
-                                        .<span class="ident">seek</span>(<span class="ident">std::io::SeekFrom::Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>))
-                                        .<span class="kw">await</span>
-                                        .<span class="ident">map_err</span>(<span class="ident">map_io_err</span>)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>written = <span class="macro">wasi_try_ok!</span>(__asyncify_light(
+                            env,
+                            <span class="kw">if </span>fd_entry.flags.contains(Fdflags::NONBLOCK) {
+                                <span class="prelude-val">Some</span>(Duration::ZERO)
+                            } <span class="kw">else </span>{
+                                <span class="prelude-val">None
+                            </span>},
+                            <span class="kw">async </span>{
+                                <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
+                                <span class="kw">if </span>!is_stdio {
+                                    handle
+                                        .seek(std::io::SeekFrom::Start(offset <span class="kw">as </span>u64))
+                                        .<span class="kw">await
+                                        </span>.map_err(map_io_err)<span class="question-mark">?</span>;
                                 }
 
-                                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">written</span> <span class="op">=</span> <span class="number">0usize</span>;
-                                <span class="kw">for</span> <span class="ident">iovs</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
-                                    <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iovs</span>.<span class="ident">buf</span>)
-                                        .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">iovs</span>.<span class="ident">buf_len</span>)
-                                        .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>
-                                        .<span class="ident">access</span>()
-                                        .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
-                                    <span class="ident">written</span> <span class="op">+</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">handle</span>.<span class="ident">write</span>(<span class="ident">buf</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span> {
-                                        <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-                                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">written</span> <span class="op">&gt;</span> <span class="number">0</span> =&gt; <span class="kw">break</span>,
-                                        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">map_io_err</span>(<span class="ident">err</span>)),
+                                <span class="kw">let </span><span class="kw-2">mut </span>written = <span class="number">0usize</span>;
+                                <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                                    <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+                                        .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+                                        .map_err(mem_error_to_wasi)<span class="question-mark">?
+                                        </span>.access()
+                                        .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                                    written += <span class="kw">match </span>handle.write(buf.as_ref()).<span class="kw">await </span>{
+                                        <span class="prelude-val">Ok</span>(s) =&gt; s,
+                                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>written &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
+                                        <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(map_io_err(err)),
                                     };
                                 }
-                                <span class="prelude-val">Ok</span>(<span class="ident">written</span>)
+                                <span class="prelude-val">Ok</span>(written)
                             }
-                        )<span class="question-mark">?</span>
-                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">err</span> {
-                            <span class="ident">Errno::Timedout</span> =&gt; <span class="ident">Errno::Again</span>,
-                            <span class="ident">a</span> =&gt; <span class="ident">a</span>,
+                        )<span class="question-mark">?
+                        </span>.map_err(|err| <span class="kw">match </span>err {
+                            Errno::Timedout =&gt; Errno::Again,
+                            a =&gt; a,
                         }));
 
-                        (<span class="ident">written</span>, <span class="bool-val">true</span>)
-                    } <span class="kw">else</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Inval</span>);
+                        (written, <span class="bool-val">true</span>)
+                    } <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                     }
                 }
-                <span class="ident">Kind::Socket</span> { <span class="ident">socket</span> } =&gt; {
-                    <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket</span>.<span class="ident">clone</span>();
-                    <span class="ident">drop</span>(<span class="ident">guard</span>);
+                Kind::Socket { socket } =&gt; {
+                    <span class="kw">let </span>socket = socket.clone();
+                    drop(guard);
 
-                    <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">tasks</span>().<span class="ident">clone</span>();
-                    <span class="kw">let</span> <span class="ident">written</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">__asyncify_light</span>(<span class="ident">env</span>, <span class="prelude-val">None</span>, <span class="kw">async</span> <span class="kw">move</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sent</span> <span class="op">=</span> <span class="number">0usize</span>;
-                        <span class="kw">for</span> <span class="ident">iovs</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
-                            <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iovs</span>.<span class="ident">buf</span>)
-                                .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">iovs</span>.<span class="ident">buf_len</span>)
-                                .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>
-                                .<span class="ident">access</span>()
-                                .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
-                            <span class="ident">sent</span> <span class="op">+</span><span class="op">=</span> <span class="ident">socket</span>.<span class="ident">send</span>(<span class="ident">tasks</span>.<span class="ident">deref</span>(), <span class="ident">buf</span>.<span class="ident">as_ref</span>(), <span class="ident">fd_flags</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="kw">let </span>tasks = env.tasks().clone();
+                    <span class="kw">let </span>written = <span class="macro">wasi_try_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                        <span class="kw">let </span><span class="kw-2">mut </span>sent = <span class="number">0usize</span>;
+                        <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                            <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+                                .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+                                .map_err(mem_error_to_wasi)<span class="question-mark">?
+                                </span>.access()
+                                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                            sent += socket.send(tasks.deref(), buf.as_ref(), fd_flags).<span class="kw">await</span><span class="question-mark">?</span>;
                         }
-                        <span class="prelude-val">Ok</span>(<span class="ident">sent</span>)
+                        <span class="prelude-val">Ok</span>(sent)
                     })<span class="question-mark">?</span>);
-                    (<span class="ident">written</span>, <span class="bool-val">false</span>)
+                    (written, <span class="bool-val">false</span>)
                 }
-                <span class="ident">Kind::Pipe</span> { <span class="ident">pipe</span> } =&gt; {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">written</span> <span class="op">=</span> <span class="number">0usize</span>;
-                    <span class="kw">for</span> <span class="ident">iovs</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
-                        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iovs</span>.<span class="ident">buf</span>)
-                            .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">iovs</span>.<span class="ident">buf_len</span>)
-                            .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>));
-                        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">buf</span>.<span class="ident">access</span>().<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>));
-                        <span class="ident">written</span> <span class="op">+</span><span class="op">=</span> <span class="macro">wasi_try_ok!</span>(
-                            <span class="ident">std::io::Write::write</span>(<span class="ident">pipe</span>, <span class="ident">buf</span>.<span class="ident">as_ref</span>()).<span class="ident">map_err</span>(<span class="ident">map_io_err</span>)
+                Kind::Pipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>written = <span class="number">0usize</span>;
+                    <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                        <span class="kw">let </span>buf = <span class="macro">wasi_try_ok!</span>(WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+                            .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+                            .map_err(mem_error_to_wasi));
+                        <span class="kw">let </span>buf = <span class="macro">wasi_try_ok!</span>(buf.access().map_err(mem_error_to_wasi));
+                        written += <span class="macro">wasi_try_ok!</span>(
+                            std::io::Write::write(pipe, buf.as_ref()).map_err(map_io_err)
                         );
                     }
-                    (<span class="ident">written</span>, <span class="bool-val">false</span>)
+                    (written, <span class="bool-val">false</span>)
                 }
-                <span class="ident">Kind::Dir</span> { .. } <span class="op">|</span> <span class="ident">Kind::Root</span> { .. } =&gt; {
-                    <span class="comment">// TODO: verify</span>
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Isdir</span>);
+                Kind::Dir { .. } | Kind::Root { .. } =&gt; {
+                    <span class="comment">// TODO: verify
+                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir);
                 }
-                <span class="ident">Kind::EventNotifications</span>(<span class="ident">inner</span>) =&gt; {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">written</span> <span class="op">=</span> <span class="number">0usize</span>;
-                    <span class="kw">for</span> <span class="ident">iovs</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
-                        <span class="kw">let</span> <span class="ident">buf_len</span>: <span class="ident">usize</span> <span class="op">=</span>
-                            <span class="macro">wasi_try_ok!</span>(<span class="ident">iovs</span>.<span class="ident">buf_len</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Inval</span>));
-                        <span class="kw">let</span> <span class="ident">will_be_written</span> <span class="op">=</span> <span class="ident">buf_len</span>;
+                Kind::EventNotifications(inner) =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>written = <span class="number">0usize</span>;
+                    <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                        <span class="kw">let </span>buf_len: usize =
+                            <span class="macro">wasi_try_ok!</span>(iovs.buf_len.try_into().map_err(|<span class="kw">_</span>| Errno::Inval));
+                        <span class="kw">let </span>will_be_written = buf_len;
 
-                        <span class="kw">let</span> <span class="ident">val_cnt</span> <span class="op">=</span> <span class="ident">buf_len</span> <span class="op">/</span> <span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>();
-                        <span class="kw">let</span> <span class="ident">val_cnt</span>: <span class="ident">M::Offset</span> <span class="op">=</span>
-                            <span class="macro">wasi_try_ok!</span>(<span class="ident">val_cnt</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Inval</span>));
+                        <span class="kw">let </span>val_cnt = buf_len / std::mem::size_of::&lt;u64&gt;();
+                        <span class="kw">let </span>val_cnt: M::Offset =
+                            <span class="macro">wasi_try_ok!</span>(val_cnt.try_into().map_err(|<span class="kw">_</span>| Errno::Inval));
 
-                        <span class="kw">let</span> <span class="ident">vals</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iovs</span>.<span class="ident">buf</span>)
-                            .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">val_cnt</span> <span class="kw">as</span> <span class="ident">M::Offset</span>)
-                            .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>));
-                        <span class="kw">let</span> <span class="ident">vals</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">vals</span>.<span class="ident">access</span>().<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>));
-                        <span class="kw">for</span> <span class="ident">val</span> <span class="kw">in</span> <span class="ident">vals</span>.<span class="ident">iter</span>() {
-                            <span class="ident">inner</span>.<span class="ident">write</span>(<span class="kw-2">*</span><span class="ident">val</span>);
+                        <span class="kw">let </span>vals = <span class="macro">wasi_try_ok!</span>(WasmPtr::&lt;u64, M&gt;::new(iovs.buf)
+                            .slice(<span class="kw-2">&amp;</span>memory, val_cnt <span class="kw">as </span>M::Offset)
+                            .map_err(mem_error_to_wasi));
+                        <span class="kw">let </span>vals = <span class="macro">wasi_try_ok!</span>(vals.access().map_err(mem_error_to_wasi));
+                        <span class="kw">for </span>val <span class="kw">in </span>vals.iter() {
+                            inner.write(<span class="kw-2">*</span>val);
                         }
 
-                        <span class="ident">written</span> <span class="op">+</span><span class="op">=</span> <span class="ident">will_be_written</span>;
+                        written += will_be_written;
                     }
-                    (<span class="ident">written</span>, <span class="bool-val">false</span>)
+                    (written, <span class="bool-val">false</span>)
                 }
-                <span class="ident">Kind::Symlink</span> { .. } =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Inval</span>),
-                <span class="ident">Kind::Buffer</span> { <span class="ident">buffer</span> } =&gt; {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">written</span> <span class="op">=</span> <span class="number">0usize</span>;
-                    <span class="kw">for</span> <span class="ident">iovs</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
-                        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iovs</span>.<span class="ident">buf</span>)
-                            .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">iovs</span>.<span class="ident">buf_len</span>)
-                            .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>));
-                        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">buf</span>.<span class="ident">access</span>().<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>));
-                        <span class="ident">written</span> <span class="op">+</span><span class="op">=</span> <span class="macro">wasi_try_ok!</span>(
-                            <span class="ident">std::io::Write::write</span>(<span class="ident">buffer</span>, <span class="ident">buf</span>.<span class="ident">as_ref</span>()).<span class="ident">map_err</span>(<span class="ident">map_io_err</span>)
+                Kind::Symlink { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
+                Kind::Buffer { buffer } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>written = <span class="number">0usize</span>;
+                    <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                        <span class="kw">let </span>buf = <span class="macro">wasi_try_ok!</span>(WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+                            .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+                            .map_err(mem_error_to_wasi));
+                        <span class="kw">let </span>buf = <span class="macro">wasi_try_ok!</span>(buf.access().map_err(mem_error_to_wasi));
+                        written += <span class="macro">wasi_try_ok!</span>(
+                            std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
                         );
                     }
-                    (<span class="ident">written</span>, <span class="bool-val">false</span>)
+                    (written, <span class="bool-val">false</span>)
                 }
             }
         };
-        <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-        <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+        env = ctx.data();
+        memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
 
-        <span class="comment">// reborrow and update the size</span>
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">is_stdio</span> {
-            <span class="kw">if</span> <span class="ident">can_update_cursor</span> <span class="op">&amp;&amp;</span> <span class="ident">should_update_cursor</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fd_map</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">Errno::Badf</span>));
-                <span class="ident">fd_entry</span>
-                    .<span class="ident">offset</span>
-                    .<span class="ident">fetch_add</span>(<span class="ident">bytes_written</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="ident">Ordering::AcqRel</span>);
+        <span class="comment">// reborrow and update the size
+        </span><span class="kw">if </span>!is_stdio {
+            <span class="kw">if </span>can_update_cursor &amp;&amp; should_update_cursor {
+                <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
+                <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
+                fd_entry
+                    .offset
+                    .fetch_add(bytes_written <span class="kw">as </span>u64, Ordering::AcqRel);
             }
 
-            <span class="comment">// we set the size but we don&#39;t return any errors if it fails as</span>
-            <span class="comment">// pipes and sockets will not do anything with this</span>
-            <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">memory</span>, <span class="kw">_</span>, <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
-            <span class="comment">// Cast is valid because we don&#39;t support 128 bit systems...</span>
-            <span class="ident">fd_entry</span>.<span class="ident">inode</span>.<span class="ident">stat</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>().<span class="ident">st_size</span> <span class="op">+</span><span class="op">=</span> <span class="ident">bytes_written</span> <span class="kw">as</span> <span class="ident">u64</span>;
+            <span class="comment">// we set the size but we don&#39;t return any errors if it fails as
+            // pipes and sockets will not do anything with this
+            </span><span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+            <span class="comment">// Cast is valid because we don&#39;t support 128 bit systems...
+            </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
         }
-        <span class="ident">bytes_written</span>
+        bytes_written
     };
-    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;nwritten&quot;</span>, <span class="ident">bytes_written</span>);
+    Span::current().record(<span class="string">&quot;nwritten&quot;</span>, bytes_written);
 
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">nwritten_ref</span> <span class="op">=</span> <span class="ident">nwritten</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">bytes_written</span>: <span class="ident">M::Offset</span> <span class="op">=</span>
-        <span class="macro">wasi_try_ok!</span>(<span class="ident">bytes_written</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>));
-    <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">nwritten_ref</span>.<span class="ident">write</span>(<span class="ident">bytes_written</span>));
+    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>nwritten_ref = nwritten.deref(<span class="kw-2">&amp;</span>memory);
+    <span class="kw">let </span>bytes_written: M::Offset =
+        <span class="macro">wasi_try_ok!</span>(bytes_written.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+    <span class="macro">wasi_try_mem_ok!</span>(nwritten_ref.write(bytes_written));
 
-    <span class="prelude-val">Ok</span>(<span class="ident">Errno::Success</span>)
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/extern_ref.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>extern_ref.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/extern_ref.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>extern_ref.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -57,62 +57,62 @@
 <span id="55">55</span>
 <span id="56">56</span>
 <span id="57">57</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::any::Any</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::any::Any;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
+<span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::js::extern_ref</span> <span class="kw">as</span> <span class="ident">extern_ref_imp</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::extern_ref</span> <span class="kw">as</span> <span class="ident">extern_ref_imp</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vm::VMExternRef</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::js::extern_ref <span class="kw">as </span>extern_ref_imp;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::sys::extern_ref <span class="kw">as </span>extern_ref_imp;
+<span class="kw">use </span><span class="kw">crate</span>::vm::VMExternRef;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="doccomment">/// An opaque reference to some data. This reference can be passed through Wasm.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExternRef</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">extern_ref_imp::ExternRef</span>);
+<span class="attribute">#[derive(Debug, Clone)]
+#[repr(transparent)]
+</span><span class="doccomment">/// An opaque reference to some data. This reference can be passed through Wasm.
+</span><span class="kw">pub struct </span>ExternRef(<span class="kw">pub</span>(<span class="kw">crate</span>) extern_ref_imp::ExternRef);
 
-<span class="kw">impl</span> <span class="ident">ExternRef</span> {
-    <span class="doccomment">/// Make a new extern reference</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">value</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Sized</span>,
+<span class="kw">impl </span>ExternRef {
+    <span class="doccomment">/// Make a new extern reference
+    </span><span class="kw">pub fn </span>new&lt;T&gt;(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, value: T) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>T: Any + Send + Sync + <span class="lifetime">&#39;static </span>+ Sized,
     {
-        <span class="self">Self</span>(<span class="ident">extern_ref_imp::ExternRef::new</span>(<span class="ident">store</span>, <span class="ident">value</span>))
+        <span class="self">Self</span>(extern_ref_imp::ExternRef::new(store, value))
     }
 
-    <span class="doccomment">/// Try to downcast to the given value.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">downcast</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Sized</span>,
+    <span class="doccomment">/// Try to downcast to the given value.
+    </span><span class="kw">pub fn </span>downcast&lt;<span class="lifetime">&#39;a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T&gt;
+    <span class="kw">where
+        </span>T: Any + Send + Sync + <span class="lifetime">&#39;static </span>+ Sized,
     {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">downcast</span>(<span class="ident">store</span>)
+        <span class="self">self</span>.<span class="number">0</span>.downcast(store)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">vm_externref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExternRef</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">vm_externref</span>()
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>vm_externref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExternRef {
+        <span class="self">self</span>.<span class="number">0</span>.vm_externref()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_vm_externref</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">vm_externref</span>: <span class="ident">VMExternRef</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">extern_ref_imp::ExternRef::from_vm_externref</span>(
-            <span class="ident">store</span>,
-            <span class="ident">vm_externref</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>from_vm_externref(
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        vm_externref: VMExternRef,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(extern_ref_imp::ExternRef::from_vm_externref(
+            store,
+            vm_externref,
         ))
     }
 
-    <span class="doccomment">/// Checks whether this `ExternRef` can be used with the given context.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not</span>
-    <span class="doccomment">/// tied to a context and can be freely shared between contexts.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Externref and funcref values are tied to a context and can only be used</span>
-    <span class="doccomment">/// with that context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>)
+    <span class="doccomment">/// Checks whether this `ExternRef` can be used with the given context.
+    ///
+    /// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not
+    /// tied to a context and can be freely shared between contexts.
+    ///
+    /// Externref and funcref values are tied to a context and can only be used
+    /// with that context.
+    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="self">self</span>.<span class="number">0</span>.is_from_store(store)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

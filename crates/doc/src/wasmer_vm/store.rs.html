@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/store.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/store.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -294,301 +294,301 @@
 <span id="294">294</span>
 <span id="295">295</span>
 <span id="296">296</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">VMExternObj</span>, <span class="ident">VMFunction</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMInstance</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>,
+</pre><pre class="rust"><code><span class="kw">use crate</span>::{
+    VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
 };
-<span class="kw">use</span> <span class="ident">core::slice::Iter</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell::UnsafeCell</span>, <span class="ident">fmt</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">num::NonZeroUsize</span>, <span class="ident">ptr::NonNull</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::StoreId</span>;
+<span class="kw">use </span>core::slice::Iter;
+<span class="kw">use </span>std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
+<span class="kw">use </span>wasmer_types::StoreId;
 
-<span class="doccomment">/// Trait to represent an object managed by a context. This is implemented on</span>
-<span class="doccomment">/// the VM types managed by the context.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">StoreObject</span>: <span class="ident">Sized</span> {
-    <span class="kw">fn</span> <span class="ident">list</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">list_mut</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Trait to represent an object managed by a context. This is implemented on
+/// the VM types managed by the context.
+</span><span class="kw">pub trait </span>StoreObject: Sized {
+    <span class="kw">fn </span>list(ctx: <span class="kw-2">&amp;</span>StoreObjects) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>&gt;;
+    <span class="kw">fn </span>list_mut(ctx: <span class="kw-2">&amp;mut </span>StoreObjects) -&gt; <span class="kw-2">&amp;mut </span>Vec&lt;<span class="self">Self</span>&gt;;
 }
-<span class="macro">macro_rules!</span> <span class="ident">impl_context_object</span> {
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">field</span>:<span class="ident">ident</span> =&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ty</span>,)<span class="kw-2">*</span>) =&gt; {
+<span class="macro">macro_rules! </span>impl_context_object {
+    ($(<span class="macro-nonterminal">$field</span>:ident =&gt; <span class="macro-nonterminal">$ty</span>:ty,)<span class="kw-2">*</span>) =&gt; {
         $(
-            <span class="kw">impl</span> <span class="ident">StoreObject</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
-                <span class="kw">fn</span> <span class="ident">list</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-                    <span class="kw-2">&amp;</span><span class="ident">ctx</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">field</span>
-                }
-                <span class="kw">fn</span> <span class="ident">list_mut</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-                    <span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">field</span>
-                }
+            <span class="kw">impl </span>StoreObject <span class="kw">for </span><span class="macro-nonterminal">$ty </span>{
+                <span class="kw">fn </span>list(ctx: <span class="kw-2">&amp;</span>StoreObjects) -&gt; <span class="kw-2">&amp;</span>Vec&lt;<span class="self">Self</span>&gt; {
+                    <span class="kw-2">&amp;</span>ctx.<span class="macro-nonterminal">$field
+                </span>}
+                <span class="kw">fn </span>list_mut(ctx: <span class="kw-2">&amp;mut </span>StoreObjects) -&gt; <span class="kw-2">&amp;mut </span>Vec&lt;<span class="self">Self</span>&gt; {
+                    <span class="kw-2">&amp;mut </span>ctx.<span class="macro-nonterminal">$field
+                </span>}
             }
-        )<span class="op">*</span>
+        )*
     };
 }
-<span class="macro">impl_context_object!</span> {
-    <span class="ident">functions</span> =&gt; <span class="ident">VMFunction</span>,
-    <span class="ident">tables</span> =&gt; <span class="ident">VMTable</span>,
-    <span class="ident">globals</span> =&gt; <span class="ident">VMGlobal</span>,
-    <span class="ident">instances</span> =&gt; <span class="ident">VMInstance</span>,
-    <span class="ident">memories</span> =&gt; <span class="ident">VMMemory</span>,
-    <span class="ident">extern_objs</span> =&gt; <span class="ident">VMExternObj</span>,
-    <span class="ident">function_environments</span> =&gt; <span class="ident">VMFunctionEnvironment</span>,
+<span class="macro">impl_context_object! </span>{
+    functions =&gt; VMFunction,
+    tables =&gt; VMTable,
+    globals =&gt; VMGlobal,
+    instances =&gt; VMInstance,
+    memories =&gt; VMMemory,
+    extern_objs =&gt; VMExternObj,
+    function_environments =&gt; VMFunctionEnvironment,
 }
 
-<span class="doccomment">/// Set of objects managed by a context.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StoreObjects</span> {
-    <span class="ident">id</span>: <span class="ident">StoreId</span>,
-    <span class="ident">memories</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span>,
-    <span class="ident">tables</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span>,
-    <span class="ident">globals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span>,
-    <span class="ident">functions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>,
-    <span class="ident">instances</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMInstance</span><span class="op">&gt;</span>,
-    <span class="ident">extern_objs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMExternObj</span><span class="op">&gt;</span>,
-    <span class="ident">function_environments</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMFunctionEnvironment</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Set of objects managed by a context.
+</span><span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>StoreObjects {
+    id: StoreId,
+    memories: Vec&lt;VMMemory&gt;,
+    tables: Vec&lt;VMTable&gt;,
+    globals: Vec&lt;VMGlobal&gt;,
+    functions: Vec&lt;VMFunction&gt;,
+    instances: Vec&lt;VMInstance&gt;,
+    extern_objs: Vec&lt;VMExternObj&gt;,
+    function_environments: Vec&lt;VMFunctionEnvironment&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">StoreObjects</span> {
-    <span class="doccomment">/// Returns the ID of this context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StoreId</span> {
-        <span class="self">self</span>.<span class="ident">id</span>
+<span class="kw">impl </span>StoreObjects {
+    <span class="doccomment">/// Returns the ID of this context.
+    </span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StoreId {
+        <span class="self">self</span>.id
     }
 
-    <span class="doccomment">/// Sets the ID of this store</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_id</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">StoreId</span>) {
-        <span class="self">self</span>.<span class="ident">id</span> <span class="op">=</span> <span class="ident">id</span>;
+    <span class="doccomment">/// Sets the ID of this store
+    </span><span class="kw">pub fn </span>set_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: StoreId) {
+        <span class="self">self</span>.id = id;
     }
 
-    <span class="doccomment">/// Returns a pair of mutable references from two handles.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Panics if both handles point to the same object.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_2_mut</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StoreObject</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">a</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-        <span class="ident">b</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-    ) -&gt; (<span class="kw-2">&amp;mut</span> <span class="ident">T</span>, <span class="kw-2">&amp;mut</span> <span class="ident">T</span>) {
-        <span class="macro">assert_ne!</span>(<span class="ident">a</span>.<span class="ident">index</span>(), <span class="ident">b</span>.<span class="ident">index</span>());
-        <span class="kw">let</span> <span class="ident">list</span> <span class="op">=</span> <span class="ident">T::list_mut</span>(<span class="self">self</span>);
-        <span class="kw">if</span> <span class="ident">a</span>.<span class="ident">index</span>() <span class="op">&lt;</span> <span class="ident">b</span>.<span class="ident">index</span>() {
-            <span class="kw">let</span> (<span class="ident">low</span>, <span class="ident">high</span>) <span class="op">=</span> <span class="ident">list</span>.<span class="ident">split_at_mut</span>(<span class="ident">b</span>.<span class="ident">index</span>());
-            (<span class="kw-2">&amp;mut</span> <span class="ident">low</span>[<span class="ident">a</span>.<span class="ident">index</span>()], <span class="kw-2">&amp;mut</span> <span class="ident">high</span>[<span class="number">0</span>])
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> (<span class="ident">low</span>, <span class="ident">high</span>) <span class="op">=</span> <span class="ident">list</span>.<span class="ident">split_at_mut</span>(<span class="ident">a</span>.<span class="ident">index</span>());
-            (<span class="kw-2">&amp;mut</span> <span class="ident">high</span>[<span class="number">0</span>], <span class="kw-2">&amp;mut</span> <span class="ident">low</span>[<span class="ident">a</span>.<span class="ident">index</span>()])
+    <span class="doccomment">/// Returns a pair of mutable references from two handles.
+    ///
+    /// Panics if both handles point to the same object.
+    </span><span class="kw">pub fn </span>get_2_mut&lt;T: StoreObject&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        a: InternalStoreHandle&lt;T&gt;,
+        b: InternalStoreHandle&lt;T&gt;,
+    ) -&gt; (<span class="kw-2">&amp;mut </span>T, <span class="kw-2">&amp;mut </span>T) {
+        <span class="macro">assert_ne!</span>(a.index(), b.index());
+        <span class="kw">let </span>list = T::list_mut(<span class="self">self</span>);
+        <span class="kw">if </span>a.index() &lt; b.index() {
+            <span class="kw">let </span>(low, high) = list.split_at_mut(b.index());
+            (<span class="kw-2">&amp;mut </span>low[a.index()], <span class="kw-2">&amp;mut </span>high[<span class="number">0</span>])
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>(low, high) = list.split_at_mut(a.index());
+            (<span class="kw-2">&amp;mut </span>high[<span class="number">0</span>], <span class="kw-2">&amp;mut </span>low[a.index()])
         }
     }
 
-    <span class="doccomment">/// Return an immutable iterator over all globals</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter_globals</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">globals</span>.<span class="ident">iter</span>()
+    <span class="doccomment">/// Return an immutable iterator over all globals
+    </span><span class="kw">pub fn </span>iter_globals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;VMGlobal&gt; {
+        <span class="self">self</span>.globals.iter()
     }
 
-    <span class="doccomment">/// Return an vector of all globals and converted to u128</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_u128_globals</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">iter_globals</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">v</span>.<span class="ident">vmglobal</span>().<span class="ident">as_ref</span>().<span class="ident">val</span>.<span class="ident">u128</span> })
-            .<span class="ident">collect</span>()
+    <span class="doccomment">/// Return an vector of all globals and converted to u128
+    </span><span class="kw">pub fn </span>as_u128_globals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u128&gt; {
+        <span class="self">self</span>.iter_globals()
+            .map(|v| <span class="kw">unsafe </span>{ v.vmglobal().as_ref().val.u128 })
+            .collect()
     }
 
-    <span class="doccomment">/// Set a global, at index idx. Will panic if idx is out of range</span>
-    <span class="doccomment">/// Safety: the caller should check taht the raw value is compatible</span>
-    <span class="doccomment">/// with destination VMGlobal type</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_global_unchecked</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">idx</span>: <span class="ident">usize</span>, <span class="ident">val</span>: <span class="ident">u128</span>) {
-        <span class="macro">assert!</span>(<span class="ident">idx</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">globals</span>.<span class="ident">len</span>());
-        <span class="kw">unsafe</span> {
-            <span class="self">self</span>.<span class="ident">globals</span>[<span class="ident">idx</span>].<span class="ident">vmglobal</span>().<span class="ident">as_mut</span>().<span class="ident">val</span>.<span class="ident">u128</span> <span class="op">=</span> <span class="ident">val</span>;
-        }
-    }
-}
-
-<span class="doccomment">/// Handle to an object managed by a context.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Internally this is just an integer index into a context. A reference to the</span>
-<span class="doccomment">/// context must be passed in separately to access the actual object.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="ident">id</span>: <span class="ident">StoreId</span>,
-    <span class="ident">internal</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">id</span>: <span class="self">self</span>.<span class="ident">id</span>,
-            <span class="ident">internal</span>: <span class="self">self</span>.<span class="ident">internal</span>,
+    <span class="doccomment">/// Set a global, at index idx. Will panic if idx is out of range
+    /// Safety: the caller should check taht the raw value is compatible
+    /// with destination VMGlobal type
+    </span><span class="kw">pub fn </span>set_global_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize, val: u128) {
+        <span class="macro">assert!</span>(idx &lt; <span class="self">self</span>.globals.len());
+        <span class="kw">unsafe </span>{
+            <span class="self">self</span>.globals[idx].vmglobal().as_mut().val.u128 = val;
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::hash::Hash</span> <span class="kw">for</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">std::hash::Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
-        <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
-        <span class="self">self</span>.<span class="ident">internal</span>.<span class="ident">idx</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
+<span class="doccomment">/// Handle to an object managed by a context.
+///
+/// Internally this is just an integer index into a context. A reference to the
+/// context must be passed in separately to access the actual object.
+</span><span class="kw">pub struct </span>StoreHandle&lt;T&gt; {
+    id: StoreId,
+    internal: InternalStoreHandle&lt;T&gt;,
+}
+
+<span class="kw">impl</span>&lt;T&gt; Clone <span class="kw">for </span>StoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id: <span class="self">self</span>.id,
+            internal: <span class="self">self</span>.internal,
+        }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StoreObject</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;StoreHandle&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;internal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">internal</span>.<span class="ident">index</span>())
-            .<span class="ident">finish</span>()
+<span class="kw">impl</span>&lt;T&gt; std::hash::Hash <span class="kw">for </span>StoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="self">self</span>.id.hash(state);
+        <span class="self">self</span>.internal.idx.hash(state);
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StoreObject</span><span class="op">&gt;</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">id</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">id</span> <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">internal</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">internal</span>
+<span class="kw">impl</span>&lt;T: StoreObject&gt; fmt::Debug <span class="kw">for </span>StoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;StoreHandle&quot;</span>)
+            .field(<span class="string">&quot;id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+            .field(<span class="string">&quot;internal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.internal.index())
+            .finish()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StoreObject</span><span class="op">&gt;</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
+<span class="kw">impl</span>&lt;T: StoreObject&gt; PartialEq <span class="kw">for </span>StoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.id == other.id &amp;&amp; <span class="self">self</span>.internal == other.internal
+    }
+}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StoreObject</span><span class="op">&gt;</span> <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Moves the given object into a context and returns a handle to it.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>, <span class="ident">val</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">id</span>: <span class="ident">ctx</span>.<span class="ident">id</span>,
-            <span class="ident">internal</span>: <span class="ident">InternalStoreHandle::new</span>(<span class="ident">ctx</span>, <span class="ident">val</span>),
+<span class="kw">impl</span>&lt;T: StoreObject&gt; Eq <span class="kw">for </span>StoreHandle&lt;T&gt; {}
+
+<span class="kw">impl</span>&lt;T: StoreObject&gt; StoreHandle&lt;T&gt; {
+    <span class="doccomment">/// Moves the given object into a context and returns a handle to it.
+    </span><span class="kw">pub fn </span>new(ctx: <span class="kw-2">&amp;mut </span>StoreObjects, val: T) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            id: ctx.id,
+            internal: InternalStoreHandle::new(ctx, val),
         }
     }
 
-    <span class="doccomment">/// Returns a reference to the object that this handle points to.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span> {
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">id</span>, <span class="ident">ctx</span>.<span class="ident">id</span>, <span class="string">&quot;object used with the wrong context&quot;</span>);
-        <span class="self">self</span>.<span class="ident">internal</span>.<span class="ident">get</span>(<span class="ident">ctx</span>)
+    <span class="doccomment">/// Returns a reference to the object that this handle points to.
+    </span><span class="kw">pub fn </span>get&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StoreObjects) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T {
+        <span class="macro">assert_eq!</span>(<span class="self">self</span>.id, ctx.id, <span class="string">&quot;object used with the wrong context&quot;</span>);
+        <span class="self">self</span>.internal.get(ctx)
     }
 
-    <span class="doccomment">/// Returns a mutable reference to the object that this handle points to.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_mut</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">T</span> {
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">id</span>, <span class="ident">ctx</span>.<span class="ident">id</span>, <span class="string">&quot;object used with the wrong context&quot;</span>);
-        <span class="self">self</span>.<span class="ident">internal</span>.<span class="ident">get_mut</span>(<span class="ident">ctx</span>)
+    <span class="doccomment">/// Returns a mutable reference to the object that this handle points to.
+    </span><span class="kw">pub fn </span>get_mut&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>StoreObjects) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>T {
+        <span class="macro">assert_eq!</span>(<span class="self">self</span>.id, ctx.id, <span class="string">&quot;object used with the wrong context&quot;</span>);
+        <span class="self">self</span>.internal.get_mut(ctx)
     }
 
-    <span class="doccomment">/// Returns the internal handle contains within this handle.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">internal_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">internal</span>
+    <span class="doccomment">/// Returns the internal handle contains within this handle.
+    </span><span class="kw">pub fn </span>internal_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; InternalStoreHandle&lt;T&gt; {
+        <span class="self">self</span>.internal
     }
 
-    <span class="doccomment">/// Returns the ID of the context associated with the handle.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">store_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StoreId</span> {
-        <span class="self">self</span>.<span class="ident">id</span>
+    <span class="doccomment">/// Returns the ID of the context associated with the handle.
+    </span><span class="kw">pub fn </span>store_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StoreId {
+        <span class="self">self</span>.id
     }
 
-    <span class="doccomment">/// Overrides the store id with a new ID</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_store_id</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">StoreId</span>) {
-        <span class="self">self</span>.<span class="ident">id</span> <span class="op">=</span> <span class="ident">id</span>;
+    <span class="doccomment">/// Overrides the store id with a new ID
+    </span><span class="kw">pub fn </span>set_store_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: StoreId) {
+        <span class="self">self</span>.id = id;
     }
 
-    <span class="doccomment">/// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// Handling `InternalStoreHandle` values is unsafe because they do not track context ID.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_internal</span>(<span class="ident">id</span>: <span class="ident">StoreId</span>, <span class="ident">internal</span>: <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">id</span>, <span class="ident">internal</span> }
-    }
-}
-
-<span class="doccomment">/// Internal handle to an object owned by the current context.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Unlike `StoreHandle` this does not track the context ID: it is only</span>
-<span class="doccomment">/// intended to be used within objects already owned by a context.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="comment">// Use a NonZero here to reduce the size of Option&lt;InternalStoreHandle&gt;.</span>
-    <span class="ident">idx</span>: <span class="ident">NonZeroUsize</span>,
-    <span class="ident">marker</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="kw">fn</span>() -&gt; <span class="ident">T</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw-2">*</span><span class="self">self</span>
+    <span class="doccomment">/// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.
+    ///
+    /// # Safety
+    /// Handling `InternalStoreHandle` values is unsafe because they do not track context ID.
+    </span><span class="kw">pub unsafe fn </span>from_internal(id: StoreId, internal: InternalStoreHandle&lt;T&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ id, internal }
     }
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Copy</span> <span class="kw">for</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;InternalStoreHandle&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;idx&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">idx</span>)
-            .<span class="ident">finish</span>()
+<span class="doccomment">/// Internal handle to an object owned by the current context.
+///
+/// Unlike `StoreHandle` this does not track the context ID: it is only
+/// intended to be used within objects already owned by a context.
+</span><span class="attribute">#[repr(transparent)]
+</span><span class="kw">pub struct </span>InternalStoreHandle&lt;T&gt; {
+    <span class="comment">// Use a NonZero here to reduce the size of Option&lt;InternalStoreHandle&gt;.
+    </span>idx: NonZeroUsize,
+    marker: PhantomData&lt;<span class="kw">fn</span>() -&gt; T&gt;,
+}
+
+<span class="kw">impl</span>&lt;T&gt; Clone <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="kw-2">*</span><span class="self">self
+    </span>}
+}
+<span class="kw">impl</span>&lt;T&gt; Copy <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {}
+
+<span class="kw">impl</span>&lt;T&gt; fmt::Debug <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;InternalStoreHandle&quot;</span>)
+            .field(<span class="string">&quot;idx&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.idx)
+            .finish()
     }
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">idx</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">idx</span>
+<span class="kw">impl</span>&lt;T&gt; PartialEq <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.idx == other.idx
     }
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
+<span class="kw">impl</span>&lt;T&gt; Eq <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">StoreObject</span><span class="op">&gt;</span> <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Moves the given object into a context and returns a handle to it.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>, <span class="ident">val</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">list</span> <span class="op">=</span> <span class="ident">T::list_mut</span>(<span class="ident">ctx</span>);
-        <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">NonZeroUsize::new</span>(<span class="ident">list</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="ident">list</span>.<span class="ident">push</span>(<span class="ident">val</span>);
-        <span class="self">Self</span> {
-            <span class="ident">idx</span>,
-            <span class="ident">marker</span>: <span class="ident">PhantomData</span>,
+<span class="kw">impl</span>&lt;T: StoreObject&gt; InternalStoreHandle&lt;T&gt; {
+    <span class="doccomment">/// Moves the given object into a context and returns a handle to it.
+    </span><span class="kw">pub fn </span>new(ctx: <span class="kw-2">&amp;mut </span>StoreObjects, val: T) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>list = T::list_mut(ctx);
+        <span class="kw">let </span>idx = NonZeroUsize::new(list.len() + <span class="number">1</span>).unwrap();
+        list.push(val);
+        <span class="self">Self </span>{
+            idx,
+            marker: PhantomData,
         }
     }
 
-    <span class="doccomment">/// Returns a reference to the object that this handle points to.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span> {
-        <span class="kw-2">&amp;</span><span class="ident">T::list</span>(<span class="ident">ctx</span>)[<span class="self">self</span>.<span class="ident">idx</span>.<span class="ident">get</span>() <span class="op">-</span> <span class="number">1</span>]
+    <span class="doccomment">/// Returns a reference to the object that this handle points to.
+    </span><span class="kw">pub fn </span>get&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StoreObjects) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T {
+        <span class="kw-2">&amp;</span>T::list(ctx)[<span class="self">self</span>.idx.get() - <span class="number">1</span>]
     }
 
-    <span class="doccomment">/// Returns a mutable reference to the object that this handle points to.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_mut</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">StoreObjects</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">T</span> {
-        <span class="kw-2">&amp;mut</span> <span class="ident">T::list_mut</span>(<span class="ident">ctx</span>)[<span class="self">self</span>.<span class="ident">idx</span>.<span class="ident">get</span>() <span class="op">-</span> <span class="number">1</span>]
+    <span class="doccomment">/// Returns a mutable reference to the object that this handle points to.
+    </span><span class="kw">pub fn </span>get_mut&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>StoreObjects) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>T {
+        <span class="kw-2">&amp;mut </span>T::list_mut(ctx)[<span class="self">self</span>.idx.get() - <span class="number">1</span>]
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">idx</span>.<span class="ident">get</span>()
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.idx.get()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">idx</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">NonZeroUsize::new</span>(<span class="ident">idx</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">idx</span><span class="op">|</span> <span class="self">Self</span> {
-            <span class="ident">idx</span>,
-            <span class="ident">marker</span>: <span class="ident">PhantomData</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_index(idx: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        NonZeroUsize::new(idx).map(|idx| <span class="self">Self </span>{
+            idx,
+            marker: PhantomData,
         })
     }
 }
 
-<span class="doccomment">/// Data used by the generated code is generally located inline within the</span>
-<span class="doccomment">/// `VMContext` for items defined in an instance. Host-defined objects are</span>
-<span class="doccomment">/// allocated separately and owned directly by the context.</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MaybeInstanceOwned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// The data is owned here.</span>
-    <span class="ident">Host</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">UnsafeCell</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>),
+<span class="doccomment">/// Data used by the generated code is generally located inline within the
+/// `VMContext` for items defined in an instance. Host-defined objects are
+/// allocated separately and owned directly by the context.
+</span><span class="kw">pub enum </span>MaybeInstanceOwned&lt;T&gt; {
+    <span class="doccomment">/// The data is owned here.
+    </span>Host(Box&lt;UnsafeCell&lt;T&gt;&gt;),
 
-    <span class="doccomment">/// The data is stored inline in the `VMContext` of an instance.</span>
-    <span class="ident">Instance</span>(<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// The data is stored inline in the `VMContext` of an instance.
+    </span>Instance(NonNull&lt;T&gt;),
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">MaybeInstanceOwned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Returns underlying pointer to the VM data.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Host</span>(<span class="ident">p</span>) =&gt; <span class="kw">unsafe</span> { <span class="ident">NonNull::new_unchecked</span>(<span class="ident">p</span>.<span class="ident">get</span>()) },
-            <span class="ident"><span class="self">Self</span>::Instance</span>(<span class="ident">p</span>) =&gt; <span class="kw-2">*</span><span class="ident">p</span>,
+<span class="kw">impl</span>&lt;T&gt; MaybeInstanceOwned&lt;T&gt; {
+    <span class="doccomment">/// Returns underlying pointer to the VM data.
+    </span><span class="kw">pub fn </span>as_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;T&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Host(p) =&gt; <span class="kw">unsafe </span>{ NonNull::new_unchecked(p.get()) },
+            <span class="self">Self</span>::Instance(p) =&gt; <span class="kw-2">*</span>p,
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">MaybeInstanceOwned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">std::fmt::Debug</span>,
+<span class="kw">impl</span>&lt;T&gt; std::fmt::Debug <span class="kw">for </span>MaybeInstanceOwned&lt;T&gt;
+<span class="kw">where
+    </span>T: std::fmt::Debug,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Host</span>(<span class="ident">p</span>) =&gt; {
-                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;host(&quot;</span>)<span class="question-mark">?</span>;
-                <span class="ident">p</span>.<span class="ident">as_ref</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)<span class="question-mark">?</span>;
-                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;)&quot;</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Host(p) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;host(&quot;</span>)<span class="question-mark">?</span>;
+                p.as_ref().fmt(f)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(f, <span class="string">&quot;)&quot;</span>)
             }
-            <span class="ident"><span class="self">Self</span>::Instance</span>(<span class="ident">p</span>) =&gt; {
-                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;instance(&quot;</span>)<span class="question-mark">?</span>;
-                <span class="kw">unsafe</span> { <span class="ident">p</span>.<span class="ident">as_ref</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)<span class="question-mark">?</span> };
-                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;)&quot;</span>)
+            <span class="self">Self</span>::Instance(p) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;instance(&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">unsafe </span>{ p.as_ref().fmt(f)<span class="question-mark">? </span>};
+                <span class="macro">write!</span>(f, <span class="string">&quot;)&quot;</span>)
             }
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

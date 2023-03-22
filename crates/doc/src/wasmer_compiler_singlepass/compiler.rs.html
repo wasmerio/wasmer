@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/compiler.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>compiler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/compiler.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>compiler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -354,361 +354,361 @@
 <span id="354">354</span>
 <span id="355">355</span>
 <span id="356">356</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
-<span class="comment">// Allow unused imports while developing.</span>
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.
+</span><span class="comment">// Allow unused imports while developing.
+</span><span class="attribute">#![allow(unused_imports, dead_code)]
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen::FuncGen</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::Singlepass</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine::Machine</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{
-    <span class="ident">gen_import_call_trampoline</span>, <span class="ident">gen_std_dynamic_import_trampoline</span>, <span class="ident">gen_std_trampoline</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::codegen::FuncGen;
+<span class="kw">use </span><span class="kw">crate</span>::config::Singlepass;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
+<span class="kw">use </span><span class="kw">crate</span>::machine::Machine;
+<span class="kw">use </span><span class="kw">crate</span>::machine::{
+    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_arm64::MachineARM64</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_x64::MachineX86_64</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind</span>::{<span class="ident">create_systemv_cie</span>, <span class="ident">UnwindFrame</span>};
-<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">EhFrame</span>, <span class="ident">FrameTable</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">ParallelIterator</span>};
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>,
-    <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>,
+<span class="kw">use </span><span class="kw">crate</span>::machine_arm64::MachineARM64;
+<span class="kw">use </span><span class="kw">crate</span>::machine_x64::MachineX86_64;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::unwind::{create_systemv_cie, UnwindFrame};
+<span class="kw">use </span>enumset::EnumSet;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span>gimli::write::{EhFrame, FrameTable};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+</span><span class="kw">use </span>rayon::prelude::{IntoParallelIterator, ParallelIterator};
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_compiler::{
+    Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompileModuleInfo</span>,
-    <span class="ident">CompiledFunction</span>, <span class="ident">CpuFeature</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>,
-    <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OperatingSystem</span>, <span class="ident">SectionIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Target</span>,
-    <span class="ident">TrapCode</span>, <span class="ident">TrapInformation</span>, <span class="ident">VMOffsets</span>,
+<span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::{
+    Architecture, CallingConvention, Compilation, CompileError, CompileModuleInfo,
+    CompiledFunction, CpuFeature, Dwarf, FunctionBody, FunctionIndex, FunctionType,
+    LocalFunctionIndex, MemoryIndex, ModuleInfo, OperatingSystem, SectionIndex, TableIndex, Target,
+    TrapCode, TrapInformation, VMOffsets,
 };
 
-<span class="doccomment">/// A compiler that compiles a WebAssembly module with Singlepass.</span>
-<span class="doccomment">/// It does the compilation in one pass</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SinglepassCompiler</span> {
-    <span class="ident">config</span>: <span class="ident">Singlepass</span>,
+<span class="doccomment">/// A compiler that compiles a WebAssembly module with Singlepass.
+/// It does the compilation in one pass
+</span><span class="kw">pub struct </span>SinglepassCompiler {
+    config: Singlepass,
 }
 
-<span class="kw">impl</span> <span class="ident">SinglepassCompiler</span> {
-    <span class="doccomment">/// Creates a new Singlepass compiler</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">config</span>: <span class="ident">Singlepass</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">config</span> }
+<span class="kw">impl </span>SinglepassCompiler {
+    <span class="doccomment">/// Creates a new Singlepass compiler
+    </span><span class="kw">pub fn </span>new(config: Singlepass) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ config }
     }
 
-    <span class="doccomment">/// Gets the config for this Compiler</span>
-    <span class="kw">fn</span> <span class="ident">config</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Singlepass</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>
+    <span class="doccomment">/// Gets the config for this Compiler
+    </span><span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Singlepass {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.config
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Compiler</span> <span class="kw">for</span> <span class="ident">SinglepassCompiler</span> {
-    <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
-        <span class="string">&quot;singlepass&quot;</span>
+<span class="kw">impl </span>Compiler <span class="kw">for </span>SinglepassCompiler {
+    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="string">&quot;singlepass&quot;
+    </span>}
+
+    <span class="doccomment">/// Get the middlewares for this compiler
+    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
     }
 
-    <span class="doccomment">/// Get the middlewares for this compiler</span>
-    <span class="kw">fn</span> <span class="ident">get_middlewares</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>.<span class="ident">middlewares</span>
-    }
-
-    <span class="doccomment">/// Compile the module using Singlepass, producing a compilation result with</span>
-    <span class="doccomment">/// associated relocations.</span>
-    <span class="kw">fn</span> <span class="ident">compile_module</span>(
+    <span class="doccomment">/// Compile the module using Singlepass, producing a compilation result with
+    /// associated relocations.
+    </span><span class="kw">fn </span>compile_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">compile_info</span>: <span class="kw-2">&amp;</span><span class="ident">CompileModuleInfo</span>,
-        <span class="ident">_module_translation</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
-        <span class="ident">function_body_inputs</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Compilation</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-            <span class="ident">Architecture::X86_64</span> =&gt; {}
-            <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; {}
-            <span class="kw">_</span> =&gt; {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
-                    <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span>.<span class="ident">to_string</span>(),
+        target: <span class="kw-2">&amp;</span>Target,
+        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+        _module_translation: <span class="kw-2">&amp;</span>ModuleTranslationState,
+        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+        <span class="kw">match </span>target.triple().architecture {
+            Architecture::X86_64 =&gt; {}
+            Architecture::Aarch64(<span class="kw">_</span>) =&gt; {}
+            <span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
+                    target.triple().architecture.to_string(),
                 ))
             }
         }
 
-        <span class="kw">let</span> <span class="ident">calling_convention</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">default_calling_convention</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::WindowsFastcall</span>) =&gt; <span class="ident">CallingConvention::WindowsFastcall</span>,
-            <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::SystemV</span>) =&gt; <span class="ident">CallingConvention::SystemV</span>,
-            <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::AppleAarch64</span>) =&gt; <span class="ident">CallingConvention::AppleAarch64</span>,
-            <span class="kw">_</span> =&gt; {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
-                    <span class="string">&quot;Unsupported Calling convention for Singlepass compiler&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="kw">let </span>calling_convention = <span class="kw">match </span>target.triple().default_calling_convention() {
+            <span class="prelude-val">Ok</span>(CallingConvention::WindowsFastcall) =&gt; CallingConvention::WindowsFastcall,
+            <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; CallingConvention::SystemV,
+            <span class="prelude-val">Ok</span>(CallingConvention::AppleAarch64) =&gt; CallingConvention::AppleAarch64,
+            <span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
+                    <span class="string">&quot;Unsupported Calling convention for Singlepass compiler&quot;</span>.to_string(),
                 ))
             }
         };
 
-        <span class="comment">// Generate the frametable</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dwarf_frametable</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">function_body_inputs</span>.<span class="ident">is_empty</span>() {
-            <span class="comment">// If we have no function body inputs, we don&#39;t need to</span>
-            <span class="comment">// construct the `FrameTable`. Constructing it, with empty</span>
-            <span class="comment">// FDEs will cause some issues in Linux.</span>
-            <span class="prelude-val">None</span>
-        } <span class="kw">else</span> {
-            <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">default_calling_convention</span>() {
-                <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::SystemV</span>) =&gt; {
-                    <span class="kw">match</span> <span class="ident">create_systemv_cie</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span>) {
-                        <span class="prelude-val">Some</span>(<span class="ident">cie</span>) =&gt; {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dwarf_frametable</span> <span class="op">=</span> <span class="ident">FrameTable::default</span>();
-                            <span class="kw">let</span> <span class="ident">cie_id</span> <span class="op">=</span> <span class="ident">dwarf_frametable</span>.<span class="ident">add_cie</span>(<span class="ident">cie</span>);
-                            <span class="prelude-val">Some</span>((<span class="ident">dwarf_frametable</span>, <span class="ident">cie_id</span>))
+        <span class="comment">// Generate the frametable
+        </span><span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        </span><span class="kw">let </span>dwarf_frametable = <span class="kw">if </span>function_body_inputs.is_empty() {
+            <span class="comment">// If we have no function body inputs, we don&#39;t need to
+            // construct the `FrameTable`. Constructing it, with empty
+            // FDEs will cause some issues in Linux.
+            </span><span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="kw">match </span>target.triple().default_calling_convention() {
+                <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; {
+                    <span class="kw">match </span>create_systemv_cie(target.triple().architecture) {
+                        <span class="prelude-val">Some</span>(cie) =&gt; {
+                            <span class="kw">let </span><span class="kw-2">mut </span>dwarf_frametable = FrameTable::default();
+                            <span class="kw">let </span>cie_id = dwarf_frametable.add_cie(cie);
+                            <span class="prelude-val">Some</span>((dwarf_frametable, cie_id))
                         }
-                        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">None</span>,
+                        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
                     }
                 }
-                <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
             }
         };
 
-        <span class="kw">let</span> <span class="ident">memory_styles</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">memory_styles</span>;
-        <span class="kw">let</span> <span class="ident">table_styles</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">table_styles</span>;
-        <span class="kw">let</span> <span class="ident">vmoffsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="number">8</span>, <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">module</span>);
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">module</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">module</span>.<span class="ident">num_imported_functions</span>)
-            .<span class="ident">map</span>(<span class="ident">FunctionIndex::new</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_par_iter_if_rayon</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
-                <span class="ident">gen_import_call_trampoline</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>,
-                    <span class="ident">i</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">signatures</span>[<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">i</span>]],
-                    <span class="ident">target</span>,
-                    <span class="ident">calling_convention</span>,
+        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
+        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
+        <span class="kw">let </span>vmoffsets = VMOffsets::new(<span class="number">8</span>, <span class="kw-2">&amp;</span>compile_info.module);
+        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
+        <span class="kw">let </span><span class="kw-2">mut </span>custom_sections: PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt; = (<span class="number">0</span>..module.num_imported_functions)
+            .map(FunctionIndex::new)
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_par_iter_if_rayon()
+            .map(|i| {
+                gen_import_call_trampoline(
+                    <span class="kw-2">&amp;</span>vmoffsets,
+                    i,
+                    <span class="kw-2">&amp;</span>module.signatures[module.functions[i]],
+                    target,
+                    calling_convention,
                 )
-                .<span class="ident">unwrap</span>()
+                .unwrap()
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>();
-        <span class="kw">let</span> (<span class="ident">functions</span>, <span class="ident">fdes</span>): (<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CompiledFunction</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>) <span class="op">=</span> <span class="ident">function_body_inputs</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">LocalFunctionIndex</span>, <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_par_iter_if_rayon</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">input</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">middleware_chain</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">config</span>
-                    .<span class="ident">middlewares</span>
-                    .<span class="ident">generate_function_middleware_chain</span>(<span class="ident">i</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span>
-                    <span class="ident">MiddlewareBinaryReader::new_with_offset</span>(<span class="ident">input</span>.<span class="ident">data</span>, <span class="ident">input</span>.<span class="ident">module_offset</span>);
-                <span class="ident">reader</span>.<span class="ident">set_middleware_chain</span>(<span class="ident">middleware_chain</span>);
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_iter()
+            .collect();
+        <span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
+            .iter()
+            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;)&gt;&gt;()
+            .into_par_iter_if_rayon()
+            .map(|(i, input)| {
+                <span class="kw">let </span>middleware_chain = <span class="self">self
+                    </span>.config
+                    .middlewares
+                    .generate_function_middleware_chain(i);
+                <span class="kw">let </span><span class="kw-2">mut </span>reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(middleware_chain);
 
-                <span class="comment">// This local list excludes arguments.</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">locals</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-                <span class="kw">let</span> <span class="ident">num_locals</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_local_count</span>()<span class="question-mark">?</span>;
-                <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_locals</span> {
-                    <span class="kw">let</span> (<span class="ident">count</span>, <span class="ident">ty</span>) <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_local_decl</span>()<span class="question-mark">?</span>;
-                    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">count</span> {
-                        <span class="ident">locals</span>.<span class="ident">push</span>(<span class="ident">ty</span>);
+                <span class="comment">// This local list excludes arguments.
+                </span><span class="kw">let </span><span class="kw-2">mut </span>locals = <span class="macro">vec!</span>[];
+                <span class="kw">let </span>num_locals = reader.read_local_count()<span class="question-mark">?</span>;
+                <span class="kw">for _ in </span><span class="number">0</span>..num_locals {
+                    <span class="kw">let </span>(count, ty) = reader.read_local_decl()<span class="question-mark">?</span>;
+                    <span class="kw">for _ in </span><span class="number">0</span>..count {
+                        locals.push(ty);
                     }
                 }
 
-                <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-                    <span class="ident">Architecture::X86_64</span> =&gt; {
-                        <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineX86_64::new</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">clone</span>()))<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">FuncGen::new</span>(
-                            <span class="ident">module</span>,
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>,
-                            <span class="ident">memory_styles</span>,
-                            <span class="ident">table_styles</span>,
-                            <span class="ident">i</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">locals</span>,
-                            <span class="ident">machine</span>,
-                            <span class="ident">calling_convention</span>,
+                <span class="kw">match </span>target.triple().architecture {
+                    Architecture::X86_64 =&gt; {
+                        <span class="kw">let </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
+                        <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
+                            module,
+                            <span class="kw-2">&amp;</span><span class="self">self</span>.config,
+                            <span class="kw-2">&amp;</span>vmoffsets,
+                            memory_styles,
+                            table_styles,
+                            i,
+                            <span class="kw-2">&amp;</span>locals,
+                            machine,
+                            calling_convention,
                         )<span class="question-mark">?</span>;
-                        <span class="kw">while</span> <span class="ident">generator</span>.<span class="ident">has_control_frames</span>() {
-                            <span class="ident">generator</span>.<span class="ident">set_srcloc</span>(<span class="ident">reader</span>.<span class="ident">original_position</span>() <span class="kw">as</span> <span class="ident">u32</span>);
-                            <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span>;
-                            <span class="ident">generator</span>.<span class="ident">feed_operator</span>(<span class="ident">op</span>)<span class="question-mark">?</span>;
+                        <span class="kw">while </span>generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() <span class="kw">as </span>u32);
+                            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
+                            generator.feed_operator(op)<span class="question-mark">?</span>;
                         }
 
-                        <span class="ident">generator</span>.<span class="ident">finalize</span>(<span class="ident">input</span>)
+                        generator.finalize(input)
                     }
-                    <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">machine</span> <span class="op">=</span> <span class="ident">MachineARM64::new</span>();
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">FuncGen::new</span>(
-                            <span class="ident">module</span>,
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>,
-                            <span class="ident">memory_styles</span>,
-                            <span class="ident">table_styles</span>,
-                            <span class="ident">i</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">locals</span>,
-                            <span class="ident">machine</span>,
-                            <span class="ident">calling_convention</span>,
+                    Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
+                        <span class="kw">let </span>machine = MachineARM64::new();
+                        <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
+                            module,
+                            <span class="kw-2">&amp;</span><span class="self">self</span>.config,
+                            <span class="kw-2">&amp;</span>vmoffsets,
+                            memory_styles,
+                            table_styles,
+                            i,
+                            <span class="kw-2">&amp;</span>locals,
+                            machine,
+                            calling_convention,
                         )<span class="question-mark">?</span>;
-                        <span class="kw">while</span> <span class="ident">generator</span>.<span class="ident">has_control_frames</span>() {
-                            <span class="ident">generator</span>.<span class="ident">set_srcloc</span>(<span class="ident">reader</span>.<span class="ident">original_position</span>() <span class="kw">as</span> <span class="ident">u32</span>);
-                            <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span>;
-                            <span class="ident">generator</span>.<span class="ident">feed_operator</span>(<span class="ident">op</span>)<span class="question-mark">?</span>;
+                        <span class="kw">while </span>generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() <span class="kw">as </span>u32);
+                            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
+                            generator.feed_operator(op)<span class="question-mark">?</span>;
                         }
 
-                        <span class="ident">generator</span>.<span class="ident">finalize</span>(<span class="ident">input</span>)
+                        generator.finalize(input)
                     }
-                    <span class="kw">_</span> =&gt; <span class="macro">unimplemented!</span>(),
+                    <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
                 }
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">unzip</span>();
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .unzip();
 
-        <span class="kw">let</span> <span class="ident">function_call_trampolines</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">signatures</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_par_iter_if_rayon</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_type</span><span class="op">|</span> <span class="ident">gen_std_trampoline</span>(<span class="ident">func_type</span>, <span class="ident">target</span>, <span class="ident">calling_convention</span>).<span class="ident">unwrap</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let </span>function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_par_iter_if_rayon()
+            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention).unwrap())
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_iter()
+            .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let</span> <span class="ident">dynamic_function_trampolines</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">imported_function_types</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_par_iter_if_rayon</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_type</span><span class="op">|</span> {
-                <span class="ident">gen_std_dynamic_import_trampoline</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">vmoffsets</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">func_type</span>,
-                    <span class="ident">target</span>,
-                    <span class="ident">calling_convention</span>,
+        <span class="kw">let </span>dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_par_iter_if_rayon()
+            .map(|func_type| {
+                gen_std_dynamic_import_trampoline(
+                    <span class="kw-2">&amp;</span>vmoffsets,
+                    <span class="kw-2">&amp;</span>func_type,
+                    target,
+                    calling_convention,
                 )
-                .<span class="ident">unwrap</span>()
+                .unwrap()
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_iter()
+            .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="kw-2">mut</span> <span class="ident">dwarf_frametable</span>, <span class="ident">cie_id</span>)) <span class="op">=</span> <span class="ident">dwarf_frametable</span> {
-            <span class="kw">for</span> <span class="ident">fde</span> <span class="kw">in</span> <span class="ident">fdes</span>.<span class="ident">into_iter</span>().<span class="ident">flatten</span>() {
-                <span class="kw">match</span> <span class="ident">fde</span> {
-                    <span class="ident">UnwindFrame::SystemV</span>(<span class="ident">fde</span>) =&gt; <span class="ident">dwarf_frametable</span>.<span class="ident">add_fde</span>(<span class="ident">cie_id</span>, <span class="ident">fde</span>),
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        </span><span class="kw">let </span>dwarf = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
+            <span class="kw">for </span>fde <span class="kw">in </span>fdes.into_iter().flatten() {
+                <span class="kw">match </span>fde {
+                    UnwindFrame::SystemV(fde) =&gt; dwarf_frametable.add_fde(cie_id, fde),
                 }
             }
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame</span> <span class="op">=</span> <span class="ident">EhFrame</span>(<span class="ident">WriterRelocate::new</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">endianness</span>().<span class="ident">ok</span>()));
-            <span class="ident">dwarf_frametable</span>.<span class="ident">write_eh_frame</span>(<span class="kw-2">&amp;mut</span> <span class="ident">eh_frame</span>).<span class="ident">unwrap</span>();
+            <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+            dwarf_frametable.write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame).unwrap();
 
-            <span class="kw">let</span> <span class="ident">eh_frame_section</span> <span class="op">=</span> <span class="ident">eh_frame</span>.<span class="number">0</span>.<span class="ident">into_section</span>();
-            <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">eh_frame_section</span>);
-            <span class="prelude-val">Some</span>(<span class="ident">Dwarf::new</span>(<span class="ident">SectionIndex::new</span>(<span class="ident">custom_sections</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>)))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        };
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+            <span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
+            custom_sections.push(eh_frame_section);
+            <span class="prelude-val">Some</span>(Dwarf::new(SectionIndex::new(custom_sections.len() - <span class="number">1</span>)))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+        </span><span class="kw">let </span>dwarf = <span class="prelude-val">None</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="ident">Compilation</span> {
-            <span class="ident">functions</span>: <span class="ident">functions</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
-            <span class="ident">custom_sections</span>,
-            <span class="ident">function_call_trampolines</span>,
-            <span class="ident">dynamic_function_trampolines</span>,
-            <span class="ident">debug</span>: <span class="ident">dwarf</span>,
+        <span class="prelude-val">Ok</span>(Compilation {
+            functions: functions.into_iter().collect(),
+            custom_sections,
+            function_call_trampolines,
+            dynamic_function_trampolines,
+            debug: dwarf,
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cpu_features</span>: <span class="kw-2">&amp;</span><span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">used</span> <span class="op">=</span> <span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>;
-        <span class="ident">cpu_features</span>.<span class="ident">intersection</span>(<span class="ident">used</span>)
+    <span class="kw">fn </span>get_cpu_features_used(<span class="kw-2">&amp;</span><span class="self">self</span>, cpu_features: <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt;) -&gt; EnumSet&lt;CpuFeature&gt; {
+        <span class="kw">let </span>used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        cpu_features.intersection(used)
     }
 }
 
-<span class="kw">trait</span> <span class="ident">IntoParIterIfRayon</span> {
-    <span class="kw">type</span> <span class="ident">Output</span>;
-    <span class="kw">fn</span> <span class="ident">into_par_iter_if_rayon</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Output</span>;
+<span class="kw">trait </span>IntoParIterIfRayon {
+    <span class="kw">type </span>Output;
+    <span class="kw">fn </span>into_par_iter_if_rayon(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output;
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Send</span><span class="op">&gt;</span> <span class="ident">IntoParIterIfRayon</span> <span class="kw">for</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">std::vec::IntoIter</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">rayon::vec::IntoIter</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>;
+<span class="kw">impl</span>&lt;T: Send&gt; IntoParIterIfRayon <span class="kw">for </span>Vec&lt;T&gt; {
+    <span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+    </span><span class="kw">type </span>Output = std::vec::IntoIter&lt;T&gt;;
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+    </span><span class="kw">type </span>Output = rayon::vec::IntoIter&lt;T&gt;;
 
-    <span class="kw">fn</span> <span class="ident">into_par_iter_if_rayon</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Output</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">return</span> <span class="self">self</span>.<span class="ident">into_iter</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-        <span class="kw">return</span> <span class="self">self</span>.<span class="ident">into_par_iter</span>();
+    <span class="kw">fn </span>into_par_iter_if_rayon(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Output {
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">return </span><span class="self">self</span>.into_iter();
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        </span><span class="kw">return </span><span class="self">self</span>.into_par_iter();
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
-    <span class="kw">use</span> <span class="ident">target_lexicon::triple</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_compiler::Features</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CpuFeature</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">Triple</span>};
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::str::FromStr;
+    <span class="kw">use </span>target_lexicon::triple;
+    <span class="kw">use </span>wasmer_compiler::Features;
+    <span class="kw">use </span>wasmer_types::{CpuFeature, MemoryStyle, TableStyle, Triple};
 
-    <span class="kw">fn</span> <span class="ident">dummy_compilation_ingredients</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>() -&gt; (
-        <span class="ident">CompileModuleInfo</span>,
-        <span class="ident">ModuleTranslationState</span>,
-        <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">fn </span>dummy_compilation_ingredients&lt;<span class="lifetime">&#39;a</span>&gt;() -&gt; (
+        CompileModuleInfo,
+        ModuleTranslationState,
+        PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
     ) {
-        <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
-            <span class="ident">features</span>: <span class="ident">Features::new</span>(),
-            <span class="ident">module</span>: <span class="ident">Arc::new</span>(<span class="ident">ModuleInfo::new</span>()),
-            <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span><span class="ident">::new</span>(),
-            <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span><span class="ident">::new</span>(),
+        <span class="kw">let </span>compile_info = CompileModuleInfo {
+            features: Features::new(),
+            module: Arc::new(ModuleInfo::new()),
+            memory_styles: PrimaryMap::&lt;MemoryIndex, MemoryStyle&gt;::new(),
+            table_styles: PrimaryMap::&lt;TableIndex, TableStyle&gt;::new(),
         };
-        <span class="kw">let</span> <span class="ident">module_translation</span> <span class="op">=</span> <span class="ident">ModuleTranslationState::new</span>();
-        <span class="kw">let</span> <span class="ident">function_body_inputs</span> <span class="op">=</span> <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::new</span>();
-        (<span class="ident">compile_info</span>, <span class="ident">module_translation</span>, <span class="ident">function_body_inputs</span>)
+        <span class="kw">let </span>module_translation = ModuleTranslationState::new();
+        <span class="kw">let </span>function_body_inputs = PrimaryMap::&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;&gt;::new();
+        (compile_info, module_translation, function_body_inputs)
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">errors_for_unsupported_targets</span>() {
-        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">SinglepassCompiler::new</span>(<span class="ident">Singlepass::default</span>());
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>errors_for_unsupported_targets() {
+        <span class="kw">let </span>compiler = SinglepassCompiler::new(Singlepass::default());
 
-        <span class="comment">// Compile for 32bit Linux</span>
-        <span class="kw">let</span> <span class="ident">linux32</span> <span class="op">=</span> <span class="ident">Target::new</span>(<span class="macro">triple!</span>(<span class="string">&quot;i686-unknown-linux-gnu&quot;</span>), <span class="ident">CpuFeature::for_host</span>());
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">info</span>, <span class="ident">translation</span>, <span class="ident">inputs</span>) <span class="op">=</span> <span class="ident">dummy_compilation_ingredients</span>();
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">compile_module</span>(<span class="kw-2">&amp;</span><span class="ident">linux32</span>, <span class="kw-2">&amp;mut</span> <span class="ident">info</span>, <span class="kw-2">&amp;</span><span class="ident">translation</span>, <span class="ident">inputs</span>);
-        <span class="kw">match</span> <span class="ident">result</span>.<span class="ident">unwrap_err</span>() {
-            <span class="ident">CompileError::UnsupportedTarget</span>(<span class="ident">name</span>) =&gt; <span class="macro">assert_eq!</span>(<span class="ident">name</span>, <span class="string">&quot;i686&quot;</span>),
-            <span class="ident">error</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, <span class="ident">error</span>),
+        <span class="comment">// Compile for 32bit Linux
+        </span><span class="kw">let </span>linux32 = Target::new(<span class="macro">triple!</span>(<span class="string">&quot;i686-unknown-linux-gnu&quot;</span>), CpuFeature::for_host());
+        <span class="kw">let </span>(<span class="kw-2">mut </span>info, translation, inputs) = dummy_compilation_ingredients();
+        <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>linux32, <span class="kw-2">&amp;mut </span>info, <span class="kw-2">&amp;</span>translation, inputs);
+        <span class="kw">match </span>result.unwrap_err() {
+            CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">&quot;i686&quot;</span>),
+            error =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, error),
         };
 
-        <span class="comment">// Compile for win32</span>
-        <span class="kw">let</span> <span class="ident">win32</span> <span class="op">=</span> <span class="ident">Target::new</span>(<span class="macro">triple!</span>(<span class="string">&quot;i686-pc-windows-gnu&quot;</span>), <span class="ident">CpuFeature::for_host</span>());
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">info</span>, <span class="ident">translation</span>, <span class="ident">inputs</span>) <span class="op">=</span> <span class="ident">dummy_compilation_ingredients</span>();
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">compile_module</span>(<span class="kw-2">&amp;</span><span class="ident">win32</span>, <span class="kw-2">&amp;mut</span> <span class="ident">info</span>, <span class="kw-2">&amp;</span><span class="ident">translation</span>, <span class="ident">inputs</span>);
-        <span class="kw">match</span> <span class="ident">result</span>.<span class="ident">unwrap_err</span>() {
-            <span class="ident">CompileError::UnsupportedTarget</span>(<span class="ident">name</span>) =&gt; <span class="macro">assert_eq!</span>(<span class="ident">name</span>, <span class="string">&quot;i686&quot;</span>), <span class="comment">// Windows should be checked before architecture</span>
-            <span class="ident">error</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, <span class="ident">error</span>),
+        <span class="comment">// Compile for win32
+        </span><span class="kw">let </span>win32 = Target::new(<span class="macro">triple!</span>(<span class="string">&quot;i686-pc-windows-gnu&quot;</span>), CpuFeature::for_host());
+        <span class="kw">let </span>(<span class="kw-2">mut </span>info, translation, inputs) = dummy_compilation_ingredients();
+        <span class="kw">let </span>result = compiler.compile_module(<span class="kw-2">&amp;</span>win32, <span class="kw-2">&amp;mut </span>info, <span class="kw-2">&amp;</span>translation, inputs);
+        <span class="kw">match </span>result.unwrap_err() {
+            CompileError::UnsupportedTarget(name) =&gt; <span class="macro">assert_eq!</span>(name, <span class="string">&quot;i686&quot;</span>), <span class="comment">// Windows should be checked before architecture
+            </span>error =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, error),
         };
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">errors_for_unsuported_cpufeatures</span>() {
-        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">SinglepassCompiler::new</span>(<span class="ident">Singlepass::default</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span>
-            <span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>;
-        <span class="comment">// simple test</span>
-        <span class="macro">assert!</span>(<span class="ident">compiler</span>
-            .<span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="ident">features</span>)
-            .<span class="ident">is_subset</span>(<span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>));
-        <span class="comment">// check that an AVX build don&#39;t work on SSE4.2 only host</span>
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">compiler</span>
-            .<span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="ident">features</span>)
-            .<span class="ident">is_subset</span>(<span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>));
-        <span class="comment">// check that having a host with AVX512 doesn&#39;t change anything</span>
-        <span class="ident">features</span>.<span class="ident">insert_all</span>(<span class="ident">CpuFeature::AVX512DQ</span> <span class="op">|</span> <span class="ident">CpuFeature::AVX512F</span>);
-        <span class="macro">assert!</span>(<span class="ident">compiler</span>
-            .<span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="ident">features</span>)
-            .<span class="ident">is_subset</span>(<span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>errors_for_unsuported_cpufeatures() {
+        <span class="kw">let </span>compiler = SinglepassCompiler::new(Singlepass::default());
+        <span class="kw">let </span><span class="kw-2">mut </span>features =
+            CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        <span class="comment">// simple test
+        </span><span class="macro">assert!</span>(compiler
+            .get_cpu_features_used(<span class="kw-2">&amp;</span>features)
+            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        <span class="comment">// check that an AVX build don&#39;t work on SSE4.2 only host
+        </span><span class="macro">assert!</span>(!compiler
+            .get_cpu_features_used(<span class="kw-2">&amp;</span>features)
+            .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        <span class="comment">// check that having a host with AVX512 doesn&#39;t change anything
+        </span>features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
+        <span class="macro">assert!</span>(compiler
+            .get_cpu_features_used(<span class="kw-2">&amp;</span>features)
+            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

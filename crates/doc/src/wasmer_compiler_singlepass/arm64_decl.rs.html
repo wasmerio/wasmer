@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/arm64_decl.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>arm64_decl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/arm64_decl.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>arm64_decl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -313,320 +313,320 @@
 <span id="313">313</span>
 <span id="314">314</span>
 <span id="315">315</span>
-</pre><pre class="rust"><code><span class="doccomment">//! ARM64 structures.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! ARM64 structures.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::{<span class="ident">MachineState</span>, <span class="ident">MachineValue</span>, <span class="ident">RegisterIndex</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::CombinedRegister</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Reg</span> <span class="kw">as</span> <span class="ident">AbstractReg</span>;
-<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-<span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CallingConvention</span>, <span class="ident">Type</span>};
+</span><span class="kw">use </span><span class="kw">crate</span>::common_decl::{MachineState, MachineValue, RegisterIndex};
+<span class="kw">use </span><span class="kw">crate</span>::location::CombinedRegister;
+<span class="kw">use </span><span class="kw">crate</span>::location::Reg <span class="kw">as </span>AbstractReg;
+<span class="kw">use </span>std::collections::BTreeMap;
+<span class="kw">use </span>std::slice::Iter;
+<span class="kw">use </span>wasmer_types::{CallingConvention, Type};
 
-<span class="doccomment">/// General-purpose registers.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u8</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GPR</span> {
-    <span class="ident">X0</span> <span class="op">=</span> <span class="number">0</span>,
-    <span class="ident">X1</span> <span class="op">=</span> <span class="number">1</span>,
-    <span class="ident">X2</span> <span class="op">=</span> <span class="number">2</span>,
-    <span class="ident">X3</span> <span class="op">=</span> <span class="number">3</span>,
-    <span class="ident">X4</span> <span class="op">=</span> <span class="number">4</span>,
-    <span class="ident">X5</span> <span class="op">=</span> <span class="number">5</span>,
-    <span class="ident">X6</span> <span class="op">=</span> <span class="number">6</span>,
-    <span class="ident">X7</span> <span class="op">=</span> <span class="number">7</span>,
-    <span class="ident">X8</span> <span class="op">=</span> <span class="number">8</span>,
-    <span class="ident">X9</span> <span class="op">=</span> <span class="number">9</span>,
-    <span class="ident">X10</span> <span class="op">=</span> <span class="number">10</span>,
-    <span class="ident">X11</span> <span class="op">=</span> <span class="number">11</span>,
-    <span class="ident">X12</span> <span class="op">=</span> <span class="number">12</span>,
-    <span class="ident">X13</span> <span class="op">=</span> <span class="number">13</span>,
-    <span class="ident">X14</span> <span class="op">=</span> <span class="number">14</span>,
-    <span class="ident">X15</span> <span class="op">=</span> <span class="number">15</span>,
-    <span class="ident">X16</span> <span class="op">=</span> <span class="number">16</span>,
-    <span class="ident">X17</span> <span class="op">=</span> <span class="number">17</span>,
-    <span class="ident">X18</span> <span class="op">=</span> <span class="number">18</span>,
-    <span class="ident">X19</span> <span class="op">=</span> <span class="number">19</span>,
-    <span class="ident">X20</span> <span class="op">=</span> <span class="number">20</span>,
-    <span class="ident">X21</span> <span class="op">=</span> <span class="number">21</span>,
-    <span class="ident">X22</span> <span class="op">=</span> <span class="number">22</span>,
-    <span class="ident">X23</span> <span class="op">=</span> <span class="number">23</span>,
-    <span class="ident">X24</span> <span class="op">=</span> <span class="number">24</span>,
-    <span class="ident">X25</span> <span class="op">=</span> <span class="number">25</span>,
-    <span class="ident">X26</span> <span class="op">=</span> <span class="number">26</span>,
-    <span class="ident">X27</span> <span class="op">=</span> <span class="number">27</span>,
-    <span class="ident">X28</span> <span class="op">=</span> <span class="number">28</span>,
-    <span class="ident">X29</span> <span class="op">=</span> <span class="number">29</span>,
-    <span class="ident">X30</span> <span class="op">=</span> <span class="number">30</span>,
-    <span class="ident">XzrSp</span> <span class="op">=</span> <span class="number">31</span>,
+<span class="doccomment">/// General-purpose registers.
+</span><span class="attribute">#[repr(u8)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+</span><span class="kw">pub enum </span>GPR {
+    X0 = <span class="number">0</span>,
+    X1 = <span class="number">1</span>,
+    X2 = <span class="number">2</span>,
+    X3 = <span class="number">3</span>,
+    X4 = <span class="number">4</span>,
+    X5 = <span class="number">5</span>,
+    X6 = <span class="number">6</span>,
+    X7 = <span class="number">7</span>,
+    X8 = <span class="number">8</span>,
+    X9 = <span class="number">9</span>,
+    X10 = <span class="number">10</span>,
+    X11 = <span class="number">11</span>,
+    X12 = <span class="number">12</span>,
+    X13 = <span class="number">13</span>,
+    X14 = <span class="number">14</span>,
+    X15 = <span class="number">15</span>,
+    X16 = <span class="number">16</span>,
+    X17 = <span class="number">17</span>,
+    X18 = <span class="number">18</span>,
+    X19 = <span class="number">19</span>,
+    X20 = <span class="number">20</span>,
+    X21 = <span class="number">21</span>,
+    X22 = <span class="number">22</span>,
+    X23 = <span class="number">23</span>,
+    X24 = <span class="number">24</span>,
+    X25 = <span class="number">25</span>,
+    X26 = <span class="number">26</span>,
+    X27 = <span class="number">27</span>,
+    X28 = <span class="number">28</span>,
+    X29 = <span class="number">29</span>,
+    X30 = <span class="number">30</span>,
+    XzrSp = <span class="number">31</span>,
 }
 
-<span class="doccomment">/// NEON registers.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u8</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NEON</span> {
-    <span class="ident">V0</span> <span class="op">=</span> <span class="number">0</span>,
-    <span class="ident">V1</span> <span class="op">=</span> <span class="number">1</span>,
-    <span class="ident">V2</span> <span class="op">=</span> <span class="number">2</span>,
-    <span class="ident">V3</span> <span class="op">=</span> <span class="number">3</span>,
-    <span class="ident">V4</span> <span class="op">=</span> <span class="number">4</span>,
-    <span class="ident">V5</span> <span class="op">=</span> <span class="number">5</span>,
-    <span class="ident">V6</span> <span class="op">=</span> <span class="number">6</span>,
-    <span class="ident">V7</span> <span class="op">=</span> <span class="number">7</span>,
-    <span class="ident">V8</span> <span class="op">=</span> <span class="number">8</span>,
-    <span class="ident">V9</span> <span class="op">=</span> <span class="number">9</span>,
-    <span class="ident">V10</span> <span class="op">=</span> <span class="number">10</span>,
-    <span class="ident">V11</span> <span class="op">=</span> <span class="number">11</span>,
-    <span class="ident">V12</span> <span class="op">=</span> <span class="number">12</span>,
-    <span class="ident">V13</span> <span class="op">=</span> <span class="number">13</span>,
-    <span class="ident">V14</span> <span class="op">=</span> <span class="number">14</span>,
-    <span class="ident">V15</span> <span class="op">=</span> <span class="number">15</span>,
-    <span class="ident">V16</span> <span class="op">=</span> <span class="number">16</span>,
-    <span class="ident">V17</span> <span class="op">=</span> <span class="number">17</span>,
-    <span class="ident">V18</span> <span class="op">=</span> <span class="number">18</span>,
-    <span class="ident">V19</span> <span class="op">=</span> <span class="number">19</span>,
-    <span class="ident">V20</span> <span class="op">=</span> <span class="number">20</span>,
-    <span class="ident">V21</span> <span class="op">=</span> <span class="number">21</span>,
-    <span class="ident">V22</span> <span class="op">=</span> <span class="number">22</span>,
-    <span class="ident">V23</span> <span class="op">=</span> <span class="number">23</span>,
-    <span class="ident">V24</span> <span class="op">=</span> <span class="number">24</span>,
-    <span class="ident">V25</span> <span class="op">=</span> <span class="number">25</span>,
-    <span class="ident">V26</span> <span class="op">=</span> <span class="number">26</span>,
-    <span class="ident">V27</span> <span class="op">=</span> <span class="number">27</span>,
-    <span class="ident">V28</span> <span class="op">=</span> <span class="number">28</span>,
-    <span class="ident">V29</span> <span class="op">=</span> <span class="number">29</span>,
-    <span class="ident">V30</span> <span class="op">=</span> <span class="number">30</span>,
-    <span class="ident">V31</span> <span class="op">=</span> <span class="number">31</span>,
+<span class="doccomment">/// NEON registers.
+</span><span class="attribute">#[repr(u8)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[allow(dead_code)]
+</span><span class="kw">pub enum </span>NEON {
+    V0 = <span class="number">0</span>,
+    V1 = <span class="number">1</span>,
+    V2 = <span class="number">2</span>,
+    V3 = <span class="number">3</span>,
+    V4 = <span class="number">4</span>,
+    V5 = <span class="number">5</span>,
+    V6 = <span class="number">6</span>,
+    V7 = <span class="number">7</span>,
+    V8 = <span class="number">8</span>,
+    V9 = <span class="number">9</span>,
+    V10 = <span class="number">10</span>,
+    V11 = <span class="number">11</span>,
+    V12 = <span class="number">12</span>,
+    V13 = <span class="number">13</span>,
+    V14 = <span class="number">14</span>,
+    V15 = <span class="number">15</span>,
+    V16 = <span class="number">16</span>,
+    V17 = <span class="number">17</span>,
+    V18 = <span class="number">18</span>,
+    V19 = <span class="number">19</span>,
+    V20 = <span class="number">20</span>,
+    V21 = <span class="number">21</span>,
+    V22 = <span class="number">22</span>,
+    V23 = <span class="number">23</span>,
+    V24 = <span class="number">24</span>,
+    V25 = <span class="number">25</span>,
+    V26 = <span class="number">26</span>,
+    V27 = <span class="number">27</span>,
+    V28 = <span class="number">28</span>,
+    V29 = <span class="number">29</span>,
+    V30 = <span class="number">30</span>,
+    V31 = <span class="number">31</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">AbstractReg</span> <span class="kw">for</span> <span class="ident">GPR</span> {
-    <span class="kw">fn</span> <span class="ident">is_callee_save</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="number">18</span>
+<span class="kw">impl </span>AbstractReg <span class="kw">for </span>GPR {
+    <span class="kw">fn </span>is_callee_save(<span class="self">self</span>) -&gt; bool {
+        <span class="self">self </span><span class="kw">as </span>usize &gt; <span class="number">18
+    </span>}
+    <span class="kw">fn </span>is_reserved(<span class="self">self</span>) -&gt; bool {
+        !<span class="macro">matches!</span>(<span class="self">self</span>.into_index(), <span class="number">0</span>..=<span class="number">16 </span>| <span class="number">19</span>..=<span class="number">27</span>)
     }
-    <span class="kw">fn</span> <span class="ident">is_reserved</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="op">!</span><span class="macro">matches!</span>(<span class="self">self</span>.<span class="ident">into_index</span>(), <span class="number">0</span>..<span class="op">=</span><span class="number">16</span> <span class="op">|</span> <span class="number">19</span>..<span class="op">=</span><span class="number">27</span>)
+    <span class="kw">fn </span>into_index(<span class="self">self</span>) -&gt; usize {
+        <span class="self">self </span><span class="kw">as </span>usize
     }
-    <span class="kw">fn</span> <span class="ident">into_index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>
-    }
-    <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">GPR</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">n</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">31</span> =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">GPR::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>()),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(()),
+    <span class="kw">fn </span>from_index(n: usize) -&gt; <span class="prelude-ty">Result</span>&lt;GPR, ()&gt; {
+        <span class="kw">match </span>n {
+            <span class="number">0</span>..=<span class="number">31 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>GPR::iterator().nth(n).unwrap()),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
         }
     }
-    <span class="kw">fn</span> <span class="ident">iterator</span>() -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">GPR</span><span class="op">&gt;</span> {
-        <span class="kw">static</span> <span class="ident">GPRS</span>: [<span class="ident">GPR</span>; <span class="number">32</span>] <span class="op">=</span> [
-            <span class="ident">GPR::X0</span>,
-            <span class="ident">GPR::X1</span>,
-            <span class="ident">GPR::X2</span>,
-            <span class="ident">GPR::X3</span>,
-            <span class="ident">GPR::X4</span>,
-            <span class="ident">GPR::X5</span>,
-            <span class="ident">GPR::X6</span>,
-            <span class="ident">GPR::X7</span>,
-            <span class="ident">GPR::X8</span>,
-            <span class="ident">GPR::X9</span>,
-            <span class="ident">GPR::X10</span>,
-            <span class="ident">GPR::X11</span>,
-            <span class="ident">GPR::X12</span>,
-            <span class="ident">GPR::X13</span>,
-            <span class="ident">GPR::X14</span>,
-            <span class="ident">GPR::X15</span>,
-            <span class="ident">GPR::X16</span>,
-            <span class="ident">GPR::X17</span>,
-            <span class="ident">GPR::X18</span>,
-            <span class="ident">GPR::X19</span>,
-            <span class="ident">GPR::X20</span>,
-            <span class="ident">GPR::X21</span>,
-            <span class="ident">GPR::X22</span>,
-            <span class="ident">GPR::X23</span>,
-            <span class="ident">GPR::X24</span>,
-            <span class="ident">GPR::X25</span>,
-            <span class="ident">GPR::X26</span>,
-            <span class="ident">GPR::X27</span>,
-            <span class="ident">GPR::X28</span>,
-            <span class="ident">GPR::X29</span>,
-            <span class="ident">GPR::X30</span>,
-            <span class="ident">GPR::XzrSp</span>,
+    <span class="kw">fn </span>iterator() -&gt; Iter&lt;<span class="lifetime">&#39;static</span>, GPR&gt; {
+        <span class="kw">static </span>GPRS: [GPR; <span class="number">32</span>] = [
+            GPR::X0,
+            GPR::X1,
+            GPR::X2,
+            GPR::X3,
+            GPR::X4,
+            GPR::X5,
+            GPR::X6,
+            GPR::X7,
+            GPR::X8,
+            GPR::X9,
+            GPR::X10,
+            GPR::X11,
+            GPR::X12,
+            GPR::X13,
+            GPR::X14,
+            GPR::X15,
+            GPR::X16,
+            GPR::X17,
+            GPR::X18,
+            GPR::X19,
+            GPR::X20,
+            GPR::X21,
+            GPR::X22,
+            GPR::X23,
+            GPR::X24,
+            GPR::X25,
+            GPR::X26,
+            GPR::X27,
+            GPR::X28,
+            GPR::X29,
+            GPR::X30,
+            GPR::XzrSp,
         ];
-        <span class="ident">GPRS</span>.<span class="ident">iter</span>()
+        GPRS.iter()
     }
-    <span class="kw">fn</span> <span class="ident">to_dwarf</span>(<span class="self">self</span>) -&gt; <span class="ident">u16</span> {
-        <span class="self">self</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u16</span>
+    <span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; u16 {
+        <span class="self">self</span>.into_index() <span class="kw">as </span>u16
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AbstractReg</span> <span class="kw">for</span> <span class="ident">NEON</span> {
-    <span class="kw">fn</span> <span class="ident">is_callee_save</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="number">16</span>
+<span class="kw">impl </span>AbstractReg <span class="kw">for </span>NEON {
+    <span class="kw">fn </span>is_callee_save(<span class="self">self</span>) -&gt; bool {
+        <span class="self">self </span><span class="kw">as </span>usize &gt; <span class="number">16
+    </span>}
+    <span class="kw">fn </span>is_reserved(<span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+    <span class="kw">fn </span>into_index(<span class="self">self</span>) -&gt; usize {
+        <span class="self">self </span><span class="kw">as </span>usize
     }
-    <span class="kw">fn</span> <span class="ident">is_reserved</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
-    }
-    <span class="kw">fn</span> <span class="ident">into_index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span> <span class="kw">as</span> <span class="ident">usize</span>
-    }
-    <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">NEON</span>, ()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">n</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">31</span> =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">NEON::iterator</span>().<span class="ident">nth</span>(<span class="ident">n</span>).<span class="ident">unwrap</span>()),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(()),
+    <span class="kw">fn </span>from_index(n: usize) -&gt; <span class="prelude-ty">Result</span>&lt;NEON, ()&gt; {
+        <span class="kw">match </span>n {
+            <span class="number">0</span>..=<span class="number">31 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>NEON::iterator().nth(n).unwrap()),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
         }
     }
-    <span class="kw">fn</span> <span class="ident">iterator</span>() -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">NEON</span><span class="op">&gt;</span> {
-        <span class="kw">const</span> <span class="ident">NEONS</span>: [<span class="ident">NEON</span>; <span class="number">32</span>] <span class="op">=</span> [
-            <span class="ident">NEON::V0</span>,
-            <span class="ident">NEON::V1</span>,
-            <span class="ident">NEON::V2</span>,
-            <span class="ident">NEON::V3</span>,
-            <span class="ident">NEON::V4</span>,
-            <span class="ident">NEON::V5</span>,
-            <span class="ident">NEON::V6</span>,
-            <span class="ident">NEON::V7</span>,
-            <span class="ident">NEON::V8</span>,
-            <span class="ident">NEON::V9</span>,
-            <span class="ident">NEON::V10</span>,
-            <span class="ident">NEON::V11</span>,
-            <span class="ident">NEON::V12</span>,
-            <span class="ident">NEON::V13</span>,
-            <span class="ident">NEON::V14</span>,
-            <span class="ident">NEON::V15</span>,
-            <span class="ident">NEON::V16</span>,
-            <span class="ident">NEON::V17</span>,
-            <span class="ident">NEON::V18</span>,
-            <span class="ident">NEON::V19</span>,
-            <span class="ident">NEON::V20</span>,
-            <span class="ident">NEON::V21</span>,
-            <span class="ident">NEON::V22</span>,
-            <span class="ident">NEON::V23</span>,
-            <span class="ident">NEON::V24</span>,
-            <span class="ident">NEON::V25</span>,
-            <span class="ident">NEON::V26</span>,
-            <span class="ident">NEON::V27</span>,
-            <span class="ident">NEON::V28</span>,
-            <span class="ident">NEON::V29</span>,
-            <span class="ident">NEON::V30</span>,
-            <span class="ident">NEON::V31</span>,
+    <span class="kw">fn </span>iterator() -&gt; Iter&lt;<span class="lifetime">&#39;static</span>, NEON&gt; {
+        <span class="kw">const </span>NEONS: [NEON; <span class="number">32</span>] = [
+            NEON::V0,
+            NEON::V1,
+            NEON::V2,
+            NEON::V3,
+            NEON::V4,
+            NEON::V5,
+            NEON::V6,
+            NEON::V7,
+            NEON::V8,
+            NEON::V9,
+            NEON::V10,
+            NEON::V11,
+            NEON::V12,
+            NEON::V13,
+            NEON::V14,
+            NEON::V15,
+            NEON::V16,
+            NEON::V17,
+            NEON::V18,
+            NEON::V19,
+            NEON::V20,
+            NEON::V21,
+            NEON::V22,
+            NEON::V23,
+            NEON::V24,
+            NEON::V25,
+            NEON::V26,
+            NEON::V27,
+            NEON::V28,
+            NEON::V29,
+            NEON::V30,
+            NEON::V31,
         ];
-        <span class="ident">NEONS</span>.<span class="ident">iter</span>()
+        NEONS.iter()
     }
-    <span class="kw">fn</span> <span class="ident">to_dwarf</span>(<span class="self">self</span>) -&gt; <span class="ident">u16</span> {
-        <span class="self">self</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u16</span> <span class="op">+</span> <span class="number">64</span>
-    }
+    <span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; u16 {
+        <span class="self">self</span>.into_index() <span class="kw">as </span>u16 + <span class="number">64
+    </span>}
 }
 
-<span class="doccomment">/// A machine register under the x86-64 architecture.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::upper_case_acronyms</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ARM64Register</span> {
-    <span class="doccomment">/// General-purpose registers.</span>
-    <span class="ident">GPR</span>(<span class="ident">GPR</span>),
-    <span class="doccomment">/// NEON (floating point/SIMD) registers.</span>
-    <span class="ident">NEON</span>(<span class="ident">NEON</span>),
+<span class="doccomment">/// A machine register under the x86-64 architecture.
+</span><span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
+</span><span class="kw">pub enum </span>ARM64Register {
+    <span class="doccomment">/// General-purpose registers.
+    </span>GPR(GPR),
+    <span class="doccomment">/// NEON (floating point/SIMD) registers.
+    </span>NEON(NEON),
 }
 
-<span class="kw">impl</span> <span class="ident">CombinedRegister</span> <span class="kw">for</span> <span class="ident">ARM64Register</span> {
-    <span class="doccomment">/// Returns the index of the register.</span>
-    <span class="kw">fn</span> <span class="ident">to_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">RegisterIndex</span> {
-        <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-            <span class="ident">ARM64Register::GPR</span>(<span class="ident">x</span>) =&gt; <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>),
-            <span class="ident">ARM64Register::NEON</span>(<span class="ident">x</span>) =&gt; <span class="ident">RegisterIndex</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">+</span> <span class="number">64</span>),
+<span class="kw">impl </span>CombinedRegister <span class="kw">for </span>ARM64Register {
+    <span class="doccomment">/// Returns the index of the register.
+    </span><span class="kw">fn </span>to_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegisterIndex {
+        <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+            ARM64Register::GPR(x) =&gt; RegisterIndex(x <span class="kw">as </span>usize),
+            ARM64Register::NEON(x) =&gt; RegisterIndex(x <span class="kw">as </span>usize + <span class="number">64</span>),
         }
     }
-    <span class="doccomment">/// Convert from a GPR register</span>
-    <span class="kw">fn</span> <span class="ident">from_gpr</span>(<span class="ident">x</span>: <span class="ident">u16</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">ARM64Register::GPR</span>(<span class="ident">GPR::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>())
+    <span class="doccomment">/// Convert from a GPR register
+    </span><span class="kw">fn </span>from_gpr(x: u16) -&gt; <span class="self">Self </span>{
+        ARM64Register::GPR(GPR::from_index(x <span class="kw">as </span>usize).unwrap())
     }
-    <span class="doccomment">/// Convert from an SIMD register</span>
-    <span class="kw">fn</span> <span class="ident">from_simd</span>(<span class="ident">x</span>: <span class="ident">u16</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">ARM64Register::NEON</span>(<span class="ident">NEON::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>())
+    <span class="doccomment">/// Convert from an SIMD register
+    </span><span class="kw">fn </span>from_simd(x: u16) -&gt; <span class="self">Self </span>{
+        ARM64Register::NEON(NEON::from_index(x <span class="kw">as </span>usize).unwrap())
     }
 
-    <span class="doccomment">/// Converts a DWARF regnum to ARM64Register.</span>
-    <span class="kw">fn</span> <span class="ident">_from_dwarf_regnum</span>(<span class="ident">x</span>: <span class="ident">u16</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ARM64Register</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">x</span> {
-            <span class="number">0</span>..<span class="op">=</span><span class="number">31</span> =&gt; <span class="ident">ARM64Register::GPR</span>(<span class="ident">GPR::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>()),
-            <span class="number">64</span>..<span class="op">=</span><span class="number">95</span> =&gt; <span class="ident">ARM64Register::NEON</span>(<span class="ident">NEON::from_index</span>(<span class="ident">x</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">64</span>).<span class="ident">unwrap</span>()),
-            <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">None</span>,
+    <span class="doccomment">/// Converts a DWARF regnum to ARM64Register.
+    </span><span class="kw">fn </span>_from_dwarf_regnum(x: u16) -&gt; <span class="prelude-ty">Option</span>&lt;ARM64Register&gt; {
+        <span class="prelude-val">Some</span>(<span class="kw">match </span>x {
+            <span class="number">0</span>..=<span class="number">31 </span>=&gt; ARM64Register::GPR(GPR::from_index(x <span class="kw">as </span>usize).unwrap()),
+            <span class="number">64</span>..=<span class="number">95 </span>=&gt; ARM64Register::NEON(NEON::from_index(x <span class="kw">as </span>usize - <span class="number">64</span>).unwrap()),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
         })
     }
 }
 
-<span class="doccomment">/// An allocator that allocates registers for function arguments according to the System V ABI.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArgumentRegisterAllocator</span> {
-    <span class="ident">n_gprs</span>: <span class="ident">usize</span>,
-    <span class="ident">n_neons</span>: <span class="ident">usize</span>,
+<span class="doccomment">/// An allocator that allocates registers for function arguments according to the System V ABI.
+</span><span class="attribute">#[derive(Default)]
+</span><span class="kw">pub struct </span>ArgumentRegisterAllocator {
+    n_gprs: usize,
+    n_neons: usize,
 }
 
-<span class="kw">impl</span> <span class="ident">ArgumentRegisterAllocator</span> {
-    <span class="doccomment">/// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="ident">Type</span>,
-        <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ARM64Register</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">calling_convention</span> {
-            <span class="ident">CallingConvention::SystemV</span> <span class="op">|</span> <span class="ident">CallingConvention::AppleAarch64</span> =&gt; {
-                <span class="kw">static</span> <span class="ident">GPR_SEQ</span>: <span class="kw-2">&amp;</span>[<span class="ident">GPR</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
-                    <span class="ident">GPR::X0</span>,
-                    <span class="ident">GPR::X1</span>,
-                    <span class="ident">GPR::X2</span>,
-                    <span class="ident">GPR::X3</span>,
-                    <span class="ident">GPR::X4</span>,
-                    <span class="ident">GPR::X5</span>,
-                    <span class="ident">GPR::X6</span>,
-                    <span class="ident">GPR::X7</span>,
+<span class="kw">impl </span>ArgumentRegisterAllocator {
+    <span class="doccomment">/// Allocates a register for argument type `ty`. Returns `None` if no register is available for this type.
+    </span><span class="kw">pub fn </span>next(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        ty: Type,
+        calling_convention: CallingConvention,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;ARM64Register&gt; {
+        <span class="kw">match </span>calling_convention {
+            CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
+                <span class="kw">static </span>GPR_SEQ: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[
+                    GPR::X0,
+                    GPR::X1,
+                    GPR::X2,
+                    GPR::X3,
+                    GPR::X4,
+                    GPR::X5,
+                    GPR::X6,
+                    GPR::X7,
                 ];
-                <span class="kw">static</span> <span class="ident">NEON_SEQ</span>: <span class="kw-2">&amp;</span>[<span class="ident">NEON</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
-                    <span class="ident">NEON::V0</span>,
-                    <span class="ident">NEON::V1</span>,
-                    <span class="ident">NEON::V2</span>,
-                    <span class="ident">NEON::V3</span>,
-                    <span class="ident">NEON::V4</span>,
-                    <span class="ident">NEON::V5</span>,
-                    <span class="ident">NEON::V6</span>,
-                    <span class="ident">NEON::V7</span>,
+                <span class="kw">static </span>NEON_SEQ: <span class="kw-2">&amp;</span>[NEON] = <span class="kw-2">&amp;</span>[
+                    NEON::V0,
+                    NEON::V1,
+                    NEON::V2,
+                    NEON::V3,
+                    NEON::V4,
+                    NEON::V5,
+                    NEON::V6,
+                    NEON::V7,
                 ];
-                <span class="kw">match</span> <span class="ident">ty</span> {
-                    <span class="ident">Type::I32</span> <span class="op">|</span> <span class="ident">Type::I64</span> =&gt; {
-                        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">n_gprs</span> <span class="op">&lt;</span> <span class="ident">GPR_SEQ</span>.<span class="ident">len</span>() {
-                            <span class="kw">let</span> <span class="ident">gpr</span> <span class="op">=</span> <span class="ident">GPR_SEQ</span>[<span class="self">self</span>.<span class="ident">n_gprs</span>];
-                            <span class="self">self</span>.<span class="ident">n_gprs</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                            <span class="prelude-val">Some</span>(<span class="ident">ARM64Register::GPR</span>(<span class="ident">gpr</span>))
-                        } <span class="kw">else</span> {
-                            <span class="prelude-val">None</span>
-                        }
+                <span class="kw">match </span>ty {
+                    Type::I32 | Type::I64 =&gt; {
+                        <span class="kw">if </span><span class="self">self</span>.n_gprs &lt; GPR_SEQ.len() {
+                            <span class="kw">let </span>gpr = GPR_SEQ[<span class="self">self</span>.n_gprs];
+                            <span class="self">self</span>.n_gprs += <span class="number">1</span>;
+                            <span class="prelude-val">Some</span>(ARM64Register::GPR(gpr))
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>}
                     }
-                    <span class="ident">Type::F32</span> <span class="op">|</span> <span class="ident">Type::F64</span> =&gt; {
-                        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">n_neons</span> <span class="op">&lt;</span> <span class="ident">NEON_SEQ</span>.<span class="ident">len</span>() {
-                            <span class="kw">let</span> <span class="ident">neon</span> <span class="op">=</span> <span class="ident">NEON_SEQ</span>[<span class="self">self</span>.<span class="ident">n_neons</span>];
-                            <span class="self">self</span>.<span class="ident">n_neons</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                            <span class="prelude-val">Some</span>(<span class="ident">ARM64Register::NEON</span>(<span class="ident">neon</span>))
-                        } <span class="kw">else</span> {
-                            <span class="prelude-val">None</span>
-                        }
+                    Type::F32 | Type::F64 =&gt; {
+                        <span class="kw">if </span><span class="self">self</span>.n_neons &lt; NEON_SEQ.len() {
+                            <span class="kw">let </span>neon = NEON_SEQ[<span class="self">self</span>.n_neons];
+                            <span class="self">self</span>.n_neons += <span class="number">1</span>;
+                            <span class="prelude-val">Some</span>(ARM64Register::NEON(neon))
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>}
                     }
-                    <span class="kw">_</span> =&gt; <span class="macro">todo!</span>(
+                    <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(
                         <span class="string">&quot;ArgumentRegisterAllocator::next: Unsupported type: {:?}&quot;</span>,
-                        <span class="ident">ty</span>
+                        ty
                     ),
                 }
             }
-            <span class="kw">_</span> =&gt; <span class="macro">unimplemented!</span>(),
+            <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(),
         }
     }
 }
 
-<span class="doccomment">/// Create a new `MachineState` with default values.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_machine_state</span>() -&gt; <span class="ident">MachineState</span> {
-    <span class="ident">MachineState</span> {
-        <span class="ident">stack_values</span>: <span class="macro">vec!</span>[],
-        <span class="ident">register_values</span>: <span class="macro">vec!</span>[<span class="ident">MachineValue::Undefined</span>; <span class="number">32</span> <span class="op">+</span> <span class="number">32</span>],
-        <span class="ident">prev_frame</span>: <span class="ident">BTreeMap::new</span>(),
-        <span class="ident">wasm_stack</span>: <span class="macro">vec!</span>[],
-        <span class="ident">wasm_inst_offset</span>: <span class="ident">std::usize::MAX</span>,
+<span class="doccomment">/// Create a new `MachineState` with default values.
+</span><span class="kw">pub fn </span>new_machine_state() -&gt; MachineState {
+    MachineState {
+        stack_values: <span class="macro">vec!</span>[],
+        register_values: <span class="macro">vec!</span>[MachineValue::Undefined; <span class="number">32 </span>+ <span class="number">32</span>],
+        prev_frame: BTreeMap::new(),
+        wasm_stack: <span class="macro">vec!</span>[],
+        wasm_inst_offset: std::usize::MAX,
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

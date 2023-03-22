@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasm-interface/src/validate.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>validate.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_wasm_interface/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasm-interface/src/validate.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>validate.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wasm_interface/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_wasm_interface/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -474,292 +474,292 @@
 <span id="474">474</span>
 <span id="475">475</span>
 <span id="476">476</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Validate a wasm module given a interface.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! This checks that all imports are specified in the interface and that their types</span>
-<span class="doccomment">//! are correct, as well as that all exports that the interface expects are exported</span>
-<span class="doccomment">//! by the module and that their types are correct.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Validate a wasm module given a interface.
+//!
+//! This checks that all imports are specified in the interface and that their types
+//! are correct, as well as that all exports that the interface expects are exported
+//! by the module and that their types are correct.
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Export</span>, <span class="ident">Import</span>, <span class="ident">Interface</span>, <span class="ident">WasmType</span>};
-<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
-<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">ExternalKind</span>, <span class="ident">FuncType</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportSectionEntryType</span>};
+</span><span class="kw">use crate</span>::{Export, Import, Interface, WasmType};
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>wasmparser::{ExternalKind, FuncType, GlobalType, ImportSectionEntryType};
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_wasm_and_report_errors</span>(
-    <span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    <span class="ident">interface</span>: <span class="kw-2">&amp;</span><span class="ident">Interface</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasmValidationError</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">wasmparser::WasmDecoder</span>;
+<span class="kw">pub fn </span>validate_wasm_and_report_errors(
+    wasm: <span class="kw-2">&amp;</span>[u8],
+    interface: <span class="kw-2">&amp;</span>Interface,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasmValidationError&gt; {
+    <span class="kw">use </span>wasmparser::WasmDecoder;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">errors</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">import_fns</span>: <span class="ident">HashMap</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">export_fns</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">export_globals</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">type_defs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FuncType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_types</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GlobalType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fn_sigs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>errors: Vec&lt;String&gt; = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>import_fns: HashMap&lt;(String, String), u32&gt; = HashMap::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>export_fns: HashMap&lt;String, u32&gt; = HashMap::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>export_globals: HashMap&lt;String, u32&gt; = HashMap::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>type_defs: Vec&lt;FuncType&gt; = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>global_types: Vec&lt;GlobalType&gt; = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>fn_sigs: Vec&lt;u32&gt; = <span class="macro">vec!</span>[];
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">wasmparser::ValidatingParser::new</span>(
-        <span class="ident">wasm</span>,
-        <span class="prelude-val">Some</span>(<span class="ident">wasmparser::ValidatingParserConfig</span> {
-            <span class="ident">operator_config</span>: <span class="ident">wasmparser::OperatorValidatorConfig</span> {
-                <span class="ident">enable_threads</span>: <span class="bool-val">true</span>,
-                <span class="ident">enable_reference_types</span>: <span class="bool-val">true</span>,
-                <span class="ident">enable_simd</span>: <span class="bool-val">true</span>,
-                <span class="ident">enable_bulk_memory</span>: <span class="bool-val">true</span>,
-                <span class="ident">enable_multi_value</span>: <span class="bool-val">true</span>,
+    <span class="kw">let </span><span class="kw-2">mut </span>parser = wasmparser::ValidatingParser::new(
+        wasm,
+        <span class="prelude-val">Some</span>(wasmparser::ValidatingParserConfig {
+            operator_config: wasmparser::OperatorValidatorConfig {
+                enable_threads: <span class="bool-val">true</span>,
+                enable_reference_types: <span class="bool-val">true</span>,
+                enable_simd: <span class="bool-val">true</span>,
+                enable_bulk_memory: <span class="bool-val">true</span>,
+                enable_multi_value: <span class="bool-val">true</span>,
             },
         }),
     );
-    <span class="kw">loop</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
-        <span class="kw">match</span> <span class="ident">state</span> {
-            <span class="ident">wasmparser::ParserState::EndWasm</span> =&gt; <span class="kw">break</span>,
-            <span class="ident">wasmparser::ParserState::Error</span>(<span class="ident">e</span>) =&gt; {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">WasmValidationError::InvalidWasm</span> {
-                    <span class="ident">error</span>: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>),
+    <span class="kw">loop </span>{
+        <span class="kw">let </span>state = parser.read();
+        <span class="kw">match </span>state {
+            wasmparser::ParserState::EndWasm =&gt; <span class="kw">break</span>,
+            wasmparser::ParserState::Error(e) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(WasmValidationError::InvalidWasm {
+                    error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e),
                 });
             }
-            <span class="ident">wasmparser::ParserState::ImportSectionEntry</span> {
-                <span class="ident">module</span>,
-                <span class="ident">field</span>,
-                <span class="kw-2">ref</span> <span class="ident">ty</span>,
-            } =&gt; <span class="kw">match</span> <span class="ident">ty</span> {
-                <span class="ident">ImportSectionEntryType::Function</span>(<span class="ident">idx</span>) =&gt; {
-                    <span class="ident">import_fns</span>.<span class="ident">insert</span>(<span class="ident">Import::format_key</span>(<span class="ident">module</span>, <span class="ident">field</span>), <span class="kw-2">*</span><span class="ident">idx</span>);
-                    <span class="ident">fn_sigs</span>.<span class="ident">push</span>(<span class="kw-2">*</span><span class="ident">idx</span>);
+            wasmparser::ParserState::ImportSectionEntry {
+                module,
+                field,
+                <span class="kw-2">ref </span>ty,
+            } =&gt; <span class="kw">match </span>ty {
+                ImportSectionEntryType::Function(idx) =&gt; {
+                    import_fns.insert(Import::format_key(module, field), <span class="kw-2">*</span>idx);
+                    fn_sigs.push(<span class="kw-2">*</span>idx);
                 }
-                <span class="ident">ImportSectionEntryType::Global</span>(<span class="ident">GlobalType</span> { <span class="ident">content_type</span>, .. }) =&gt; {
-                    <span class="kw">let</span> <span class="ident">global_type</span> <span class="op">=</span>
-                        <span class="ident">wasmparser_type_into_wasm_type</span>(<span class="kw-2">*</span><span class="ident">content_type</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-                            <span class="ident">WasmValidationError::UnsupportedType</span> {
-                                <span class="ident">error</span>: <span class="macro">format!</span>(
+                ImportSectionEntryType::Global(GlobalType { content_type, .. }) =&gt; {
+                    <span class="kw">let </span>global_type =
+                        wasmparser_type_into_wasm_type(<span class="kw-2">*</span>content_type).map_err(|err| {
+                            WasmValidationError::UnsupportedType {
+                                error: <span class="macro">format!</span>(
                                     <span class="string">&quot;Invalid type found in import \&quot;{}\&quot; \&quot;{}\&quot;: {}&quot;</span>,
-                                    <span class="ident">module</span>, <span class="ident">field</span>, <span class="ident">err</span>
+                                    module, field, err
                                 ),
                             }
                         })<span class="question-mark">?</span>;
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">val</span>) <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">imports</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">Import::format_key</span>(<span class="ident">module</span>, <span class="ident">field</span>)) {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Import::Global</span> { <span class="ident">var_type</span>, .. } <span class="op">=</span> <span class="ident">val</span> {
-                            <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">var_type</span> <span class="op">!</span><span class="op">=</span> <span class="ident">global_type</span> {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(val) = interface.imports.get(<span class="kw-2">&amp;</span>Import::format_key(module, field)) {
+                        <span class="kw">if let </span>Import::Global { var_type, .. } = val {
+                            <span class="kw">if </span><span class="kw-2">*</span>var_type != global_type {
+                                errors.push(<span class="macro">format!</span>(
                                     <span class="string">&quot;Invalid type on Global \&quot;{}\&quot;. Expected {} found {}&quot;</span>,
-                                    <span class="ident">field</span>, <span class="ident">var_type</span>, <span class="ident">global_type</span>
+                                    field, var_type, global_type
                                 ));
                             }
-                        } <span class="kw">else</span> {
-                            <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                        } <span class="kw">else </span>{
+                            errors.push(<span class="macro">format!</span>(
                                 <span class="string">&quot;Invalid import type. Expected Global, found {:?}&quot;</span>,
-                                <span class="ident">val</span>
+                                val
                             ));
                         }
-                    } <span class="kw">else</span> {
-                        <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                    } <span class="kw">else </span>{
+                        errors.push(<span class="macro">format!</span>(
                             <span class="string">&quot;Global import \&quot;{}\&quot; not found in the specified interface&quot;</span>,
-                            <span class="ident">field</span>
+                            field
                         ));
                     }
                 }
-                <span class="kw">_</span> =&gt; (),
+                <span class="kw">_ </span>=&gt; (),
             },
-            <span class="ident">wasmparser::ParserState::ExportSectionEntry</span> {
-                <span class="ident">field</span>,
-                <span class="ident">index</span>,
-                <span class="kw-2">ref</span> <span class="ident">kind</span>,
-            } =&gt; <span class="kw">match</span> <span class="ident">kind</span> {
-                <span class="ident">ExternalKind::Function</span> =&gt; {
-                    <span class="ident">export_fns</span>.<span class="ident">insert</span>(<span class="ident">Export::format_key</span>(<span class="ident">field</span>), <span class="kw-2">*</span><span class="ident">index</span>);
+            wasmparser::ParserState::ExportSectionEntry {
+                field,
+                index,
+                <span class="kw-2">ref </span>kind,
+            } =&gt; <span class="kw">match </span>kind {
+                ExternalKind::Function =&gt; {
+                    export_fns.insert(Export::format_key(field), <span class="kw-2">*</span>index);
                 }
-                <span class="ident">ExternalKind::Global</span> =&gt; {
-                    <span class="ident">export_globals</span>.<span class="ident">insert</span>(<span class="ident">Export::format_key</span>(<span class="ident">field</span>), <span class="kw-2">*</span><span class="ident">index</span>);
+                ExternalKind::Global =&gt; {
+                    export_globals.insert(Export::format_key(field), <span class="kw-2">*</span>index);
                 }
-                <span class="kw">_</span> =&gt; (),
+                <span class="kw">_ </span>=&gt; (),
             },
-            <span class="ident">wasmparser::ParserState::BeginGlobalSectionEntry</span>(<span class="ident">gt</span>) =&gt; {
-                <span class="ident">global_types</span>.<span class="ident">push</span>(<span class="kw-2">*</span><span class="ident">gt</span>);
+            wasmparser::ParserState::BeginGlobalSectionEntry(gt) =&gt; {
+                global_types.push(<span class="kw-2">*</span>gt);
             }
-            <span class="ident">wasmparser::ParserState::TypeSectionEntry</span>(<span class="ident">ft</span>) =&gt; {
-                <span class="ident">type_defs</span>.<span class="ident">push</span>(<span class="ident">ft</span>.<span class="ident">clone</span>());
+            wasmparser::ParserState::TypeSectionEntry(ft) =&gt; {
+                type_defs.push(ft.clone());
             }
-            <span class="ident">wasmparser::ParserState::FunctionSectionEntry</span>(<span class="ident">n</span>) =&gt; {
-                <span class="ident">fn_sigs</span>.<span class="ident">push</span>(<span class="kw-2">*</span><span class="ident">n</span>);
+            wasmparser::ParserState::FunctionSectionEntry(n) =&gt; {
+                fn_sigs.push(<span class="kw-2">*</span>n);
             }
-            <span class="kw">_</span> =&gt; {}
+            <span class="kw">_ </span>=&gt; {}
         }
     }
 
-    <span class="ident">validate_imports</span>(<span class="kw-2">&amp;</span><span class="ident">import_fns</span>, <span class="kw-2">&amp;</span><span class="ident">type_defs</span>, <span class="ident">interface</span>, <span class="kw-2">&amp;mut</span> <span class="ident">errors</span>);
-    <span class="ident">validate_export_fns</span>(<span class="kw-2">&amp;</span><span class="ident">export_fns</span>, <span class="kw-2">&amp;</span><span class="ident">type_defs</span>, <span class="kw-2">&amp;</span><span class="ident">fn_sigs</span>, <span class="ident">interface</span>, <span class="kw-2">&amp;mut</span> <span class="ident">errors</span>);
-    <span class="ident">validate_export_globals</span>(<span class="kw-2">&amp;</span><span class="ident">export_globals</span>, <span class="kw-2">&amp;</span><span class="ident">global_types</span>, <span class="ident">interface</span>, <span class="kw-2">&amp;mut</span> <span class="ident">errors</span>);
+    validate_imports(<span class="kw-2">&amp;</span>import_fns, <span class="kw-2">&amp;</span>type_defs, interface, <span class="kw-2">&amp;mut </span>errors);
+    validate_export_fns(<span class="kw-2">&amp;</span>export_fns, <span class="kw-2">&amp;</span>type_defs, <span class="kw-2">&amp;</span>fn_sigs, interface, <span class="kw-2">&amp;mut </span>errors);
+    validate_export_globals(<span class="kw-2">&amp;</span>export_globals, <span class="kw-2">&amp;</span>global_types, interface, <span class="kw-2">&amp;mut </span>errors);
 
-    <span class="kw">if</span> <span class="ident">errors</span>.<span class="ident">is_empty</span>() {
+    <span class="kw">if </span>errors.is_empty() {
         <span class="prelude-val">Ok</span>(())
-    } <span class="kw">else</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">WasmValidationError::InterfaceViolated</span> { <span class="ident">errors</span> })
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Err</span>(WasmValidationError::InterfaceViolated { errors })
     }
 }
 
-<span class="doccomment">/// Validates the import functions, checking the name and type against the given</span>
-<span class="doccomment">/// `Interface`</span>
-<span class="kw">fn</span> <span class="ident">validate_imports</span>(
-    <span class="ident">import_fns</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">u32</span><span class="op">&gt;</span>,
-    <span class="ident">type_defs</span>: <span class="kw-2">&amp;</span>[<span class="ident">FuncType</span>],
-    <span class="ident">interface</span>: <span class="kw-2">&amp;</span><span class="ident">Interface</span>,
-    <span class="ident">errors</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Validates the import functions, checking the name and type against the given
+/// `Interface`
+</span><span class="kw">fn </span>validate_imports(
+    import_fns: <span class="kw-2">&amp;</span>HashMap&lt;(String, String), u32&gt;,
+    type_defs: <span class="kw-2">&amp;</span>[FuncType],
+    interface: <span class="kw-2">&amp;</span>Interface,
+    errors: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;,
 ) {
-    <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">val</span>) <span class="kw">in</span> <span class="ident">import_fns</span>.<span class="ident">iter</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">interface_def</span>) <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">imports</span>.<span class="ident">get</span>(<span class="ident">key</span>) {
-            <span class="kw">let</span> <span class="ident">type_sig</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">type_defs</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">val</span> <span class="kw">as</span> <span class="ident">usize</span>) {
-                <span class="ident">v</span>
-            } <span class="kw">else</span> {
-                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+    <span class="kw">for </span>(key, val) <span class="kw">in </span>import_fns.iter() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(interface_def) = interface.imports.get(key) {
+            <span class="kw">let </span>type_sig = <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = type_defs.get(<span class="kw-2">*</span>val <span class="kw">as </span>usize) {
+                v
+            } <span class="kw">else </span>{
+                errors.push(<span class="macro">format!</span>(
                     <span class="string">&quot;Use of undeclared function reference \&quot;{}\&quot; in import function \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>,
-                    <span class="ident">val</span>, <span class="ident">key</span>.<span class="number">0</span>, <span class="ident">key</span>.<span class="number">1</span>
-                ));
+                    val, key.<span class="number">0</span>, key.<span class="number">1
+                </span>));
                 <span class="kw">continue</span>;
             };
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Import::Func</span> { <span class="ident">params</span>, <span class="ident">result</span>, .. } <span class="op">=</span> <span class="ident">interface_def</span> {
-                <span class="macro">debug_assert!</span>(<span class="ident">type_sig</span>.<span class="ident">form</span> <span class="op">==</span> <span class="ident">wasmparser::Type::Func</span>);
-                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">param</span>) <span class="kw">in</span> <span class="ident">type_sig</span>
-                    .<span class="ident">params</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">map</span>(<span class="ident">wasmparser_type_into_wasm_type</span>)
-                    .<span class="ident">enumerate</span>()
+            <span class="kw">if let </span>Import::Func { params, result, .. } = interface_def {
+                <span class="macro">debug_assert!</span>(type_sig.form == wasmparser::Type::Func);
+                <span class="kw">for </span>(i, param) <span class="kw">in </span>type_sig
+                    .params
+                    .iter()
+                    .cloned()
+                    .map(wasmparser_type_into_wasm_type)
+                    .enumerate()
                 {
-                    <span class="kw">match</span> <span class="ident">param</span> {
-                        <span class="prelude-val">Ok</span>(<span class="ident">t</span>) =&gt; {
-                            <span class="kw">if</span> <span class="ident">params</span>.<span class="ident">get</span>(<span class="ident">i</span>).<span class="ident">is_none</span>() {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Found {} args but the interface only expects {} for imported function \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>, <span class="ident">i</span>, <span class="ident">params</span>.<span class="ident">len</span>(), <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">1</span>));
+                    <span class="kw">match </span>param {
+                        <span class="prelude-val">Ok</span>(t) =&gt; {
+                            <span class="kw">if </span>params.get(i).is_none() {
+                                errors.push(<span class="macro">format!</span>(<span class="string">&quot;Found {} args but the interface only expects {} for imported function \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>, i, params.len(), <span class="kw-2">&amp;</span>key.<span class="number">0</span>, <span class="kw-2">&amp;</span>key.<span class="number">1</span>));
                                 <span class="kw">continue</span>;
                             }
-                            <span class="kw">if</span> <span class="ident">t</span> <span class="op">!</span><span class="op">=</span> <span class="ident">params</span>[<span class="ident">i</span>] {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                            <span class="kw">if </span>t != params[i] {
+                                errors.push(<span class="macro">format!</span>(
                                     <span class="string">&quot;Type mismatch in params in imported func \&quot;{}\&quot; \&quot;{}\&quot;: argument {}, expected {} found {}&quot;</span>,
-                                    <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">1</span>, <span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>, <span class="ident">params</span>[<span class="ident">i</span>], <span class="ident">t</span>
+                                    <span class="kw-2">&amp;</span>key.<span class="number">0</span>, <span class="kw-2">&amp;</span>key.<span class="number">1</span>, i + <span class="number">1</span>, params[i], t
                                 ));
                             }
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                        <span class="prelude-val">Err</span>(e) =&gt; errors.push(<span class="macro">format!</span>(
                             <span class="string">&quot;Invalid type in func \&quot;{}\&quot; \&quot;{}\&quot;: {}&quot;</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">1</span>, <span class="ident">e</span>
+                            <span class="kw-2">&amp;</span>key.<span class="number">0</span>, <span class="kw-2">&amp;</span>key.<span class="number">1</span>, e
                         )),
                     }
                 }
-                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ret</span>) <span class="kw">in</span> <span class="ident">type_sig</span>
-                    .<span class="ident">returns</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">map</span>(<span class="ident">wasmparser_type_into_wasm_type</span>)
-                    .<span class="ident">enumerate</span>()
+                <span class="kw">for </span>(i, ret) <span class="kw">in </span>type_sig
+                    .returns
+                    .iter()
+                    .cloned()
+                    .map(wasmparser_type_into_wasm_type)
+                    .enumerate()
                 {
-                    <span class="kw">match</span> <span class="ident">ret</span> {
-                        <span class="prelude-val">Ok</span>(<span class="ident">t</span>) =&gt; {
-                            <span class="kw">if</span> <span class="ident">result</span>.<span class="ident">get</span>(<span class="ident">i</span>).<span class="ident">is_none</span>() {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Found {} returns but the interface only expects {} for imported function \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>, <span class="ident">i</span>, <span class="ident">params</span>.<span class="ident">len</span>(), <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">1</span>));
+                    <span class="kw">match </span>ret {
+                        <span class="prelude-val">Ok</span>(t) =&gt; {
+                            <span class="kw">if </span>result.get(i).is_none() {
+                                errors.push(<span class="macro">format!</span>(<span class="string">&quot;Found {} returns but the interface only expects {} for imported function \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>, i, params.len(), <span class="kw-2">&amp;</span>key.<span class="number">0</span>, <span class="kw-2">&amp;</span>key.<span class="number">1</span>));
                                 <span class="kw">continue</span>;
                             }
 
-                            <span class="kw">if</span> <span class="ident">t</span> <span class="op">!</span><span class="op">=</span> <span class="ident">result</span>[<span class="ident">i</span>] {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                            <span class="kw">if </span>t != result[i] {
+                                errors.push(<span class="macro">format!</span>(
                                     <span class="string">&quot;Type mismatch in returns in func \&quot;{}\&quot; \&quot;{}\&quot;, return {}, expected {} found {}&quot;</span>,
-                                    <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">1</span>, <span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>, <span class="ident">params</span>[<span class="ident">i</span>], <span class="ident">t</span>
+                                    <span class="kw-2">&amp;</span>key.<span class="number">0</span>, <span class="kw-2">&amp;</span>key.<span class="number">1</span>, i + <span class="number">1</span>, params[i], t
                                 ));
                             }
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                        <span class="prelude-val">Err</span>(e) =&gt; errors.push(<span class="macro">format!</span>(
                             <span class="string">&quot;Invalid type in func \&quot;{}\&quot; \&quot;{}\&quot;: {}&quot;</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>.<span class="number">1</span>, <span class="ident">e</span>
+                            <span class="kw-2">&amp;</span>key.<span class="number">0</span>, <span class="kw-2">&amp;</span>key.<span class="number">1</span>, e
                         )),
                     }
                 }
             }
-        } <span class="kw">else</span> {
-            <span class="comment">// we didn&#39;t find the import at all in the interface</span>
-            <span class="comment">// TODO: improve error messages by including type information</span>
-            <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Missing import \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>, <span class="ident">key</span>.<span class="number">0</span>, <span class="ident">key</span>.<span class="number">1</span>));
+        } <span class="kw">else </span>{
+            <span class="comment">// we didn&#39;t find the import at all in the interface
+            // TODO: improve error messages by including type information
+            </span>errors.push(<span class="macro">format!</span>(<span class="string">&quot;Missing import \&quot;{}\&quot; \&quot;{}\&quot;&quot;</span>, key.<span class="number">0</span>, key.<span class="number">1</span>));
         }
     }
 }
 
-<span class="doccomment">/// Validates the export functions, checking the name and type against the given</span>
-<span class="doccomment">/// `Interface`</span>
-<span class="kw">fn</span> <span class="ident">validate_export_fns</span>(
-    <span class="ident">export_fns</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
-    <span class="ident">type_defs</span>: <span class="kw-2">&amp;</span>[<span class="ident">FuncType</span>],
-    <span class="ident">fn_sigs</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
-    <span class="ident">interface</span>: <span class="kw-2">&amp;</span><span class="ident">Interface</span>,
-    <span class="ident">errors</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Validates the export functions, checking the name and type against the given
+/// `Interface`
+</span><span class="kw">fn </span>validate_export_fns(
+    export_fns: <span class="kw-2">&amp;</span>HashMap&lt;String, u32&gt;,
+    type_defs: <span class="kw-2">&amp;</span>[FuncType],
+    fn_sigs: <span class="kw-2">&amp;</span>Vec&lt;u32&gt;,
+    interface: <span class="kw-2">&amp;</span>Interface,
+    errors: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;,
 ) {
-    <span class="lifetime">&#39;export_loop</span>: <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">val</span>) <span class="kw">in</span> <span class="ident">export_fns</span>.<span class="ident">iter</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">interface_def</span>) <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">key</span>) {
-            <span class="kw">let</span> <span class="ident">type_sig</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">type_idx</span>) <span class="op">=</span> <span class="ident">fn_sigs</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">val</span> <span class="kw">as</span> <span class="ident">usize</span>) {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">type_defs</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">type_idx</span> <span class="kw">as</span> <span class="ident">usize</span>) {
-                    <span class="ident">v</span>
-                } <span class="kw">else</span> {
-                    <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+    <span class="lifetime">&#39;export_loop</span>: <span class="kw">for </span>(key, val) <span class="kw">in </span>export_fns.iter() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(interface_def) = interface.exports.get(key) {
+            <span class="kw">let </span>type_sig = <span class="kw">if let </span><span class="prelude-val">Some</span>(type_idx) = fn_sigs.get(<span class="kw-2">*</span>val <span class="kw">as </span>usize) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = type_defs.get(<span class="kw-2">*</span>type_idx <span class="kw">as </span>usize) {
+                    v
+                } <span class="kw">else </span>{
+                    errors.push(<span class="macro">format!</span>(
                         <span class="string">&quot;Export \&quot;{}\&quot; refers to type \&quot;{}\&quot; but only {} types were found&quot;</span>,
-                        <span class="kw-2">&amp;</span><span class="ident">key</span>,
-                        <span class="ident">type_idx</span>,
-                        <span class="ident">fn_sigs</span>.<span class="ident">len</span>()
+                        <span class="kw-2">&amp;</span>key,
+                        type_idx,
+                        fn_sigs.len()
                     ));
                     <span class="kw">continue</span>;
                 }
-            } <span class="kw">else</span> {
-                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+            } <span class="kw">else </span>{
+                errors.push(<span class="macro">format!</span>(
                     <span class="string">&quot;Use of undeclared function reference \&quot;{}\&quot; in export \&quot;{}\&quot;&quot;</span>,
-                    <span class="ident">val</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>
+                    val, <span class="kw-2">&amp;</span>key
                 ));
                 <span class="kw">continue</span>;
             };
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export::Func</span> { <span class="ident">params</span>, <span class="ident">result</span>, .. } <span class="op">=</span> <span class="ident">interface_def</span> {
-                <span class="macro">debug_assert!</span>(<span class="ident">type_sig</span>.<span class="ident">form</span> <span class="op">==</span> <span class="ident">wasmparser::Type::Func</span>);
-                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">param</span>) <span class="kw">in</span> <span class="ident">type_sig</span>
-                    .<span class="ident">params</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">map</span>(<span class="ident">wasmparser_type_into_wasm_type</span>)
-                    .<span class="ident">enumerate</span>()
+            <span class="kw">if let </span>Export::Func { params, result, .. } = interface_def {
+                <span class="macro">debug_assert!</span>(type_sig.form == wasmparser::Type::Func);
+                <span class="kw">for </span>(i, param) <span class="kw">in </span>type_sig
+                    .params
+                    .iter()
+                    .cloned()
+                    .map(wasmparser_type_into_wasm_type)
+                    .enumerate()
                 {
-                    <span class="kw">match</span> <span class="ident">param</span> {
-                        <span class="prelude-val">Ok</span>(<span class="ident">t</span>) =&gt; {
-                            <span class="kw">if</span> <span class="ident">params</span>.<span class="ident">get</span>(<span class="ident">i</span>).<span class="ident">is_none</span>() {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Found {} args but the interface only expects {} for exported function \&quot;{}\&quot;&quot;</span>, <span class="ident">type_sig</span>.<span class="ident">params</span>.<span class="ident">len</span>(), <span class="ident">params</span>.<span class="ident">len</span>(), <span class="kw-2">&amp;</span><span class="ident">key</span>));
-                                <span class="kw">continue</span> <span class="lifetime">&#39;export_loop</span>;
+                    <span class="kw">match </span>param {
+                        <span class="prelude-val">Ok</span>(t) =&gt; {
+                            <span class="kw">if </span>params.get(i).is_none() {
+                                errors.push(<span class="macro">format!</span>(<span class="string">&quot;Found {} args but the interface only expects {} for exported function \&quot;{}\&quot;&quot;</span>, type_sig.params.len(), params.len(), <span class="kw-2">&amp;</span>key));
+                                <span class="kw">continue </span><span class="lifetime">&#39;export_loop</span>;
                             }
-                            <span class="kw">if</span> <span class="ident">t</span> <span class="op">!</span><span class="op">=</span> <span class="ident">params</span>[<span class="ident">i</span>] {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                            <span class="kw">if </span>t != params[i] {
+                                errors.push(<span class="macro">format!</span>(
                                     <span class="string">&quot;Type mismatch in params in exported func \&quot;{}\&quot;: in argument {}, expected {} found {}&quot;</span>,
-                                    <span class="kw-2">&amp;</span><span class="ident">key</span>, <span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>, <span class="ident">params</span>[<span class="ident">i</span>], <span class="ident">t</span>
+                                    <span class="kw-2">&amp;</span>key, i + <span class="number">1</span>, params[i], t
                                 ));
                             }
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">errors</span>
-                            .<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid type in exported func \&quot;{}\&quot;: {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>, <span class="ident">e</span>)),
+                        <span class="prelude-val">Err</span>(e) =&gt; errors
+                            .push(<span class="macro">format!</span>(<span class="string">&quot;Invalid type in exported func \&quot;{}\&quot;: {}&quot;</span>, <span class="kw-2">&amp;</span>key, e)),
                     }
                 }
-                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ret</span>) <span class="kw">in</span> <span class="ident">type_sig</span>
-                    .<span class="ident">returns</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">map</span>(<span class="ident">wasmparser_type_into_wasm_type</span>)
-                    .<span class="ident">enumerate</span>()
+                <span class="kw">for </span>(i, ret) <span class="kw">in </span>type_sig
+                    .returns
+                    .iter()
+                    .cloned()
+                    .map(wasmparser_type_into_wasm_type)
+                    .enumerate()
                 {
-                    <span class="kw">match</span> <span class="ident">ret</span> {
-                        <span class="prelude-val">Ok</span>(<span class="ident">t</span>) =&gt; {
-                            <span class="kw">if</span> <span class="ident">result</span>.<span class="ident">get</span>(<span class="ident">i</span>).<span class="ident">is_none</span>() {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Found {} returns but the interface only expects {} for exported function \&quot;{}\&quot;&quot;</span>, <span class="ident">i</span>, <span class="ident">params</span>.<span class="ident">len</span>(), <span class="kw-2">&amp;</span><span class="ident">key</span>));
-                                <span class="kw">continue</span> <span class="lifetime">&#39;export_loop</span>;
+                    <span class="kw">match </span>ret {
+                        <span class="prelude-val">Ok</span>(t) =&gt; {
+                            <span class="kw">if </span>result.get(i).is_none() {
+                                errors.push(<span class="macro">format!</span>(<span class="string">&quot;Found {} returns but the interface only expects {} for exported function \&quot;{}\&quot;&quot;</span>, i, params.len(), <span class="kw-2">&amp;</span>key));
+                                <span class="kw">continue </span><span class="lifetime">&#39;export_loop</span>;
                             }
 
-                            <span class="kw">if</span> <span class="ident">t</span> <span class="op">!</span><span class="op">=</span> <span class="ident">result</span>[<span class="ident">i</span>] {
-                                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+                            <span class="kw">if </span>t != result[i] {
+                                errors.push(<span class="macro">format!</span>(
                                     <span class="string">&quot;Type mismatch in returns in exported func \&quot;{}\&quot;: in return {}, expected {} found {}&quot;</span>,
-                                    <span class="kw-2">&amp;</span><span class="ident">key</span>, <span class="ident">i</span> <span class="op">+</span> <span class="number">1</span>, <span class="ident">result</span>[<span class="ident">i</span>], <span class="ident">t</span>
+                                    <span class="kw-2">&amp;</span>key, i + <span class="number">1</span>, result[i], t
                                 ));
                             }
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">errors</span>
-                            .<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid type in exported func \&quot;{}\&quot;: {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>, <span class="ident">e</span>)),
+                        <span class="prelude-val">Err</span>(e) =&gt; errors
+                            .push(<span class="macro">format!</span>(<span class="string">&quot;Invalid type in exported func \&quot;{}\&quot;: {}&quot;</span>, <span class="kw-2">&amp;</span>key, e)),
                     }
                 }
             }
@@ -767,188 +767,188 @@
     }
 }
 
-<span class="doccomment">/// Validates the export globals, checking the name and type against the given</span>
-<span class="doccomment">/// `Interface`</span>
-<span class="kw">fn</span> <span class="ident">validate_export_globals</span>(
-    <span class="ident">export_globals</span>: <span class="kw-2">&amp;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
-    <span class="ident">global_types</span>: <span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GlobalType</span><span class="op">&gt;</span>,
-    <span class="ident">interface</span>: <span class="kw-2">&amp;</span><span class="ident">Interface</span>,
-    <span class="ident">errors</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Validates the export globals, checking the name and type against the given
+/// `Interface`
+</span><span class="kw">fn </span>validate_export_globals(
+    export_globals: <span class="kw-2">&amp;</span>HashMap&lt;String, u32&gt;,
+    global_types: <span class="kw-2">&amp;</span>Vec&lt;GlobalType&gt;,
+    interface: <span class="kw-2">&amp;</span>Interface,
+    errors: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;,
 ) {
-    <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">val</span>) <span class="kw">in</span> <span class="ident">export_globals</span>.<span class="ident">iter</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Export::Global</span> { <span class="ident">var_type</span>, .. }) <span class="op">=</span> <span class="ident">interface</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">key</span>) {
-            <span class="kw">if</span> <span class="ident">global_types</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">val</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">is_none</span>() {
-                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+    <span class="kw">for </span>(key, val) <span class="kw">in </span>export_globals.iter() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(Export::Global { var_type, .. }) = interface.exports.get(key) {
+            <span class="kw">if </span>global_types.get(<span class="kw-2">*</span>val <span class="kw">as </span>usize).is_none() {
+                errors.push(<span class="macro">format!</span>(
                     <span class="string">&quot;Invalid wasm, expected {} global types, found {}&quot;</span>,
-                    <span class="ident">val</span>,
-                    <span class="ident">global_types</span>.<span class="ident">len</span>()
+                    val,
+                    global_types.len()
                 ));
             }
-            <span class="kw">match</span> <span class="ident">wasmparser_type_into_wasm_type</span>(<span class="ident">global_types</span>[<span class="kw-2">*</span><span class="ident">val</span> <span class="kw">as</span> <span class="ident">usize</span>].<span class="ident">content_type</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">t</span>) =&gt; {
-                    <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">var_type</span> <span class="op">!</span><span class="op">=</span> <span class="ident">t</span> {
-                        <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(
+            <span class="kw">match </span>wasmparser_type_into_wasm_type(global_types[<span class="kw-2">*</span>val <span class="kw">as </span>usize].content_type) {
+                <span class="prelude-val">Ok</span>(t) =&gt; {
+                    <span class="kw">if </span><span class="kw-2">*</span>var_type != t {
+                        errors.push(<span class="macro">format!</span>(
                             <span class="string">&quot;Type mismatch in global export {}: expected {} found {}&quot;</span>,
-                            <span class="kw-2">&amp;</span><span class="ident">key</span>, <span class="ident">var_type</span>, <span class="ident">t</span>
+                            <span class="kw-2">&amp;</span>key, var_type, t
                         ));
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">errors</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;In global export {}: {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">key</span>, <span class="ident">e</span>)),
+                <span class="prelude-val">Err</span>(e) =&gt; errors.push(<span class="macro">format!</span>(<span class="string">&quot;In global export {}: {}&quot;</span>, <span class="kw-2">&amp;</span>key, e)),
             }
         }
     }
 }
 
-<span class="doccomment">/// Converts Wasmparser&#39;s type enum into wasm-interface&#39;s type enum</span>
-<span class="doccomment">/// wasmparser&#39;s enum contains things which are invalid in many situations</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Additionally wasmerparser containers more advanced types like references that</span>
-<span class="doccomment">/// wasm-interface does not yet support</span>
-<span class="kw">fn</span> <span class="ident">wasmparser_type_into_wasm_type</span>(<span class="ident">ty</span>: <span class="ident">wasmparser::Type</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasmType</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">wasmparser::Type</span>;
-    <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">Type::I32</span> =&gt; <span class="ident">WasmType::I32</span>,
-        <span class="ident">Type::I64</span> =&gt; <span class="ident">WasmType::I64</span>,
-        <span class="ident">Type::F32</span> =&gt; <span class="ident">WasmType::F32</span>,
-        <span class="ident">Type::F64</span> =&gt; <span class="ident">WasmType::F64</span>,
-        <span class="ident">e</span> =&gt; {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid type found: {:?}&quot;</span>, <span class="ident">e</span>));
+<span class="doccomment">/// Converts Wasmparser&#39;s type enum into wasm-interface&#39;s type enum
+/// wasmparser&#39;s enum contains things which are invalid in many situations
+///
+/// Additionally wasmerparser containers more advanced types like references that
+/// wasm-interface does not yet support
+</span><span class="kw">fn </span>wasmparser_type_into_wasm_type(ty: wasmparser::Type) -&gt; <span class="prelude-ty">Result</span>&lt;WasmType, String&gt; {
+    <span class="kw">use </span>wasmparser::Type;
+    <span class="prelude-val">Ok</span>(<span class="kw">match </span>ty {
+        Type::I32 =&gt; WasmType::I32,
+        Type::I64 =&gt; WasmType::I64,
+        Type::F32 =&gt; WasmType::F32,
+        Type::F64 =&gt; WasmType::F64,
+        e =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid type found: {:?}&quot;</span>, e));
         }
     })
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">validation_tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::parser</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>validation_tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::parser;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">global_imports</span>() {
-        <span class="kw">const</span> <span class="ident">WAT</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">r#&quot;(module
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>global_imports() {
+        <span class="kw">const </span>WAT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;(module
 (type $t0 (func (param i32 i64)))
 (global $length (import &quot;env&quot; &quot;length&quot;) i32)
 (import &quot;env&quot; &quot;do_panic&quot; (func $do_panic (type $t0)))
 )&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span> <span class="ident">wat::parse_str</span>(<span class="ident">WAT</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>wasm = wat::parse_str(WAT).unwrap();
 
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (import &quot;env&quot; &quot;do_panic&quot;) (param i32 i64))
 (global (import &quot;env&quot; &quot;length&quot;) (type i32)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(result.is_ok());
 
-        <span class="comment">// Now set the global import type to mismatch the wasm</span>
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="comment">// Now set the global import type to mismatch the wasm
+        </span><span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (import &quot;env&quot; &quot;do_panic&quot;) (param i32 i64))
 (global (import &quot;env&quot; &quot;length&quot;) (type i64)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
         <span class="macro">assert!</span>(
-            <span class="ident">result</span>.<span class="ident">is_err</span>(),
-            <span class="string">&quot;global import type mismatch causes an error&quot;</span>
-        );
+            result.is_err(),
+            <span class="string">&quot;global import type mismatch causes an error&quot;
+        </span>);
 
-        <span class="comment">// Now set the function import type to mismatch the wasm</span>
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="comment">// Now set the function import type to mismatch the wasm
+        </span><span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (import &quot;env&quot; &quot;do_panic&quot;) (param i64))
 (global (import &quot;env&quot; &quot;length&quot;) (type i32)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
         <span class="macro">assert!</span>(
-            <span class="ident">result</span>.<span class="ident">is_err</span>(),
-            <span class="string">&quot;function import type mismatch causes an error&quot;</span>
-        );
+            result.is_err(),
+            <span class="string">&quot;function import type mismatch causes an error&quot;
+        </span>);
 
-        <span class="comment">// Now try with a module that has an import that the interface doesn&#39;t have</span>
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="comment">// Now try with a module that has an import that the interface doesn&#39;t have
+        </span><span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (import &quot;env&quot; &quot;do_panic&quot;) (param i64))
 (global (import &quot;env&quot; &quot;length_plus_plus&quot;) (type i32)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
         <span class="macro">assert!</span>(
-            <span class="ident">result</span>.<span class="ident">is_err</span>(),
-            <span class="string">&quot;all imports must be covered by the interface&quot;</span>
-        );
+            result.is_err(),
+            <span class="string">&quot;all imports must be covered by the interface&quot;
+        </span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">global_exports</span>() {
-        <span class="kw">const</span> <span class="ident">WAT</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">r#&quot;(module
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>global_exports() {
+        <span class="kw">const </span>WAT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;(module
 (func (export &quot;as-set_local-first&quot;) (param i32) (result i32)
   (nop) (i32.const 2) (set_local 0) (get_local 0))
 (global (export &quot;num_tries&quot;) i64 (i64.const 0))
 )&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span> <span class="ident">wat::parse_str</span>(<span class="ident">WAT</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>wasm = wat::parse_str(WAT).unwrap();
 
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (export &quot;as-set_local-first&quot;) (param i32) (result i32))
 (global (export &quot;num_tries&quot;) (type i64)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(result.is_ok());
 
-        <span class="comment">// Now set the global export type to mismatch the wasm</span>
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="comment">// Now set the global export type to mismatch the wasm
+        </span><span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (export &quot;as-set_local-first&quot;) (param i32) (result i32))
 (global (export &quot;num_tries&quot;) (type f32)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
         <span class="macro">assert!</span>(
-            <span class="ident">result</span>.<span class="ident">is_err</span>(),
-            <span class="string">&quot;global export type mismatch causes an error&quot;</span>
-        );
+            result.is_err(),
+            <span class="string">&quot;global export type mismatch causes an error&quot;
+        </span>);
 
-        <span class="comment">// Now set the function export type to mismatch the wasm</span>
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="comment">// Now set the function export type to mismatch the wasm
+        </span><span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (export &quot;as-set_local-first&quot;) (param i64) (result i64))
 (global (export &quot;num_tries&quot;) (type i64)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
         <span class="macro">assert!</span>(
-            <span class="ident">result</span>.<span class="ident">is_err</span>(),
-            <span class="string">&quot;function export type mismatch causes an error&quot;</span>
-        );
+            result.is_err(),
+            <span class="string">&quot;function export type mismatch causes an error&quot;
+        </span>);
 
-        <span class="comment">// Now try a interface that requires an export that the module doesn&#39;t have</span>
-        <span class="kw">let</span> <span class="ident">interface_src</span> <span class="op">=</span> <span class="string">r#&quot;
+        <span class="comment">// Now try a interface that requires an export that the module doesn&#39;t have
+        </span><span class="kw">let </span>interface_src = <span class="string">r#&quot;
 (interface
 (func (export &quot;as-set_local-first&quot;) (param i64) (result i64))
 (global (export &quot;numb_trees&quot;) (type i64)))&quot;#</span>;
-        <span class="kw">let</span> <span class="ident">interface</span> <span class="op">=</span> <span class="ident">parser::parse_interface</span>(<span class="ident">interface_src</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>interface = parser::parse_interface(interface_src).unwrap();
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">validate_wasm_and_report_errors</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">interface</span>);
+        <span class="kw">let </span>result = validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm[..], <span class="kw-2">&amp;</span>interface);
 
-        <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">is_err</span>(), <span class="string">&quot;missing a required export is an error&quot;</span>);
+        <span class="macro">assert!</span>(result.is_err(), <span class="string">&quot;missing a required export is an error&quot;</span>);
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WasmValidationError</span> {
-    <span class="ident">InvalidWasm</span> { <span class="ident">error</span>: <span class="ident">String</span> },
-    <span class="ident">InterfaceViolated</span> { <span class="ident">errors</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> },
-    <span class="ident">UnsupportedType</span> { <span class="ident">error</span>: <span class="ident">String</span> },
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>WasmValidationError {
+    InvalidWasm { error: String },
+    InterfaceViolated { errors: Vec&lt;String&gt; },
+    UnsupportedType { error: String },
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasm_interface" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasm_interface" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

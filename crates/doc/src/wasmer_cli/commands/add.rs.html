@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/add.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>add.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/add.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>add.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -207,212 +207,212 @@
 <span id="205">205</span>
 <span id="206">206</span>
 <span id="207">207</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::process</span>::{<span class="ident">Command</span>, <span class="ident">Stdio</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>std::process::{Command, Stdio};
 
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry</span>::{<span class="ident">Bindings</span>, <span class="ident">ProgrammingLanguage</span>, <span class="ident">WasmerConfig</span>};
+<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
 
-<span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Add</span> {
-    <span class="doccomment">/// The registry to fetch bindings from.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">env</span> <span class="op">=</span> <span class="string">&quot;WAPM_REGISTRY&quot;</span>)]</span>
-    <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Add the JavaScript bindings using &quot;npm install&quot;.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">groups</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
-    <span class="ident">npm</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Add the JavaScript bindings using &quot;yarn add&quot;.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">groups</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
-    <span class="ident">yarn</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Add the package as a dev-dependency.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">requires</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-    <span class="ident">dev</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Add the Python bindings using &quot;pip install&quot;.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">groups</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;py&quot;</span>]</span>)]
-    <span class="ident">pip</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// The packages to add (e.g. &quot;wasmer/wasmer-pack@0.5.0&quot; or &quot;python/python&quot;)</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">parse</span>(<span class="ident">try_from_str</span>))]</span>
-    <span class="ident">packages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">wasmer_registry::Package</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.
+</span><span class="attribute">#[derive(Debug, Parser)]
+</span><span class="kw">pub struct </span>Add {
+    <span class="doccomment">/// The registry to fetch bindings from.
+    </span><span class="attribute">#[clap(long, env = <span class="string">&quot;WAPM_REGISTRY&quot;</span>)]
+    </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Add the JavaScript bindings using &quot;npm install&quot;.
+    </span><span class="attribute">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
+    npm: bool,
+    <span class="doccomment">/// Add the JavaScript bindings using &quot;yarn add&quot;.
+    </span><span class="attribute">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
+    yarn: bool,
+    <span class="doccomment">/// Add the package as a dev-dependency.
+    </span><span class="attribute">#[clap(long, requires = <span class="string">&quot;js&quot;</span>)]
+    </span>dev: bool,
+    <span class="doccomment">/// Add the Python bindings using &quot;pip install&quot;.
+    </span><span class="attribute">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;py&quot;</span>]</span>)]
+    pip: bool,
+    <span class="doccomment">/// The packages to add (e.g. &quot;wasmer/wasmer-pack@0.5.0&quot; or &quot;python/python&quot;)
+    </span><span class="attribute">#[clap(parse(try_from_str))]
+    </span>packages: Vec&lt;wasmer_registry::Package&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Add</span> {
-    <span class="doccomment">/// Execute [`Add`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="macro">anyhow::ensure!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">packages</span>.<span class="ident">is_empty</span>(), <span class="string">&quot;No packages specified&quot;</span>);
+<span class="kw">impl </span>Add {
+    <span class="doccomment">/// Execute [`Add`].
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="macro">anyhow::ensure!</span>(!<span class="self">self</span>.packages.is_empty(), <span class="string">&quot;No packages specified&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">registry</span>()
-            .<span class="ident">context</span>(<span class="string">&quot;Unable to determine which registry to use&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>registry = <span class="self">self
+            </span>.registry()
+            .context(<span class="string">&quot;Unable to determine which registry to use&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup_bindings</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>bindings = <span class="self">self</span>.lookup_bindings(<span class="kw-2">&amp;</span>registry)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>()<span class="question-mark">?</span>.<span class="ident">command</span>(<span class="kw-2">&amp;</span><span class="ident">bindings</span>)<span class="question-mark">?</span>;
-        <span class="ident">cmd</span>.<span class="ident">stdin</span>(<span class="ident">Stdio::null</span>())
-            .<span class="ident">stdout</span>(<span class="ident">Stdio::inherit</span>())
-            .<span class="ident">stderr</span>(<span class="ident">Stdio::inherit</span>());
+        <span class="kw">let </span><span class="kw-2">mut </span>cmd = <span class="self">self</span>.target()<span class="question-mark">?</span>.command(<span class="kw-2">&amp;</span>bindings)<span class="question-mark">?</span>;
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
 
         <span class="macro">println!</span>(<span class="string">&quot;Running: {cmd:?}&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">cmd</span>.<span class="ident">status</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="kw">let </span>status = cmd.status().with_context(|| {
             <span class="macro">format!</span>(
                 <span class="string">&quot;Unable to start \&quot;{:?}\&quot;. Is it installed?&quot;</span>,
-                <span class="ident">cmd</span>.<span class="ident">get_program</span>()
+                cmd.get_program()
             )
         })<span class="question-mark">?</span>;
 
-        <span class="macro">anyhow::ensure!</span>(<span class="ident">status</span>.<span class="ident">success</span>(), <span class="string">&quot;Command failed: {:?}&quot;</span>, <span class="ident">cmd</span>);
+        <span class="macro">anyhow::ensure!</span>(status.success(), <span class="string">&quot;Command failed: {:?}&quot;</span>, cmd);
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">lookup_bindings</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Bindings</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="kw">fn </span>lookup_bindings(<span class="kw-2">&amp;</span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bindings&gt;, Error&gt; {
         <span class="macro">println!</span>(<span class="string">&quot;Querying WAPM for package bindings&quot;</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bindings_to_add</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="ident">language</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>()<span class="question-mark">?</span>.<span class="ident">language</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bindings_to_add = Vec::new();
+        <span class="kw">let </span>language = <span class="self">self</span>.target()<span class="question-mark">?</span>.language();
 
-        <span class="kw">for</span> <span class="ident">pkg</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">packages</span> {
-            <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="ident">lookup_bindings_for_package</span>(<span class="ident">registry</span>, <span class="ident">pkg</span>, <span class="kw-2">&amp;</span><span class="ident">language</span>)
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to find bindings for {pkg}&quot;</span>))<span class="question-mark">?</span>;
-            <span class="ident">bindings_to_add</span>.<span class="ident">push</span>(<span class="ident">bindings</span>);
+        <span class="kw">for </span>pkg <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.packages {
+            <span class="kw">let </span>bindings = lookup_bindings_for_package(registry, pkg, <span class="kw-2">&amp;</span>language)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to find bindings for {pkg}&quot;</span>))<span class="question-mark">?</span>;
+            bindings_to_add.push(bindings);
         }
 
-        <span class="prelude-val">Ok</span>(<span class="ident">bindings_to_add</span>)
+        <span class="prelude-val">Ok</span>(bindings_to_add)
     }
 
-    <span class="kw">fn</span> <span class="ident">registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">registry</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">r</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">r</span>.<span class="ident">clone</span>()),
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span>
-                    <span class="ident">WasmerConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">cfg</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>)
-                    .<span class="ident">map_err</span>(<span class="ident">Error::msg</span>)
-                    .<span class="ident">context</span>(<span class="string">&quot;Unable to load WAPM&#39;s config file&quot;</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">cfg</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>())
+    <span class="kw">fn </span>registry(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.registry {
+            <span class="prelude-val">Some</span>(r) =&gt; <span class="prelude-val">Ok</span>(r.clone()),
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">let </span>wasmer_dir =
+                    WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let </span>cfg = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir)
+                    .map_err(Error::msg)
+                    .context(<span class="string">&quot;Unable to load WAPM&#39;s config file&quot;</span>)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(cfg.registry.get_current_registry())
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Target</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">pip</span>, <span class="self">self</span>.<span class="ident">npm</span>, <span class="self">self</span>.<span class="ident">yarn</span>) {
+    <span class="kw">fn </span>target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Target, Error&gt; {
+        <span class="kw">match </span>(<span class="self">self</span>.pip, <span class="self">self</span>.npm, <span class="self">self</span>.yarn) {
             (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;at least one of --npm, --pip or --yarn has to be specified&quot;</span>
-            )),
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Target::Pip</span>),
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Target::Npm</span> { <span class="ident">dev</span>: <span class="self">self</span>.<span class="ident">dev</span> }),
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Target::Yarn</span> { <span class="ident">dev</span>: <span class="self">self</span>.<span class="ident">dev</span> }),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;only one of --npm, --pip or --yarn has to be specified&quot;</span>
-            )),
+                <span class="string">&quot;at least one of --npm, --pip or --yarn has to be specified&quot;
+            </span>)),
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Pip),
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Npm { dev: <span class="self">self</span>.dev }),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Yarn { dev: <span class="self">self</span>.dev }),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;only one of --npm, --pip or --yarn has to be specified&quot;
+            </span>)),
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">lookup_bindings_for_package</span>(
-    <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">pkg</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_registry::Package</span>,
-    <span class="ident">language</span>: <span class="kw-2">&amp;</span><span class="ident">ProgrammingLanguage</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Bindings</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">all_bindings</span> <span class="op">=</span>
-        <span class="ident">wasmer_registry::list_bindings</span>(<span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">pkg</span>.<span class="ident">package</span>(), <span class="ident">pkg</span>.<span class="ident">version</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
+<span class="kw">fn </span>lookup_bindings_for_package(
+    registry: <span class="kw-2">&amp;</span>str,
+    pkg: <span class="kw-2">&amp;</span>wasmer_registry::Package,
+    language: <span class="kw-2">&amp;</span>ProgrammingLanguage,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Bindings, Error&gt; {
+    <span class="kw">let </span>all_bindings =
+        wasmer_registry::list_bindings(registry, <span class="kw-2">&amp;</span>pkg.package(), pkg.version.as_deref())<span class="question-mark">?</span>;
 
-    <span class="kw">match</span> <span class="ident">all_bindings</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">language</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">language</span>) {
-        <span class="prelude-val">Some</span>(<span class="ident">b</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">Bindings</span> { <span class="ident">url</span>, <span class="ident">generator</span>, .. } <span class="op">=</span> <span class="ident">b</span>;
+    <span class="kw">match </span>all_bindings.iter().find(|b| b.language == <span class="kw-2">*</span>language) {
+        <span class="prelude-val">Some</span>(b) =&gt; {
+            <span class="kw">let </span>Bindings { url, generator, .. } = b;
             <span class="macro">log::debug!</span>(<span class="string">&quot;Found {pkg} bindings generated by {generator} at {url}&quot;</span>);
 
-            <span class="prelude-val">Ok</span>(<span class="ident">b</span>.<span class="ident">clone</span>())
+            <span class="prelude-val">Ok</span>(b.clone())
         }
-        <span class="prelude-val">None</span> =&gt; {
-            <span class="kw">if</span> <span class="ident">all_bindings</span>.<span class="ident">is_empty</span>() {
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="kw">if </span>all_bindings.is_empty() {
                 <span class="macro">anyhow::bail!</span>(<span class="string">&quot;The package doesn&#39;t contain any bindings&quot;</span>);
-            } <span class="kw">else</span> {
+            } <span class="kw">else </span>{
                 <span class="macro">todo!</span>();
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">enum</span> <span class="ident">Target</span> {
-    <span class="ident">Pip</span>,
-    <span class="ident">Yarn</span> { <span class="ident">dev</span>: <span class="ident">bool</span> },
-    <span class="ident">Npm</span> { <span class="ident">dev</span>: <span class="ident">bool</span> },
+<span class="attribute">#[derive(Debug, Copy, Clone)]
+</span><span class="kw">enum </span>Target {
+    Pip,
+    Yarn { dev: bool },
+    Npm { dev: bool },
 }
 
-<span class="kw">impl</span> <span class="ident">Target</span> {
-    <span class="kw">fn</span> <span class="ident">language</span>(<span class="self">self</span>) -&gt; <span class="ident">ProgrammingLanguage</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Target::Pip</span> =&gt; <span class="ident">ProgrammingLanguage::PYTHON</span>,
-            <span class="ident">Target::Yarn</span> { .. } <span class="op">|</span> <span class="ident">Target::Npm</span> { .. } =&gt; <span class="ident">ProgrammingLanguage::JAVASCRIPT</span>,
+<span class="kw">impl </span>Target {
+    <span class="kw">fn </span>language(<span class="self">self</span>) -&gt; ProgrammingLanguage {
+        <span class="kw">match </span><span class="self">self </span>{
+            Target::Pip =&gt; ProgrammingLanguage::PYTHON,
+            Target::Yarn { .. } | Target::Npm { .. } =&gt; ProgrammingLanguage::JAVASCRIPT,
         }
     }
 
-    <span class="doccomment">/// Construct a command which we can run to add packages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This deliberately runs the command using the OS shell instead of</span>
-    <span class="doccomment">/// invoking the tool directly. That way we can handle when a version</span>
-    <span class="doccomment">/// manager (e.g. `nvm` or `asdf`) replaces the tool with a script (e.g.</span>
-    <span class="doccomment">/// `npm.cmd` or `yarn.ps1`).</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See &lt;https://github.com/wasmerio/wapm-cli/issues/291&gt; for more.</span>
-    <span class="kw">fn</span> <span class="ident">command</span>(<span class="self">self</span>, <span class="ident">packages</span>: <span class="kw-2">&amp;</span>[<span class="ident">Bindings</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Command</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">command_line</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Target::Pip</span> =&gt; {
-                <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;pip&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
-                    <span class="string">&quot;pip install&quot;</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;pip3&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
-                    <span class="string">&quot;pip3 install&quot;</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;python&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
-                    <span class="string">&quot;python -m pip install&quot;</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;python3&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
-                    <span class="string">&quot;python3 -m pip install&quot;</span>
-                } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;neither pip, pip3, python or python3 installed&quot;</span>
-                    ));
+    <span class="doccomment">/// Construct a command which we can run to add packages.
+    ///
+    /// This deliberately runs the command using the OS shell instead of
+    /// invoking the tool directly. That way we can handle when a version
+    /// manager (e.g. `nvm` or `asdf`) replaces the tool with a script (e.g.
+    /// `npm.cmd` or `yarn.ps1`).
+    ///
+    /// See &lt;https://github.com/wasmerio/wapm-cli/issues/291&gt; for more.
+    </span><span class="kw">fn </span>command(<span class="self">self</span>, packages: <span class="kw-2">&amp;</span>[Bindings]) -&gt; <span class="prelude-ty">Result</span>&lt;Command, Error&gt; {
+        <span class="kw">let </span>command_line = <span class="kw">match </span><span class="self">self </span>{
+            Target::Pip =&gt; {
+                <span class="kw">if </span>Command::new(<span class="string">&quot;pip&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
+                    <span class="string">&quot;pip install&quot;
+                </span>} <span class="kw">else if </span>Command::new(<span class="string">&quot;pip3&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
+                    <span class="string">&quot;pip3 install&quot;
+                </span>} <span class="kw">else if </span>Command::new(<span class="string">&quot;python&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
+                    <span class="string">&quot;python -m pip install&quot;
+                </span>} <span class="kw">else if </span>Command::new(<span class="string">&quot;python3&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_ok() {
+                    <span class="string">&quot;python3 -m pip install&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                        <span class="string">&quot;neither pip, pip3, python or python3 installed&quot;
+                    </span>));
                 }
             }
-            <span class="ident">Target::Yarn</span> { <span class="ident">dev</span> } =&gt; {
-                <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;yarn&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_err</span>() {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
+            Target::Yarn { dev } =&gt; {
+                <span class="kw">if </span>Command::new(<span class="string">&quot;yarn&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
                 }
-                <span class="kw">if</span> <span class="ident">dev</span> {
-                    <span class="string">&quot;yarn add --dev&quot;</span>
-                } <span class="kw">else</span> {
-                    <span class="string">&quot;yarn add&quot;</span>
-                }
+                <span class="kw">if </span>dev {
+                    <span class="string">&quot;yarn add --dev&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="string">&quot;yarn add&quot;
+                </span>}
             }
-            <span class="ident">Target::Npm</span> { <span class="ident">dev</span> } =&gt; {
-                <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;npm&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_err</span>() {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
+            Target::Npm { dev } =&gt; {
+                <span class="kw">if </span>Command::new(<span class="string">&quot;npm&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
                 }
-                <span class="kw">if</span> <span class="ident">dev</span> {
-                    <span class="string">&quot;npm install --dev&quot;</span>
-                } <span class="kw">else</span> {
-                    <span class="string">&quot;npm install&quot;</span>
-                }
+                <span class="kw">if </span>dev {
+                    <span class="string">&quot;npm install --dev&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="string">&quot;npm install&quot;
+                </span>}
             }
         };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command_line</span> <span class="op">=</span> <span class="ident">command_line</span>.<span class="ident">to_string</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>command_line = command_line.to_string();
 
-        <span class="kw">for</span> <span class="ident">pkg</span> <span class="kw">in</span> <span class="ident">packages</span> {
-            <span class="ident">command_line</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-            <span class="ident">command_line</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">pkg</span>.<span class="ident">url</span>);
+        <span class="kw">for </span>pkg <span class="kw">in </span>packages {
+            command_line.push(<span class="string">&#39; &#39;</span>);
+            command_line.push_str(<span class="kw-2">&amp;</span>pkg.url);
         }
 
-        <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">windows</span>) {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="string">&quot;cmd&quot;</span>);
-            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;/C&quot;</span>).<span class="ident">arg</span>(<span class="ident">command_line</span>);
-            <span class="prelude-val">Ok</span>(<span class="ident">cmd</span>)
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="string">&quot;sh&quot;</span>);
-            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-c&quot;</span>).<span class="ident">arg</span>(<span class="ident">command_line</span>);
-            <span class="prelude-val">Ok</span>(<span class="ident">cmd</span>)
+        <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
+            <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">&quot;cmd&quot;</span>);
+            cmd.arg(<span class="string">&quot;/C&quot;</span>).arg(command_line);
+            <span class="prelude-val">Ok</span>(cmd)
+        } <span class="kw">else </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">&quot;sh&quot;</span>);
+            cmd.arg(<span class="string">&quot;-c&quot;</span>).arg(command_line);
+            <span class="prelude-val">Ok</span>(cmd)
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

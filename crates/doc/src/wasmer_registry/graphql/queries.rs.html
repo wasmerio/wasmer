@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/graphql/queries.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>queries.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_registry/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/graphql/queries.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>queries.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_registry/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -73,80 +73,80 @@
 <span id="73">73</span>
 <span id="74">74</span>
 <span id="75">75</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Low-level GraphQL queries used by this crate.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! If possible, users should prefer the high-level functions exposed under</span>
-<span class="doccomment">//! [`crate`].</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! This module is primarily used in combination with</span>
-<span class="doccomment">//! [`crate::graphql::execute_query()`] as an &quot;escape hatch&quot; for accessing</span>
-<span class="doccomment">//! information that may not be exposed via the high-level functions.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! # Backwards Compatibility</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Queries won&#39;t be deleted or have breaking changes to their inputs during</span>
-<span class="doccomment">//! patch releases, however new fields may be added to the response types</span>
-<span class="doccomment">//! generated by `graphql_client` at any time.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Users should treat all response types as if they had the `#[non_exhaustive]`</span>
-<span class="doccomment">//! attribute.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Low-level GraphQL queries used by this crate.
+//!
+//! If possible, users should prefer the high-level functions exposed under
+//! [`crate`].
+//!
+//! This module is primarily used in combination with
+//! [`crate::graphql::execute_query()`] as an &quot;escape hatch&quot; for accessing
+//! information that may not be exposed via the high-level functions.
+//!
+//! # Backwards Compatibility
+//!
+//! Queries won&#39;t be deleted or have breaking changes to their inputs during
+//! patch releases, however new fields may be added to the response types
+//! generated by `graphql_client` at any time.
+//!
+//! Users should treat all response types as if they had the `#[non_exhaustive]`
+//! attribute.
 
-<span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
+</span><span class="kw">use </span>graphql_client::GraphQLQuery;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_package_version.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetPackageVersionQuery</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/get_package_version.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug&quot;
+</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetPackageVersionQuery;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_package_by_command.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetPackageByCommandQuery</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/get_package_by_command.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug&quot;
+</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetPackageByCommandQuery;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/test_if_registry_present.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">TestIfRegistryPresent</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/test_if_registry_present.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug&quot;
+</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>TestIfRegistryPresent;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_bindings.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug,Clone,PartialEq,Eq&quot;</span>
-)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetBindingsQuery</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/get_bindings.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug,Clone,PartialEq,Eq&quot;
+</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetBindingsQuery;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_signed_url.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug, Clone&quot;</span>
-)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetSignedUrl</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/get_signed_url.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug, Clone&quot;
+</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetSignedUrl;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_interface_version.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetInterfaceVersionQuery</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/get_interface_version.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug&quot;
+</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetInterfaceVersionQuery;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/whoami.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WhoAmIQuery</span>;
+<span class="attribute">#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    query_path = <span class="string">&quot;graphql/queries/whoami.graphql&quot;</span>,
+    response_derives = <span class="string">&quot;Debug&quot;
+</span>)]
+</span><span class="kw">pub struct </span>WhoAmIQuery;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

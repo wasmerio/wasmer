@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/macros.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>macros.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/macros.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>macros.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -327,21 +327,21 @@
 <span id="325">325</span>
 <span id="326">326</span>
 <span id="327">327</span>
-</pre><pre class="rust"><code><span class="macro">macro_rules!</span> <span class="ident">wasm_declare_vec_inner</span> {
+</pre><pre class="rust"><code><span class="macro">macro_rules! </span>wasm_declare_vec_inner {
     (
-        <span class="ident">name</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>,
-        <span class="ident">ty</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span>:<span class="ident">ty</span>,
-        <span class="ident">c_ty</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>:<span class="ident">expr</span>,
-        <span class="ident">c_val</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_val</span>:<span class="ident">expr</span>,
-        <span class="ident">new</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">new</span>:<span class="ident">ident</span>,
-        <span class="ident">empty</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">empty</span>:<span class="ident">ident</span>,
-        <span class="ident">uninit</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">uninit</span>:<span class="ident">ident</span>,
-        <span class="ident">copy</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">copy</span>:<span class="ident">ident</span>,
-        <span class="ident">delete</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">delete</span>:<span class="ident">ident</span>,
+        name: <span class="macro-nonterminal">$name</span>:ident,
+        ty: <span class="macro-nonterminal">$elem_ty</span>:ty,
+        c_ty: <span class="macro-nonterminal">$c_ty</span>:expr,
+        c_val: <span class="macro-nonterminal">$c_val</span>:expr,
+        new: <span class="macro-nonterminal">$new</span>:ident,
+        empty: <span class="macro-nonterminal">$empty</span>:ident,
+        uninit: <span class="macro-nonterminal">$uninit</span>:ident,
+        copy: <span class="macro-nonterminal">$copy</span>:ident,
+        delete: <span class="macro-nonterminal">$delete</span>:ident,
     ) =&gt; {
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="string">&quot;Represents a vector of `&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`.
+        <span class="attribute">#[doc = <span class="macro">concat!</span>(<span class="string">&quot;Represents a vector of `&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`.
 
-Read the documentation of [`&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`] to see more concrete examples.
+Read the documentation of [`&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`] to see more concrete examples.
 
 # Example
 
@@ -351,100 +351,100 @@ Read the documentation of [`&quot;</span>, <span class="macro-nonterminal">$</sp
 #    (assert_c! {
 # #include \&quot;tests/wasmer.h\&quot;
 #
-void example(&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot; x, &quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot; y) {
-    // Create a vector of 2 `&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`.
-    &quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot; items[2] = {x, y};
+void example(&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot; x, &quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot; y) {
+    // Create a vector of 2 `&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`.
+    &quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot; items[2] = {x, y};
 
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot; vector;
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">new</span>), <span class="string">&quot;(&amp;vector, 2, items);
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot; vector;
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$new</span>), <span class="string">&quot;(&amp;vector, 2, items);
 
     // Check that it contains 2 items.
     assert(vector.size == 2);
 
     // Free it.
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">delete</span>), <span class="string">&quot;(&amp;vector);
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$delete</span>), <span class="string">&quot;(&amp;vector);
 }
 #
-# int main() { example(&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_val</span>, <span class="string">&quot;, &quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_val</span>, <span class="string">&quot;); return 0; }
+# int main() { example(&quot;</span>, <span class="macro-nonterminal">$c_val</span>, <span class="string">&quot;, &quot;</span>, <span class="macro-nonterminal">$c_val</span>, <span class="string">&quot;); return 0; }
 #    })
 #    .success();
 # }
-```&quot;</span>)]</span>
-        <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">pub</span> <span class="ident">size</span>: <span class="ident">usize</span>,
-            <span class="kw">pub</span> <span class="ident">data</span>: <span class="kw-2">*mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span>,
+```&quot;</span>)]
+        #[repr(C)]
+        </span><span class="kw">pub struct </span><span class="macro-nonterminal">$name </span>{
+            <span class="kw">pub </span>size: usize,
+            <span class="kw">pub </span>data: <span class="kw-2">*mut </span><span class="macro-nonterminal">$elem_ty</span>,
         }
 
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="comment">// Note that this does not free any existing buffer.</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_buffer</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buffer</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span><span class="op">&gt;</span>) {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">buffer</span>.<span class="ident">into_boxed_slice</span>();
-                <span class="self">self</span>.<span class="ident">size</span> <span class="op">=</span> <span class="ident">vec</span>.<span class="ident">len</span>();
-                <span class="self">self</span>.<span class="ident">data</span> <span class="op">=</span> <span class="ident">vec</span>.<span class="ident">as_mut_ptr</span>();
-                <span class="ident">std::mem::forget</span>(<span class="ident">vec</span>);
+        <span class="kw">impl </span><span class="macro-nonterminal">$name </span>{
+            <span class="comment">// Note that this does not free any existing buffer.
+            </span><span class="kw">pub fn </span>set_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buffer: Vec&lt;<span class="macro-nonterminal">$elem_ty</span>&gt;) {
+                <span class="kw">let </span><span class="kw-2">mut </span>vec = buffer.into_boxed_slice();
+                <span class="self">self</span>.size = vec.len();
+                <span class="self">self</span>.data = vec.as_mut_ptr();
+                std::mem::forget(vec);
             }
 
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span>] {
-                <span class="comment">// Note that we&#39;re careful to not create a slice with a null</span>
-                <span class="comment">// pointer as the data pointer, since that isn&#39;t defined</span>
-                <span class="comment">// behavior in Rust.</span>
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">size</span> <span class="op">==</span> <span class="number">0</span> {
+            <span class="kw">pub fn </span>as_slice(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="macro-nonterminal">$elem_ty</span>] {
+                <span class="comment">// Note that we&#39;re careful to not create a slice with a null
+                // pointer as the data pointer, since that isn&#39;t defined
+                // behavior in Rust.
+                </span><span class="kw">if </span><span class="self">self</span>.size == <span class="number">0 </span>{
                     <span class="kw-2">&amp;</span>[]
-                } <span class="kw">else</span> {
-                    <span class="macro">assert!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">data</span>.<span class="ident">is_null</span>());
-                    <span class="kw">unsafe</span> { <span class="ident">std::slice::from_raw_parts</span>(<span class="self">self</span>.<span class="ident">data</span>, <span class="self">self</span>.<span class="ident">size</span>) }
+                } <span class="kw">else </span>{
+                    <span class="macro">assert!</span>(!<span class="self">self</span>.data.is_null());
+                    <span class="kw">unsafe </span>{ std::slice::from_raw_parts(<span class="self">self</span>.data, <span class="self">self</span>.size) }
                 }
             }
 
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_uninit_slice</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">std::mem::MaybeUninit</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span><span class="op">&gt;</span>] {
-                <span class="comment">// Note that we&#39;re careful to not create a slice with a null</span>
-                <span class="comment">// pointer as the data pointer, since that isn&#39;t defined</span>
-                <span class="comment">// behavior in Rust.</span>
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">size</span> <span class="op">==</span> <span class="number">0</span> {
-                    <span class="kw-2">&amp;mut</span> []
-                } <span class="kw">else</span> {
-                    <span class="macro">assert!</span>(<span class="op">!</span><span class="self">self</span>.<span class="ident">data</span>.<span class="ident">is_null</span>());
-                    <span class="kw">unsafe</span> { <span class="ident">std::slice::from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">data</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="self">self</span>.<span class="ident">size</span>) }
+            <span class="kw">pub fn </span>as_uninit_slice(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;<span class="macro-nonterminal">$elem_ty</span>&gt;] {
+                <span class="comment">// Note that we&#39;re careful to not create a slice with a null
+                // pointer as the data pointer, since that isn&#39;t defined
+                // behavior in Rust.
+                </span><span class="kw">if </span><span class="self">self</span>.size == <span class="number">0 </span>{
+                    <span class="kw-2">&amp;mut </span>[]
+                } <span class="kw">else </span>{
+                    <span class="macro">assert!</span>(!<span class="self">self</span>.data.is_null());
+                    <span class="kw">unsafe </span>{ std::slice::from_raw_parts_mut(<span class="self">self</span>.data <span class="kw">as _</span>, <span class="self">self</span>.size) }
                 }
             }
 
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">take</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">is_null</span>() {
-                    <span class="kw">return</span> <span class="ident">Vec::new</span>();
+            <span class="kw">pub fn </span>take(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;<span class="macro-nonterminal">$elem_ty</span>&gt; {
+                <span class="kw">if </span><span class="self">self</span>.data.is_null() {
+                    <span class="kw">return </span>Vec::new();
                 }
-                <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Vec::from_raw_parts</span>(<span class="self">self</span>.<span class="ident">data</span>, <span class="self">self</span>.<span class="ident">size</span>, <span class="self">self</span>.<span class="ident">size</span>) };
-                <span class="self">self</span>.<span class="ident">data</span> <span class="op">=</span> <span class="ident">std::ptr::null_mut</span>();
-                <span class="self">self</span>.<span class="ident">size</span> <span class="op">=</span> <span class="number">0</span>;
-                <span class="kw">return</span> <span class="ident">vec</span>;
+                <span class="kw">let </span>vec = <span class="kw">unsafe </span>{ Vec::from_raw_parts(<span class="self">self</span>.data, <span class="self">self</span>.size, <span class="self">self</span>.size) };
+                <span class="self">self</span>.data = std::ptr::null_mut();
+                <span class="self">self</span>.size = <span class="number">0</span>;
+                <span class="kw">return </span>vec;
             }
         }
 
-        <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">vec</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">vec</span>.<span class="ident">into_boxed_slice</span>();
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-                    <span class="ident">size</span>: <span class="ident">vec</span>.<span class="ident">len</span>(),
-                    <span class="ident">data</span>: <span class="ident">vec</span>.<span class="ident">as_mut_ptr</span>(),
+        <span class="kw">impl </span>From&lt;Vec&lt;<span class="macro-nonterminal">$elem_ty</span>&gt;&gt; <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+            <span class="kw">fn </span>from(vec: Vec&lt;<span class="macro-nonterminal">$elem_ty</span>&gt;) -&gt; <span class="self">Self </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>vec = vec.into_boxed_slice();
+                <span class="kw">let </span>result = <span class="macro-nonterminal">$name </span>{
+                    size: vec.len(),
+                    data: vec.as_mut_ptr(),
                 };
-                <span class="ident">std::mem::forget</span>(<span class="ident">vec</span>);
-                <span class="ident">result</span>
+                std::mem::forget(vec);
+                result
             }
         }
 
-        <span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-                <span class="self">self</span>.<span class="ident">as_slice</span>().<span class="ident">to_vec</span>().<span class="ident">into</span>()
+        <span class="kw">impl </span>Clone <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+            <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+                <span class="self">self</span>.as_slice().to_vec().into()
             }
         }
 
-        <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-                <span class="ident">drop</span>(<span class="self">self</span>.<span class="ident">take</span>());
+        <span class="kw">impl </span>Drop <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+                drop(<span class="self">self</span>.take());
             }
         }
 
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="string">&quot;Creates an empty vector of [`&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`].
+        <span class="attribute">#[doc = <span class="macro">concat!</span>(<span class="string">&quot;Creates an empty vector of [`&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`].
 
 # Example
 
@@ -455,29 +455,29 @@ void example(&quot;</span>, <span class="macro-nonterminal">$</span><span class=
 # #include \&quot;tests/wasmer.h\&quot;
 #
 int main() {
-    // Creates an empty vector of `&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`.
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot; vector;
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">empty</span>), <span class="string">&quot;(&amp;vector);
+    // Creates an empty vector of `&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`.
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot; vector;
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$empty</span>), <span class="string">&quot;(&amp;vector);
 
     // Check that it is empty.
     assert(vector.size == 0);
 
     // Free it.
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">delete</span>), <span class="string">&quot;(&amp;vector);
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$delete</span>), <span class="string">&quot;(&amp;vector);
 
     return 0;
 }
 #    })
 #    .success();
 # }
-```&quot;</span>)]</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">empty</span>(<span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>) {
-            <span class="ident">out</span>.<span class="ident">size</span> <span class="op">=</span> <span class="number">0</span>;
-            <span class="ident">out</span>.<span class="ident">data</span> <span class="op">=</span> <span class="ident">std::ptr::null_mut</span>();
+```&quot;</span>)]
+        #[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span><span class="macro-nonterminal">$empty</span>(out: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$name</span>) {
+            out.size = <span class="number">0</span>;
+            out.data = std::ptr::null_mut();
         }
 
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="string">&quot;Creates a new uninitialized vector of [`&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`].
+        <span class="attribute">#[doc = <span class="macro">concat!</span>(<span class="string">&quot;Creates a new uninitialized vector of [`&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`].
 
 # Example
 
@@ -488,171 +488,171 @@ int main() {
 # #include \&quot;tests/wasmer.h\&quot;
 #
 int main() {
-    // Creates an empty vector of `&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`.
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot; vector;
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">uninit</span>), <span class="string">&quot;(&amp;vector, 3);
+    // Creates an empty vector of `&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`.
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot; vector;
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$uninit</span>), <span class="string">&quot;(&amp;vector, 3);
 
     // Check that it contains 3 items.
     assert(vector.size == 3);
 
     // Free it.
-    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">delete</span>), <span class="string">&quot;(&amp;vector);
+    &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$delete</span>), <span class="string">&quot;(&amp;vector);
 
     return 0;
 }
 #    })
 #    .success();
 # }
-```&quot;</span>)]</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">uninit</span>(<span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">size</span>: <span class="ident">usize</span>) {
-            <span class="ident">out</span>.<span class="ident">set_buffer</span>(<span class="macro">vec!</span>[<span class="ident">Default::default</span>(); <span class="ident">size</span>]);
+```&quot;</span>)]
+        #[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span><span class="macro-nonterminal">$uninit</span>(out: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$name</span>, size: usize) {
+            out.set_buffer(<span class="macro">vec!</span>[Default::default(); size]);
         }
 
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="string">&quot;Creates a new vector of [`&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`].
+        <span class="attribute">#[doc = <span class="macro">concat!</span>(<span class="string">&quot;Creates a new vector of [`&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`].
 
 # Example
 
-See the [`&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`] type to get an example.&quot;</span>)]</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">new</span>(<span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">size</span>: <span class="ident">usize</span>, <span class="ident">ptr</span>: <span class="kw-2">*const</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">elem_ty</span>) {
-            <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">size</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">i</span>).<span class="ident">read</span>()).<span class="ident">collect</span>();
-            <span class="ident">out</span>.<span class="ident">set_buffer</span>(<span class="ident">vec</span>);
+See the [`&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`] type to get an example.&quot;</span>)]
+        #[no_mangle]
+        </span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span><span class="macro-nonterminal">$new</span>(out: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$name</span>, size: usize, ptr: <span class="kw-2">*const </span><span class="macro-nonterminal">$elem_ty</span>) {
+            <span class="kw">let </span>vec = (<span class="number">0</span>..size).map(|i| ptr.add(i).read()).collect();
+            out.set_buffer(vec);
         }
 
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="string">&quot;Performs a deep copy of a vector of [`&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`].&quot;</span>)]</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">copy</span>(<span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">src</span>: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>) {
-            <span class="ident">out</span>.<span class="ident">set_buffer</span>(<span class="ident">src</span>.<span class="ident">as_slice</span>().<span class="ident">to_vec</span>());
+        <span class="attribute">#[doc = <span class="macro">concat!</span>(<span class="string">&quot;Performs a deep copy of a vector of [`&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`].&quot;</span>)]
+        #[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span><span class="macro-nonterminal">$copy</span>(out: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$name</span>, src: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$name</span>) {
+            out.set_buffer(src.as_slice().to_vec());
         }
 
-        <span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="string">&quot;Deletes a vector of [`&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_ty</span>, <span class="string">&quot;`].
+        <span class="attribute">#[doc = <span class="macro">concat!</span>(<span class="string">&quot;Deletes a vector of [`&quot;</span>, <span class="macro-nonterminal">$c_ty</span>, <span class="string">&quot;`].
 
 # Example
 
-See the [`&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`] type to get an example.&quot;</span>)]</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">delete</span>(<span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>) {
-            <span class="ident">out</span>.<span class="ident">take</span>();
+See the [`&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot;`] type to get an example.&quot;</span>)]
+        #[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span><span class="macro-nonterminal">$delete</span>(out: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$name</span>) {
+            out.take();
         }
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">wasm_declare_vec</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">wasm_declare_vec!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">wasm</span>);
+<span class="macro">macro_rules! </span>wasm_declare_vec {
+    (<span class="macro-nonterminal">$name</span>:ident) =&gt; {
+        <span class="macro">wasm_declare_vec!</span>(<span class="macro-nonterminal">$name</span>, wasm);
     };
 
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">paste::paste!</span> {
+    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$prefix</span>:ident) =&gt; {
+        <span class="macro">paste::paste! </span>{
             <span class="macro">wasm_declare_vec_inner!</span>(
-                <span class="ident">name</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_t</span><span class="op">&gt;</span>],
-                <span class="ident">ty</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>],
-                <span class="ident">c_ty</span>: <span class="macro">stringify!</span>([<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>]),
-                <span class="ident">c_val</span>: <span class="macro">concat!</span>(<span class="string">&quot;({ &quot;</span>,
-                    <span class="macro">stringify!</span>([<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>]), <span class="string">&quot; foo;\n&quot;</span>,
+                name: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_t&gt;],
+                ty: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;],
+                c_ty: <span class="macro">stringify!</span>([&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;]),
+                c_val: <span class="macro">concat!</span>(<span class="string">&quot;({ &quot;</span>,
+                    <span class="macro">stringify!</span>([&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;]), <span class="string">&quot; foo;\n&quot;</span>,
                     <span class="string">&quot;memset(&amp;foo, 0, sizeof(foo));\n&quot;</span>,
                     <span class="string">&quot;foo;\n&quot;</span>,
                 <span class="string">&quot;})&quot;</span>),
-                <span class="ident">new</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_new</span><span class="op">&gt;</span>],
-                <span class="ident">empty</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_new_empty</span><span class="op">&gt;</span>],
-                <span class="ident">uninit</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_new_uninitialized</span><span class="op">&gt;</span>],
-                <span class="ident">copy</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_copy</span><span class="op">&gt;</span>],
-                <span class="ident">delete</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_delete</span><span class="op">&gt;</span>],
+                new: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_new&gt;],
+                empty: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_new_empty&gt;],
+                uninit: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_new_uninitialized&gt;],
+                copy: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_copy&gt;],
+                delete: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_delete&gt;],
             );
         }
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">wasm_declare_boxed_vec</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">wasm_declare_boxed_vec!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">wasm</span>);
+<span class="macro">macro_rules! </span>wasm_declare_boxed_vec {
+    (<span class="macro-nonterminal">$name</span>:ident) =&gt; {
+        <span class="macro">wasm_declare_boxed_vec!</span>(<span class="macro-nonterminal">$name</span>, wasm);
     };
 
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">paste::paste!</span> {
+    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$prefix</span>:ident) =&gt; {
+        <span class="macro">paste::paste! </span>{
             <span class="macro">wasm_declare_vec_inner!</span>(
-                <span class="ident">name</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_t</span><span class="op">&gt;</span>],
-                <span class="ident">ty</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
-                <span class="ident">c_ty</span>: <span class="macro">stringify!</span>([<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>] <span class="kw-2">*</span>),
-                <span class="ident">c_val</span>: <span class="string">&quot;NULL&quot;</span>,
-                <span class="ident">new</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_new</span><span class="op">&gt;</span>],
-                <span class="ident">empty</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_new_empty</span><span class="op">&gt;</span>],
-                <span class="ident">uninit</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_new_uninitialized</span><span class="op">&gt;</span>],
-                <span class="ident">copy</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_copy</span><span class="op">&gt;</span>],
-                <span class="ident">delete</span>: [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_delete</span><span class="op">&gt;</span>],
+                name: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_t&gt;],
+                ty: <span class="prelude-ty">Option</span>&lt;Box&lt;[&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;]&gt;&gt;,
+                c_ty: <span class="macro">stringify!</span>([&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;] <span class="kw-2">*</span>),
+                c_val: <span class="string">&quot;NULL&quot;</span>,
+                new: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_new&gt;],
+                empty: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_new_empty&gt;],
+                uninit: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_new_uninitialized&gt;],
+                copy: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_copy&gt;],
+                delete: [&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_vec_delete&gt;],
             );
         }
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">wasm_impl_copy</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">wasm_impl_copy!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">wasm</span>);
+<span class="macro">macro_rules! </span>wasm_impl_copy {
+    (<span class="macro-nonterminal">$name</span>:ident) =&gt; {
+        <span class="macro">wasm_impl_copy!</span>(<span class="macro-nonterminal">$name</span>, wasm);
     };
 
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">paste::paste!</span> {
-            <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-            <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_copy</span><span class="op">&gt;</span>](<span class="ident">src</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>]<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>]<span class="op">&gt;</span><span class="op">&gt;</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">src</span><span class="question-mark">?</span>.<span class="ident">clone</span>()))
+    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$prefix</span>:ident) =&gt; {
+        <span class="macro">paste::paste! </span>{
+            <span class="attribute">#[no_mangle]
+            </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>[&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_copy&gt;](src: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;]&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;[&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;]&gt;&gt; {
+                <span class="prelude-val">Some</span>(Box::new(src<span class="question-mark">?</span>.clone()))
             }
         }
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">wasm_impl_delete</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">wasm_impl_delete!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">wasm</span>);
+<span class="macro">macro_rules! </span>wasm_impl_delete {
+    (<span class="macro-nonterminal">$name</span>:ident) =&gt; {
+        <span class="macro">wasm_impl_delete!</span>(<span class="macro-nonterminal">$name</span>, wasm);
     };
 
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">paste::paste!</span> {
-            <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-            <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> [<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_delete</span><span class="op">&gt;</span>](<span class="kw">_</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span> <span class="kw">_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_t</span><span class="op">&gt;</span>]<span class="op">&gt;</span><span class="op">&gt;</span>) {}
+    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$prefix</span>:ident) =&gt; {
+        <span class="macro">paste::paste! </span>{
+            <span class="attribute">#[no_mangle]
+            </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>[&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_delete&gt;](<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;Box&lt;[&lt;<span class="macro-nonterminal">$prefix </span><span class="kw">_ </span><span class="macro-nonterminal">$name </span>_t&gt;]&gt;&gt;) {}
         }
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">wasm_impl_copy_delete</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">wasm_impl_copy_delete!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="ident">wasm</span>);
+<span class="macro">macro_rules! </span>wasm_impl_copy_delete {
+    (<span class="macro-nonterminal">$name</span>:ident) =&gt; {
+        <span class="macro">wasm_impl_copy_delete!</span>(<span class="macro-nonterminal">$name</span>, wasm);
     };
 
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="macro">wasm_impl_copy!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>);
-        <span class="macro">wasm_impl_delete!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">prefix</span>);
+    (<span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$prefix</span>:ident) =&gt; {
+        <span class="macro">wasm_impl_copy!</span>(<span class="macro-nonterminal">$name</span>, <span class="macro-nonterminal">$prefix</span>);
+        <span class="macro">wasm_impl_delete!</span>(<span class="macro-nonterminal">$name</span>, <span class="macro-nonterminal">$prefix</span>);
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">c_try</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>; <span class="ident">otherwise</span> ()) =&gt; {{
-        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
-        <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">val</span>) =&gt; <span class="ident">val</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">err</span>);
+<span class="macro">macro_rules! </span>c_try {
+    (<span class="macro-nonterminal">$expr</span>:expr; otherwise ()) =&gt; {{
+        <span class="kw">let </span>res: <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = <span class="macro-nonterminal">$expr</span>;
+        <span class="kw">match </span>res {
+            <span class="prelude-val">Ok</span>(val) =&gt; val,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">crate</span>::error::update_last_error(err);
                 <span class="kw">return</span>;
             }
         }
     }};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>; <span class="ident">otherwise</span> <span class="macro-nonterminal">$</span><span class="kw">return</span>:<span class="macro-nonterminal">expr</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
-        <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">val</span>) =&gt; <span class="ident">val</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">err</span>);
-                <span class="kw">return</span> <span class="macro-nonterminal">$</span><span class="kw">return</span>;
+    (<span class="macro-nonterminal">$expr</span>:expr; otherwise <span class="macro-nonterminal">$</span><span class="kw">return</span>:<span class="macro-nonterminal">expr</span>) =&gt; {{
+        <span class="kw">let </span>res: <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = <span class="macro-nonterminal">$expr</span>;
+        <span class="kw">match </span>res {
+            <span class="prelude-val">Ok</span>(val) =&gt; val,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">crate</span>::error::update_last_error(err);
+                <span class="kw">return </span><span class="macro-nonterminal">$</span><span class="kw">return</span>;
             }
         }
     }};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="macro">c_try!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>; <span class="ident">otherwise</span> <span class="prelude-val">None</span>)
+    (<span class="macro-nonterminal">$expr</span>:expr) =&gt; {{
+        <span class="macro">c_try!</span>(<span class="macro-nonterminal">$expr</span>; otherwise <span class="prelude-val">None</span>)
     }};
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">e</span>:<span class="ident">expr</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">opt</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
-        <span class="macro">c_try!</span>(<span class="ident">opt</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">e</span>))
+    (<span class="macro-nonterminal">$expr</span>:expr, <span class="macro-nonterminal">$e</span>:expr) =&gt; {{
+        <span class="kw">let </span>opt: <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt; = <span class="macro-nonterminal">$expr</span>;
+        <span class="macro">c_try!</span>(opt.ok_or_else(|| <span class="macro-nonterminal">$e</span>))
     }};
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/artifact_builder.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>artifact_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/artifact_builder.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>artifact_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -242,249 +242,249 @@
 <span id="242">242</span>
 <span id="243">243</span>
 <span id="244">244</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be</span>
-<span class="doccomment">//! done as separate steps.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
+//! done as separate steps.
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::trampoline</span>::{<span class="ident">libcall_trampoline_len</span>, <span class="ident">make_libcall_trampolines</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ArtifactCreate</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EngineInner</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Features</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleEnvironment</span>, <span class="ident">ModuleMiddlewareChain</span>};
-<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types::CompileModuleInfo</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">CustomSection</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>,
-    <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">Target</span>,
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">super</span>::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
+<span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
+<span class="kw">use </span><span class="kw">crate</span>::EngineInner;
+<span class="kw">use </span><span class="kw">crate</span>::Features;
+<span class="kw">use crate</span>::{ModuleEnvironment, ModuleMiddlewareChain};
+<span class="kw">use </span>enumset::EnumSet;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span>wasmer_types::CompileModuleInfo;
+<span class="kw">use </span>wasmer_types::{
+    CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
+    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
+    TableIndex, TableStyle, Target,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">FunctionBody</span>, <span class="ident">SerializableCompilation</span>, <span class="ident">SerializableModule</span>,
+<span class="kw">use </span>wasmer_types::{
+    CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MetadataHeader</span>, <span class="ident">SerializeError</span>};
+<span class="kw">use </span>wasmer_types::{MetadataHeader, SerializeError};
 
-<span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArtifactBuild</span> {
-    <span class="ident">serializable</span>: <span class="ident">SerializableModule</span>,
+<span class="doccomment">/// A compiled wasm module, ready to be instantiated.
+</span><span class="kw">pub struct </span>ArtifactBuild {
+    serializable: SerializableModule,
 }
 
-<span class="kw">impl</span> <span class="ident">ArtifactBuild</span> {
-    <span class="doccomment">/// Header signature for wasmu binary</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">MAGIC_HEADER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span> <span class="string">b&quot;wasmer-universal&quot;</span>;
+<span class="kw">impl </span>ArtifactBuild {
+    <span class="doccomment">/// Header signature for wasmu binary
+    </span><span class="kw">pub const </span>MAGIC_HEADER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8; <span class="number">16</span>] = <span class="string">b&quot;wasmer-universal&quot;</span>;
 
-    <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_deserializable</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">bool</span> {
-        <span class="ident">bytes</span>.<span class="ident">starts_with</span>(<span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>)
+    <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.
+    </span><span class="kw">pub fn </span>is_deserializable(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+        bytes.starts_with(<span class="self">Self</span>::MAGIC_HEADER)
     }
 
-    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">inner_engine</span>: <span class="kw-2">&amp;mut</span> <span class="ident">EngineInner</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>,
-        <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident">ModuleEnvironment::new</span>();
-        <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">inner_engine</span>.<span class="ident">features</span>().<span class="ident">clone</span>();
+    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span><span class="kw">pub fn </span>new(
+        inner_engine: <span class="kw-2">&amp;mut </span>EngineInner,
+        data: <span class="kw-2">&amp;</span>[u8],
+        target: <span class="kw-2">&amp;</span>Target,
+        memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+        table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="kw">let </span>environ = ModuleEnvironment::new();
+        <span class="kw">let </span>features = inner_engine.features().clone();
 
-        <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError::Wasm</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>translation = environ.translate(data).map_err(CompileError::Wasm)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">inner_engine</span>.<span class="ident">compiler</span>()<span class="question-mark">?</span>;
+        <span class="kw">let </span>compiler = inner_engine.compiler()<span class="question-mark">?</span>;
 
-        <span class="comment">// We try to apply the middleware first</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">translation</span>.<span class="ident">module</span>;
-        <span class="kw">let</span> <span class="ident">middlewares</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_middlewares</span>();
-        <span class="ident">middlewares</span>.<span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;mut</span> <span class="ident">module</span>);
+        <span class="comment">// We try to apply the middleware first
+        </span><span class="kw">let </span><span class="kw-2">mut </span>module = translation.module;
+        <span class="kw">let </span>middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(<span class="kw-2">&amp;mut </span>module);
 
-        <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
-            <span class="ident">module</span>: <span class="ident">Arc::new</span>(<span class="ident">module</span>),
-            <span class="ident">features</span>,
-            <span class="ident">memory_styles</span>,
-            <span class="ident">table_styles</span>,
+        <span class="kw">let </span>compile_info = CompileModuleInfo {
+            module: Arc::new(module),
+            features,
+            memory_styles,
+            table_styles,
         };
 
-        <span class="comment">// Compile the Module</span>
-        <span class="kw">let</span> <span class="ident">compilation</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">compile_module</span>(
-            <span class="ident">target</span>,
-            <span class="kw-2">&amp;</span><span class="ident">compile_info</span>,
-            <span class="comment">// SAFETY: Calling `unwrap` is correct since</span>
-            <span class="comment">// `environ.translate()` above will write some data into</span>
-            <span class="comment">// `module_translation_state`.</span>
-            <span class="ident">translation</span>.<span class="ident">module_translation_state</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
-            <span class="ident">translation</span>.<span class="ident">function_body_inputs</span>,
+        <span class="comment">// Compile the Module
+        </span><span class="kw">let </span>compilation = compiler.compile_module(
+            target,
+            <span class="kw-2">&amp;</span>compile_info,
+            <span class="comment">// SAFETY: Calling `unwrap` is correct since
+            // `environ.translate()` above will write some data into
+            // `module_translation_state`.
+            </span>translation.module_translation_state.as_ref().unwrap(),
+            translation.function_body_inputs,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="ident">translation</span>
-            .<span class="ident">data_initializers</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="ident">OwnedDataInitializer::new</span>)
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_boxed_slice</span>();
+        <span class="kw">let </span>data_initializers = translation
+            .data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_boxed_slice();
 
-        <span class="comment">// Synthesize a custom section to hold the libcall trampolines.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_frame_info</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_bodies</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_relocations</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
-        <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">func</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">into_iter</span>() {
-            <span class="ident">function_bodies</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">body</span>);
-            <span class="ident">function_relocations</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">relocations</span>);
-            <span class="ident">function_frame_info</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">frame_info</span>);
+        <span class="comment">// Synthesize a custom section to hold the libcall trampolines.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>function_frame_info = PrimaryMap::with_capacity(compilation.functions.len());
+        <span class="kw">let </span><span class="kw-2">mut </span>function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
+        <span class="kw">let </span><span class="kw-2">mut </span>function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
+        <span class="kw">for </span>(<span class="kw">_</span>, func) <span class="kw">in </span>compilation.functions.into_iter() {
+            function_bodies.push(func.body);
+            function_relocations.push(func.relocations);
+            function_frame_info.push(func.frame_info);
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">custom_sections</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_section_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>
-            .<span class="ident">custom_sections</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">section</span>)<span class="op">|</span> <span class="ident">section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="ident">libcall_trampolines_section</span> <span class="op">=</span> <span class="ident">make_libcall_trampolines</span>(<span class="ident">target</span>);
-        <span class="ident">custom_section_relocations</span>.<span class="ident">push</span>(<span class="ident">libcall_trampolines_section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>());
-        <span class="kw">let</span> <span class="ident">libcall_trampolines</span> <span class="op">=</span> <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">libcall_trampolines_section</span>);
-        <span class="kw">let</span> <span class="ident">libcall_trampoline_len</span> <span class="op">=</span> <span class="ident">libcall_trampoline_len</span>(<span class="ident">target</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-        <span class="kw">let</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_cpu_features_used</span>(<span class="ident">target</span>.<span class="ident">cpu_features</span>());
+        <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = compilation.custom_sections.clone();
+        <span class="kw">let </span><span class="kw-2">mut </span>custom_section_relocations = compilation
+            .custom_sections
+            .iter()
+            .map(|(<span class="kw">_</span>, section)| section.relocations.clone())
+            .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
+        <span class="kw">let </span>libcall_trampolines_section = make_libcall_trampolines(target);
+        custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
+        <span class="kw">let </span>libcall_trampolines = custom_sections.push(libcall_trampolines_section);
+        <span class="kw">let </span>libcall_trampoline_len = libcall_trampoline_len(target) <span class="kw">as </span>u32;
+        <span class="kw">let </span>cpu_features = compiler.get_cpu_features_used(target.cpu_features());
 
-        <span class="kw">let</span> <span class="ident">serializable_compilation</span> <span class="op">=</span> <span class="ident">SerializableCompilation</span> {
-            <span class="ident">function_bodies</span>,
-            <span class="ident">function_relocations</span>,
-            <span class="ident">function_frame_info</span>,
-            <span class="ident">function_call_trampolines</span>: <span class="ident">compilation</span>.<span class="ident">function_call_trampolines</span>,
-            <span class="ident">dynamic_function_trampolines</span>: <span class="ident">compilation</span>.<span class="ident">dynamic_function_trampolines</span>,
-            <span class="ident">custom_sections</span>,
-            <span class="ident">custom_section_relocations</span>,
-            <span class="ident">debug</span>: <span class="ident">compilation</span>.<span class="ident">debug</span>,
-            <span class="ident">libcall_trampolines</span>,
-            <span class="ident">libcall_trampoline_len</span>,
+        <span class="kw">let </span>serializable_compilation = SerializableCompilation {
+            function_bodies,
+            function_relocations,
+            function_frame_info,
+            function_call_trampolines: compilation.function_call_trampolines,
+            dynamic_function_trampolines: compilation.dynamic_function_trampolines,
+            custom_sections,
+            custom_section_relocations,
+            debug: compilation.debug,
+            libcall_trampolines,
+            libcall_trampoline_len,
         };
-        <span class="kw">let</span> <span class="ident">serializable</span> <span class="op">=</span> <span class="ident">SerializableModule</span> {
-            <span class="ident">compilation</span>: <span class="ident">serializable_compilation</span>,
-            <span class="ident">compile_info</span>,
-            <span class="ident">data_initializers</span>,
-            <span class="ident">cpu_features</span>: <span class="ident">cpu_features</span>.<span class="ident">as_u64</span>(),
+        <span class="kw">let </span>serializable = SerializableModule {
+            compilation: serializable_compilation,
+            compile_info,
+            data_initializers,
+            cpu_features: cpu_features.as_u64(),
         };
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">serializable</span> })
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ serializable })
     }
 
-    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">_inner_engine</span>: <span class="kw-2">&amp;mut</span> <span class="ident">EngineInner</span>,
-        <span class="ident">_data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">_target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">_memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>,
-        <span class="ident">_table_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
-            <span class="string">&quot;Compilation is not enabled in the engine&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
+    </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
+    #[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="kw">pub fn </span>new(
+        _inner_engine: <span class="kw-2">&amp;mut </span>EngineInner,
+        _data: <span class="kw-2">&amp;</span>[u8],
+        _target: <span class="kw-2">&amp;</span>Target,
+        _memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+        _table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="prelude-val">Err</span>(CompileError::Codegen(
+            <span class="string">&quot;Compilation is not enabled in the engine&quot;</span>.to_string(),
         ))
     }
 
-    <span class="doccomment">/// Create a new ArtifactBuild from a SerializableModule</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_serializable</span>(<span class="ident">serializable</span>: <span class="ident">SerializableModule</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">serializable</span> }
+    <span class="doccomment">/// Create a new ArtifactBuild from a SerializableModule
+    </span><span class="kw">pub fn </span>from_serializable(serializable: SerializableModule) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ serializable }
     }
 
-    <span class="doccomment">/// Get Functions Bodies ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_bodies_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">function_bodies</span>
+    <span class="doccomment">/// Get Functions Bodies ref
+    </span><span class="kw">pub fn </span>get_function_bodies_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBody&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.function_bodies
     }
 
-    <span class="doccomment">/// Get Functions Call Trampolines ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_call_trampolines_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">function_call_trampolines</span>
+    <span class="doccomment">/// Get Functions Call Trampolines ref
+    </span><span class="kw">pub fn </span>get_function_call_trampolines_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;SignatureIndex, FunctionBody&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.function_call_trampolines
     }
 
-    <span class="doccomment">/// Get Dynamic Functions Call Trampolines ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_dynamic_function_trampolines_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">dynamic_function_trampolines</span>
+    <span class="doccomment">/// Get Dynamic Functions Call Trampolines ref
+    </span><span class="kw">pub fn </span>get_dynamic_function_trampolines_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;FunctionIndex, FunctionBody&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.dynamic_function_trampolines
     }
 
-    <span class="doccomment">/// Get Custom Sections ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_custom_sections_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">CustomSection</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">custom_sections</span>
+    <span class="doccomment">/// Get Custom Sections ref
+    </span><span class="kw">pub fn </span>get_custom_sections_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, CustomSection&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.custom_sections
     }
 
-    <span class="doccomment">/// Get Function Relocations</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_relocations</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">function_relocations</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// Get Function Relocations
+    </span><span class="kw">pub fn </span>get_function_relocations(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PrimaryMap&lt;LocalFunctionIndex, Vec&lt;Relocation&gt;&gt; {
+        <span class="self">self</span>.serializable.compilation.function_relocations.clone()
     }
 
-    <span class="doccomment">/// Get Function Relocations ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_custom_section_relocations_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">custom_section_relocations</span>
+    <span class="doccomment">/// Get Function Relocations ref
+    </span><span class="kw">pub fn </span>get_custom_section_relocations_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, Vec&lt;Relocation&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.custom_section_relocations
     }
 
-    <span class="doccomment">/// Get LibCall Trampoline Section Index</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_libcall_trampolines</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">SectionIndex</span> {
-        <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">libcall_trampolines</span>
+    <span class="doccomment">/// Get LibCall Trampoline Section Index
+    </span><span class="kw">pub fn </span>get_libcall_trampolines(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SectionIndex {
+        <span class="self">self</span>.serializable.compilation.libcall_trampolines
     }
 
-    <span class="doccomment">/// Get LibCall Trampoline Length</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_libcall_trampoline_len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">libcall_trampoline_len</span> <span class="kw">as</span> <span class="ident">usize</span>
+    <span class="doccomment">/// Get LibCall Trampoline Length
+    </span><span class="kw">pub fn </span>get_libcall_trampoline_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.serializable.compilation.libcall_trampoline_len <span class="kw">as </span>usize
     }
 
-    <span class="doccomment">/// Get Debug optional Dwarf ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_debug_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">debug</span>
+    <span class="doccomment">/// Get Debug optional Dwarf ref
+    </span><span class="kw">pub fn </span>get_debug_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Dwarf&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.debug
     }
 
-    <span class="doccomment">/// Get Function Relocations ref</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_frame_info_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compilation</span>.<span class="ident">function_frame_info</span>
+    <span class="doccomment">/// Get Function Relocations ref
+    </span><span class="kw">pub fn </span>get_frame_info_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, CompiledFunctionFrameInfo&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compilation.function_frame_info
     }
 }
 
-<span class="kw">impl</span> <span class="ident">ArtifactCreate</span> <span class="kw">for</span> <span class="ident">ArtifactBuild</span> {
-    <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">clone</span>()
+<span class="kw">impl </span>ArtifactCreate <span class="kw">for </span>ArtifactBuild {
+    <span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt; {
+        <span class="self">self</span>.serializable.compile_info.module.clone()
     }
 
-    <span class="kw">fn</span> <span class="ident">set_module_info_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) -&gt; <span class="ident">bool</span> {
-        <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>).<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">module_info</span><span class="op">|</span> {
-            <span class="ident">module_info</span>.<span class="ident">name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>.<span class="ident">to_string</span>());
-            <span class="bool-val">true</span>
-        })
+    <span class="kw">fn </span>set_module_info_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: String) -&gt; bool {
+        Arc::get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>.serializable.compile_info.module).map_or(<span class="bool-val">false</span>, |<span class="kw-2">mut </span>module_info| {
+            module_info.name = <span class="prelude-val">Some</span>(name.to_string());
+            <span class="bool-val">true
+        </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>
+    <span class="kw">fn </span>module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compile_info.module
     }
 
-    <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compile_info</span>.<span class="ident">features</span>
+    <span class="kw">fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compile_info.features
     }
 
-    <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
-        <span class="ident">EnumSet::from_u64</span>(<span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">cpu_features</span>)
+    <span class="kw">fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EnumSet&lt;CpuFeature&gt; {
+        EnumSet::from_u64(<span class="self">self</span>.serializable.cpu_features)
     }
 
-    <span class="kw">fn</span> <span class="ident">data_initializers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">OwnedDataInitializer</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">data_initializers</span>
+    <span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[OwnedDataInitializer] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.data_initializers
     }
 
-    <span class="kw">fn</span> <span class="ident">memory_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compile_info</span>.<span class="ident">memory_styles</span>
+    <span class="kw">fn </span>memory_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compile_info.memory_styles
     }
 
-    <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">compile_info</span>.<span class="ident">table_styles</span>
+    <span class="kw">fn </span>table_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.serializable.compile_info.table_styles
     }
 
-    <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-        <span class="macro">assert!</span>(<span class="ident">std::mem::align_of</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">MetadataHeader::ALIGN</span>);
+    <span class="kw">fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt; {
+        <span class="kw">let </span>serialized_data = <span class="self">self</span>.serializable.serialize()<span class="question-mark">?</span>;
+        <span class="macro">assert!</span>(std::mem::align_of::&lt;SerializableModule&gt;() &lt;= MetadataHeader::ALIGN);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata_binary</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>);
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">MetadataHeader::new</span>(<span class="ident">serialized_data</span>.<span class="ident">len</span>()).<span class="ident">into_bytes</span>());
-        <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident">serialized_data</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">metadata_binary</span>)
+        <span class="kw">let </span><span class="kw-2">mut </span>metadata_binary = <span class="macro">vec!</span>[];
+        metadata_binary.extend(<span class="self">Self</span>::MAGIC_HEADER);
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
+        metadata_binary.extend(serialized_data);
+        <span class="prelude-val">Ok</span>(metadata_binary)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/trap/trap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>trap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_vm/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/trap/trap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>trap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_vm/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -70,77 +70,77 @@
 <span id="70">70</span>
 <span id="71">71</span>
 <span id="72">72</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">backtrace::Backtrace</span>;
-<span class="kw">use</span> <span class="ident">std::error::Error</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::TrapCode</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>backtrace::Backtrace;
+<span class="kw">use </span>std::error::Error;
+<span class="kw">use </span>wasmer_types::TrapCode;
 
-<span class="doccomment">/// Stores trace message with backtrace.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Trap</span> {
-    <span class="doccomment">/// A user-raised trap through `raise_user_trap`.</span>
-    <span class="ident">User</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>),
+<span class="doccomment">/// Stores trace message with backtrace.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>Trap {
+    <span class="doccomment">/// A user-raised trap through `raise_user_trap`.
+    </span>User(Box&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;),
 
-    <span class="doccomment">/// A trap raised from the Wasm generated code</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note: this trap is deterministic (assuming a deterministic host implementation)</span>
-    <span class="ident">Wasm</span> {
-        <span class="doccomment">/// The program counter in generated code where this trap happened.</span>
-        <span class="ident">pc</span>: <span class="ident">usize</span>,
-        <span class="doccomment">/// Native stack backtrace at the time the trap occurred</span>
-        <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>,
-        <span class="doccomment">/// Optional trapcode associated to the signal that caused the trap</span>
-        <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// A trap raised from the Wasm generated code
+    ///
+    /// Note: this trap is deterministic (assuming a deterministic host implementation)
+    </span>Wasm {
+        <span class="doccomment">/// The program counter in generated code where this trap happened.
+        </span>pc: usize,
+        <span class="doccomment">/// Native stack backtrace at the time the trap occurred
+        </span>backtrace: Backtrace,
+        <span class="doccomment">/// Optional trapcode associated to the signal that caused the trap
+        </span>signal_trap: <span class="prelude-ty">Option</span>&lt;TrapCode&gt;,
     },
 
-    <span class="doccomment">/// A trap raised from a wasm libcall</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note: this trap is deterministic (assuming a deterministic host implementation)</span>
-    <span class="ident">Lib</span> {
-        <span class="doccomment">/// Code of the trap.</span>
-        <span class="ident">trap_code</span>: <span class="ident">TrapCode</span>,
-        <span class="doccomment">/// Native stack backtrace at the time the trap occurred</span>
-        <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>,
+    <span class="doccomment">/// A trap raised from a wasm libcall
+    ///
+    /// Note: this trap is deterministic (assuming a deterministic host implementation)
+    </span>Lib {
+        <span class="doccomment">/// Code of the trap.
+        </span>trap_code: TrapCode,
+        <span class="doccomment">/// Native stack backtrace at the time the trap occurred
+        </span>backtrace: Backtrace,
     },
 
-    <span class="doccomment">/// A trap indicating that the runtime was unable to allocate sufficient memory.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note: this trap is nondeterministic, since it depends on the host system.</span>
-    <span class="ident">OOM</span> {
-        <span class="doccomment">/// Native stack backtrace at the time the OOM occurred</span>
-        <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>,
+    <span class="doccomment">/// A trap indicating that the runtime was unable to allocate sufficient memory.
+    ///
+    /// Note: this trap is nondeterministic, since it depends on the host system.
+    </span>OOM {
+        <span class="doccomment">/// Native stack backtrace at the time the OOM occurred
+        </span>backtrace: Backtrace,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">Trap</span> {
-    <span class="doccomment">/// Construct a new Wasm trap with the given source location and backtrace.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasm</span>(<span class="ident">pc</span>: <span class="ident">usize</span>, <span class="ident">backtrace</span>: <span class="ident">Backtrace</span>, <span class="ident">signal_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::Wasm</span> {
-            <span class="ident">pc</span>,
-            <span class="ident">backtrace</span>,
-            <span class="ident">signal_trap</span>,
+<span class="kw">impl </span>Trap {
+    <span class="doccomment">/// Construct a new Wasm trap with the given source location and backtrace.
+    ///
+    /// Internally saves a backtrace when constructed.
+    </span><span class="kw">pub fn </span>wasm(pc: usize, backtrace: Backtrace, signal_trap: <span class="prelude-ty">Option</span>&lt;TrapCode&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Wasm {
+            pc,
+            backtrace,
+            signal_trap,
         }
     }
 
-    <span class="doccomment">/// Construct a new Wasm trap with the given trap code.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lib</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace::new_unresolved</span>();
-        <span class="ident"><span class="self">Self</span>::Lib</span> {
-            <span class="ident">trap_code</span>,
-            <span class="ident">backtrace</span>,
+    <span class="doccomment">/// Construct a new Wasm trap with the given trap code.
+    ///
+    /// Internally saves a backtrace when constructed.
+    </span><span class="kw">pub fn </span>lib(trap_code: TrapCode) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>backtrace = Backtrace::new_unresolved();
+        <span class="self">Self</span>::Lib {
+            trap_code,
+            backtrace,
         }
     }
 
-    <span class="doccomment">/// Construct a new OOM trap with the given source location and trap code.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Internally saves a backtrace when constructed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">oom</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">backtrace</span> <span class="op">=</span> <span class="ident">Backtrace::new_unresolved</span>();
-        <span class="ident"><span class="self">Self</span>::OOM</span> { <span class="ident">backtrace</span> }
+    <span class="doccomment">/// Construct a new OOM trap with the given source location and trap code.
+    ///
+    /// Internally saves a backtrace when constructed.
+    </span><span class="kw">pub fn </span>oom() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>backtrace = Backtrace::new_unresolved();
+        <span class="self">Self</span>::OOM { backtrace }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

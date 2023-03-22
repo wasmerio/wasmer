@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>run.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>run.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -717,722 +717,722 @@
 <span id="715">715</span>
 <span id="716">716</span>
 <span id="717">717</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::logging</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::package_source::PackageSource</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">CompilerType</span>, <span class="ident">StoreOptions</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::suggestions::suggest_function_exports</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::io::Write</span>;
-<span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs::File</span>, <span class="ident">net::SocketAddr</span>};
-<span class="kw">use</span> <span class="ident">wasmer::FunctionEnv</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">wasmer_cache</span>::{<span class="ident">Cache</span>, <span class="ident">FileSystemCache</span>, <span class="ident">Hash</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::Type</span> <span class="kw">as</span> <span class="ident">ValueType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasix::runners</span>::{<span class="ident">Runner</span>, <span class="ident">WapmContainer</span>};
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::common::get_cache_dir;
+<span class="kw">use </span><span class="kw">crate</span>::logging;
+<span class="kw">use </span><span class="kw">crate</span>::package_source::PackageSource;
+<span class="kw">use </span><span class="kw">crate</span>::store::{CompilerType, StoreOptions};
+<span class="kw">use </span><span class="kw">crate</span>::suggestions::suggest_function_exports;
+<span class="kw">use </span><span class="kw">crate</span>::warning;
+<span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>std::io::Write;
+<span class="kw">use </span>std::ops::Deref;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::str::FromStr;
+<span class="kw">use </span>std::{fs::File, net::SocketAddr};
+<span class="kw">use </span>wasmer::FunctionEnv;
+<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer_cache::{Cache, FileSystemCache, Hash};
+<span class="kw">use </span>wasmer_types::Type <span class="kw">as </span>ValueType;
+<span class="kw">use </span>wasmer_wasix::runners::{Runner, WapmContainer};
 
-<span class="kw">mod</span> <span class="ident">wasi</span>;
+<span class="kw">mod </span>wasi;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">wasi::Wasi</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>wasi::Wasi;
 
-<span class="doccomment">/// The options for the `wasmer run` subcommand, runs either a package, URL or a file</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Run</span> {
-    <span class="doccomment">/// File to run</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;SOURCE&quot;</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span>))]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">path</span>: <span class="ident">PackageSource</span>,
-    <span class="doccomment">/// Options to run the file / package / URL with</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">options</span>: <span class="ident">RunWithoutFile</span>,
+<span class="doccomment">/// The options for the `wasmer run` subcommand, runs either a package, URL or a file
+</span><span class="attribute">#[derive(Debug, Parser, Clone)]
+</span><span class="kw">pub struct </span>Run {
+    <span class="doccomment">/// File to run
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;SOURCE&quot;</span>, parse(try_from_str))]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) path: PackageSource,
+    <span class="doccomment">/// Options to run the file / package / URL with
+    </span><span class="attribute">#[clap(flatten)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) options: RunWithoutFile,
 }
 
-<span class="doccomment">/// Same as `wasmer run`, but without the required `path` argument (injected previously)</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RunWithoutFile</span> {
-    <span class="doccomment">/// When installing packages with `wasmer $package`, force re-downloading the package</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;force&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;f&#39;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">force_install</span>: <span class="ident">bool</span>,
+<span class="doccomment">/// Same as `wasmer run`, but without the required `path` argument (injected previously)
+</span><span class="attribute">#[derive(Debug, Parser, Clone, Default)]
+</span><span class="kw">pub struct </span>RunWithoutFile {
+    <span class="doccomment">/// When installing packages with `wasmer $package`, force re-downloading the package
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;force&quot;</span>, short = <span class="string">&#39;f&#39;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) force_install: bool,
 
-    <span class="doccomment">/// Disable the cache</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-cache&quot;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">disable_cache</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Disable the cache
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;disable-cache&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) disable_cache: bool,
 
-    <span class="doccomment">/// Invoke a specified function</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;invoke&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;i&#39;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">invoke</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Invoke a specified function
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;invoke&quot;</span>, short = <span class="string">&#39;i&#39;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) invoke: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// The command name is a string that will override the first argument passed</span>
-    <span class="doccomment">/// to the wasm program. This is used in wapm to provide nicer output in</span>
-    <span class="doccomment">/// help commands and error messages of the running wasm program</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;command-name&quot;</span>, <span class="ident">hide</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">command_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The command name is a string that will override the first argument passed
+    /// to the wasm program. This is used in wapm to provide nicer output in
+    /// help commands and error messages of the running wasm program
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;command-name&quot;</span>, hide = <span class="bool-val">true</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) command_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// A prehashed string, used to speed up start times by avoiding hashing the</span>
-    <span class="doccomment">/// wasm module. If the specified hash is not found, Wasmer will hash the module</span>
-    <span class="doccomment">/// as if no `cache-key` argument was passed.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;cache-key&quot;</span>, <span class="ident">hide</span> <span class="op">=</span> <span class="bool-val">true</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_key</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// A prehashed string, used to speed up start times by avoiding hashing the
+    /// wasm module. If the specified hash is not found, Wasmer will hash the module
+    /// as if no `cache-key` argument was passed.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;cache-key&quot;</span>, hide = <span class="bool-val">true</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) cache_key: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
+    <span class="attribute">#[clap(flatten)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) store: StoreOptions,
 
-    <span class="comment">// TODO: refactor WASI structure to allow shared options with Emscripten</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wasi</span>: <span class="ident">Wasi</span>,
+    <span class="comment">// TODO: refactor WASI structure to allow shared options with Emscripten
+    </span><span class="attribute">#[clap(flatten)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) wasi: Wasi,
 
-    <span class="doccomment">/// Enable non-standard experimental IO devices</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;io-devices&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-io-devices&quot;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable non-standard experimental IO devices
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;io-devices&quot;</span>)]
+    #[clap(long = <span class="string">&quot;enable-io-devices&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) enable_experimental_io_devices: bool,
 
-    <span class="doccomment">/// Enable debug output</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;d&#39;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">debug</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable debug output
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;debug&quot;</span>, short = <span class="string">&#39;d&#39;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) debug: bool,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;verbose&quot;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">verbose</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="attribute">#[clap(long = <span class="string">&quot;verbose&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) verbose: <span class="prelude-ty">Option</span>&lt;u8&gt;,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wcgi</span>: <span class="ident">WcgiOptions</span>,
+    <span class="attribute">#[clap(flatten)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) wcgi: WcgiOptions,
 
-    <span class="doccomment">/// Enable coredump generation after a WebAssembly trap.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;COREDUMP PATH&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;coredump-on-trap&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-    <span class="ident">coredump_on_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Enable coredump generation after a WebAssembly trap.
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long = <span class="string">&quot;coredump-on-trap&quot;</span>, parse(from_os_str))]
+    </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-    <span class="doccomment">/// Application arguments</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">value_name</span> <span class="op">=</span> <span class="string">&quot;ARGS&quot;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Application arguments
+    </span><span class="attribute">#[clap(value_name = <span class="string">&quot;ARGS&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
 }
 
-<span class="doccomment">/// Same as `Run`, but uses a resolved local file path.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RunWithPathBuf</span> {
-    <span class="doccomment">/// File to run</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-    <span class="doccomment">/// Options for running the file</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">options</span>: <span class="ident">RunWithoutFile</span>,
+<span class="doccomment">/// Same as `Run`, but uses a resolved local file path.
+</span><span class="attribute">#[derive(Debug, Clone, Default)]
+</span><span class="kw">pub struct </span>RunWithPathBuf {
+    <span class="doccomment">/// File to run
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) path: PathBuf,
+    <span class="doccomment">/// Options for running the file
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) options: RunWithoutFile,
 }
 
-<span class="kw">impl</span> <span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">RunWithPathBuf</span> {
-    <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">RunWithoutFile</span>;
-    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Target</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">options</span>
+<span class="kw">impl </span>Deref <span class="kw">for </span>RunWithPathBuf {
+    <span class="kw">type </span>Target = RunWithoutFile;
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.options
     }
 }
 
-<span class="kw">impl</span> <span class="ident">RunWithPathBuf</span> {
-    <span class="doccomment">/// Execute the run command</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">self_clone</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
+<span class="kw">impl </span>RunWithPathBuf {
+    <span class="doccomment">/// Execute the run command
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>self_clone = <span class="self">self</span>.clone();
 
-        <span class="kw">if</span> <span class="ident">self_clone</span>.<span class="ident">path</span>.<span class="ident">is_dir</span>() {
-            <span class="kw">let</span> (<span class="ident">manifest</span>, <span class="ident">pathbuf</span>) <span class="op">=</span> <span class="ident">wasmer_registry::get_executable_file_from_path</span>(
-                <span class="kw-2">&amp;</span><span class="ident">self_clone</span>.<span class="ident">path</span>,
-                <span class="ident">self_clone</span>.<span class="ident">command_name</span>.<span class="ident">as_deref</span>(),
+        <span class="kw">if </span>self_clone.path.is_dir() {
+            <span class="kw">let </span>(manifest, pathbuf) = wasmer_registry::get_executable_file_from_path(
+                <span class="kw-2">&amp;</span>self_clone.path,
+                self_clone.command_name.as_deref(),
             )<span class="question-mark">?</span>;
 
-            <span class="comment">// See https://github.com/wasmerio/wasmer/issues/3492 -</span>
-            <span class="comment">// we need IndexMap to have a stable ordering for the [fs] mapping,</span>
-            <span class="comment">// otherwise overlapping filesystem mappings might not work</span>
-            <span class="comment">// since we want to control the order of mounting directories from the</span>
-            <span class="comment">// wasmer.toml file</span>
-            <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">indexmap::IndexMap::default</span>();
-            <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">fs</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">default</span>);
-            <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">fs</span>.<span class="ident">iter</span>() {
-                <span class="kw">let</span> <span class="ident">real_dir</span> <span class="op">=</span> <span class="ident">self_clone</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">real_dir</span>.<span class="ident">exists</span>() {
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-                    <span class="kw">if</span> <span class="ident">self_clone</span>.<span class="ident">debug</span> {
+            <span class="comment">// See https://github.com/wasmerio/wasmer/issues/3492 -
+            // we need IndexMap to have a stable ordering for the [fs] mapping,
+            // otherwise overlapping filesystem mappings might not work
+            // since we want to control the order of mounting directories from the
+            // wasmer.toml file
+            </span><span class="kw">let </span>default = indexmap::IndexMap::default();
+            <span class="kw">let </span>fs = manifest.fs.as_ref().unwrap_or(<span class="kw-2">&amp;</span>default);
+            <span class="kw">for </span>(alias, real_dir) <span class="kw">in </span>fs.iter() {
+                <span class="kw">let </span>real_dir = self_clone.path.join(real_dir);
+                <span class="kw">if </span>!real_dir.exists() {
+                    <span class="attribute">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
+                    </span><span class="kw">if </span>self_clone.debug {
                         <span class="macro">println!</span>(
                             <span class="string">&quot;warning: cannot map {alias:?} to {}: directory does not exist&quot;</span>,
-                            <span class="ident">real_dir</span>.<span class="ident">display</span>()
+                            real_dir.display()
                         );
                     }
                     <span class="kw">continue</span>;
                 }
 
-                <span class="ident">self_clone</span>.<span class="ident">options</span>.<span class="ident">wasi</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">real_dir</span>.<span class="ident">clone</span>());
+                self_clone.options.wasi.map_dir(alias, real_dir.clone());
             }
 
-            <span class="ident">self_clone</span>.<span class="ident">path</span> <span class="op">=</span> <span class="ident">pathbuf</span>;
+            self_clone.path = pathbuf;
         }
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">debug</span> {
-            <span class="kw">let</span> <span class="ident">level</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">self_clone</span>.<span class="ident">verbose</span> {
-                <span class="prelude-val">Some</span>(<span class="number">1</span>) =&gt; <span class="ident">log::LevelFilter::Debug</span>,
-                <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="prelude-val">None</span> =&gt; <span class="ident">log::LevelFilter::Trace</span>,
+        <span class="kw">if </span><span class="self">self</span>.debug {
+            <span class="kw">let </span>level = <span class="kw">match </span>self_clone.verbose {
+                <span class="prelude-val">Some</span>(<span class="number">1</span>) =&gt; log::LevelFilter::Debug,
+                <span class="prelude-val">Some</span>(<span class="kw">_</span>) | <span class="prelude-val">None </span>=&gt; log::LevelFilter::Trace,
             };
-            <span class="ident">logging::set_up_logging</span>(<span class="ident">level</span>);
+            logging::set_up_logging(level);
         }
 
-        <span class="kw">let</span> <span class="ident">invoke_res</span> <span class="op">=</span> <span class="ident">self_clone</span>.<span class="ident">inner_execute</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="kw">let </span>invoke_res = self_clone.inner_execute().with_context(|| {
             <span class="macro">format!</span>(
                 <span class="string">&quot;failed to run `{}`{}&quot;</span>,
-                <span class="ident">self_clone</span>.<span class="ident">path</span>.<span class="ident">display</span>(),
-                <span class="kw">if</span> <span class="ident">CompilerType::enabled</span>().<span class="ident">is_empty</span>() {
-                    <span class="string">&quot; (no compilers enabled)&quot;</span>
-                } <span class="kw">else</span> {
-                    <span class="string">&quot;&quot;</span>
-                }
+                self_clone.path.display(),
+                <span class="kw">if </span>CompilerType::enabled().is_empty() {
+                    <span class="string">&quot; (no compilers enabled)&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="string">&quot;&quot;
+                </span>}
             )
         });
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">invoke_res</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">coredump_path</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">coredump_on_trap</span>.<span class="ident">as_ref</span>() {
-                <span class="kw">let</span> <span class="ident">source_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">to_str</span>().<span class="ident">unwrap_or</span>(<span class="string">&quot;unknown&quot;</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">coredump_err</span>) <span class="op">=</span> <span class="ident">generate_coredump</span>(<span class="kw-2">&amp;</span><span class="ident">err</span>, <span class="ident">source_name</span>, <span class="ident">coredump_path</span>) {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;warning: coredump failed to generate: {}&quot;</span>, <span class="ident">coredump_err</span>);
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>.<span class="ident">context</span>(<span class="macro">format!</span>(<span class="string">&quot;core dumped at {}&quot;</span>, <span class="ident">coredump_path</span>.<span class="ident">display</span>())))
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = invoke_res {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(coredump_path) = <span class="self">self</span>.coredump_on_trap.as_ref() {
+                <span class="kw">let </span>source_name = <span class="self">self</span>.path.to_str().unwrap_or(<span class="string">&quot;unknown&quot;</span>);
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(coredump_err) = generate_coredump(<span class="kw-2">&amp;</span>err, source_name, coredump_path) {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;warning: coredump failed to generate: {}&quot;</span>, coredump_err);
+                    <span class="prelude-val">Err</span>(err)
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Err</span>(err.context(<span class="macro">format!</span>(<span class="string">&quot;core dumped at {}&quot;</span>, coredump_path.display())))
                 }
-            } <span class="kw">else</span> {
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(err)
             }
-        } <span class="kw">else</span> {
-            <span class="ident">invoke_res</span>
+        } <span class="kw">else </span>{
+            invoke_res
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">inner_module_run</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>, <span class="ident">instance</span>: <span class="ident">Instance</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
-        <span class="comment">// If this module exports an _initialize function, run that first.</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">initialize</span>) <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_initialize&quot;</span>) {
-            <span class="ident">initialize</span>
-                .<span class="ident">call</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span>[])
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to run _initialize function&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>inner_module_run(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store, instance: Instance) -&gt; <span class="prelude-ty">Result</span>&lt;i32&gt; {
+        <span class="comment">// If this module exports an _initialize function, run that first.
+        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = instance.exports.get_function(<span class="string">&quot;_initialize&quot;</span>) {
+            initialize
+                .call(store, <span class="kw-2">&amp;</span>[])
+                .with_context(|| <span class="string">&quot;failed to run _initialize function&quot;</span>)<span class="question-mark">?</span>;
         }
 
-        <span class="comment">// Do we want to invoke a function?</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">invoke</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">invoke</span> {
-            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">invoke_function</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="ident">invoke</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)<span class="question-mark">?</span>;
+        <span class="comment">// Do we want to invoke a function?
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>invoke) = <span class="self">self</span>.invoke {
+            <span class="kw">let </span>result = <span class="self">self</span>.invoke_function(store, <span class="kw-2">&amp;</span>instance, invoke, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
             <span class="macro">println!</span>(
                 <span class="string">&quot;{}&quot;</span>,
-                <span class="ident">result</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">to_string</span>())
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                    .<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
+                result
+                    .iter()
+                    .map(|val| val.to_string())
+                    .collect::&lt;Vec&lt;String&gt;&gt;()
+                    .join(<span class="string">&quot; &quot;</span>)
             );
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">start</span>: <span class="ident">Function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">try_find_function</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="string">&quot;_start&quot;</span>, <span class="kw-2">&amp;</span>[])<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">start</span>.<span class="ident">call</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span>[]);
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-            <span class="kw">return</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">handle_result</span>(<span class="ident">result</span>);
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">result</span><span class="question-mark">?</span>);
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>start: Function = <span class="self">self</span>.try_find_function(<span class="kw-2">&amp;</span>instance, <span class="string">&quot;_start&quot;</span>, <span class="kw-2">&amp;</span>[])<span class="question-mark">?</span>;
+            <span class="kw">let </span>result = start.call(store, <span class="kw-2">&amp;</span>[]);
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;wasi&quot;</span>)]
+            </span><span class="kw">return </span><span class="self">self</span>.wasi.handle_result(result);
+            <span class="attribute">#[cfg(not(feature = <span class="string">&quot;wasi&quot;</span>))]
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(result<span class="question-mark">?</span>);
         }
 
         <span class="prelude-val">Ok</span>(<span class="number">0</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
-        {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pf</span>) <span class="op">=</span> <span class="ident">WapmContainer::from_path</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>()) {
-                <span class="kw">return</span> <span class="self">self</span>.<span class="ident">run_container</span>(<span class="ident">pf</span>, <span class="self">self</span>.<span class="ident">command_name</span>.<span class="ident">as_deref</span>(), <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>);
+    <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
+        </span>{
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(pf) = WapmContainer::from_path(<span class="self">self</span>.path.clone()) {
+                <span class="kw">return </span><span class="self">self</span>.run_container(pf, <span class="self">self</span>.command_name.as_deref(), <span class="kw-2">&amp;</span><span class="self">self</span>.args);
             }
         }
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">store</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_store_module</span>()<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;emscripten&quot;</span>)]</span>
-        {
-            <span class="kw">use</span> <span class="ident">wasmer_emscripten</span>::{
-                <span class="ident">generate_emscripten_env</span>, <span class="ident">is_emscripten_module</span>, <span class="ident">run_emscripten_instance</span>, <span class="ident">EmEnv</span>,
-                <span class="ident">EmscriptenGlobals</span>,
+        <span class="kw">let </span>(<span class="kw-2">mut </span>store, module) = <span class="self">self</span>.get_store_module()<span class="question-mark">?</span>;
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;emscripten&quot;</span>)]
+        </span>{
+            <span class="kw">use </span>wasmer_emscripten::{
+                generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
+                EmscriptenGlobals,
             };
-            <span class="comment">// TODO: refactor this</span>
-            <span class="kw">if</span> <span class="ident">is_emscripten_module</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>) {
-                <span class="kw">let</span> <span class="ident">em_env</span> <span class="op">=</span> <span class="ident">EmEnv::new</span>();
-                <span class="kw">for</span> (<span class="ident">k</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">env_vars</span>.<span class="ident">iter</span>() {
-                    <span class="ident">em_env</span>.<span class="ident">set_env_var</span>(<span class="ident">k</span>, <span class="ident">v</span>);
+            <span class="comment">// TODO: refactor this
+            </span><span class="kw">if </span>is_emscripten_module(<span class="kw-2">&amp;</span>module) {
+                <span class="kw">let </span>em_env = EmEnv::new();
+                <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="self">self</span>.wasi.env_vars.iter() {
+                    em_env.set_env_var(k, v);
                 }
-                <span class="comment">// create an EmEnv with default global</span>
-                <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">FunctionEnv::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">em_env</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">emscripten_globals</span> <span class="op">=</span> <span class="ident">EmscriptenGlobals::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>))<span class="question-mark">?</span>;
-                <span class="ident">env</span>.<span class="ident">as_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>).<span class="ident">set_data</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">emscripten_globals</span>.<span class="ident">data</span>,
-                    <span class="self">self</span>.<span class="ident">wasi</span>
-                        .<span class="ident">mapped_dirs</span>
-                        .<span class="ident">clone</span>()
-                        .<span class="ident">into_iter</span>()
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">d</span><span class="op">|</span> (<span class="ident">d</span>.<span class="ident">guest</span>, <span class="ident">d</span>.<span class="ident">host</span>))
-                        .<span class="ident">collect</span>(),
+                <span class="comment">// create an EmEnv with default global
+                </span><span class="kw">let </span>env = FunctionEnv::new(<span class="kw-2">&amp;mut </span>store, em_env);
+                <span class="kw">let </span><span class="kw-2">mut </span>emscripten_globals = EmscriptenGlobals::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>module)
+                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{}&quot;</span>, e))<span class="question-mark">?</span>;
+                env.as_mut(<span class="kw-2">&amp;mut </span>store).set_data(
+                    <span class="kw-2">&amp;</span>emscripten_globals.data,
+                    <span class="self">self</span>.wasi
+                        .mapped_dirs
+                        .clone()
+                        .into_iter()
+                        .map(|d| (d.guest, d.host))
+                        .collect(),
                 );
-                <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span>
-                    <span class="ident">generate_emscripten_env</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>, <span class="kw-2">&amp;mut</span> <span class="ident">emscripten_globals</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>) {
-                    <span class="prelude-val">Ok</span>(<span class="ident">instance</span>) =&gt; <span class="ident">instance</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">err</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>);
-                        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-                        {
-                            <span class="kw">if</span> <span class="ident">Wasi::has_wasi_imports</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>) {
-                                <span class="kw">return</span> <span class="ident">err</span>.<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;This module has both Emscripten and WASI imports. Wasmer does not currently support Emscripten modules using WASI imports.&quot;</span>);
+                <span class="kw">let </span>import_object =
+                    generate_emscripten_env(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;mut </span>emscripten_globals);
+                <span class="kw">let </span><span class="kw-2">mut </span>instance = <span class="kw">match </span>Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object) {
+                    <span class="prelude-val">Ok</span>(instance) =&gt; instance,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="kw">let </span>err: <span class="prelude-ty">Result</span>&lt;(), <span class="kw">_</span>&gt; = <span class="prelude-val">Err</span>(e);
+                        <span class="attribute">#[cfg(feature = <span class="string">&quot;wasi&quot;</span>)]
+                        </span>{
+                            <span class="kw">if </span>Wasi::has_wasi_imports(<span class="kw-2">&amp;</span>module) {
+                                <span class="kw">return </span>err.with_context(|| <span class="string">&quot;This module has both Emscripten and WASI imports. Wasmer does not currently support Emscripten modules using WASI imports.&quot;</span>);
                             }
                         }
-                        <span class="kw">return</span> <span class="ident">err</span>.<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;Can&#39;t instantiate emscripten module&quot;</span>);
+                        <span class="kw">return </span>err.with_context(|| <span class="string">&quot;Can&#39;t instantiate emscripten module&quot;</span>);
                     }
                 };
 
-                <span class="ident">run_emscripten_instance</span>(
-                    <span class="kw-2">&amp;mut</span> <span class="ident">instance</span>,
-                    <span class="ident">env</span>.<span class="ident">into_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>),
-                    <span class="kw-2">&amp;mut</span> <span class="ident">emscripten_globals</span>,
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cn</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">command_name</span> {
-                        <span class="ident">cn</span>
-                    } <span class="kw">else</span> {
-                        <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>()
+                run_emscripten_instance(
+                    <span class="kw-2">&amp;mut </span>instance,
+                    env.into_mut(<span class="kw-2">&amp;mut </span>store),
+                    <span class="kw-2">&amp;mut </span>emscripten_globals,
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(cn) = <span class="kw-2">&amp;</span><span class="self">self</span>.command_name {
+                        cn
+                    } <span class="kw">else </span>{
+                        <span class="self">self</span>.path.to_str().unwrap()
                     },
-                    <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">arg</span><span class="op">|</span> <span class="ident">arg</span>.<span class="ident">as_str</span>()).<span class="ident">collect</span>(),
-                    <span class="self">self</span>.<span class="ident">invoke</span>.<span class="ident">clone</span>(),
+                    <span class="self">self</span>.args.iter().map(|arg| arg.as_str()).collect(),
+                    <span class="self">self</span>.invoke.clone(),
                 )<span class="question-mark">?</span>;
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
             }
         }
 
-        <span class="comment">// If WASI is enabled, try to execute it with it</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> {
-            <span class="kw">use</span> <span class="ident">std::collections::BTreeSet</span>;
-            <span class="kw">use</span> <span class="ident">wasmer_wasix::WasiVersion</span>;
+        <span class="comment">// If WASI is enabled, try to execute it with it
+        </span><span class="attribute">#[cfg(feature = <span class="string">&quot;wasi&quot;</span>)]
+        </span><span class="kw">let </span>ret = {
+            <span class="kw">use </span>std::collections::BTreeSet;
+            <span class="kw">use </span>wasmer_wasix::WasiVersion;
 
-            <span class="kw">let</span> <span class="ident">wasi_versions</span> <span class="op">=</span> <span class="ident">Wasi::get_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>);
-            <span class="kw">match</span> <span class="ident">wasi_versions</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">wasi_versions</span>) <span class="kw">if</span> <span class="op">!</span><span class="ident">wasi_versions</span>.<span class="ident">is_empty</span>() =&gt; {
-                    <span class="kw">if</span> <span class="ident">wasi_versions</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">2</span> {
-                        <span class="kw">let</span> <span class="ident">get_version_list</span> <span class="op">=</span> <span class="op">|</span><span class="ident">versions</span>: <span class="kw-2">&amp;</span><span class="ident">BTreeSet</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span><span class="op">|</span> -&gt; <span class="ident">String</span> {
-                            <span class="ident">versions</span>
-                                .<span class="ident">iter</span>()
-                                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, <span class="ident">v</span>.<span class="ident">get_namespace_str</span>()))
-                                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                                .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>)
+            <span class="kw">let </span>wasi_versions = Wasi::get_versions(<span class="kw-2">&amp;</span>module);
+            <span class="kw">match </span>wasi_versions {
+                <span class="prelude-val">Some</span>(wasi_versions) <span class="kw">if </span>!wasi_versions.is_empty() =&gt; {
+                    <span class="kw">if </span>wasi_versions.len() &gt;= <span class="number">2 </span>{
+                        <span class="kw">let </span>get_version_list = |versions: <span class="kw-2">&amp;</span>BTreeSet&lt;WasiVersion&gt;| -&gt; String {
+                            versions
+                                .iter()
+                                .map(|v| <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, v.get_namespace_str()))
+                                .collect::&lt;Vec&lt;String&gt;&gt;()
+                                .join(<span class="string">&quot;, &quot;</span>)
                         };
-                        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">deny_multiple_wasi_versions</span> {
-                            <span class="kw">let</span> <span class="ident">version_list</span> <span class="op">=</span> <span class="ident">get_version_list</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_versions</span>);
-                            <span class="macro">bail!</span>(<span class="string">&quot;Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.&quot;</span>, <span class="ident">version_list</span>);
-                        } <span class="kw">else</span> <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">allow_multiple_wasi_versions</span> {
-                            <span class="kw">let</span> <span class="ident">version_list</span> <span class="op">=</span> <span class="ident">get_version_list</span>(<span class="kw-2">&amp;</span><span class="ident">wasi_versions</span>);
-                            <span class="macro">warning!</span>(<span class="string">&quot;Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.&quot;</span>, <span class="ident">version_list</span>);
+                        <span class="kw">if </span><span class="self">self</span>.wasi.deny_multiple_wasi_versions {
+                            <span class="kw">let </span>version_list = get_version_list(<span class="kw-2">&amp;</span>wasi_versions);
+                            <span class="macro">bail!</span>(<span class="string">&quot;Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.&quot;</span>, version_list);
+                        } <span class="kw">else if </span>!<span class="self">self</span>.wasi.allow_multiple_wasi_versions {
+                            <span class="kw">let </span>version_list = get_version_list(<span class="kw-2">&amp;</span>wasi_versions);
+                            <span class="macro">warning!</span>(<span class="string">&quot;Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.&quot;</span>, version_list);
                         }
                     }
 
-                    <span class="kw">let</span> <span class="ident">program_name</span> <span class="op">=</span> <span class="self">self</span>
-                        .<span class="ident">command_name</span>
-                        .<span class="ident">clone</span>()
-                        .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                            <span class="self">self</span>.<span class="ident">path</span>
-                                .<span class="ident">file_name</span>()
-                                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">to_string_lossy</span>().<span class="ident">to_string</span>())
+                    <span class="kw">let </span>program_name = <span class="self">self
+                        </span>.command_name
+                        .clone()
+                        .or_else(|| {
+                            <span class="self">self</span>.path
+                                .file_name()
+                                .map(|f| f.to_string_lossy().to_string())
                         })
-                        .<span class="ident">unwrap_or_default</span>();
-                    <span class="kw">let</span> (<span class="ident">ctx</span>, <span class="ident">instance</span>) <span class="op">=</span> <span class="self">self</span>
-                        .<span class="ident">wasi</span>
-                        .<span class="ident">instantiate</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="ident">program_name</span>, <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>())
-                        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to instantiate WASI module&quot;</span>)<span class="question-mark">?</span>;
-                    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner_module_run</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">instance</span>);
+                        .unwrap_or_default();
+                    <span class="kw">let </span>(ctx, instance) = <span class="self">self
+                        </span>.wasi
+                        .instantiate(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, program_name, <span class="self">self</span>.args.clone())
+                        .with_context(|| <span class="string">&quot;failed to instantiate WASI module&quot;</span>)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>res = <span class="self">self</span>.inner_module_run(<span class="kw-2">&amp;mut </span>store, instance);
 
-                    <span class="ident">ctx</span>.<span class="ident">cleanup</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="prelude-val">None</span>);
+                    ctx.cleanup(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">None</span>);
 
-                    <span class="ident">res</span>
+                    res
                 }
-                <span class="comment">// not WASI</span>
-                <span class="kw">_</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports!</span> {})<span class="question-mark">?</span>;
-                    <span class="self">self</span>.<span class="ident">inner_module_run</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">instance</span>)
+                <span class="comment">// not WASI
+                </span><span class="kw">_ </span>=&gt; {
+                    <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span><span class="macro">imports! </span>{})<span class="question-mark">?</span>;
+                    <span class="self">self</span>.inner_module_run(<span class="kw-2">&amp;mut </span>store, instance)
                 }
             }
-        }.<span class="ident">map</span>(<span class="op">|</span><span class="ident">exit_code</span><span class="op">|</span> {
-            <span class="ident">std::io::stdout</span>().<span class="ident">flush</span>().<span class="ident">ok</span>();
-            <span class="ident">std::io::stderr</span>().<span class="ident">flush</span>().<span class="ident">ok</span>();
-            <span class="ident">std::process::exit</span>(<span class="ident">exit_code</span>);
+        }.map(|exit_code| {
+            std::io::stdout().flush().ok();
+            std::io::stderr().flush().ok();
+            std::process::exit(exit_code);
         });
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="macro">imports!</span> {})<span class="question-mark">?</span>;
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;wasi&quot;</span>))]
+        </span><span class="kw">let </span>ret = {
+            <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span><span class="macro">imports! </span>{})<span class="question-mark">?</span>;
 
-            <span class="comment">// If this module exports an _initialize function, run that first.</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">initialize</span>) <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_initialize&quot;</span>) {
-                <span class="ident">initialize</span>
-                    .<span class="ident">call</span>(<span class="kw-2">&amp;</span>[])
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to run _initialize function&quot;</span>)<span class="question-mark">?</span>;
+            <span class="comment">// If this module exports an _initialize function, run that first.
+            </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = instance.exports.get_function(<span class="string">&quot;_initialize&quot;</span>) {
+                initialize
+                    .call(<span class="kw-2">&amp;</span>[])
+                    .with_context(|| <span class="string">&quot;failed to run _initialize function&quot;</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="comment">// Do we want to invoke a function?</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">invoke</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">invoke</span> {
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">invoke_function</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="ident">invoke</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)<span class="question-mark">?</span>;
+            <span class="comment">// Do we want to invoke a function?
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>invoke) = <span class="self">self</span>.invoke {
+                <span class="kw">let </span>result = <span class="self">self</span>.invoke_function(<span class="kw-2">&amp;</span>instance, invoke, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
                 <span class="macro">println!</span>(
                     <span class="string">&quot;{}&quot;</span>,
-                    <span class="ident">result</span>
-                        .<span class="ident">iter</span>()
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">to_string</span>())
-                        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                        .<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
+                    result
+                        .iter()
+                        .map(|val| val.to_string())
+                        .collect::&lt;Vec&lt;String&gt;&gt;()
+                        .join(<span class="string">&quot; &quot;</span>)
                 );
-            } <span class="kw">else</span> {
-                <span class="kw">let</span> <span class="ident">start</span>: <span class="ident">Function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">try_find_function</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="string">&quot;_start&quot;</span>, <span class="kw-2">&amp;</span>[])<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[]);
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-                <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">handle_result</span>(<span class="ident">result</span>)<span class="question-mark">?</span>;
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
-                <span class="ident">result</span><span class="question-mark">?</span>;
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>start: Function = <span class="self">self</span>.try_find_function(<span class="kw-2">&amp;</span>instance, <span class="string">&quot;_start&quot;</span>, <span class="kw-2">&amp;</span>[])<span class="question-mark">?</span>;
+                <span class="kw">let </span>result = start.call(<span class="kw-2">&amp;</span>[]);
+                <span class="attribute">#[cfg(feature = <span class="string">&quot;wasi&quot;</span>)]
+                </span><span class="self">self</span>.wasi.handle_result(result)<span class="question-mark">?</span>;
+                <span class="attribute">#[cfg(not(feature = <span class="string">&quot;wasi&quot;</span>))]
+                </span>result<span class="question-mark">?</span>;
             }
         };
 
-        <span class="ident">ret</span>
+        ret
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">run_container</span>(
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
+    </span><span class="kw">fn </span>run_container(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">container</span>: <span class="ident">WapmContainer</span>,
-        <span class="ident">id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-        <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">id</span>
-            .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">container</span>.<span class="ident">manifest</span>().<span class="ident">entrypoint</span>.<span class="ident">as_deref</span>())
-            .<span class="ident">context</span>(<span class="string">&quot;No command specified&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">container</span>
-            .<span class="ident">manifest</span>()
-            .<span class="ident">commands</span>
-            .<span class="ident">get</span>(<span class="ident">id</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;No metadata found for the command, \&quot;{id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
+        container: WapmContainer,
+        id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+        args: <span class="kw-2">&amp;</span>[String],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>id = id
+            .or_else(|| container.manifest().entrypoint.as_deref())
+            .context(<span class="string">&quot;No command specified&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>command = container
+            .manifest()
+            .commands
+            .get(id)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;No metadata found for the command, \&quot;{id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::wasi::WasiRunner::new</span>(<span class="ident">store</span>);
-        <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
-        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WASI runner failed&quot;</span>);
+        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
+        runner.set_args(args.to_vec());
+        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span>runner.run_cmd(<span class="kw-2">&amp;</span>container, id).context(<span class="string">&quot;WASI runner failed&quot;</span>);
         }
 
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::emscripten::EmscriptenRunner::new</span>(<span class="ident">store</span>);
-        <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
-        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="ident">runner</span>
-                .<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>)
-                .<span class="ident">context</span>(<span class="string">&quot;Emscripten runner failed&quot;</span>);
+        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(args.to_vec());
+        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span>runner
+                .run_cmd(<span class="kw-2">&amp;</span>container, id)
+                .context(<span class="string">&quot;Emscripten runner failed&quot;</span>);
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::wcgi::WcgiRunner::new</span>(<span class="ident">id</span>);
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="ident">runner</span>
-            .<span class="ident">config</span>()
-            .<span class="ident">args</span>(<span class="ident">args</span>)
-            .<span class="ident">store</span>(<span class="ident">store</span>)
-            .<span class="ident">addr</span>(<span class="self">self</span>.<span class="ident">wcgi</span>.<span class="ident">addr</span>)
-            .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">env_vars</span>.<span class="ident">clone</span>())
-            .<span class="ident">map_directories</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">clone</span>());
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">forward_host_env</span> {
-            <span class="ident">runner</span>.<span class="ident">config</span>().<span class="ident">forward_host_env</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
+        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        runner
+            .config()
+            .args(args)
+            .store(store)
+            .addr(<span class="self">self</span>.wcgi.addr)
+            .envs(<span class="self">self</span>.wasi.env_vars.clone())
+            .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone());
+        <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
+            runner.config().forward_host_env();
         }
-        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WCGI runner failed&quot;</span>);
+        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span>runner.run_cmd(<span class="kw-2">&amp;</span>container, id).context(<span class="string">&quot;WCGI runner failed&quot;</span>);
         }
 
         <span class="macro">anyhow::bail!</span>(
             <span class="string">&quot;Unable to find a runner that supports \&quot;{}\&quot;&quot;</span>,
-            <span class="ident">command</span>.<span class="ident">runner</span>
+            command.runner
         );
     }
 
-    <span class="kw">fn</span> <span class="ident">get_store_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">Module</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">contents</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">wasmer_compiler::Artifact::is_deserializable</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>) {
-            <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasmer_compiler::EngineBuilder::headless</span>();
-            <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="ident">engine</span>);
-            <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize_from_file</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>)<span class="question-mark">?</span> };
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">module</span>));
+    <span class="kw">fn </span>get_store_module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Store, Module)&gt; {
+        <span class="kw">let </span>contents = std::fs::read(<span class="self">self</span>.path.clone())<span class="question-mark">?</span>;
+        <span class="kw">if </span>wasmer_compiler::Artifact::is_deserializable(<span class="kw-2">&amp;</span>contents) {
+            <span class="kw">let </span>engine = wasmer_compiler::EngineBuilder::headless();
+            <span class="kw">let </span>store = Store::new(engine);
+            <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">? </span>};
+            <span class="kw">return </span><span class="prelude-val">Ok</span>((store, module));
         }
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">module_result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">disable_cache</span> <span class="op">&amp;&amp;</span> <span class="ident">contents</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">0x1000</span> {
-            <span class="self">self</span>.<span class="ident">get_module_from_cache</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">contents</span>, <span class="kw-2">&amp;</span><span class="ident">compiler_type</span>)
-        } <span class="kw">else</span> {
-            <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">into</span>())
+        <span class="kw">let </span>(store, compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;cache&quot;</span>)]
+        </span><span class="kw">let </span>module_result: <span class="prelude-ty">Result</span>&lt;Module&gt; = <span class="kw">if </span>!<span class="self">self</span>.disable_cache &amp;&amp; contents.len() &gt; <span class="number">0x1000 </span>{
+            <span class="self">self</span>.get_module_from_cache(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>contents, <span class="kw-2">&amp;</span>compiler_type)
+        } <span class="kw">else </span>{
+            Module::new(<span class="kw-2">&amp;</span>store, contents).map_err(|e| e.into())
         };
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">module_result</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">contents</span>);
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;cache&quot;</span>))]
+        </span><span class="kw">let </span>module_result = Module::new(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>contents);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module_result</span>.<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="kw">let </span><span class="kw-2">mut </span>module = module_result.with_context(|| {
             <span class="macro">format!</span>(
                 <span class="string">&quot;module instantiation failed (compiler: {})&quot;</span>,
-                <span class="ident">compiler_type</span>.<span class="ident">to_string</span>()
+                compiler_type.to_string()
             )
         })<span class="question-mark">?</span>;
-        <span class="comment">// We set the name outside the cache, to make sure we dont cache the name</span>
-        <span class="ident">module</span>.<span class="ident">set_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">path</span>.<span class="ident">file_name</span>().<span class="ident">unwrap_or_default</span>().<span class="ident">to_string_lossy</span>());
+        <span class="comment">// We set the name outside the cache, to make sure we dont cache the name
+        </span>module.set_name(<span class="kw-2">&amp;</span><span class="self">self</span>.path.file_name().unwrap_or_default().to_string_lossy());
 
-        <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">module</span>))
+        <span class="prelude-val">Ok</span>((store, module))
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">get_module_from_cache</span>(
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;cache&quot;</span>)]
+    </span><span class="kw">fn </span>get_module_from_cache(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
-        <span class="ident">contents</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="comment">// We try to get it from cache, in case caching is enabled</span>
-        <span class="comment">// and the file length is greater than 4KB.</span>
-        <span class="comment">// For files smaller than 4KB caching is not worth,</span>
-        <span class="comment">// as it takes space and the speedup is minimal.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_cache</span>(<span class="ident">compiler_type</span>)<span class="question-mark">?</span>;
-        <span class="comment">// Try to get the hash from the provided `--cache-key`, otherwise</span>
-        <span class="comment">// generate one from the provided file `.wasm` contents.</span>
-        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">cache_key</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">key</span><span class="op">|</span> <span class="ident">Hash::from_str</span>(<span class="ident">key</span>).<span class="ident">ok</span>())
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Hash::generate</span>(<span class="ident">contents</span>));
-        <span class="kw">match</span> <span class="kw">unsafe</span> { <span class="ident">cache</span>.<span class="ident">load</span>(<span class="ident">store</span>, <span class="ident">hash</span>) } {
-            <span class="prelude-val">Ok</span>(<span class="ident">module</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">module</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="kw">match</span> <span class="ident">e</span> {
-                    <span class="ident">DeserializeError::Io</span>(<span class="kw">_</span>) =&gt; {
-                        <span class="comment">// Do not notify on IO errors</span>
-                    }
-                    <span class="ident">err</span> =&gt; {
-                        <span class="macro">warning!</span>(<span class="string">&quot;cached module is corrupted: {}&quot;</span>, <span class="ident">err</span>);
+        store: <span class="kw-2">&amp;</span>Store,
+        contents: <span class="kw-2">&amp;</span>[u8],
+        compiler_type: <span class="kw-2">&amp;</span>CompilerType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module&gt; {
+        <span class="comment">// We try to get it from cache, in case caching is enabled
+        // and the file length is greater than 4KB.
+        // For files smaller than 4KB caching is not worth,
+        // as it takes space and the speedup is minimal.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.get_cache(compiler_type)<span class="question-mark">?</span>;
+        <span class="comment">// Try to get the hash from the provided `--cache-key`, otherwise
+        // generate one from the provided file `.wasm` contents.
+        </span><span class="kw">let </span>hash = <span class="self">self
+            </span>.cache_key
+            .as_ref()
+            .and_then(|key| Hash::from_str(key).ok())
+            .unwrap_or_else(|| Hash::generate(contents));
+        <span class="kw">match unsafe </span>{ cache.load(store, hash) } {
+            <span class="prelude-val">Ok</span>(module) =&gt; <span class="prelude-val">Ok</span>(module),
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="kw">match </span>e {
+                    DeserializeError::Io(<span class="kw">_</span>) =&gt; {
+                        <span class="comment">// Do not notify on IO errors
+                    </span>}
+                    err =&gt; {
+                        <span class="macro">warning!</span>(<span class="string">&quot;cached module is corrupted: {}&quot;</span>, err);
                     }
                 }
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="ident">store</span>, <span class="ident">contents</span>)<span class="question-mark">?</span>;
-                <span class="comment">// Store the compiled Module in cache</span>
-                <span class="ident">cache</span>.<span class="ident">store</span>(<span class="ident">hash</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">module</span>)
+                <span class="kw">let </span>module = Module::new(store, contents)<span class="question-mark">?</span>;
+                <span class="comment">// Store the compiled Module in cache
+                </span>cache.store(hash, <span class="kw-2">&amp;</span>module)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(module)
             }
         }
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
-    <span class="doccomment">/// Get the Compiler Filesystem cache</span>
-    <span class="kw">fn</span> <span class="ident">get_cache</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">compiler_type</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FileSystemCache</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache_dir_root</span> <span class="op">=</span> <span class="ident">get_cache_dir</span>();
-        <span class="ident">cache_dir_root</span>.<span class="ident">push</span>(<span class="ident">compiler_type</span>.<span class="ident">to_string</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">FileSystemCache::new</span>(<span class="ident">cache_dir_root</span>)<span class="question-mark">?</span>;
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;cache&quot;</span>)]
+    </span><span class="doccomment">/// Get the Compiler Filesystem cache
+    </span><span class="kw">fn </span>get_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, compiler_type: <span class="kw-2">&amp;</span>CompilerType) -&gt; <span class="prelude-ty">Result</span>&lt;FileSystemCache&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>cache_dir_root = get_cache_dir();
+        cache_dir_root.push(compiler_type.to_string());
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = FileSystemCache::new(cache_dir_root)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span> <span class="string">&quot;wasmu&quot;</span>;
-        <span class="ident">cache</span>.<span class="ident">set_cache_extension</span>(<span class="prelude-val">Some</span>(<span class="ident">extension</span>));
-        <span class="prelude-val">Ok</span>(<span class="ident">cache</span>)
+        <span class="kw">let </span>extension = <span class="string">&quot;wasmu&quot;</span>;
+        cache.set_cache_extension(<span class="prelude-val">Some</span>(extension));
+        <span class="prelude-val">Ok</span>(cache)
     }
 
-    <span class="kw">fn</span> <span class="ident">try_find_function</span>(
+    <span class="kw">fn </span>try_find_function(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">instance</span>
-            .<span class="ident">exports</span>
-            .<span class="ident">get_function</span>(<span class="ident">name</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                <span class="kw">if</span> <span class="ident">instance</span>.<span class="ident">module</span>().<span class="ident">info</span>().<span class="ident">functions</span>.<span class="ident">is_empty</span>() {
+        instance: <span class="kw-2">&amp;</span>Instance,
+        name: <span class="kw-2">&amp;</span>str,
+        args: <span class="kw-2">&amp;</span>[String],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Function&gt; {
+        <span class="prelude-val">Ok</span>(instance
+            .exports
+            .get_function(name)
+            .map_err(|e| {
+                <span class="kw">if </span>instance.module().info().functions.is_empty() {
                     <span class="macro">anyhow!</span>(<span class="string">&quot;The module has no exported functions to call.&quot;</span>)
-                } <span class="kw">else</span> {
-                    <span class="kw">let</span> <span class="ident">suggested_functions</span> <span class="op">=</span> <span class="ident">suggest_function_exports</span>(<span class="ident">instance</span>.<span class="ident">module</span>(), <span class="string">&quot;&quot;</span>);
-                    <span class="kw">let</span> <span class="ident">names</span> <span class="op">=</span> <span class="ident">suggested_functions</span>
-                        .<span class="ident">iter</span>()
-                        .<span class="ident">take</span>(<span class="number">3</span>)
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">arg</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, <span class="ident">arg</span>))
-                        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                        .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>);
-                    <span class="kw">let</span> <span class="ident">suggested_command</span> <span class="op">=</span> <span class="macro">format!</span>(
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>suggested_functions = suggest_function_exports(instance.module(), <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let </span>names = suggested_functions
+                        .iter()
+                        .take(<span class="number">3</span>)
+                        .map(|arg| <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, arg))
+                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                        .join(<span class="string">&quot;, &quot;</span>);
+                    <span class="kw">let </span>suggested_command = <span class="macro">format!</span>(
                         <span class="string">&quot;wasmer {} -i {} {}&quot;</span>,
-                        <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>(),
-                        <span class="ident">suggested_functions</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">String::new</span>()),
-                        <span class="ident">args</span>.<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
+                        <span class="self">self</span>.path.display(),
+                        suggested_functions.get(<span class="number">0</span>).unwrap_or(<span class="kw-2">&amp;</span>String::new()),
+                        args.join(<span class="string">&quot; &quot;</span>)
                     );
-                    <span class="kw">let</span> <span class="ident">suggestion</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">suggested_functions</span>.<span class="ident">is_empty</span>() {
-                        <span class="ident">String::from</span>(<span class="string">&quot;Can not find any export functions.&quot;</span>)
-                    } <span class="kw">else</span> {
+                    <span class="kw">let </span>suggestion = <span class="kw">if </span>suggested_functions.is_empty() {
+                        String::from(<span class="string">&quot;Can not find any export functions.&quot;</span>)
+                    } <span class="kw">else </span>{
                         <span class="macro">format!</span>(
                             <span class="string">&quot;Similar functions found: {}.\nTry with: {}&quot;</span>,
-                            <span class="ident">names</span>, <span class="ident">suggested_command</span>
+                            names, suggested_command
                         )
                     };
-                    <span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">ExportError::Missing</span>(<span class="kw">_</span>) =&gt; {
-                            <span class="macro">anyhow!</span>(<span class="string">&quot;No export `{}` found in the module.\n{}&quot;</span>, <span class="ident">name</span>, <span class="ident">suggestion</span>)
+                    <span class="kw">match </span>e {
+                        ExportError::Missing(<span class="kw">_</span>) =&gt; {
+                            <span class="macro">anyhow!</span>(<span class="string">&quot;No export `{}` found in the module.\n{}&quot;</span>, name, suggestion)
                         }
-                        <span class="ident">ExportError::IncompatibleType</span> =&gt; <span class="macro">anyhow!</span>(
+                        ExportError::IncompatibleType =&gt; <span class="macro">anyhow!</span>(
                             <span class="string">&quot;Export `{}` found, but is not a function.\n{}&quot;</span>,
-                            <span class="ident">name</span>,
-                            <span class="ident">suggestion</span>
+                            name,
+                            suggestion
                         ),
                     }
                 }
-            })<span class="question-mark">?</span>
-            .<span class="ident">clone</span>())
+            })<span class="question-mark">?
+            </span>.clone())
     }
 
-    <span class="kw">fn</span> <span class="ident">invoke_function</span>(
+    <span class="kw">fn </span>invoke_function(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>,
-        <span class="ident">invoke</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">func</span>: <span class="ident">Function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">try_find_function</span>(<span class="ident">instance</span>, <span class="ident">invoke</span>, <span class="ident">args</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">func_ty</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">ty</span>(<span class="ident">ctx</span>);
-        <span class="kw">let</span> <span class="ident">required_arguments</span> <span class="op">=</span> <span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">len</span>();
-        <span class="kw">let</span> <span class="ident">provided_arguments</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">len</span>();
-        <span class="kw">if</span> <span class="ident">required_arguments</span> <span class="op">!</span><span class="op">=</span> <span class="ident">provided_arguments</span> {
+        ctx: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        instance: <span class="kw-2">&amp;</span>Instance,
+        invoke: <span class="kw-2">&amp;</span>str,
+        args: <span class="kw-2">&amp;</span>[String],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;[Value]&gt;&gt; {
+        <span class="kw">let </span>func: Function = <span class="self">self</span>.try_find_function(instance, invoke, args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>func_ty = func.ty(ctx);
+        <span class="kw">let </span>required_arguments = func_ty.params().len();
+        <span class="kw">let </span>provided_arguments = args.len();
+        <span class="kw">if </span>required_arguments != provided_arguments {
             <span class="macro">bail!</span>(
                 <span class="string">&quot;Function expected {} arguments, but received {}: \&quot;{}\&quot;&quot;</span>,
-                <span class="ident">required_arguments</span>,
-                <span class="ident">provided_arguments</span>,
-                <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
+                required_arguments,
+                provided_arguments,
+                <span class="self">self</span>.args.join(<span class="string">&quot; &quot;</span>)
             );
         }
-        <span class="kw">let</span> <span class="ident">invoke_args</span> <span class="op">=</span> <span class="ident">args</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">zip</span>(<span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">iter</span>())
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">arg</span>, <span class="ident">param_type</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">param_type</span> {
-                <span class="ident">ValueType::I32</span> =&gt; {
-                    <span class="prelude-val">Ok</span>(<span class="ident">Value::I32</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a i32&quot;</span>, <span class="ident">arg</span>)
+        <span class="kw">let </span>invoke_args = args
+            .iter()
+            .zip(func_ty.params().iter())
+            .map(|(arg, param_type)| <span class="kw">match </span>param_type {
+                ValueType::I32 =&gt; {
+                    <span class="prelude-val">Ok</span>(Value::I32(arg.parse().map_err(|<span class="kw">_</span>| {
+                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a i32&quot;</span>, arg)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="ident">ValueType::I64</span> =&gt; {
-                    <span class="prelude-val">Ok</span>(<span class="ident">Value::I64</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a i64&quot;</span>, <span class="ident">arg</span>)
+                ValueType::I64 =&gt; {
+                    <span class="prelude-val">Ok</span>(Value::I64(arg.parse().map_err(|<span class="kw">_</span>| {
+                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a i64&quot;</span>, arg)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="ident">ValueType::F32</span> =&gt; {
-                    <span class="prelude-val">Ok</span>(<span class="ident">Value::F32</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a f32&quot;</span>, <span class="ident">arg</span>)
+                ValueType::F32 =&gt; {
+                    <span class="prelude-val">Ok</span>(Value::F32(arg.parse().map_err(|<span class="kw">_</span>| {
+                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a f32&quot;</span>, arg)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="ident">ValueType::F64</span> =&gt; {
-                    <span class="prelude-val">Ok</span>(<span class="ident">Value::F64</span>(<span class="ident">arg</span>.<span class="ident">parse</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a f64&quot;</span>, <span class="ident">arg</span>)
+                ValueType::F64 =&gt; {
+                    <span class="prelude-val">Ok</span>(Value::F64(arg.parse().map_err(|<span class="kw">_</span>| {
+                        <span class="macro">anyhow!</span>(<span class="string">&quot;Can&#39;t convert `{}` into a f64&quot;</span>, arg)
                     })<span class="question-mark">?</span>))
                 }
-                <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
                     <span class="string">&quot;Don&#39;t know how to convert {} into {:?}&quot;</span>,
-                    <span class="ident">arg</span>,
-                    <span class="ident">param_type</span>
+                    arg,
+                    param_type
                 )),
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">func</span>.<span class="ident">call</span>(<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">invoke_args</span>)<span class="question-mark">?</span>)
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(func.call(ctx, <span class="kw-2">&amp;</span>invoke_args)<span class="question-mark">?</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Run</span> {
-    <span class="doccomment">/// Executes the `wasmer run` command</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="comment">// downloads and installs the package if necessary</span>
-        <span class="kw">let</span> <span class="ident">path_to_run</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">download_and_get_filepath</span>()<span class="question-mark">?</span>;
-        <span class="ident">RunWithPathBuf</span> {
-            <span class="ident">path</span>: <span class="ident">path_to_run</span>,
-            <span class="ident">options</span>: <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">clone</span>(),
+<span class="kw">impl </span>Run {
+    <span class="doccomment">/// Executes the `wasmer run` command
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="comment">// downloads and installs the package if necessary
+        </span><span class="kw">let </span>path_to_run = <span class="self">self</span>.path.download_and_get_filepath()<span class="question-mark">?</span>;
+        RunWithPathBuf {
+            path: path_to_run,
+            options: <span class="self">self</span>.options.clone(),
         }
-        .<span class="ident">execute</span>()
+        .execute()
     }
 
-    <span class="doccomment">/// Create Run instance for arguments/env,</span>
-    <span class="doccomment">/// assuming we&#39;re being run from a CFP binfmt interpreter.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binfmt_args</span>() -&gt; <span class="ident">Run</span> {
-        <span class="ident"><span class="self">Self</span>::from_binfmt_args_fallible</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="ident"><span class="kw">crate</span>::error::PrettyError::report</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>(
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>).<span class="ident">context</span>(<span class="string">&quot;Failed to set up wasmer binfmt invocation&quot;</span>),
+    <span class="doccomment">/// Create Run instance for arguments/env,
+    /// assuming we&#39;re being run from a CFP binfmt interpreter.
+    </span><span class="kw">pub fn </span>from_binfmt_args() -&gt; Run {
+        <span class="self">Self</span>::from_binfmt_args_fallible().unwrap_or_else(|e| {
+            <span class="kw">crate</span>::error::PrettyError::report::&lt;()&gt;(
+                <span class="prelude-val">Err</span>(e).context(<span class="string">&quot;Failed to set up wasmer binfmt invocation&quot;</span>),
             )
         })
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">from_binfmt_args_fallible</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">argv</span> <span class="op">=</span> <span class="ident">std::env::args</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> (<span class="ident">_interpreter</span>, <span class="ident">executable</span>, <span class="ident">original_executable</span>, <span class="ident">args</span>) <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">argv</span>[..] {
-            [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span> @ ..] =&gt; (<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>),
-            <span class="kw">_</span> =&gt; {
-                <span class="macro">bail!</span>(<span class="string">&quot;Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})&quot;</span>, <span class="ident">argv</span>);
+    <span class="attribute">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+    </span><span class="kw">fn </span>from_binfmt_args_fallible() -&gt; <span class="prelude-ty">Result</span>&lt;Run&gt; {
+        <span class="kw">let </span>argv = std::env::args().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="kw">let </span>(_interpreter, executable, original_executable, args) = <span class="kw">match </span><span class="kw-2">&amp;</span>argv[..] {
+            [a, b, c, d @ ..] =&gt; (a, b, c, d),
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">bail!</span>(<span class="string">&quot;Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})&quot;</span>, argv);
             }
         };
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">StoreOptions::default</span>();
-        <span class="comment">// TODO: store.compiler.features.all = true; ?</span>
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="comment">// unwrap is safe, since parsing never fails</span>
-            <span class="ident">path</span>: <span class="ident">PackageSource::parse</span>(<span class="ident">executable</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">options</span>: <span class="ident">RunWithoutFile</span> {
-                <span class="ident">args</span>: <span class="ident">args</span>.<span class="ident">to_vec</span>(),
-                <span class="ident">command_name</span>: <span class="prelude-val">Some</span>(<span class="ident">original_executable</span>.<span class="ident">to_string</span>()),
-                <span class="ident">store</span>,
-                <span class="ident">wasi</span>: <span class="ident">Wasi::for_binfmt_interpreter</span>()<span class="question-mark">?</span>,
-                ..<span class="ident">Default::default</span>()
+        <span class="kw">let </span>store = StoreOptions::default();
+        <span class="comment">// TODO: store.compiler.features.all = true; ?
+        </span><span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            <span class="comment">// unwrap is safe, since parsing never fails
+            </span>path: PackageSource::parse(executable).unwrap(),
+            options: RunWithoutFile {
+                args: args.to_vec(),
+                command_name: <span class="prelude-val">Some</span>(original_executable.to_string()),
+                store,
+                wasi: Wasi::for_binfmt_interpreter()<span class="question-mark">?</span>,
+                ..Default::default()
             },
         })
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">from_binfmt_args_fallible</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Run</span><span class="op">&gt;</span> {
+    <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+    </span><span class="kw">fn </span>from_binfmt_args_fallible() -&gt; <span class="prelude-ty">Result</span>&lt;Run&gt; {
         <span class="macro">bail!</span>(<span class="string">&quot;binfmt_misc is only available on linux.&quot;</span>)
     }
 }
 
-<span class="kw">fn</span> <span class="ident">generate_coredump</span>(
-    <span class="ident">err</span>: <span class="kw-2">&amp;</span><span class="ident">anyhow::Error</span>,
-    <span class="ident">source_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">coredump_path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="ident">err</span>
-        .<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">wasmer::RuntimeError</span><span class="op">&gt;</span>()
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;no runtime error found to generate coredump with&quot;</span>))<span class="question-mark">?</span>;
+<span class="kw">fn </span>generate_coredump(
+    err: <span class="kw-2">&amp;</span>anyhow::Error,
+    source_name: <span class="kw-2">&amp;</span>str,
+    coredump_path: <span class="kw-2">&amp;</span>PathBuf,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>err = err
+        .downcast_ref::&lt;wasmer::RuntimeError&gt;()
+        .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;no runtime error found to generate coredump with&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">coredump_builder</span> <span class="op">=</span>
-        <span class="ident">wasm_coredump_builder::CoredumpBuilder::new</span>().<span class="ident">executable_name</span>(<span class="ident">source_name</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
+        wasm_coredump_builder::CoredumpBuilder::new().executable_name(source_name);
 
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">thread_builder</span> <span class="op">=</span> <span class="ident">wasm_coredump_builder::ThreadBuilder::new</span>().<span class="ident">thread_name</span>(<span class="string">&quot;main&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">&quot;main&quot;</span>);
 
-        <span class="kw">for</span> <span class="ident">frame</span> <span class="kw">in</span> <span class="ident">err</span>.<span class="ident">trace</span>() {
-            <span class="kw">let</span> <span class="ident">coredump_frame</span> <span class="op">=</span> <span class="ident">wasm_coredump_builder::FrameBuilder::new</span>()
-                .<span class="ident">codeoffset</span>(<span class="ident">frame</span>.<span class="ident">func_offset</span>() <span class="kw">as</span> <span class="ident">u32</span>)
-                .<span class="ident">funcidx</span>(<span class="ident">frame</span>.<span class="ident">func_index</span>())
-                .<span class="ident">build</span>();
-            <span class="ident">thread_builder</span>.<span class="ident">add_frame</span>(<span class="ident">coredump_frame</span>);
+        <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
+            <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
+                .codeoffset(frame.func_offset() <span class="kw">as </span>u32)
+                .funcidx(frame.func_index())
+                .build();
+            thread_builder.add_frame(coredump_frame);
         }
 
-        <span class="ident">coredump_builder</span>.<span class="ident">add_thread</span>(<span class="ident">thread_builder</span>.<span class="ident">build</span>());
+        coredump_builder.add_thread(thread_builder.build());
     }
 
-    <span class="kw">let</span> <span class="ident">coredump</span> <span class="op">=</span> <span class="ident">coredump_builder</span>
-        .<span class="ident">serialize</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;failed to serialize coredump: {}&quot;</span>, <span class="ident">err</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>coredump = coredump_builder
+        .serialize()
+        .map_err(|err| <span class="macro">anyhow!</span>(<span class="string">&quot;failed to serialize coredump: {}&quot;</span>, err))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">File::create</span>(<span class="ident">coredump_path</span>).<span class="ident">context</span>(<span class="macro">format!</span>(
+    <span class="kw">let </span><span class="kw-2">mut </span>f = File::create(coredump_path).context(<span class="macro">format!</span>(
         <span class="string">&quot;failed to create file at `{}`&quot;</span>,
-        <span class="ident">coredump_path</span>.<span class="ident">display</span>()
+        coredump_path.display()
     ))<span class="question-mark">?</span>;
-    <span class="ident">f</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">coredump</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+    f.write_all(<span class="kw-2">&amp;</span>coredump).with_context(|| {
         <span class="macro">format!</span>(
             <span class="string">&quot;failed to write coredump file at `{}`&quot;</span>,
-            <span class="ident">coredump_path</span>.<span class="ident">display</span>()
+            coredump_path.display()
         )
     })<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WcgiOptions</span> {
-    <span class="doccomment">/// The address to serve on.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">short</span>, <span class="ident">env</span>, <span class="ident">default_value_t</span> <span class="op">=</span> ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).<span class="ident">into</span>())]
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
+<span class="attribute">#[derive(Debug, Clone, Parser)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WcgiOptions {
+    <span class="doccomment">/// The address to serve on.
+    </span><span class="attribute">#[clap(long, short, env, default_value_t = ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).into())]
+    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WcgiOptions</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">addr</span>: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).<span class="ident">into</span>(),
+<span class="kw">impl </span>Default <span class="kw">for </span>WcgiOptions {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

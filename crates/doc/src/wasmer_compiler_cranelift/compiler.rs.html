@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/compiler.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>compiler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/compiler.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>compiler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -469,476 +469,476 @@
 <span id="469">469</span>
 <span id="470">470</span>
 <span id="471">471</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::Cranelift</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::func_environ</span>::{<span class="ident">get_function_name</span>, <span class="ident">FuncEnvironment</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trampoline</span>::{
-    <span class="ident">make_trampoline_dynamic_function</span>, <span class="ident">make_trampoline_function_call</span>, <span class="ident">FunctionBuilderContext</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::address_map::get_function_address_map;
+<span class="kw">use </span><span class="kw">crate</span>::config::Cranelift;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
+<span class="kw">use </span><span class="kw">crate</span>::func_environ::{get_function_name, FuncEnvironment};
+<span class="kw">use </span><span class="kw">crate</span>::trampoline::{
+    make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
 };
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator</span>::{
-    <span class="ident">compiled_function_unwind_info</span>, <span class="ident">irlibcall_to_libcall</span>, <span class="ident">irreloc_to_relocationkind</span>,
-    <span class="ident">signature_to_cranelift_ir</span>, <span class="ident">CraneliftUnwindInfo</span>, <span class="ident">FuncTranslator</span>,
+<span class="kw">use </span><span class="kw">crate</span>::translator::{
+    compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
+    signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
 };
-<span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="ident">ExternalName</span>, <span class="ident">UserFuncName</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">ir</span>, <span class="ident">MachReloc</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">Context</span>, <span class="ident">MachTrap</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">Address</span>, <span class="ident">EhFrame</span>, <span class="ident">FrameTable</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">rayon::prelude</span>::{<span class="ident">IntoParallelRefIterator</span>, <span class="ident">ParallelIterator</span>};
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">Compiler</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">ModuleMiddleware</span>,
-    <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>,
+<span class="kw">use </span>cranelift_codegen::ir::{ExternalName, UserFuncName};
+<span class="kw">use </span>cranelift_codegen::{ir, MachReloc};
+<span class="kw">use </span>cranelift_codegen::{Context, MachTrap};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span>gimli::write::{Address, EhFrame, FrameTable};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+</span><span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_compiler::{
+    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CallingConvention</span>, <span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunction</span>,
-    <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CompiledFunctionUnwindInfo</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>,
-    <span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>,
-    <span class="ident">Target</span>, <span class="ident">TrapCode</span>, <span class="ident">TrapInformation</span>,
+<span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::{
+    CallingConvention, Compilation, CompileError, CompileModuleInfo, CompiledFunction,
+    CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Dwarf, FunctionBody, FunctionIndex,
+    LocalFunctionIndex, ModuleInfo, Relocation, RelocationTarget, SectionIndex, SignatureIndex,
+    Target, TrapCode, TrapInformation,
 };
 
-<span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,</span>
-<span class="doccomment">/// optimizing it and then translating to assembly.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CraneliftCompiler</span> {
-    <span class="ident">config</span>: <span class="ident">Cranelift</span>,
+<span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
+/// optimizing it and then translating to assembly.
+</span><span class="kw">pub struct </span>CraneliftCompiler {
+    config: Cranelift,
 }
 
-<span class="kw">impl</span> <span class="ident">CraneliftCompiler</span> {
-    <span class="doccomment">/// Creates a new Cranelift compiler</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">config</span>: <span class="ident">Cranelift</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">config</span> }
+<span class="kw">impl </span>CraneliftCompiler {
+    <span class="doccomment">/// Creates a new Cranelift compiler
+    </span><span class="kw">pub fn </span>new(config: Cranelift) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ config }
     }
 
-    <span class="doccomment">/// Gets the WebAssembly features for this Compiler</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">config</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Cranelift</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>
+    <span class="doccomment">/// Gets the WebAssembly features for this Compiler
+    </span><span class="kw">pub fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Cranelift {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.config
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Compiler</span> <span class="kw">for</span> <span class="ident">CraneliftCompiler</span> {
-    <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
-        <span class="string">&quot;cranelift&quot;</span>
+<span class="kw">impl </span>Compiler <span class="kw">for </span>CraneliftCompiler {
+    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="string">&quot;cranelift&quot;
+    </span>}
+
+    <span class="doccomment">/// Get the middlewares for this compiler
+    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
     }
 
-    <span class="doccomment">/// Get the middlewares for this compiler</span>
-    <span class="kw">fn</span> <span class="ident">get_middlewares</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>.<span class="ident">middlewares</span>
-    }
-
-    <span class="doccomment">/// Compile the module using Cranelift, producing a compilation result with</span>
-    <span class="doccomment">/// associated relocations.</span>
-    <span class="kw">fn</span> <span class="ident">compile_module</span>(
+    <span class="doccomment">/// Compile the module using Cranelift, producing a compilation result with
+    /// associated relocations.
+    </span><span class="kw">fn </span>compile_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">compile_info</span>: <span class="kw-2">&amp;</span><span class="ident">CompileModuleInfo</span>,
-        <span class="ident">module_translation_state</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
-        <span class="ident">function_body_inputs</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Compilation</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">isa</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">config</span>()
-            .<span class="ident">isa</span>(<span class="ident">target</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">error</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">frontend_config</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">frontend_config</span>();
-        <span class="kw">let</span> <span class="ident">memory_styles</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">memory_styles</span>;
-        <span class="kw">let</span> <span class="ident">table_styles</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">table_styles</span>;
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">module</span>;
-        <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">signatures</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">_sig_index</span>, <span class="ident">func_type</span>)<span class="op">|</span> <span class="ident">signature_to_cranelift_ir</span>(<span class="ident">func_type</span>, <span class="ident">frontend_config</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">ir::Signature</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        target: <span class="kw-2">&amp;</span>Target,
+        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+        module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+        <span class="kw">let </span>isa = <span class="self">self
+            </span>.config()
+            .isa(target)
+            .map_err(|error| CompileError::Codegen(error.to_string()))<span class="question-mark">?</span>;
+        <span class="kw">let </span>frontend_config = isa.frontend_config();
+        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
+        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
+        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
+        <span class="kw">let </span>signatures = module
+            .signatures
+            .iter()
+            .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
+            .collect::&lt;PrimaryMap&lt;SignatureIndex, ir::Signature&gt;&gt;();
 
-        <span class="comment">// Generate the frametable</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dwarf_frametable</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">function_body_inputs</span>.<span class="ident">is_empty</span>() {
-            <span class="comment">// If we have no function body inputs, we don&#39;t need to</span>
-            <span class="comment">// construct the `FrameTable`. Constructing it, with empty</span>
-            <span class="comment">// FDEs will cause some issues in Linux.</span>
-            <span class="prelude-val">None</span>
-        } <span class="kw">else</span> {
-            <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">default_calling_convention</span>() {
-                <span class="prelude-val">Ok</span>(<span class="ident">CallingConvention::SystemV</span>) =&gt; {
-                    <span class="kw">match</span> <span class="ident">isa</span>.<span class="ident">create_systemv_cie</span>() {
-                        <span class="prelude-val">Some</span>(<span class="ident">cie</span>) =&gt; {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dwarf_frametable</span> <span class="op">=</span> <span class="ident">FrameTable::default</span>();
-                            <span class="kw">let</span> <span class="ident">cie_id</span> <span class="op">=</span> <span class="ident">dwarf_frametable</span>.<span class="ident">add_cie</span>(<span class="ident">cie</span>);
-                            <span class="prelude-val">Some</span>((<span class="ident">dwarf_frametable</span>, <span class="ident">cie_id</span>))
+        <span class="comment">// Generate the frametable
+        </span><span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        </span><span class="kw">let </span>dwarf_frametable = <span class="kw">if </span>function_body_inputs.is_empty() {
+            <span class="comment">// If we have no function body inputs, we don&#39;t need to
+            // construct the `FrameTable`. Constructing it, with empty
+            // FDEs will cause some issues in Linux.
+            </span><span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="kw">match </span>target.triple().default_calling_convention() {
+                <span class="prelude-val">Ok</span>(CallingConvention::SystemV) =&gt; {
+                    <span class="kw">match </span>isa.create_systemv_cie() {
+                        <span class="prelude-val">Some</span>(cie) =&gt; {
+                            <span class="kw">let </span><span class="kw-2">mut </span>dwarf_frametable = FrameTable::default();
+                            <span class="kw">let </span>cie_id = dwarf_frametable.add_cie(cie);
+                            <span class="prelude-val">Some</span>((dwarf_frametable, cie_id))
                         }
-                        <span class="comment">// Even though we are in a SystemV system, Cranelift doesn&#39;t support it</span>
-                        <span class="prelude-val">None</span> =&gt; <span class="prelude-val">None</span>,
+                        <span class="comment">// Even though we are in a SystemV system, Cranelift doesn&#39;t support it
+                        </span><span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
                     }
                 }
-                <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
             }
         };
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = PrimaryMap::new();
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_translator</span> <span class="op">=</span> <span class="ident">FuncTranslator::new</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">let</span> (<span class="ident">functions</span>, <span class="ident">fdes</span>): (<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CompiledFunction</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>) <span class="op">=</span> <span class="ident">function_body_inputs</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">LocalFunctionIndex</span>, <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">input</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">func_index</span>(<span class="ident">i</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">Context::new</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_env</span> <span class="op">=</span> <span class="ident">FuncEnvironment::new</span>(
-                    <span class="ident">isa</span>.<span class="ident">frontend_config</span>(),
-                    <span class="ident">module</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">signatures</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">memory_styles</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">table_styles</span>,
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>func_translator = FuncTranslator::new();
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
+            .iter()
+            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;)&gt;&gt;()
+            .into_iter()
+            .map(|(i, input)| {
+                <span class="kw">let </span>func_index = module.func_index(i);
+                <span class="kw">let </span><span class="kw-2">mut </span>context = Context::new();
+                <span class="kw">let </span><span class="kw-2">mut </span>func_env = FuncEnvironment::new(
+                    isa.frontend_config(),
+                    module,
+                    <span class="kw-2">&amp;</span>signatures,
+                    <span class="kw-2">&amp;</span>memory_styles,
+                    <span class="kw-2">&amp;</span>table_styles,
                 );
-                <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">name</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">get_function_name</span>(<span class="ident">func_index</span>) {
-                    <span class="ident">ExternalName::User</span>(<span class="ident">nameref</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">params</span>.<span class="ident">user_named_funcs</span>().<span class="ident">is_valid</span>(<span class="ident">nameref</span>) {
-                            <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">params</span>.<span class="ident">user_named_funcs</span>()[<span class="ident">nameref</span>];
-                            <span class="ident">UserFuncName::User</span>(<span class="ident">name</span>.<span class="ident">clone</span>())
-                        } <span class="kw">else</span> {
-                            <span class="ident">UserFuncName::default</span>()
+                context.func.name = <span class="kw">match </span>get_function_name(func_index) {
+                    ExternalName::User(nameref) =&gt; {
+                        <span class="kw">if </span>context.func.params.user_named_funcs().is_valid(nameref) {
+                            <span class="kw">let </span>name = <span class="kw-2">&amp;</span>context.func.params.user_named_funcs()[nameref];
+                            UserFuncName::User(name.clone())
+                        } <span class="kw">else </span>{
+                            UserFuncName::default()
                         }
                     }
-                    <span class="ident">ExternalName::TestCase</span>(<span class="ident">testcase</span>) =&gt; <span class="ident">UserFuncName::Testcase</span>(<span class="ident">testcase</span>),
-                    <span class="kw">_</span> =&gt; <span class="ident">UserFuncName::default</span>(),
+                    ExternalName::TestCase(testcase) =&gt; UserFuncName::Testcase(testcase),
+                    <span class="kw">_ </span>=&gt; UserFuncName::default(),
                 };
-                <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">signature</span> <span class="op">=</span> <span class="ident">signatures</span>[<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">func_index</span>]].<span class="ident">clone</span>();
-                <span class="comment">// if generate_debug_info {</span>
-                <span class="comment">//     context.func.collect_debug_info();</span>
-                <span class="comment">// }</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span>
-                    <span class="ident">MiddlewareBinaryReader::new_with_offset</span>(<span class="ident">input</span>.<span class="ident">data</span>, <span class="ident">input</span>.<span class="ident">module_offset</span>);
-                <span class="ident">reader</span>.<span class="ident">set_middleware_chain</span>(
-                    <span class="self">self</span>.<span class="ident">config</span>
-                        .<span class="ident">middlewares</span>
-                        .<span class="ident">generate_function_middleware_chain</span>(<span class="ident">i</span>),
+                context.func.signature = signatures[module.functions[func_index]].clone();
+                <span class="comment">// if generate_debug_info {
+                //     context.func.collect_debug_info();
+                // }
+                </span><span class="kw">let </span><span class="kw-2">mut </span>reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(
+                    <span class="self">self</span>.config
+                        .middlewares
+                        .generate_function_middleware_chain(i),
                 );
 
-                <span class="ident">func_translator</span>.<span class="ident">translate</span>(
-                    <span class="ident">module_translation_state</span>,
-                    <span class="kw-2">&amp;mut</span> <span class="ident">reader</span>,
-                    <span class="kw-2">&amp;mut</span> <span class="ident">context</span>.<span class="ident">func</span>,
-                    <span class="kw-2">&amp;mut</span> <span class="ident">func_env</span>,
-                    <span class="ident">i</span>,
+                func_translator.translate(
+                    module_translation_state,
+                    <span class="kw-2">&amp;mut </span>reader,
+                    <span class="kw-2">&amp;mut </span>context.func,
+                    <span class="kw-2">&amp;mut </span>func_env,
+                    i,
                 )<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code_buf</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-                <span class="ident">context</span>
-                    .<span class="ident">compile_and_emit</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;mut</span> <span class="ident">code_buf</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">error</span>.<span class="ident">inner</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>code_buf: Vec&lt;u8&gt; = Vec::new();
+                context
+                    .compile_and_emit(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>code_buf)
+                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">compiled_code</span>().<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">func_relocs</span> <span class="op">=</span> <span class="ident">result</span>
-                    .<span class="ident">buffer</span>
-                    .<span class="ident">relocs</span>()
-                    .<span class="ident">into_iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">mach_reloc_to_reloc</span>(<span class="ident">module</span>, <span class="ident">r</span>))
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+                <span class="kw">let </span>result = context.compiled_code().unwrap();
+                <span class="kw">let </span>func_relocs = result
+                    .buffer
+                    .relocs()
+                    .into_iter()
+                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-                <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="ident">result</span>
-                    .<span class="ident">buffer</span>
-                    .<span class="ident">traps</span>()
-                    .<span class="ident">into_iter</span>()
-                    .<span class="ident">map</span>(<span class="ident">mach_trap_to_trap</span>)
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+                <span class="kw">let </span>traps = result
+                    .buffer
+                    .traps()
+                    .into_iter()
+                    .map(mach_trap_to_trap)
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-                <span class="kw">let</span> (<span class="ident">unwind_info</span>, <span class="ident">fde</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">compiled_function_unwind_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>)<span class="question-mark">?</span> {
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-                    <span class="ident">CraneliftUnwindInfo::Fde</span>(<span class="ident">fde</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">dwarf_frametable</span>.<span class="ident">is_some</span>() {
-                            <span class="kw">let</span> <span class="ident">fde</span> <span class="op">=</span> <span class="ident">fde</span>.<span class="ident">to_fde</span>(<span class="ident">Address::Symbol</span> {
-                                <span class="comment">// The symbol is the kind of relocation.</span>
-                                <span class="comment">// &quot;0&quot; is used for functions</span>
-                                <span class="ident">symbol</span>: <span class="ident">WriterRelocate::FUNCTION_SYMBOL</span>,
-                                <span class="comment">// We use the addend as a way to specify the</span>
-                                <span class="comment">// function index</span>
-                                <span class="ident">addend</span>: <span class="ident">i</span>.<span class="ident">index</span>() <span class="kw">as</span> <span class="kw">_</span>,
+                <span class="kw">let </span>(unwind_info, fde) = <span class="kw">match </span>compiled_function_unwind_info(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">? </span>{
+                    <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    </span>CraneliftUnwindInfo::Fde(fde) =&gt; {
+                        <span class="kw">if </span>dwarf_frametable.is_some() {
+                            <span class="kw">let </span>fde = fde.to_fde(Address::Symbol {
+                                <span class="comment">// The symbol is the kind of relocation.
+                                // &quot;0&quot; is used for functions
+                                </span>symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                <span class="comment">// We use the addend as a way to specify the
+                                // function index
+                                </span>addend: i.index() <span class="kw">as _</span>,
                             });
-                            <span class="comment">// The unwind information is inserted into the dwarf section</span>
-                            (<span class="prelude-val">Some</span>(<span class="ident">CompiledFunctionUnwindInfo::Dwarf</span>), <span class="prelude-val">Some</span>(<span class="ident">fde</span>))
-                        } <span class="kw">else</span> {
+                            <span class="comment">// The unwind information is inserted into the dwarf section
+                            </span>(<span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::Dwarf), <span class="prelude-val">Some</span>(fde))
+                        } <span class="kw">else </span>{
                             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
                         }
                     }
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-                    <span class="ident">other</span> =&gt; (<span class="ident">other</span>.<span class="ident">maybe_into_to_windows_unwind</span>(), <span class="prelude-val">None</span>),
+                    <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>),
 
-                    <span class="comment">// This is a bit hacky, but necessary since gimli is not</span>
-                    <span class="comment">// available when the &quot;unwind&quot; feature is disabled.</span>
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
-                    <span class="ident">other</span> =&gt; (<span class="ident">other</span>.<span class="ident">maybe_into_to_windows_unwind</span>(), <span class="prelude-val">None</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>),
+                    <span class="comment">// This is a bit hacky, but necessary since gimli is not
+                    // available when the &quot;unwind&quot; feature is disabled.
+                    </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+                    </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>::&lt;()&gt;),
                 };
 
-                <span class="kw">let</span> <span class="ident">range</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">range</span>();
-                <span class="kw">let</span> <span class="ident">address_map</span> <span class="op">=</span> <span class="ident">get_function_address_map</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>, <span class="ident">range</span>, <span class="ident">code_buf</span>.<span class="ident">len</span>());
+                <span class="kw">let </span>range = reader.range();
+                <span class="kw">let </span>address_map = get_function_address_map(<span class="kw-2">&amp;</span>context, range, code_buf.len());
 
                 <span class="prelude-val">Ok</span>((
-                    <span class="ident">CompiledFunction</span> {
-                        <span class="ident">body</span>: <span class="ident">FunctionBody</span> {
-                            <span class="ident">body</span>: <span class="ident">code_buf</span>,
-                            <span class="ident">unwind_info</span>,
+                    CompiledFunction {
+                        body: FunctionBody {
+                            body: code_buf,
+                            unwind_info,
                         },
-                        <span class="ident">relocations</span>: <span class="ident">func_relocs</span>,
-                        <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> { <span class="ident">address_map</span>, <span class="ident">traps</span> },
+                        relocations: func_relocs,
+                        frame_info: CompiledFunctionFrameInfo { address_map, traps },
                     },
-                    <span class="ident">fde</span>,
+                    fde,
                 ))
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">unzip</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-        <span class="kw">let</span> (<span class="ident">functions</span>, <span class="ident">fdes</span>): (<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CompiledFunction</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>) <span class="op">=</span> <span class="ident">function_body_inputs</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">LocalFunctionIndex</span>, <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">par_iter</span>()
-            .<span class="ident">map_init</span>(<span class="ident">FuncTranslator::new</span>, <span class="op">|</span><span class="ident">func_translator</span>, (<span class="ident">i</span>, <span class="ident">input</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">func_index</span>(<span class="kw-2">*</span><span class="ident">i</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">Context::new</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_env</span> <span class="op">=</span> <span class="ident">FuncEnvironment::new</span>(
-                    <span class="ident">isa</span>.<span class="ident">frontend_config</span>(),
-                    <span class="ident">module</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">signatures</span>,
-                    <span class="ident">memory_styles</span>,
-                    <span class="ident">table_styles</span>,
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .unzip();
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        </span><span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
+            .iter()
+            .collect::&lt;Vec&lt;(LocalFunctionIndex, <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">&#39;_</span>&gt;)&gt;&gt;()
+            .par_iter()
+            .map_init(FuncTranslator::new, |func_translator, (i, input)| {
+                <span class="kw">let </span>func_index = module.func_index(<span class="kw-2">*</span>i);
+                <span class="kw">let </span><span class="kw-2">mut </span>context = Context::new();
+                <span class="kw">let </span><span class="kw-2">mut </span>func_env = FuncEnvironment::new(
+                    isa.frontend_config(),
+                    module,
+                    <span class="kw-2">&amp;</span>signatures,
+                    memory_styles,
+                    table_styles,
                 );
-                <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">name</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">get_function_name</span>(<span class="ident">func_index</span>) {
-                    <span class="ident">ExternalName::User</span>(<span class="ident">nameref</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">params</span>.<span class="ident">user_named_funcs</span>().<span class="ident">is_valid</span>(<span class="ident">nameref</span>) {
-                            <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">params</span>.<span class="ident">user_named_funcs</span>()[<span class="ident">nameref</span>];
-                            <span class="ident">UserFuncName::User</span>(<span class="ident">name</span>.<span class="ident">clone</span>())
-                        } <span class="kw">else</span> {
-                            <span class="ident">UserFuncName::default</span>()
+                context.func.name = <span class="kw">match </span>get_function_name(func_index) {
+                    ExternalName::User(nameref) =&gt; {
+                        <span class="kw">if </span>context.func.params.user_named_funcs().is_valid(nameref) {
+                            <span class="kw">let </span>name = <span class="kw-2">&amp;</span>context.func.params.user_named_funcs()[nameref];
+                            UserFuncName::User(name.clone())
+                        } <span class="kw">else </span>{
+                            UserFuncName::default()
                         }
                     }
-                    <span class="ident">ExternalName::TestCase</span>(<span class="ident">testcase</span>) =&gt; <span class="ident">UserFuncName::Testcase</span>(<span class="ident">testcase</span>),
-                    <span class="kw">_</span> =&gt; <span class="ident">UserFuncName::default</span>(),
+                    ExternalName::TestCase(testcase) =&gt; UserFuncName::Testcase(testcase),
+                    <span class="kw">_ </span>=&gt; UserFuncName::default(),
                 };
-                <span class="ident">context</span>.<span class="ident">func</span>.<span class="ident">signature</span> <span class="op">=</span> <span class="ident">signatures</span>[<span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">func_index</span>]].<span class="ident">clone</span>();
-                <span class="comment">// if generate_debug_info {</span>
-                <span class="comment">//     context.func.collect_debug_info();</span>
-                <span class="comment">// }</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span>
-                    <span class="ident">MiddlewareBinaryReader::new_with_offset</span>(<span class="ident">input</span>.<span class="ident">data</span>, <span class="ident">input</span>.<span class="ident">module_offset</span>);
-                <span class="ident">reader</span>.<span class="ident">set_middleware_chain</span>(
-                    <span class="self">self</span>.<span class="ident">config</span>
-                        .<span class="ident">middlewares</span>
-                        .<span class="ident">generate_function_middleware_chain</span>(<span class="kw-2">*</span><span class="ident">i</span>),
+                context.func.signature = signatures[module.functions[func_index]].clone();
+                <span class="comment">// if generate_debug_info {
+                //     context.func.collect_debug_info();
+                // }
+                </span><span class="kw">let </span><span class="kw-2">mut </span>reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(
+                    <span class="self">self</span>.config
+                        .middlewares
+                        .generate_function_middleware_chain(<span class="kw-2">*</span>i),
                 );
 
-                <span class="ident">func_translator</span>.<span class="ident">translate</span>(
-                    <span class="ident">module_translation_state</span>,
-                    <span class="kw-2">&amp;mut</span> <span class="ident">reader</span>,
-                    <span class="kw-2">&amp;mut</span> <span class="ident">context</span>.<span class="ident">func</span>,
-                    <span class="kw-2">&amp;mut</span> <span class="ident">func_env</span>,
-                    <span class="kw-2">*</span><span class="ident">i</span>,
+                func_translator.translate(
+                    module_translation_state,
+                    <span class="kw-2">&amp;mut </span>reader,
+                    <span class="kw-2">&amp;mut </span>context.func,
+                    <span class="kw-2">&amp;mut </span>func_env,
+                    <span class="kw-2">*</span>i,
                 )<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code_buf</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-                <span class="ident">context</span>
-                    .<span class="ident">compile_and_emit</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;mut</span> <span class="ident">code_buf</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">error</span>.<span class="ident">inner</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>code_buf: Vec&lt;u8&gt; = Vec::new();
+                context
+                    .compile_and_emit(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>code_buf)
+                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">compiled_code</span>().<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">func_relocs</span> <span class="op">=</span> <span class="ident">result</span>
-                    .<span class="ident">buffer</span>
-                    .<span class="ident">relocs</span>()
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="ident">mach_reloc_to_reloc</span>(<span class="ident">module</span>, <span class="ident">r</span>))
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+                <span class="kw">let </span>result = context.compiled_code().unwrap();
+                <span class="kw">let </span>func_relocs = result
+                    .buffer
+                    .relocs()
+                    .iter()
+                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-                <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="ident">result</span>
-                    .<span class="ident">buffer</span>
-                    .<span class="ident">traps</span>()
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="ident">mach_trap_to_trap</span>)
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+                <span class="kw">let </span>traps = result
+                    .buffer
+                    .traps()
+                    .iter()
+                    .map(mach_trap_to_trap)
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-                <span class="kw">let</span> (<span class="ident">unwind_info</span>, <span class="ident">fde</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">compiled_function_unwind_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>)<span class="question-mark">?</span> {
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-                    <span class="ident">CraneliftUnwindInfo::Fde</span>(<span class="ident">fde</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">dwarf_frametable</span>.<span class="ident">is_some</span>() {
-                            <span class="kw">let</span> <span class="ident">fde</span> <span class="op">=</span> <span class="ident">fde</span>.<span class="ident">to_fde</span>(<span class="ident">Address::Symbol</span> {
-                                <span class="comment">// The symbol is the kind of relocation.</span>
-                                <span class="comment">// &quot;0&quot; is used for functions</span>
-                                <span class="ident">symbol</span>: <span class="ident">WriterRelocate::FUNCTION_SYMBOL</span>,
-                                <span class="comment">// We use the addend as a way to specify the</span>
-                                <span class="comment">// function index</span>
-                                <span class="ident">addend</span>: <span class="ident">i</span>.<span class="ident">index</span>() <span class="kw">as</span> <span class="kw">_</span>,
+                <span class="kw">let </span>(unwind_info, fde) = <span class="kw">match </span>compiled_function_unwind_info(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">? </span>{
+                    <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    </span>CraneliftUnwindInfo::Fde(fde) =&gt; {
+                        <span class="kw">if </span>dwarf_frametable.is_some() {
+                            <span class="kw">let </span>fde = fde.to_fde(Address::Symbol {
+                                <span class="comment">// The symbol is the kind of relocation.
+                                // &quot;0&quot; is used for functions
+                                </span>symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                <span class="comment">// We use the addend as a way to specify the
+                                // function index
+                                </span>addend: i.index() <span class="kw">as _</span>,
                             });
-                            <span class="comment">// The unwind information is inserted into the dwarf section</span>
-                            (<span class="prelude-val">Some</span>(<span class="ident">CompiledFunctionUnwindInfo::Dwarf</span>), <span class="prelude-val">Some</span>(<span class="ident">fde</span>))
-                        } <span class="kw">else</span> {
+                            <span class="comment">// The unwind information is inserted into the dwarf section
+                            </span>(<span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::Dwarf), <span class="prelude-val">Some</span>(fde))
+                        } <span class="kw">else </span>{
                             (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
                         }
                     }
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-                    <span class="ident">other</span> =&gt; (<span class="ident">other</span>.<span class="ident">maybe_into_to_windows_unwind</span>(), <span class="prelude-val">None</span>),
+                    <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+                    </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>),
 
-                    <span class="comment">// This is a bit hacky, but necessary since gimli is not</span>
-                    <span class="comment">// available when the &quot;unwind&quot; feature is disabled.</span>
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
-                    <span class="ident">other</span> =&gt; (<span class="ident">other</span>.<span class="ident">maybe_into_to_windows_unwind</span>(), <span class="prelude-val">None</span>::<span class="op">&lt;</span>()<span class="op">&gt;</span>),
+                    <span class="comment">// This is a bit hacky, but necessary since gimli is not
+                    // available when the &quot;unwind&quot; feature is disabled.
+                    </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+                    </span>other =&gt; (other.maybe_into_to_windows_unwind(), <span class="prelude-val">None</span>::&lt;()&gt;),
                 };
 
-                <span class="kw">let</span> <span class="ident">range</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">range</span>();
-                <span class="kw">let</span> <span class="ident">address_map</span> <span class="op">=</span> <span class="ident">get_function_address_map</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>, <span class="ident">range</span>, <span class="ident">code_buf</span>.<span class="ident">len</span>());
+                <span class="kw">let </span>range = reader.range();
+                <span class="kw">let </span>address_map = get_function_address_map(<span class="kw-2">&amp;</span>context, range, code_buf.len());
 
                 <span class="prelude-val">Ok</span>((
-                    <span class="ident">CompiledFunction</span> {
-                        <span class="ident">body</span>: <span class="ident">FunctionBody</span> {
-                            <span class="ident">body</span>: <span class="ident">code_buf</span>,
-                            <span class="ident">unwind_info</span>,
+                    CompiledFunction {
+                        body: FunctionBody {
+                            body: code_buf,
+                            unwind_info,
                         },
-                        <span class="ident">relocations</span>: <span class="ident">func_relocs</span>,
-                        <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> { <span class="ident">address_map</span>, <span class="ident">traps</span> },
+                        relocations: func_relocs,
+                        frame_info: CompiledFunctionFrameInfo { address_map, traps },
                     },
-                    <span class="ident">fde</span>,
+                    fde,
                 ))
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">unzip</span>();
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .unzip();
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="kw-2">mut</span> <span class="ident">dwarf_frametable</span>, <span class="ident">cie_id</span>)) <span class="op">=</span> <span class="ident">dwarf_frametable</span> {
-            <span class="kw">for</span> <span class="ident">fde</span> <span class="kw">in</span> <span class="ident">fdes</span>.<span class="ident">into_iter</span>().<span class="ident">flatten</span>() {
-                <span class="ident">dwarf_frametable</span>.<span class="ident">add_fde</span>(<span class="ident">cie_id</span>, <span class="ident">fde</span>);
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+        </span><span class="kw">let </span>dwarf = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>dwarf_frametable, cie_id)) = dwarf_frametable {
+            <span class="kw">for </span>fde <span class="kw">in </span>fdes.into_iter().flatten() {
+                dwarf_frametable.add_fde(cie_id, fde);
             }
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame</span> <span class="op">=</span> <span class="ident">EhFrame</span>(<span class="ident">WriterRelocate::new</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">endianness</span>().<span class="ident">ok</span>()));
-            <span class="ident">dwarf_frametable</span>.<span class="ident">write_eh_frame</span>(<span class="kw-2">&amp;mut</span> <span class="ident">eh_frame</span>).<span class="ident">unwrap</span>();
+            <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+            dwarf_frametable.write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame).unwrap();
 
-            <span class="kw">let</span> <span class="ident">eh_frame_section</span> <span class="op">=</span> <span class="ident">eh_frame</span>.<span class="number">0</span>.<span class="ident">into_section</span>();
-            <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">eh_frame_section</span>);
-            <span class="prelude-val">Some</span>(<span class="ident">Dwarf::new</span>(<span class="ident">SectionIndex::new</span>(<span class="ident">custom_sections</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>)))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        };
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+            <span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
+            custom_sections.push(eh_frame_section);
+            <span class="prelude-val">Some</span>(Dwarf::new(SectionIndex::new(custom_sections.len() - <span class="number">1</span>)))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+        </span><span class="kw">let </span>dwarf = <span class="prelude-val">None</span>;
 
-        <span class="comment">// function call trampolines (only for local functions, by signature)</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">FunctionBuilderContext::new</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">function_call_trampolines</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">signatures</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">sig</span><span class="op">|</span> <span class="ident">make_trampoline_function_call</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;mut</span> <span class="ident">cx</span>, <span class="ident">sig</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FunctionBody</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">function_call_trampolines</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">signatures</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">par_iter</span>()
-            .<span class="ident">map_init</span>(<span class="ident">FunctionBuilderContext::new</span>, <span class="op">|</span><span class="ident">cx</span>, <span class="ident">sig</span><span class="op">|</span> {
-                <span class="ident">make_trampoline_function_call</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="ident">cx</span>, <span class="ident">sig</span>)
+        <span class="comment">// function call trampolines (only for local functions, by signature)
+        </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>cx = FunctionBuilderContext::new();
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">let </span>function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_iter()
+            .map(|sig| make_trampoline_function_call(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;mut </span>cx, sig))
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;FunctionBody&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .collect::&lt;PrimaryMap&lt;SignatureIndex, FunctionBody&gt;&gt;();
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        </span><span class="kw">let </span>function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .par_iter()
+            .map_init(FunctionBuilderContext::new, |cx, sig| {
+                make_trampoline_function_call(<span class="kw-2">&amp;*</span>isa, cx, sig)
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FunctionBody</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;FunctionBody&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .collect::&lt;PrimaryMap&lt;SignatureIndex, FunctionBody&gt;&gt;();
 
-        <span class="kw">use</span> <span class="ident">wasmer_types::VMOffsets</span>;
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new_for_trampolines</span>(<span class="ident">frontend_config</span>.<span class="ident">pointer_bytes</span>());
-        <span class="comment">// dynamic function trampolines (only for imported functions)</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">FunctionBuilderContext::new</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">dynamic_function_trampolines</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">imported_function_types</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func_type</span><span class="op">|</span> <span class="ident">make_trampoline_dynamic_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">offsets</span>, <span class="kw-2">&amp;mut</span> <span class="ident">cx</span>, <span class="kw-2">&amp;</span><span class="ident">func_type</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dynamic_function_trampolines</span> <span class="op">=</span> <span class="ident">module</span>
-            .<span class="ident">imported_function_types</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">par_iter</span>()
-            .<span class="ident">map_init</span>(<span class="ident">FunctionBuilderContext::new</span>, <span class="op">|</span><span class="ident">cx</span>, <span class="ident">func_type</span><span class="op">|</span> {
-                <span class="ident">make_trampoline_dynamic_function</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">offsets</span>, <span class="ident">cx</span>, <span class="ident">func_type</span>)
+        <span class="kw">use </span>wasmer_types::VMOffsets;
+        <span class="kw">let </span>offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
+        <span class="comment">// dynamic function trampolines (only for imported functions)
+        </span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>cx = FunctionBuilderContext::new();
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;rayon&quot;</span>))]
+        </span><span class="kw">let </span>dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .into_iter()
+            .map(|func_type| make_trampoline_dynamic_function(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;</span>offsets, <span class="kw-2">&amp;mut </span>cx, <span class="kw-2">&amp;</span>func_type))
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;rayon&quot;</span>)]
+        </span><span class="kw">let </span>dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .par_iter()
+            .map_init(FunctionBuilderContext::new, |cx, func_type| {
+                make_trampoline_dynamic_function(<span class="kw-2">&amp;*</span>isa, <span class="kw-2">&amp;</span>offsets, cx, func_type)
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
+            .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
 
-        <span class="prelude-val">Ok</span>(<span class="ident">Compilation</span> {
-            <span class="ident">functions</span>: <span class="ident">functions</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
-            <span class="ident">custom_sections</span>,
-            <span class="ident">function_call_trampolines</span>,
-            <span class="ident">dynamic_function_trampolines</span>,
-            <span class="ident">debug</span>: <span class="ident">dwarf</span>,
+        <span class="prelude-val">Ok</span>(Compilation {
+            functions: functions.into_iter().collect(),
+            custom_sections,
+            function_call_trampolines,
+            dynamic_function_trampolines,
+            debug: dwarf,
         })
     }
 }
 
-<span class="kw">fn</span> <span class="ident">mach_reloc_to_reloc</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">reloc</span>: <span class="kw-2">&amp;</span><span class="ident">MachReloc</span>) -&gt; <span class="ident">Relocation</span> {
-    <span class="kw">let</span> <span class="kw-2">&amp;</span><span class="ident">MachReloc</span> {
-        <span class="ident">offset</span>,
-        <span class="ident">kind</span>,
-        <span class="kw-2">ref</span> <span class="ident">name</span>,
-        <span class="ident">addend</span>,
-    } <span class="op">=</span> <span class="ident">reloc</span>;
-    <span class="kw">let</span> <span class="ident">reloc_target</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExternalName::User</span>(<span class="ident">extname_ref</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">name</span> {
-        <span class="comment">//debug_assert_eq!(namespace, 0);</span>
-        <span class="ident">RelocationTarget::LocalFunc</span>(
-            <span class="ident">module</span>
-                .<span class="ident">local_func_index</span>(<span class="ident">FunctionIndex::from_u32</span>(<span class="ident">extname_ref</span>.<span class="ident">as_u32</span>()))
-                .<span class="ident">expect</span>(<span class="string">&quot;The provided function should be local&quot;</span>),
+<span class="kw">fn </span>mach_reloc_to_reloc(module: <span class="kw-2">&amp;</span>ModuleInfo, reloc: <span class="kw-2">&amp;</span>MachReloc) -&gt; Relocation {
+    <span class="kw">let </span><span class="kw-2">&amp;</span>MachReloc {
+        offset,
+        kind,
+        <span class="kw-2">ref </span>name,
+        addend,
+    } = reloc;
+    <span class="kw">let </span>reloc_target = <span class="kw">if let </span>ExternalName::User(extname_ref) = <span class="kw-2">*</span>name {
+        <span class="comment">//debug_assert_eq!(namespace, 0);
+        </span>RelocationTarget::LocalFunc(
+            module
+                .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
+                .expect(<span class="string">&quot;The provided function should be local&quot;</span>),
         )
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident">ExternalName::LibCall</span>(<span class="ident">libcall</span>) <span class="op">=</span> <span class="kw-2">*</span><span class="ident">name</span> {
-        <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">irlibcall_to_libcall</span>(<span class="ident">libcall</span>))
-    } <span class="kw">else</span> {
+    } <span class="kw">else if let </span>ExternalName::LibCall(libcall) = <span class="kw-2">*</span>name {
+        RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
+    } <span class="kw">else </span>{
         <span class="macro">panic!</span>(<span class="string">&quot;unrecognized external name&quot;</span>)
     };
-    <span class="ident">Relocation</span> {
-        <span class="ident">kind</span>: <span class="ident">irreloc_to_relocationkind</span>(<span class="ident">kind</span>),
-        <span class="ident">reloc_target</span>,
-        <span class="ident">offset</span>,
-        <span class="ident">addend</span>,
+    Relocation {
+        kind: irreloc_to_relocationkind(kind),
+        reloc_target,
+        offset,
+        addend,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">mach_trap_to_trap</span>(<span class="ident">trap</span>: <span class="kw-2">&amp;</span><span class="ident">MachTrap</span>) -&gt; <span class="ident">TrapInformation</span> {
-    <span class="kw">let</span> <span class="kw-2">&amp;</span><span class="ident">MachTrap</span> { <span class="ident">offset</span>, <span class="ident">code</span> } <span class="op">=</span> <span class="ident">trap</span>;
-    <span class="ident">TrapInformation</span> {
-        <span class="ident">code_offset</span>: <span class="ident">offset</span>,
-        <span class="ident">trap_code</span>: <span class="ident">translate_ir_trapcode</span>(<span class="ident">code</span>),
+<span class="kw">fn </span>mach_trap_to_trap(trap: <span class="kw-2">&amp;</span>MachTrap) -&gt; TrapInformation {
+    <span class="kw">let </span><span class="kw-2">&amp;</span>MachTrap { offset, code } = trap;
+    TrapInformation {
+        code_offset: offset,
+        trap_code: translate_ir_trapcode(code),
     }
 }
 
-<span class="doccomment">/// Translates the Cranelift IR TrapCode into generic Trap Code</span>
-<span class="kw">fn</span> <span class="ident">translate_ir_trapcode</span>(<span class="ident">trap</span>: <span class="ident">ir::TrapCode</span>) -&gt; <span class="ident">TrapCode</span> {
-    <span class="kw">match</span> <span class="ident">trap</span> {
-        <span class="ident">ir::TrapCode::StackOverflow</span> =&gt; <span class="ident">TrapCode::StackOverflow</span>,
-        <span class="ident">ir::TrapCode::HeapOutOfBounds</span> =&gt; <span class="ident">TrapCode::HeapAccessOutOfBounds</span>,
-        <span class="ident">ir::TrapCode::HeapMisaligned</span> =&gt; <span class="ident">TrapCode::UnalignedAtomic</span>,
-        <span class="ident">ir::TrapCode::TableOutOfBounds</span> =&gt; <span class="ident">TrapCode::TableAccessOutOfBounds</span>,
-        <span class="ident">ir::TrapCode::IndirectCallToNull</span> =&gt; <span class="ident">TrapCode::IndirectCallToNull</span>,
-        <span class="ident">ir::TrapCode::BadSignature</span> =&gt; <span class="ident">TrapCode::BadSignature</span>,
-        <span class="ident">ir::TrapCode::IntegerOverflow</span> =&gt; <span class="ident">TrapCode::IntegerOverflow</span>,
-        <span class="ident">ir::TrapCode::IntegerDivisionByZero</span> =&gt; <span class="ident">TrapCode::IntegerDivisionByZero</span>,
-        <span class="ident">ir::TrapCode::BadConversionToInteger</span> =&gt; <span class="ident">TrapCode::BadConversionToInteger</span>,
-        <span class="ident">ir::TrapCode::UnreachableCodeReached</span> =&gt; <span class="ident">TrapCode::UnreachableCodeReached</span>,
-        <span class="ident">ir::TrapCode::Interrupt</span> =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Interrupts not supported&quot;</span>),
-        <span class="ident">ir::TrapCode::User</span>(<span class="ident">_user_code</span>) =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;User trap code not supported&quot;</span>),
-        <span class="comment">// ir::TrapCode::Interrupt =&gt; TrapCode::Interrupt,</span>
-        <span class="comment">// ir::TrapCode::User(user_code) =&gt; TrapCode::User(user_code),</span>
-    }
+<span class="doccomment">/// Translates the Cranelift IR TrapCode into generic Trap Code
+</span><span class="kw">fn </span>translate_ir_trapcode(trap: ir::TrapCode) -&gt; TrapCode {
+    <span class="kw">match </span>trap {
+        ir::TrapCode::StackOverflow =&gt; TrapCode::StackOverflow,
+        ir::TrapCode::HeapOutOfBounds =&gt; TrapCode::HeapAccessOutOfBounds,
+        ir::TrapCode::HeapMisaligned =&gt; TrapCode::UnalignedAtomic,
+        ir::TrapCode::TableOutOfBounds =&gt; TrapCode::TableAccessOutOfBounds,
+        ir::TrapCode::IndirectCallToNull =&gt; TrapCode::IndirectCallToNull,
+        ir::TrapCode::BadSignature =&gt; TrapCode::BadSignature,
+        ir::TrapCode::IntegerOverflow =&gt; TrapCode::IntegerOverflow,
+        ir::TrapCode::IntegerDivisionByZero =&gt; TrapCode::IntegerDivisionByZero,
+        ir::TrapCode::BadConversionToInteger =&gt; TrapCode::BadConversionToInteger,
+        ir::TrapCode::UnreachableCodeReached =&gt; TrapCode::UnreachableCodeReached,
+        ir::TrapCode::Interrupt =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Interrupts not supported&quot;</span>),
+        ir::TrapCode::User(_user_code) =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;User trap code not supported&quot;</span>),
+        <span class="comment">// ir::TrapCode::Interrupt =&gt; TrapCode::Interrupt,
+        // ir::TrapCode::User(user_code) =&gt; TrapCode::User(user_code),
+    </span>}
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/trap/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/trap/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -308,315 +308,315 @@
 <span id="308">308</span>
 <span id="309">309</span>
 <span id="310">310</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::frame_info</span>::{<span class="ident">FrameInfo</span>, <span class="ident">GlobalFrameInfo</span>, <span class="ident">FRAME_INFO</span>};
-<span class="kw">use</span> <span class="ident">backtrace::Backtrace</span>;
-<span class="kw">use</span> <span class="ident">std::error::Error</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::frame_info::{FrameInfo, GlobalFrameInfo, FRAME_INFO};
+<span class="kw">use </span>backtrace::Backtrace;
+<span class="kw">use </span>std::error::Error;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_vm::{Trap, TrapCode};
 
-<span class="doccomment">/// A struct representing an aborted instruction execution, with a message</span>
-<span class="doccomment">/// indicating the cause.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RuntimeError</span> {
-    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RuntimeErrorInner</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A struct representing an aborted instruction execution, with a message
+/// indicating the cause.
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>RuntimeError {
+    inner: Arc&lt;RuntimeErrorInner&gt;,
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">CoreError</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">fmt::Display</span> <span class="op">+</span> <span class="ident">core::any::Any</span> {}
+<span class="kw">pub trait </span>CoreError: fmt::Debug + fmt::Display + core::any::Any {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">fmt::Display</span> <span class="op">+</span> <span class="ident">core::any::Any</span><span class="op">&gt;</span> <span class="ident">CoreError</span> <span class="kw">for</span> <span class="ident">T</span> {}
+<span class="kw">impl</span>&lt;T: fmt::Debug + fmt::Display + core::any::Any&gt; CoreError <span class="kw">for </span>T {}
 
-<span class="doccomment">/// The source of the `RuntimeError`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">enum</span> <span class="ident">RuntimeErrorSource</span> {
-    <span class="ident">Generic</span>(<span class="ident">String</span>),
-    <span class="ident">OutOfMemory</span>,
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>)]</span>
-    <span class="ident">User</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>),
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
-    <span class="ident">User</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CoreError</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>),
-    <span class="ident">Trap</span>(<span class="ident">TrapCode</span>),
+<span class="doccomment">/// The source of the `RuntimeError`.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">enum </span>RuntimeErrorSource {
+    Generic(String),
+    OutOfMemory,
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span>User(Box&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;),
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
+    </span>User(Box&lt;<span class="kw">dyn </span>CoreError + Send + Sync&gt;),
+    Trap(TrapCode),
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">RuntimeErrorSource</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Generic</span>(<span class="ident">s</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">s</span>),
-            <span class="ident"><span class="self">Self</span>::User</span>(<span class="ident">s</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">s</span>),
-            <span class="ident"><span class="self">Self</span>::OutOfMemory</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Wasmer VM out of memory&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Trap</span>(<span class="ident">s</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">s</span>.<span class="ident">message</span>()),
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>RuntimeErrorSource {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Generic(s) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s),
+            <span class="self">Self</span>::User(s) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s),
+            <span class="self">Self</span>::OutOfMemory =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Wasmer VM out of memory&quot;</span>),
+            <span class="self">Self</span>::Trap(s) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s.message()),
         }
     }
 }
 
-<span class="kw">struct</span> <span class="ident">RuntimeErrorInner</span> {
-    <span class="doccomment">/// The source error (this can be a custom user `Error` or a [`TrapCode`])</span>
-    <span class="ident">source</span>: <span class="ident">RuntimeErrorSource</span>,
-    <span class="doccomment">/// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).</span>
-    <span class="ident">wasm_trace</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">FrameInfo</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The native backtrace</span>
-    <span class="ident">native_trace</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Backtrace</span><span class="op">&gt;</span>,
+<span class="kw">struct </span>RuntimeErrorInner {
+    <span class="doccomment">/// The source error (this can be a custom user `Error` or a [`TrapCode`])
+    </span>source: RuntimeErrorSource,
+    <span class="doccomment">/// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
+    </span>wasm_trace: Vec&lt;FrameInfo&gt;,
+    <span class="doccomment">/// The native backtrace
+    </span>native_trace: <span class="prelude-ty">Option</span>&lt;Backtrace&gt;,
 }
 
-<span class="kw">fn</span> <span class="ident">_assert_trap_is_sync_and_send</span>(<span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">Trap</span>) -&gt; (<span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Sync</span>, <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Send</span>) {
-    (<span class="ident">t</span>, <span class="ident">t</span>)
+<span class="kw">fn </span>_assert_trap_is_sync_and_send(t: <span class="kw-2">&amp;</span>Trap) -&gt; (<span class="kw-2">&amp;</span><span class="kw">dyn </span>Sync, <span class="kw-2">&amp;</span><span class="kw">dyn </span>Send) {
+    (t, t)
 }
 
-<span class="kw">impl</span> <span class="ident">RuntimeError</span> {
-    <span class="doccomment">/// Creates a new generic `RuntimeError` with the given `message`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// let trap = wasmer_compiler::RuntimeError::new(&quot;unexpected error&quot;);</span>
-    <span class="doccomment">/// assert_eq!(&quot;unexpected error&quot;, trap.message());</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">message</span>: <span class="ident">I</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">message</span>.<span class="ident">into</span>();
-        <span class="ident"><span class="self">Self</span>::new_with_trace</span>(
-            <span class="kw-2">&amp;</span><span class="ident">info</span>,
+<span class="kw">impl </span>RuntimeError {
+    <span class="doccomment">/// Creates a new generic `RuntimeError` with the given `message`.
+    ///
+    /// # Example
+    /// ```
+    /// let trap = wasmer_compiler::RuntimeError::new(&quot;unexpected error&quot;);
+    /// assert_eq!(&quot;unexpected error&quot;, trap.message());
+    /// ```
+    </span><span class="kw">pub fn </span>new&lt;I: Into&lt;String&gt;&gt;(message: I) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>info = FRAME_INFO.read().unwrap();
+        <span class="kw">let </span>msg = message.into();
+        <span class="self">Self</span>::new_with_trace(
+            <span class="kw-2">&amp;</span>info,
             <span class="prelude-val">None</span>,
-            <span class="ident">RuntimeErrorSource::Generic</span>(<span class="ident">msg</span>),
-            <span class="ident">Backtrace::new_unresolved</span>(),
+            RuntimeErrorSource::Generic(msg),
+            Backtrace::new_unresolved(),
         )
     }
 
-    <span class="doccomment">/// Create a new RuntimeError from a Trap.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_trap</span>(<span class="ident">trap</span>: <span class="ident">Trap</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="kw">match</span> <span class="ident">trap</span> {
-            <span class="comment">// A user error</span>
-            <span class="ident">Trap::User</span>(<span class="ident">error</span>) =&gt; {
-                <span class="kw">match</span> <span class="ident">error</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() {
-                    <span class="comment">// The error is already a RuntimeError, we return it directly</span>
-                    <span class="prelude-val">Ok</span>(<span class="ident">runtime_error</span>) =&gt; <span class="kw-2">*</span><span class="ident">runtime_error</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident"><span class="self">Self</span>::new_with_trace</span>(
-                        <span class="kw-2">&amp;</span><span class="ident">info</span>,
+    <span class="doccomment">/// Create a new RuntimeError from a Trap.
+    </span><span class="kw">pub fn </span>from_trap(trap: Trap) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>info = FRAME_INFO.read().unwrap();
+        <span class="kw">match </span>trap {
+            <span class="comment">// A user error
+            </span>Trap::User(error) =&gt; {
+                <span class="kw">match </span>error.downcast::&lt;<span class="self">Self</span>&gt;() {
+                    <span class="comment">// The error is already a RuntimeError, we return it directly
+                    </span><span class="prelude-val">Ok</span>(runtime_error) =&gt; <span class="kw-2">*</span>runtime_error,
+                    <span class="prelude-val">Err</span>(e) =&gt; <span class="self">Self</span>::new_with_trace(
+                        <span class="kw-2">&amp;</span>info,
                         <span class="prelude-val">None</span>,
-                        <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">e</span>),
-                        <span class="ident">Backtrace::new_unresolved</span>(),
+                        RuntimeErrorSource::User(e),
+                        Backtrace::new_unresolved(),
                     ),
                 }
             }
-            <span class="comment">// A trap caused by the VM being Out of Memory</span>
-            <span class="ident">Trap::OOM</span> { <span class="ident">backtrace</span> } =&gt; {
-                <span class="ident"><span class="self">Self</span>::new_with_trace</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>, <span class="prelude-val">None</span>, <span class="ident">RuntimeErrorSource::OutOfMemory</span>, <span class="ident">backtrace</span>)
+            <span class="comment">// A trap caused by the VM being Out of Memory
+            </span>Trap::OOM { backtrace } =&gt; {
+                <span class="self">Self</span>::new_with_trace(<span class="kw-2">&amp;</span>info, <span class="prelude-val">None</span>, RuntimeErrorSource::OutOfMemory, backtrace)
             }
-            <span class="comment">// A trap caused by an error on the generated machine code for a Wasm function</span>
-            <span class="ident">Trap::Wasm</span> {
-                <span class="ident">pc</span>,
-                <span class="ident">signal_trap</span>,
-                <span class="ident">backtrace</span>,
+            <span class="comment">// A trap caused by an error on the generated machine code for a Wasm function
+            </span>Trap::Wasm {
+                pc,
+                signal_trap,
+                backtrace,
             } =&gt; {
-                <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="ident">info</span>
-                    .<span class="ident">lookup_trap_info</span>(<span class="ident">pc</span>)
-                    .<span class="ident">map_or</span>(<span class="ident">signal_trap</span>.<span class="ident">unwrap_or</span>(<span class="ident">TrapCode::StackOverflow</span>), <span class="op">|</span><span class="ident">info</span><span class="op">|</span> {
-                        <span class="ident">info</span>.<span class="ident">trap_code</span>
+                <span class="kw">let </span>code = info
+                    .lookup_trap_info(pc)
+                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
+                        info.trap_code
                     });
-                <span class="ident"><span class="self">Self</span>::new_with_trace</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>, <span class="prelude-val">Some</span>(<span class="ident">pc</span>), <span class="ident">RuntimeErrorSource::Trap</span>(<span class="ident">code</span>), <span class="ident">backtrace</span>)
+                <span class="self">Self</span>::new_with_trace(<span class="kw-2">&amp;</span>info, <span class="prelude-val">Some</span>(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
-            <span class="comment">// A trap triggered manually from the Wasmer runtime</span>
-            <span class="ident">Trap::Lib</span> {
-                <span class="ident">trap_code</span>,
-                <span class="ident">backtrace</span>,
-            } =&gt; <span class="ident"><span class="self">Self</span>::new_with_trace</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>, <span class="prelude-val">None</span>, <span class="ident">RuntimeErrorSource::Trap</span>(<span class="ident">trap_code</span>), <span class="ident">backtrace</span>),
+            <span class="comment">// A trap triggered manually from the Wasmer runtime
+            </span>Trap::Lib {
+                trap_code,
+                backtrace,
+            } =&gt; <span class="self">Self</span>::new_with_trace(<span class="kw-2">&amp;</span>info, <span class="prelude-val">None</span>, RuntimeErrorSource::Trap(trap_code), backtrace),
         }
     }
 
-    <span class="doccomment">/// Creates a custom user Error.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This error object can be passed through Wasm frames and later retrieved</span>
-    <span class="doccomment">/// using the `downcast` method.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">user</span>(<span class="ident">error</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">error</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() {
-            <span class="comment">// The error is already a RuntimeError, we return it directly</span>
-            <span class="prelude-val">Ok</span>(<span class="ident">runtime_error</span>) =&gt; <span class="kw-2">*</span><span class="ident">runtime_error</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">error</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-                <span class="ident"><span class="self">Self</span>::new_with_trace</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">info</span>,
+    <span class="doccomment">/// Creates a custom user Error.
+    ///
+    /// This error object can be passed through Wasm frames and later retrieved
+    /// using the `downcast` method.
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span><span class="kw">pub fn </span>user(error: Box&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>error.downcast::&lt;<span class="self">Self</span>&gt;() {
+            <span class="comment">// The error is already a RuntimeError, we return it directly
+            </span><span class="prelude-val">Ok</span>(runtime_error) =&gt; <span class="kw-2">*</span>runtime_error,
+            <span class="prelude-val">Err</span>(error) =&gt; {
+                <span class="kw">let </span>info = FRAME_INFO.read().unwrap();
+                <span class="self">Self</span>::new_with_trace(
+                    <span class="kw-2">&amp;</span>info,
                     <span class="prelude-val">None</span>,
-                    <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">error</span>),
-                    <span class="ident">Backtrace::new_unresolved</span>(),
+                    RuntimeErrorSource::User(error),
+                    Backtrace::new_unresolved(),
                 )
             }
         }
     }
 
-    <span class="doccomment">/// Creates a custom user Error.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This error object can be passed through Wasm frames and later retrieved</span>
-    <span class="doccomment">/// using the `downcast` method.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">user</span>(<span class="ident">error</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CoreError</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">error</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>() {
-            <span class="comment">// The error is already a RuntimeError, we return it directly</span>
-            <span class="prelude-val">Ok</span>(<span class="ident">runtime_error</span>) =&gt; <span class="kw-2">*</span><span class="ident">runtime_error</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">error</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-                <span class="ident"><span class="self">Self</span>::new_with_trace</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">info</span>,
+    <span class="doccomment">/// Creates a custom user Error.
+    ///
+    /// This error object can be passed through Wasm frames and later retrieved
+    /// using the `downcast` method.
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
+    </span><span class="kw">pub fn </span>user(error: Box&lt;<span class="kw">dyn </span>CoreError + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>error.downcast::&lt;<span class="self">Self</span>&gt;() {
+            <span class="comment">// The error is already a RuntimeError, we return it directly
+            </span><span class="prelude-val">Ok</span>(runtime_error) =&gt; <span class="kw-2">*</span>runtime_error,
+            <span class="prelude-val">Err</span>(error) =&gt; {
+                <span class="kw">let </span>info = FRAME_INFO.read().unwrap();
+                <span class="self">Self</span>::new_with_trace(
+                    <span class="kw-2">&amp;</span>info,
                     <span class="prelude-val">None</span>,
-                    <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">error</span>),
-                    <span class="ident">Backtrace::new_unresolved</span>(),
+                    RuntimeErrorSource::User(error),
+                    Backtrace::new_unresolved(),
                 )
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">new_with_trace</span>(
-        <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">GlobalFrameInfo</span>,
-        <span class="ident">trap_pc</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
-        <span class="ident">source</span>: <span class="ident">RuntimeErrorSource</span>,
-        <span class="ident">native_trace</span>: <span class="ident">Backtrace</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="comment">// Let&#39;s construct the trace</span>
-        <span class="kw">let</span> <span class="ident">wasm_trace</span> <span class="op">=</span> <span class="ident">native_trace</span>
-            .<span class="ident">frames</span>()
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">frame</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">pc</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">ip</span>() <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">if</span> <span class="ident">pc</span> <span class="op">==</span> <span class="number">0</span> {
-                    <span class="prelude-val">None</span>
-                } <span class="kw">else</span> {
-                    <span class="comment">// Note that we need to be careful about the pc we pass in here to</span>
-                    <span class="comment">// lookup frame information. This program counter is used to</span>
-                    <span class="comment">// translate back to an original source location in the origin wasm</span>
-                    <span class="comment">// module. If this pc is the exact pc that the trap happened at,</span>
-                    <span class="comment">// then we look up that pc precisely. Otherwise backtrace</span>
-                    <span class="comment">// information typically points at the pc *after* the call</span>
-                    <span class="comment">// instruction (because otherwise it&#39;s likely a call instruction on</span>
-                    <span class="comment">// the stack). In that case we want to lookup information for the</span>
-                    <span class="comment">// previous instruction (the call instruction) so we subtract one as</span>
-                    <span class="comment">// the lookup.</span>
-                    <span class="kw">let</span> <span class="ident">pc_to_lookup</span> <span class="op">=</span> <span class="kw">if</span> <span class="prelude-val">Some</span>(<span class="ident">pc</span>) <span class="op">==</span> <span class="ident">trap_pc</span> { <span class="ident">pc</span> } <span class="kw">else</span> { <span class="ident">pc</span> <span class="op">-</span> <span class="number">1</span> };
-                    <span class="prelude-val">Some</span>(<span class="ident">pc_to_lookup</span>)
+    <span class="kw">fn </span>new_with_trace(
+        info: <span class="kw-2">&amp;</span>GlobalFrameInfo,
+        trap_pc: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+        source: RuntimeErrorSource,
+        native_trace: Backtrace,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="comment">// Let&#39;s construct the trace
+        </span><span class="kw">let </span>wasm_trace = native_trace
+            .frames()
+            .iter()
+            .filter_map(|frame| {
+                <span class="kw">let </span>pc = frame.ip() <span class="kw">as </span>usize;
+                <span class="kw">if </span>pc == <span class="number">0 </span>{
+                    <span class="prelude-val">None
+                </span>} <span class="kw">else </span>{
+                    <span class="comment">// Note that we need to be careful about the pc we pass in here to
+                    // lookup frame information. This program counter is used to
+                    // translate back to an original source location in the origin wasm
+                    // module. If this pc is the exact pc that the trap happened at,
+                    // then we look up that pc precisely. Otherwise backtrace
+                    // information typically points at the pc *after* the call
+                    // instruction (because otherwise it&#39;s likely a call instruction on
+                    // the stack). In that case we want to lookup information for the
+                    // previous instruction (the call instruction) so we subtract one as
+                    // the lookup.
+                    </span><span class="kw">let </span>pc_to_lookup = <span class="kw">if </span><span class="prelude-val">Some</span>(pc) == trap_pc { pc } <span class="kw">else </span>{ pc - <span class="number">1 </span>};
+                    <span class="prelude-val">Some</span>(pc_to_lookup)
                 }
             })
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">pc</span><span class="op">|</span> <span class="ident">info</span>.<span class="ident">lookup_frame_info</span>(<span class="ident">pc</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+            .filter_map(|pc| info.lookup_frame_info(pc))
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">RuntimeErrorInner</span> {
-                <span class="ident">source</span>,
-                <span class="ident">wasm_trace</span>,
-                <span class="ident">native_trace</span>: <span class="prelude-val">Some</span>(<span class="ident">native_trace</span>),
+        <span class="self">Self </span>{
+            inner: Arc::new(RuntimeErrorInner {
+                source,
+                wasm_trace,
+                native_trace: <span class="prelude-val">Some</span>(native_trace),
             }),
         }
     }
 
-    <span class="doccomment">/// Returns a reference the `message` stored in `Trap`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">source</span>.<span class="ident">to_string</span>()
+    <span class="doccomment">/// Returns a reference the `message` stored in `Trap`.
+    </span><span class="kw">pub fn </span>message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="self">self</span>.inner.source.to_string()
     }
 
-    <span class="doccomment">/// Returns a list of function frames in WebAssembly code that led to this</span>
-    <span class="doccomment">/// trap happening.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">trace</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">FrameInfo</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">wasm_trace</span>
+    <span class="doccomment">/// Returns a list of function frames in WebAssembly code that led to this
+    /// trap happening.
+    </span><span class="kw">pub fn </span>trace(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[FrameInfo] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.wasm_trace
     }
 
-    <span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">downcast</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">Arc::try_unwrap</span>(<span class="self">self</span>.<span class="ident">inner</span>) {
-            <span class="comment">// We only try to downcast user errors</span>
-            <span class="prelude-val">Ok</span>(<span class="ident">RuntimeErrorInner</span> {
-                <span class="ident">source</span>: <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">err</span>),
+    <span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.
+    </span><span class="kw">pub fn </span>downcast&lt;T: Error + <span class="lifetime">&#39;static</span>&gt;(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>&gt; {
+        <span class="kw">match </span>Arc::try_unwrap(<span class="self">self</span>.inner) {
+            <span class="comment">// We only try to downcast user errors
+            </span><span class="prelude-val">Ok</span>(RuntimeErrorInner {
+                source: RuntimeErrorSource::User(err),
                 ..
-            }) <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">is</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">err</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>().<span class="ident">unwrap</span>()),
-            <span class="prelude-val">Ok</span>(<span class="ident">inner</span>) =&gt; <span class="prelude-val">Err</span>(<span class="self">Self</span> {
-                <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">inner</span>),
+            }) <span class="kw">if </span>err.is::&lt;T&gt;() =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>err.downcast::&lt;T&gt;().unwrap()),
+            <span class="prelude-val">Ok</span>(inner) =&gt; <span class="prelude-val">Err</span>(<span class="self">Self </span>{
+                inner: Arc::new(inner),
             }),
-            <span class="prelude-val">Err</span>(<span class="ident">inner</span>) =&gt; <span class="prelude-val">Err</span>(<span class="self">Self</span> { <span class="ident">inner</span> }),
+            <span class="prelude-val">Err</span>(inner) =&gt; <span class="prelude-val">Err</span>(<span class="self">Self </span>{ inner }),
         }
     }
 
-    <span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">downcast_ref</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">as_ref</span>() {
-            <span class="comment">// We only try to downcast user errors</span>
-            <span class="ident">RuntimeErrorInner</span> {
-                <span class="ident">source</span>: <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">err</span>),
+    <span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.
+    </span><span class="kw">pub fn </span>downcast_ref&lt;T: Error + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
+        <span class="kw">match </span><span class="self">self</span>.inner.as_ref() {
+            <span class="comment">// We only try to downcast user errors
+            </span>RuntimeErrorInner {
+                source: RuntimeErrorSource::User(err),
                 ..
-            } <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">is</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() =&gt; <span class="ident">err</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+            } <span class="kw">if </span>err.is::&lt;T&gt;() =&gt; err.downcast_ref::&lt;T&gt;(),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="doccomment">/// Returns trap code, if it&#39;s a Trap</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_trap</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">RuntimeErrorSource::Trap</span>(<span class="ident">trap_code</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">source</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">trap_code</span>)
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        }
+    <span class="doccomment">/// Returns trap code, if it&#39;s a Trap
+    </span><span class="kw">pub fn </span>to_trap(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TrapCode&gt; {
+        <span class="kw">if let </span>RuntimeErrorSource::Trap(trap_code) = <span class="self">self</span>.inner.source {
+            <span class="prelude-val">Some</span>(trap_code)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
     }
 
-    <span class="doccomment">/// Returns true if the `RuntimeError` is the same as T</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">source</span> {
-            <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">is</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
-            <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
+    <span class="doccomment">/// Returns true if the `RuntimeError` is the same as T
+    </span><span class="kw">pub fn </span>is&lt;T: Error + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.source {
+            RuntimeErrorSource::User(err) =&gt; err.is::&lt;T&gt;(),
+            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RuntimeError&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;source&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">source</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;wasm_trace&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">wasm_trace</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;native_trace&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">native_trace</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>RuntimeError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;RuntimeError&quot;</span>)
+            .field(<span class="string">&quot;source&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.source)
+            .field(<span class="string">&quot;wasm_trace&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.wasm_trace)
+            .field(<span class="string">&quot;native_trace&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.native_trace)
+            .finish()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;RuntimeError: {}&quot;</span>, <span class="self">self</span>.<span class="ident">message</span>())<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">trace</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">trace</span>();
-        <span class="kw">if</span> <span class="ident">trace</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>RuntimeError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;RuntimeError: {}&quot;</span>, <span class="self">self</span>.message())<span class="question-mark">?</span>;
+        <span class="kw">let </span>trace = <span class="self">self</span>.trace();
+        <span class="kw">if </span>trace.is_empty() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
-        <span class="kw">for</span> <span class="ident">frame</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">trace</span>().<span class="ident">iter</span>() {
-            <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">module_name</span>();
-            <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">func_index</span>();
-            <span class="macro">writeln!</span>(<span class="ident">f</span>)<span class="question-mark">?</span>;
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;    at &quot;</span>)<span class="question-mark">?</span>;
-            <span class="kw">match</span> <span class="ident">frame</span>.<span class="ident">function_name</span>() {
-                <span class="prelude-val">Some</span>(<span class="ident">name</span>) =&gt; <span class="kw">match</span> <span class="ident">rustc_demangle::try_demangle</span>(<span class="ident">name</span>) {
-                    <span class="prelude-val">Ok</span>(<span class="ident">name</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">name</span>)<span class="question-mark">?</span>,
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">name</span>)<span class="question-mark">?</span>,
+        <span class="kw">for </span>frame <span class="kw">in </span><span class="self">self</span>.trace().iter() {
+            <span class="kw">let </span>name = frame.module_name();
+            <span class="kw">let </span>func_index = frame.func_index();
+            <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
+            <span class="macro">write!</span>(f, <span class="string">&quot;    at &quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">match </span>frame.function_name() {
+                <span class="prelude-val">Some</span>(name) =&gt; <span class="kw">match </span>rustc_demangle::try_demangle(name) {
+                    <span class="prelude-val">Ok</span>(name) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, name)<span class="question-mark">?</span>,
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, name)<span class="question-mark">?</span>,
                 },
-                <span class="prelude-val">None</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;&lt;unnamed&gt;&quot;</span>)<span class="question-mark">?</span>,
+                <span class="prelude-val">None </span>=&gt; <span class="macro">write!</span>(f, <span class="string">&quot;&lt;unnamed&gt;&quot;</span>)<span class="question-mark">?</span>,
             }
             <span class="macro">write!</span>(
-                <span class="ident">f</span>,
+                f,
                 <span class="string">&quot; ({}[{}]:0x{:x})&quot;</span>,
-                <span class="ident">name</span>,
-                <span class="ident">func_index</span>,
-                <span class="ident">frame</span>.<span class="ident">module_offset</span>()
+                name,
+                func_index,
+                frame.module_offset()
             )<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::error::Error</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
-    <span class="kw">fn</span> <span class="ident">source</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">source</span> {
-            <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">err</span>) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">err</span>),
-            <span class="ident">RuntimeErrorSource::Trap</span>(<span class="ident">err</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">err</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+<span class="kw">impl </span>std::error::Error <span class="kw">for </span>RuntimeError {
+    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.source {
+            RuntimeErrorSource::User(err) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;**</span>err),
+            RuntimeErrorSource::Trap(err) =&gt; <span class="prelude-val">Some</span>(err),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Trap</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RuntimeError</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">trap</span>: <span class="ident">Trap</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::from_trap</span>(<span class="ident">trap</span>)
+<span class="kw">impl </span>From&lt;Trap&gt; <span class="kw">for </span>RuntimeError {
+    <span class="kw">fn </span>from(trap: Trap) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::from_trap(trap)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

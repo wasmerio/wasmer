@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/env/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_emscripten/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/env/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_emscripten/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_emscripten/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -200,100 +200,100 @@
 <span id="198">198</span>
 <span id="199">199</span>
 <span id="200">200</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">mod</span> <span class="ident">unix</span>;
+</pre><pre class="rust"><code><span class="attribute">#[cfg(unix)]
+</span><span class="kw">mod </span>unix;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-<span class="kw">mod</span> <span class="ident">windows</span>;
+<span class="attribute">#[cfg(windows)]
+</span><span class="kw">mod </span>windows;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::unix</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(unix)]
+</span><span class="kw">pub use </span><span class="self">self</span>::unix::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::windows</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(windows)]
+</span><span class="kw">pub use </span><span class="self">self</span>::windows::<span class="kw-2">*</span>;
 
-<span class="kw">use</span> <span class="ident">libc::c_char</span>;
+<span class="kw">use </span>libc::c_char;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">allocate_on_stack</span>, <span class="ident">EmscriptenData</span>, <span class="ident">EmscriptenFunctions</span>};
+<span class="kw">use crate</span>::{allocate_on_stack, EmscriptenData, EmscriptenFunctions};
 
-<span class="kw">use</span> <span class="ident">std::os::raw::c_int</span>;
-<span class="kw">use</span> <span class="ident">std::sync::MutexGuard</span>;
+<span class="kw">use </span>std::os::raw::c_int;
+<span class="kw">use </span>std::sync::MutexGuard;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
-<span class="kw">use</span> <span class="ident">wasmer::ValueType</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">WasmPtr</span>};
+<span class="kw">use </span><span class="kw">crate</span>::EmEnv;
+<span class="kw">use </span>wasmer::ValueType;
+<span class="kw">use </span>wasmer::{FunctionEnvMut, WasmPtr};
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_malloc</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">malloc_ref</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="ident">ctx</span>).<span class="ident">malloc_ref</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>();
-    <span class="ident">malloc_ref</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">size</span>).<span class="ident">unwrap</span>()
+<span class="kw">pub fn </span>call_malloc(<span class="kw-2">mut </span>ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;EmEnv&gt;, size: u32) -&gt; u32 {
+    <span class="kw">let </span>malloc_ref = get_emscripten_funcs(ctx).malloc_ref().unwrap().clone();
+    malloc_ref.call(<span class="kw-2">&amp;mut </span>ctx, size).unwrap()
 }
 
-<span class="attribute">#[<span class="ident">warn</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_malloc_with_cast</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span><span class="op">&gt;</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="ident">WasmPtr::new</span>(<span class="ident">call_malloc</span>(<span class="ident">ctx</span>, <span class="ident">size</span>))
+<span class="attribute">#[warn(dead_code)]
+</span><span class="kw">pub fn </span>call_malloc_with_cast&lt;T: Copy&gt;(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;EmEnv&gt;, size: u32) -&gt; WasmPtr&lt;T&gt; {
+    WasmPtr::new(call_malloc(ctx, size))
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_memalign</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">alignment</span>: <span class="ident">u32</span>, <span class="ident">size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">memalign_ref</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="ident">ctx</span>).<span class="ident">memalign_ref</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>();
-    <span class="ident">memalign_ref</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">alignment</span>, <span class="ident">size</span>).<span class="ident">unwrap</span>()
+<span class="kw">pub fn </span>call_memalign(<span class="kw-2">mut </span>ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;EmEnv&gt;, alignment: u32, size: u32) -&gt; u32 {
+    <span class="kw">let </span>memalign_ref = get_emscripten_funcs(ctx).memalign_ref().unwrap().clone();
+    memalign_ref.call(<span class="kw-2">&amp;mut </span>ctx, alignment, size).unwrap()
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_memset</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">pointer</span>: <span class="ident">u32</span>,
-    <span class="ident">value</span>: <span class="ident">u32</span>,
-    <span class="ident">size</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">memset_ref</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="ident">ctx</span>).<span class="ident">memset_ref</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>();
-    <span class="ident">memset_ref</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">pointer</span>, <span class="ident">value</span>, <span class="ident">size</span>).<span class="ident">unwrap</span>()
+<span class="kw">pub fn </span>call_memset(
+    <span class="kw-2">mut </span>ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;EmEnv&gt;,
+    pointer: u32,
+    value: u32,
+    size: u32,
+) -&gt; u32 {
+    <span class="kw">let </span>memset_ref = get_emscripten_funcs(ctx).memset_ref().unwrap().clone();
+    memset_ref.call(<span class="kw-2">&amp;mut </span>ctx, pointer, value, size).unwrap()
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_emscripten_data</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">EmscriptenData</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">data</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>()
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_emscripten_data&lt;<span class="lifetime">&#39;a</span>&gt;(
+    ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionEnvMut&lt;EmEnv&gt;,
+) -&gt; MutexGuard&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Option</span>&lt;EmscriptenData&gt;&gt; {
+    ctx.data().data.lock().unwrap()
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_emscripten_funcs</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">EmscriptenFunctions</span><span class="op">&gt;</span> {
-    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">funcs</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>()
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_emscripten_funcs&lt;<span class="lifetime">&#39;a</span>&gt;(
+    ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionEnvMut&lt;EmEnv&gt;,
+) -&gt; MutexGuard&lt;<span class="lifetime">&#39;a</span>, EmscriptenFunctions&gt; {
+    ctx.data().funcs.lock().unwrap()
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getpagesize</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">u32</span> {
+<span class="kw">pub fn </span>_getpagesize(_ctx: FunctionEnvMut&lt;EmEnv&gt;) -&gt; u32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_getpagesize&quot;</span>);
-    <span class="number">16384</span>
-}
+    <span class="number">16384
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_times</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">buffer</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">if</span> <span class="ident">buffer</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-        <span class="ident">call_memset</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">buffer</span>, <span class="number">0</span>, <span class="number">16</span>);
+<span class="kw">pub fn </span>_times(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, buffer: u32) -&gt; u32 {
+    <span class="kw">if </span>buffer != <span class="number">0 </span>{
+        call_memset(<span class="kw-2">&amp;mut </span>ctx, buffer, <span class="number">0</span>, <span class="number">16</span>);
     }
-    <span class="number">0</span>
-}
+    <span class="number">0
+</span>}
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___build_environment</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">environ</span>: <span class="ident">c_int</span>) {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___build_environment {}&quot;</span>, <span class="ident">environ</span>);
-    <span class="kw">const</span> <span class="ident">MAX_ENV_VALUES</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">64</span>;
-    <span class="kw">const</span> <span class="ident">TOTAL_ENV_SIZE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">1024</span>;
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">environment</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">environ</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_int</span>;
-    <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">pool_offset</span>, <span class="ident">env_ptr</span>, <span class="kw-2">mut</span> <span class="ident">pool_ptr</span>) <span class="op">=</span> <span class="kw">unsafe</span> {
-        <span class="kw">let</span> (<span class="ident">pool_offset</span>, <span class="ident">_pool_slice</span>): (<span class="ident">u32</span>, <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) <span class="op">=</span>
-            <span class="ident">allocate_on_stack</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">TOTAL_ENV_SIZE</span> <span class="kw">as</span> <span class="ident">u32</span>);
-        <span class="kw">let</span> (<span class="ident">env_offset</span>, <span class="ident">_env_slice</span>): (<span class="ident">u32</span>, <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) <span class="op">=</span>
-            <span class="ident">allocate_on_stack</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, (<span class="ident">MAX_ENV_VALUES</span> <span class="op">*</span> <span class="number">4</span>) <span class="kw">as</span> <span class="ident">u32</span>);
-        <span class="kw">let</span> <span class="ident">env_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">env_offset</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_int</span>;
-        <span class="kw">let</span> <span class="ident">pool_ptr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">pool_offset</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
-        <span class="kw-2">*</span><span class="ident">env_ptr</span> <span class="op">=</span> <span class="ident">pool_offset</span> <span class="kw">as</span> <span class="ident">i32</span>;
-        <span class="kw-2">*</span><span class="ident">environment</span> <span class="op">=</span> <span class="ident">env_offset</span> <span class="kw">as</span> <span class="ident">i32</span>;
+<span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>___build_environment(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, environ: c_int) {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___build_environment {}&quot;</span>, environ);
+    <span class="kw">const </span>MAX_ENV_VALUES: u32 = <span class="number">64</span>;
+    <span class="kw">const </span>TOTAL_ENV_SIZE: u32 = <span class="number">1024</span>;
+    <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+    <span class="kw">let </span>environment = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), environ) <span class="kw">as </span><span class="kw-2">*mut </span>c_int;
+    <span class="kw">let </span>(<span class="kw-2">mut </span>pool_offset, env_ptr, <span class="kw-2">mut </span>pool_ptr) = <span class="kw">unsafe </span>{
+        <span class="kw">let </span>(pool_offset, _pool_slice): (u32, <span class="kw-2">&amp;mut </span>[u8]) =
+            allocate_on_stack(<span class="kw-2">&amp;mut </span>ctx, TOTAL_ENV_SIZE <span class="kw">as </span>u32);
+        <span class="kw">let </span>(env_offset, _env_slice): (u32, <span class="kw-2">&amp;mut </span>[u8]) =
+            allocate_on_stack(<span class="kw-2">&amp;mut </span>ctx, (MAX_ENV_VALUES * <span class="number">4</span>) <span class="kw">as </span>u32);
+        <span class="kw">let </span>env_ptr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), env_offset) <span class="kw">as </span><span class="kw-2">*mut </span>c_int;
+        <span class="kw">let </span>pool_ptr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), pool_offset) <span class="kw">as </span><span class="kw-2">*mut </span>u8;
+        <span class="kw-2">*</span>env_ptr = pool_offset <span class="kw">as </span>i32;
+        <span class="kw-2">*</span>environment = env_offset <span class="kw">as </span>i32;
 
-        (<span class="ident">pool_offset</span>, <span class="ident">env_ptr</span>, <span class="ident">pool_ptr</span>)
+        (pool_offset, env_ptr, pool_ptr)
     };
 
-    <span class="comment">// *env_ptr = 0;</span>
-    <span class="kw">let</span> <span class="ident">default_vars</span> <span class="op">=</span> <span class="macro">vec!</span>[
+    <span class="comment">// *env_ptr = 0;
+    </span><span class="kw">let </span>default_vars = <span class="macro">vec!</span>[
         [<span class="string">&quot;USER&quot;</span>, <span class="string">&quot;web_user&quot;</span>],
         [<span class="string">&quot;LOGNAME&quot;</span>, <span class="string">&quot;web_user&quot;</span>],
         [<span class="string">&quot;PATH&quot;</span>, <span class="string">&quot;/&quot;</span>],
@@ -302,103 +302,103 @@
         [<span class="string">&quot;LANG&quot;</span>, <span class="string">&quot;C.UTF-8&quot;</span>],
         [<span class="string">&quot;_&quot;</span>, <span class="string">&quot;thisProgram&quot;</span>],
     ];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">strings</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_size</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">for</span> [<span class="ident">key</span>, <span class="ident">val</span>] <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">default_vars</span> {
-        <span class="kw">let</span> <span class="ident">line</span> <span class="op">=</span> <span class="ident">key</span>.<span class="ident">to_string</span>() <span class="op">+</span> <span class="string">&quot;=&quot;</span> <span class="op">+</span> <span class="ident">val</span>;
-        <span class="ident">total_size</span> <span class="op">+</span><span class="op">=</span> <span class="ident">line</span>.<span class="ident">len</span>();
-        <span class="ident">strings</span>.<span class="ident">push</span>(<span class="ident">line</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>strings = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>total_size = <span class="number">0</span>;
+    <span class="kw">for </span>[key, val] <span class="kw">in </span><span class="kw-2">&amp;</span>default_vars {
+        <span class="kw">let </span>line = key.to_string() + <span class="string">&quot;=&quot; </span>+ val;
+        total_size += line.len();
+        strings.push(line);
     }
-    <span class="kw">if</span> <span class="ident">total_size</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">&gt;</span> <span class="ident">TOTAL_ENV_SIZE</span> {
+    <span class="kw">if </span>total_size <span class="kw">as </span>u32 &gt; TOTAL_ENV_SIZE {
         <span class="macro">panic!</span>(<span class="string">&quot;Environment size exceeded TOTAL_ENV_SIZE!&quot;</span>);
     }
-    <span class="kw">unsafe</span> {
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">s</span>) <span class="kw">in</span> <span class="ident">strings</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">for</span> (<span class="ident">j</span>, <span class="ident">c</span>) <span class="kw">in</span> <span class="ident">s</span>.<span class="ident">chars</span>().<span class="ident">enumerate</span>() {
-                <span class="macro">debug_assert!</span>(<span class="ident">c</span> <span class="op">&lt;</span> <span class="ident">u8::max_value</span>() <span class="kw">as</span> <span class="ident">char</span>);
-                <span class="kw-2">*</span><span class="ident">pool_ptr</span>.<span class="ident">add</span>(<span class="ident">j</span>) <span class="op">=</span> <span class="ident">c</span> <span class="kw">as</span> <span class="ident">u8</span>;
+    <span class="kw">unsafe </span>{
+        <span class="kw">for </span>(i, s) <span class="kw">in </span>strings.iter().enumerate() {
+            <span class="kw">for </span>(j, c) <span class="kw">in </span>s.chars().enumerate() {
+                <span class="macro">debug_assert!</span>(c &lt; u8::max_value() <span class="kw">as </span>char);
+                <span class="kw-2">*</span>pool_ptr.add(j) = c <span class="kw">as </span>u8;
             }
-            <span class="kw-2">*</span><span class="ident">env_ptr</span>.<span class="ident">add</span>(<span class="ident">i</span> <span class="op">*</span> <span class="number">4</span>) <span class="op">=</span> <span class="ident">pool_offset</span> <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="ident">pool_offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">s</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>;
-            <span class="ident">pool_ptr</span> <span class="op">=</span> <span class="ident">pool_ptr</span>.<span class="ident">add</span>(<span class="ident">s</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="number">1</span>);
+            <span class="kw-2">*</span>env_ptr.add(i * <span class="number">4</span>) = pool_offset <span class="kw">as </span>i32;
+            pool_offset += s.len() <span class="kw">as </span>u32 + <span class="number">1</span>;
+            pool_ptr = pool_ptr.add(s.len() + <span class="number">1</span>);
         }
-        <span class="kw-2">*</span><span class="ident">env_ptr</span>.<span class="ident">add</span>(<span class="ident">strings</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="number">4</span>) <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw-2">*</span>env_ptr.add(strings.len() * <span class="number">4</span>) = <span class="number">0</span>;
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___assert_fail</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">c_int</span>, <span class="ident">_b</span>: <span class="ident">c_int</span>, <span class="ident">_c</span>: <span class="ident">c_int</span>, <span class="ident">_d</span>: <span class="ident">c_int</span>) {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___assert_fail {} {} {} {}&quot;</span>, <span class="ident">_a</span>, <span class="ident">_b</span>, <span class="ident">_c</span>, <span class="ident">_d</span>);
-    <span class="comment">// TODO: Implement like emscripten expects regarding memory/page size</span>
-    <span class="comment">// TODO raise an error</span>
-}
+<span class="kw">pub fn </span>___assert_fail(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: c_int, _b: c_int, _c: c_int, _d: c_int) {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___assert_fail {} {} {} {}&quot;</span>, _a, _b, _c, _d);
+    <span class="comment">// TODO: Implement like emscripten expects regarding memory/page size
+    // TODO raise an error
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_pathconf</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">path_addr</span>: <span class="ident">c_int</span>, <span class="ident">name</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
+<span class="kw">pub fn </span>_pathconf(ctx: FunctionEnvMut&lt;EmEnv&gt;, path_addr: c_int, name: c_int) -&gt; c_int {
     <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::_pathconf {} {} - UNIMPLEMENTED&quot;</span>,
-        <span class="ident">path_addr</span>, <span class="ident">name</span>
+        path_addr, name
     );
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">_path</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">path_addr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
-    <span class="kw">match</span> <span class="ident">name</span> {
-        <span class="number">0</span> =&gt; <span class="number">32000</span>,
-        <span class="number">1</span> <span class="op">|</span> <span class="number">2</span> <span class="op">|</span> <span class="number">3</span> =&gt; <span class="number">255</span>,
-        <span class="number">4</span> <span class="op">|</span> <span class="number">5</span> <span class="op">|</span> <span class="number">16</span> <span class="op">|</span> <span class="number">17</span> <span class="op">|</span> <span class="number">18</span> =&gt; <span class="number">4096</span>,
-        <span class="number">6</span> <span class="op">|</span> <span class="number">7</span> <span class="op">|</span> <span class="number">20</span> =&gt; <span class="number">1</span>,
-        <span class="number">8</span> =&gt; <span class="number">0</span>,
-        <span class="number">9</span> <span class="op">|</span> <span class="number">10</span> <span class="op">|</span> <span class="number">11</span> <span class="op">|</span> <span class="number">12</span> <span class="op">|</span> <span class="number">14</span> <span class="op">|</span> <span class="number">15</span> <span class="op">|</span> <span class="number">19</span> =&gt; <span class="op">-</span><span class="number">1</span>,
-        <span class="number">13</span> =&gt; <span class="number">64</span>,
-        <span class="kw">_</span> =&gt; {
-            <span class="comment">// ___setErrNo(22);</span>
-            <span class="op">-</span><span class="number">1</span>
-        }
+    <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+    <span class="kw">let </span>_path = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), path_addr) <span class="kw">as </span><span class="kw-2">*const </span>c_char;
+    <span class="kw">match </span>name {
+        <span class="number">0 </span>=&gt; <span class="number">32000</span>,
+        <span class="number">1 </span>| <span class="number">2 </span>| <span class="number">3 </span>=&gt; <span class="number">255</span>,
+        <span class="number">4 </span>| <span class="number">5 </span>| <span class="number">16 </span>| <span class="number">17 </span>| <span class="number">18 </span>=&gt; <span class="number">4096</span>,
+        <span class="number">6 </span>| <span class="number">7 </span>| <span class="number">20 </span>=&gt; <span class="number">1</span>,
+        <span class="number">8 </span>=&gt; <span class="number">0</span>,
+        <span class="number">9 </span>| <span class="number">10 </span>| <span class="number">11 </span>| <span class="number">12 </span>| <span class="number">14 </span>| <span class="number">15 </span>| <span class="number">19 </span>=&gt; -<span class="number">1</span>,
+        <span class="number">13 </span>=&gt; <span class="number">64</span>,
+        <span class="kw">_ </span>=&gt; {
+            <span class="comment">// ___setErrNo(22);
+            </span>-<span class="number">1
+        </span>}
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_fpathconf</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_fildes</span>: <span class="ident">c_int</span>, <span class="ident">name</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_fpathconf {} {}&quot;</span>, <span class="ident">_fildes</span>, <span class="ident">name</span>);
-    <span class="kw">match</span> <span class="ident">name</span> {
-        <span class="number">0</span> =&gt; <span class="number">32000</span>,
-        <span class="number">1</span> <span class="op">|</span> <span class="number">2</span> <span class="op">|</span> <span class="number">3</span> =&gt; <span class="number">255</span>,
-        <span class="number">4</span> <span class="op">|</span> <span class="number">5</span> <span class="op">|</span> <span class="number">16</span> <span class="op">|</span> <span class="number">17</span> <span class="op">|</span> <span class="number">18</span> =&gt; <span class="number">4096</span>,
-        <span class="number">6</span> <span class="op">|</span> <span class="number">7</span> <span class="op">|</span> <span class="number">20</span> =&gt; <span class="number">1</span>,
-        <span class="number">8</span> =&gt; <span class="number">0</span>,
-        <span class="number">9</span> <span class="op">|</span> <span class="number">10</span> <span class="op">|</span> <span class="number">11</span> <span class="op">|</span> <span class="number">12</span> <span class="op">|</span> <span class="number">14</span> <span class="op">|</span> <span class="number">15</span> <span class="op">|</span> <span class="number">19</span> =&gt; <span class="op">-</span><span class="number">1</span>,
-        <span class="number">13</span> =&gt; <span class="number">64</span>,
-        <span class="kw">_</span> =&gt; {
-            <span class="comment">// ___setErrNo(22);</span>
-            <span class="op">-</span><span class="number">1</span>
-        }
+<span class="kw">pub fn </span>_fpathconf(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _fildes: c_int, name: c_int) -&gt; c_int {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_fpathconf {} {}&quot;</span>, _fildes, name);
+    <span class="kw">match </span>name {
+        <span class="number">0 </span>=&gt; <span class="number">32000</span>,
+        <span class="number">1 </span>| <span class="number">2 </span>| <span class="number">3 </span>=&gt; <span class="number">255</span>,
+        <span class="number">4 </span>| <span class="number">5 </span>| <span class="number">16 </span>| <span class="number">17 </span>| <span class="number">18 </span>=&gt; <span class="number">4096</span>,
+        <span class="number">6 </span>| <span class="number">7 </span>| <span class="number">20 </span>=&gt; <span class="number">1</span>,
+        <span class="number">8 </span>=&gt; <span class="number">0</span>,
+        <span class="number">9 </span>| <span class="number">10 </span>| <span class="number">11 </span>| <span class="number">12 </span>| <span class="number">14 </span>| <span class="number">15 </span>| <span class="number">19 </span>=&gt; -<span class="number">1</span>,
+        <span class="number">13 </span>=&gt; <span class="number">64</span>,
+        <span class="kw">_ </span>=&gt; {
+            <span class="comment">// ___setErrNo(22);
+            </span>-<span class="number">1
+        </span>}
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">ValueType</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EmAddrInfo</span> {
-    <span class="comment">// int</span>
-    <span class="kw">pub</span> <span class="ident">ai_flags</span>: <span class="ident">i32</span>,
-    <span class="comment">// int</span>
-    <span class="kw">pub</span> <span class="ident">ai_family</span>: <span class="ident">i32</span>,
-    <span class="comment">// int</span>
-    <span class="kw">pub</span> <span class="ident">ai_socktype</span>: <span class="ident">i32</span>,
-    <span class="comment">// int</span>
-    <span class="kw">pub</span> <span class="ident">ai_protocol</span>: <span class="ident">i32</span>,
-    <span class="comment">// socklen_t</span>
-    <span class="kw">pub</span> <span class="ident">ai_addrlen</span>: <span class="ident">u32</span>,
-    <span class="comment">// struct sockaddr*</span>
-    <span class="kw">pub</span> <span class="ident">ai_addr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmSockAddr</span><span class="op">&gt;</span>,
-    <span class="comment">// char*</span>
-    <span class="kw">pub</span> <span class="ident">ai_canonname</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">c_char</span><span class="op">&gt;</span>,
-    <span class="comment">// struct addrinfo*</span>
-    <span class="kw">pub</span> <span class="ident">ai_next</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">EmAddrInfo</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone, Copy, ValueType)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>EmAddrInfo {
+    <span class="comment">// int
+    </span><span class="kw">pub </span>ai_flags: i32,
+    <span class="comment">// int
+    </span><span class="kw">pub </span>ai_family: i32,
+    <span class="comment">// int
+    </span><span class="kw">pub </span>ai_socktype: i32,
+    <span class="comment">// int
+    </span><span class="kw">pub </span>ai_protocol: i32,
+    <span class="comment">// socklen_t
+    </span><span class="kw">pub </span>ai_addrlen: u32,
+    <span class="comment">// struct sockaddr*
+    </span><span class="kw">pub </span>ai_addr: WasmPtr&lt;EmSockAddr&gt;,
+    <span class="comment">// char*
+    </span><span class="kw">pub </span>ai_canonname: WasmPtr&lt;c_char&gt;,
+    <span class="comment">// struct addrinfo*
+    </span><span class="kw">pub </span>ai_next: WasmPtr&lt;EmAddrInfo&gt;,
 }
 
-<span class="comment">// NOTE: from looking at emscripten JS, this should be a union</span>
-<span class="comment">// TODO: review this, highly likely to have bugs</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">ValueType</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EmSockAddr</span> {
-    <span class="kw">pub</span> <span class="ident">sa_family</span>: <span class="ident">i16</span>,
-    <span class="kw">pub</span> <span class="ident">sa_data</span>: [<span class="ident">c_char</span>; <span class="number">14</span>],
+<span class="comment">// NOTE: from looking at emscripten JS, this should be a union
+// TODO: review this, highly likely to have bugs
+</span><span class="attribute">#[derive(Debug, Clone, Copy, ValueType)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>EmSockAddr {
+    <span class="kw">pub </span>sa_family: i16,
+    <span class="kw">pub </span>sa_data: [c_char; <span class="number">14</span>],
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

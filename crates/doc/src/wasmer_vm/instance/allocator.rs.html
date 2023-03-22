@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/instance/allocator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>allocator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_vm/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/instance/allocator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>allocator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_vm/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -216,223 +216,223 @@
 <span id="216">216</span>
 <span id="217">217</span>
 <span id="218">218</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Instance</span>, <span class="ident">VMInstance</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMTableDefinition</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VMMemoryDefinition</span>;
-<span class="kw">use</span> <span class="ident">std::alloc</span>::{<span class="self">self</span>, <span class="ident">Layout</span>};
-<span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::VMOffsets</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">ModuleInfo</span>};
+</pre><pre class="rust"><code><span class="kw">use super</span>::{Instance, VMInstance};
+<span class="kw">use </span><span class="kw">crate</span>::vmcontext::VMTableDefinition;
+<span class="kw">use </span><span class="kw">crate</span>::VMMemoryDefinition;
+<span class="kw">use </span>std::alloc::{<span class="self">self</span>, Layout};
+<span class="kw">use </span>std::convert::TryFrom;
+<span class="kw">use </span>std::mem;
+<span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
+<span class="kw">use </span>wasmer_types::entity::EntityRef;
+<span class="kw">use </span>wasmer_types::VMOffsets;
+<span class="kw">use </span>wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 
-<span class="doccomment">/// This is an intermediate type that manages the raw allocation and</span>
-<span class="doccomment">/// metadata when creating an [`Instance`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This type will free the allocated memory if it&#39;s dropped before</span>
-<span class="doccomment">/// being used.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It is important to remind that [`Instance`] is dynamically-sized</span>
-<span class="doccomment">/// based on `VMOffsets`: The `Instance.vmctx` field represents a</span>
-<span class="doccomment">/// dynamically-sized array that extends beyond the nominal end of the</span>
-<span class="doccomment">/// type. So in order to create an instance of it, we must:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// 1. Define the correct layout for `Instance` (size and alignment),</span>
-<span class="doccomment">/// 2. Allocate it properly.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [`InstanceAllocator::instance_layout`] computes the correct</span>
-<span class="doccomment">/// layout to represent the wanted [`Instance`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Then we use this layout to allocate an empty `Instance` properly.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceAllocator</span> {
-    <span class="doccomment">/// The buffer that will contain the [`Instance`] and dynamic fields.</span>
-    <span class="ident">instance_ptr</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>,
+<span class="doccomment">/// This is an intermediate type that manages the raw allocation and
+/// metadata when creating an [`Instance`].
+///
+/// This type will free the allocated memory if it&#39;s dropped before
+/// being used.
+///
+/// It is important to remind that [`Instance`] is dynamically-sized
+/// based on `VMOffsets`: The `Instance.vmctx` field represents a
+/// dynamically-sized array that extends beyond the nominal end of the
+/// type. So in order to create an instance of it, we must:
+///
+/// 1. Define the correct layout for `Instance` (size and alignment),
+/// 2. Allocate it properly.
+///
+/// The [`InstanceAllocator::instance_layout`] computes the correct
+/// layout to represent the wanted [`Instance`].
+///
+/// Then we use this layout to allocate an empty `Instance` properly.
+</span><span class="kw">pub struct </span>InstanceAllocator {
+    <span class="doccomment">/// The buffer that will contain the [`Instance`] and dynamic fields.
+    </span>instance_ptr: NonNull&lt;Instance&gt;,
 
-    <span class="doccomment">/// The layout of the `instance_ptr` buffer.</span>
-    <span class="ident">instance_layout</span>: <span class="ident">Layout</span>,
+    <span class="doccomment">/// The layout of the `instance_ptr` buffer.
+    </span>instance_layout: Layout,
 
-    <span class="doccomment">/// Information about the offsets into the `instance_ptr` buffer for</span>
-    <span class="doccomment">/// the dynamic fields.</span>
-    <span class="ident">offsets</span>: <span class="ident">VMOffsets</span>,
+    <span class="doccomment">/// Information about the offsets into the `instance_ptr` buffer for
+    /// the dynamic fields.
+    </span>offsets: VMOffsets,
 
-    <span class="doccomment">/// Whether or not this type has transferred ownership of the</span>
-    <span class="doccomment">/// `instance_ptr` buffer. If it has not when being dropped,</span>
-    <span class="doccomment">/// the buffer should be freed.</span>
-    <span class="ident">consumed</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Whether or not this type has transferred ownership of the
+    /// `instance_ptr` buffer. If it has not when being dropped,
+    /// the buffer should be freed.
+    </span>consumed: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">InstanceAllocator</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">consumed</span> {
-            <span class="comment">// If `consumed` has not been set, then we still have ownership</span>
-            <span class="comment">// over the buffer and must free it.</span>
-            <span class="kw">let</span> <span class="ident">instance_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance_ptr</span>.<span class="ident">as_ptr</span>();
+<span class="kw">impl </span>Drop <span class="kw">for </span>InstanceAllocator {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span>!<span class="self">self</span>.consumed {
+            <span class="comment">// If `consumed` has not been set, then we still have ownership
+            // over the buffer and must free it.
+            </span><span class="kw">let </span>instance_ptr = <span class="self">self</span>.instance_ptr.as_ptr();
 
-            <span class="kw">unsafe</span> {
-                <span class="ident">std::alloc::dealloc</span>(<span class="ident">instance_ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">instance_layout</span>);
+            <span class="kw">unsafe </span>{
+                std::alloc::dealloc(instance_ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, <span class="self">self</span>.instance_layout);
             }
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">InstanceAllocator</span> {
-    <span class="doccomment">/// Allocates instance data for use with [`VMInstance::new`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns a wrapper type around the allocation and 2 vectors of</span>
-    <span class="doccomment">/// pointers into the allocated buffer. These lists of pointers</span>
-    <span class="doccomment">/// correspond to the location in memory for the local memories and</span>
-    <span class="doccomment">/// tables respectively. These pointers should be written to before</span>
-    <span class="doccomment">/// calling [`VMInstance::new`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`VMInstance::new`]: super::VMInstance::new</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
+<span class="kw">impl </span>InstanceAllocator {
+    <span class="doccomment">/// Allocates instance data for use with [`VMInstance::new`].
+    ///
+    /// Returns a wrapper type around the allocation and 2 vectors of
+    /// pointers into the allocated buffer. These lists of pointers
+    /// correspond to the location in memory for the local memories and
+    /// tables respectively. These pointers should be written to before
+    /// calling [`VMInstance::new`].
+    ///
+    /// [`VMInstance::new`]: super::VMInstance::new
+    </span><span class="kw">pub fn </span>new(
+        module: <span class="kw-2">&amp;</span>ModuleInfo,
     ) -&gt; (
         <span class="self">Self</span>,
-        <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        Vec&lt;NonNull&lt;VMMemoryDefinition&gt;&gt;,
+        Vec&lt;NonNull&lt;VMTableDefinition&gt;&gt;,
     ) {
-        <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">VMOffsets::new</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">module</span>);
-        <span class="kw">let</span> <span class="ident">instance_layout</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::instance_layout</span>(<span class="kw-2">&amp;</span><span class="ident">offsets</span>);
+        <span class="kw">let </span>offsets = VMOffsets::new(mem::size_of::&lt;usize&gt;() <span class="kw">as </span>u8, module);
+        <span class="kw">let </span>instance_layout = <span class="self">Self</span>::instance_layout(<span class="kw-2">&amp;</span>offsets);
 
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-        <span class="kw">let</span> <span class="ident">instance_ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">alloc::alloc</span>(<span class="ident">instance_layout</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">Instance</span> };
+        <span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+        </span><span class="kw">let </span>instance_ptr = <span class="kw">unsafe </span>{ alloc::alloc(instance_layout) <span class="kw">as </span><span class="kw-2">*mut </span>Instance };
 
-        <span class="kw">let</span> <span class="ident">instance_ptr</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ptr</span>) <span class="op">=</span> <span class="ident">NonNull::new</span>(<span class="ident">instance_ptr</span>) {
-            <span class="ident">ptr</span>
-        } <span class="kw">else</span> {
-            <span class="ident">alloc::handle_alloc_error</span>(<span class="ident">instance_layout</span>);
+        <span class="kw">let </span>instance_ptr = <span class="kw">if let </span><span class="prelude-val">Some</span>(ptr) = NonNull::new(instance_ptr) {
+            ptr
+        } <span class="kw">else </span>{
+            alloc::handle_alloc_error(instance_layout);
         };
 
-        <span class="kw">let</span> <span class="ident">allocator</span> <span class="op">=</span> <span class="self">Self</span> {
-            <span class="ident">instance_ptr</span>,
-            <span class="ident">instance_layout</span>,
-            <span class="ident">offsets</span>,
-            <span class="ident">consumed</span>: <span class="bool-val">false</span>,
+        <span class="kw">let </span>allocator = <span class="self">Self </span>{
+            instance_ptr,
+            instance_layout,
+            offsets,
+            consumed: <span class="bool-val">false</span>,
         };
 
-        <span class="comment">// # Safety</span>
-        <span class="comment">// Both of these calls are safe because we allocate the pointer</span>
-        <span class="comment">// above with the same `offsets` that these functions use.</span>
-        <span class="comment">// Thus there will be enough valid memory for both of them.</span>
-        <span class="kw">let</span> <span class="ident">memories</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">allocator</span>.<span class="ident">memory_definition_locations</span>() };
-        <span class="kw">let</span> <span class="ident">tables</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">allocator</span>.<span class="ident">table_definition_locations</span>() };
+        <span class="comment">// # Safety
+        // Both of these calls are safe because we allocate the pointer
+        // above with the same `offsets` that these functions use.
+        // Thus there will be enough valid memory for both of them.
+        </span><span class="kw">let </span>memories = <span class="kw">unsafe </span>{ allocator.memory_definition_locations() };
+        <span class="kw">let </span>tables = <span class="kw">unsafe </span>{ allocator.table_definition_locations() };
 
-        (<span class="ident">allocator</span>, <span class="ident">memories</span>, <span class="ident">tables</span>)
+        (allocator, memories, tables)
     }
 
-    <span class="doccomment">/// Calculate the appropriate layout for the [`Instance`].</span>
-    <span class="kw">fn</span> <span class="ident">instance_layout</span>(<span class="ident">offsets</span>: <span class="kw-2">&amp;</span><span class="ident">VMOffsets</span>) -&gt; <span class="ident">Layout</span> {
-        <span class="kw">let</span> <span class="ident">vmctx_size</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">offsets</span>.<span class="ident">size_of_vmctx</span>())
-            .<span class="ident">expect</span>(<span class="string">&quot;Failed to convert the size of `vmctx` to a `usize`&quot;</span>);
+    <span class="doccomment">/// Calculate the appropriate layout for the [`Instance`].
+    </span><span class="kw">fn </span>instance_layout(offsets: <span class="kw-2">&amp;</span>VMOffsets) -&gt; Layout {
+        <span class="kw">let </span>vmctx_size = usize::try_from(offsets.size_of_vmctx())
+            .expect(<span class="string">&quot;Failed to convert the size of `vmctx` to a `usize`&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">instance_vmctx_layout</span> <span class="op">=</span>
-            <span class="ident">Layout::array</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">vmctx_size</span>).<span class="ident">expect</span>(<span class="string">&quot;Failed to create a layout for `VMContext`&quot;</span>);
+        <span class="kw">let </span>instance_vmctx_layout =
+            Layout::array::&lt;u8&gt;(vmctx_size).expect(<span class="string">&quot;Failed to create a layout for `VMContext`&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">instance_layout</span>, <span class="ident">_offset</span>) <span class="op">=</span> <span class="ident">Layout::new</span>::<span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>()
-            .<span class="ident">extend</span>(<span class="ident">instance_vmctx_layout</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;Failed to extend to `Instance` layout to include `VMContext`&quot;</span>);
+        <span class="kw">let </span>(instance_layout, _offset) = Layout::new::&lt;Instance&gt;()
+            .extend(instance_vmctx_layout)
+            .expect(<span class="string">&quot;Failed to extend to `Instance` layout to include `VMContext`&quot;</span>);
 
-        <span class="ident">instance_layout</span>.<span class="ident">pad_to_align</span>()
+        instance_layout.pad_to_align()
     }
 
-    <span class="doccomment">/// Get the locations of where the local [`VMMemoryDefinition`]s should be stored.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This function lets us create `Memory` objects on the host with backing</span>
-    <span class="doccomment">/// memory in the VM.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// - `Self.instance_ptr` must point to enough memory that all of</span>
-    <span class="doccomment">///   the offsets in `Self.offsets` point to valid locations in</span>
-    <span class="doccomment">///   memory, i.e. `Self.instance_ptr` must have been allocated by</span>
-    <span class="doccomment">///   `Self::new`.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_definition_locations</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_memories</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">num_local_memories</span>();
-        <span class="kw">let</span> <span class="ident">num_memories</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">num_memories</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">num_memories</span>);
+    <span class="doccomment">/// Get the locations of where the local [`VMMemoryDefinition`]s should be stored.
+    ///
+    /// This function lets us create `Memory` objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in
+    ///   memory, i.e. `Self.instance_ptr` must have been allocated by
+    ///   `Self::new`.
+    </span><span class="kw">unsafe fn </span>memory_definition_locations(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;NonNull&lt;VMMemoryDefinition&gt;&gt; {
+        <span class="kw">let </span>num_memories = <span class="self">self</span>.offsets.num_local_memories();
+        <span class="kw">let </span>num_memories = usize::try_from(num_memories).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(num_memories);
 
-        <span class="comment">// We need to do some pointer arithmetic now. The unit is `u8`.</span>
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance_ptr</span>.<span class="ident">cast</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>();
-        <span class="kw">let</span> <span class="ident">base_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>());
+        <span class="comment">// We need to do some pointer arithmetic now. The unit is `u8`.
+        </span><span class="kw">let </span>ptr = <span class="self">self</span>.instance_ptr.cast::&lt;u8&gt;().as_ptr();
+        <span class="kw">let </span>base_ptr = ptr.add(mem::size_of::&lt;Instance&gt;());
 
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_memories</span> {
-            <span class="kw">let</span> <span class="ident">mem_offset</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">offsets</span>
-                .<span class="ident">vmctx_vmmemory_definition</span>(<span class="ident">LocalMemoryIndex::new</span>(<span class="ident">i</span>));
-            <span class="kw">let</span> <span class="ident">mem_offset</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">mem_offset</span>).<span class="ident">unwrap</span>();
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..num_memories {
+            <span class="kw">let </span>mem_offset = <span class="self">self
+                </span>.offsets
+                .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            <span class="kw">let </span>mem_offset = usize::try_from(mem_offset).unwrap();
 
-            <span class="kw">let</span> <span class="ident">new_ptr</span> <span class="op">=</span> <span class="ident">NonNull::new_unchecked</span>(<span class="ident">base_ptr</span>.<span class="ident">add</span>(<span class="ident">mem_offset</span>));
+            <span class="kw">let </span>new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
 
-            <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">new_ptr</span>.<span class="ident">cast</span>());
+            out.push(new_ptr.cast());
         }
 
-        <span class="ident">out</span>
+        out
     }
 
-    <span class="doccomment">/// Get the locations of where the [`VMTableDefinition`]s should be stored.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This function lets us create [`Table`] objects on the host with backing</span>
-    <span class="doccomment">/// memory in the VM.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// - `Self.instance_ptr` must point to enough memory that all of</span>
-    <span class="doccomment">///   the offsets in `Self.offsets` point to valid locations in</span>
-    <span class="doccomment">///   memory, i.e. `Self.instance_ptr` must have been allocated by</span>
-    <span class="doccomment">///   `Self::new`.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">table_definition_locations</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_tables</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">num_local_tables</span>();
-        <span class="kw">let</span> <span class="ident">num_tables</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">num_tables</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">num_tables</span>);
+    <span class="doccomment">/// Get the locations of where the [`VMTableDefinition`]s should be stored.
+    ///
+    /// This function lets us create [`Table`] objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in
+    ///   memory, i.e. `Self.instance_ptr` must have been allocated by
+    ///   `Self::new`.
+    </span><span class="kw">unsafe fn </span>table_definition_locations(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;NonNull&lt;VMTableDefinition&gt;&gt; {
+        <span class="kw">let </span>num_tables = <span class="self">self</span>.offsets.num_local_tables();
+        <span class="kw">let </span>num_tables = usize::try_from(num_tables).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(num_tables);
 
-        <span class="comment">// We need to do some pointer arithmetic now. The unit is `u8`.</span>
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance_ptr</span>.<span class="ident">cast</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>().<span class="ident">as_ptr</span>();
-        <span class="kw">let</span> <span class="ident">base_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">std::mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>());
+        <span class="comment">// We need to do some pointer arithmetic now. The unit is `u8`.
+        </span><span class="kw">let </span>ptr = <span class="self">self</span>.instance_ptr.cast::&lt;u8&gt;().as_ptr();
+        <span class="kw">let </span>base_ptr = ptr.add(std::mem::size_of::&lt;Instance&gt;());
 
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_tables</span> {
-            <span class="kw">let</span> <span class="ident">table_offset</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">offsets</span>
-                .<span class="ident">vmctx_vmtable_definition</span>(<span class="ident">LocalTableIndex::new</span>(<span class="ident">i</span>));
-            <span class="kw">let</span> <span class="ident">table_offset</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">table_offset</span>).<span class="ident">unwrap</span>();
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..num_tables {
+            <span class="kw">let </span>table_offset = <span class="self">self
+                </span>.offsets
+                .vmctx_vmtable_definition(LocalTableIndex::new(i));
+            <span class="kw">let </span>table_offset = usize::try_from(table_offset).unwrap();
 
-            <span class="kw">let</span> <span class="ident">new_ptr</span> <span class="op">=</span> <span class="ident">NonNull::new_unchecked</span>(<span class="ident">base_ptr</span>.<span class="ident">add</span>(<span class="ident">table_offset</span>));
+            <span class="kw">let </span>new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
 
-            <span class="ident">out</span>.<span class="ident">push</span>(<span class="ident">new_ptr</span>.<span class="ident">cast</span>());
+            out.push(new_ptr.cast());
         }
-        <span class="ident">out</span>
+        out
     }
 
-    <span class="doccomment">/// Finish preparing by writing the [`Instance`] into memory, and</span>
-    <span class="doccomment">/// consume this `InstanceAllocator`.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">into_vminstance</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">instance</span>: <span class="ident">Instance</span>) -&gt; <span class="ident">VMInstance</span> {
-        <span class="comment">// Prevent the old state&#39;s drop logic from being called as we</span>
-        <span class="comment">// transition into the new state.</span>
-        <span class="self">self</span>.<span class="ident">consumed</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="doccomment">/// Finish preparing by writing the [`Instance`] into memory, and
+    /// consume this `InstanceAllocator`.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>into_vminstance(<span class="kw-2">mut </span><span class="self">self</span>, instance: Instance) -&gt; VMInstance {
+        <span class="comment">// Prevent the old state&#39;s drop logic from being called as we
+        // transition into the new state.
+        </span><span class="self">self</span>.consumed = <span class="bool-val">true</span>;
 
-        <span class="kw">unsafe</span> {
-            <span class="comment">// `instance` is moved at `Self.instance_ptr`. This</span>
-            <span class="comment">// pointer has been allocated by `Self::allocate_instance`</span>
-            <span class="comment">// (so by `VMInstance::allocate_instance`).</span>
-            <span class="ident">ptr::write</span>(<span class="self">self</span>.<span class="ident">instance_ptr</span>.<span class="ident">as_ptr</span>(), <span class="ident">instance</span>);
-            <span class="comment">// Now `instance_ptr` is correctly initialized!</span>
-        }
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance_ptr</span>;
-        <span class="kw">let</span> <span class="ident">instance_layout</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance_layout</span>;
+        <span class="kw">unsafe </span>{
+            <span class="comment">// `instance` is moved at `Self.instance_ptr`. This
+            // pointer has been allocated by `Self::allocate_instance`
+            // (so by `VMInstance::allocate_instance`).
+            </span>ptr::write(<span class="self">self</span>.instance_ptr.as_ptr(), instance);
+            <span class="comment">// Now `instance_ptr` is correctly initialized!
+        </span>}
+        <span class="kw">let </span>instance = <span class="self">self</span>.instance_ptr;
+        <span class="kw">let </span>instance_layout = <span class="self">self</span>.instance_layout;
 
-        <span class="comment">// This is correct because of the invariants of `Self` and</span>
-        <span class="comment">// because we write `Instance` to the pointer in this function.</span>
-        <span class="ident">VMInstance</span> {
-            <span class="ident">instance</span>,
-            <span class="ident">instance_layout</span>,
+        <span class="comment">// This is correct because of the invariants of `Self` and
+        // because we write `Instance` to the pointer in this function.
+        </span>VMInstance {
+            instance,
+            instance_layout,
         }
     }
 
-    <span class="doccomment">/// Get the [`VMOffsets`] for the allocated buffer.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">offsets</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">VMOffsets</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">offsets</span>
+    <span class="doccomment">/// Get the [`VMOffsets`] for the allocated buffer.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>offsets(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMOffsets {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.offsets
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

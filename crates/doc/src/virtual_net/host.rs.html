@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vnet/src/host.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>host.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_net/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vnet/src/host.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>host.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_net/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -671,678 +671,678 @@
 <span id="671">671</span>
 <span id="672">672</span>
 <span id="673">673</span>
-</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">IpCidr</span>, <span class="ident">IpRoute</span>, <span class="ident">NetworkError</span>, <span class="prelude-ty">Result</span>, <span class="ident">SocketStatus</span>, <span class="ident">StreamSecurity</span>, <span class="ident">VirtualConnectedSocket</span>,
-    <span class="ident">VirtualConnectionlessSocket</span>, <span class="ident">VirtualIcmpSocket</span>, <span class="ident">VirtualNetworking</span>, <span class="ident">VirtualRawSocket</span>,
-    <span class="ident">VirtualSocket</span>, <span class="ident">VirtualTcpListener</span>, <span class="ident">VirtualTcpSocket</span>, <span class="ident">VirtualUdpSocket</span>,
+</pre><pre class="rust"><code><span class="attribute">#![allow(unused_variables)]
+#[allow(unused_imports)]
+</span><span class="kw">use crate</span>::{
+    IpCidr, IpRoute, NetworkError, <span class="prelude-ty">Result</span>, SocketStatus, StreamSecurity, VirtualConnectedSocket,
+    VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
-<span class="kw">use</span> <span class="ident">std::future::Future</span>;
-<span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
-<span class="kw">use</span> <span class="ident">std::net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">Ipv6Addr</span>, <span class="ident">Shutdown</span>, <span class="ident">SocketAddr</span>};
-<span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
-<span class="kw">use</span> <span class="ident">std::ptr</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="kw">use</span> <span class="ident">std::task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>, <span class="ident">RawWaker</span>, <span class="ident">RawWakerVTable</span>, <span class="ident">Waker</span>};
-<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="kw">use</span> <span class="ident">tokio::sync::mpsc</span>;
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
+<span class="kw">use </span>std::future::Future;
+<span class="kw">use </span>std::mem::MaybeUninit;
+<span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
+<span class="kw">use </span>std::pin::Pin;
+<span class="kw">use </span>std::ptr;
+<span class="kw">use </span>std::sync::Mutex;
+<span class="kw">use </span>std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>tokio::sync::mpsc;
+<span class="attribute">#[allow(unused_imports, dead_code)]
+</span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalNetworking</span> {
-    <span class="comment">// Make struct internals private.</span>
-    <span class="comment">// Can be removed once some fields are added (like permissions).</span>
-    <span class="ident">_private</span>: (),
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>LocalNetworking {
+    <span class="comment">// Make struct internals private.
+    // Can be removed once some fields are added (like permissions).
+    </span>_private: (),
 }
 
-<span class="kw">impl</span> <span class="ident">LocalNetworking</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">_private</span>: () }
+<span class="kw">impl </span>LocalNetworking {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ _private: () }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">LocalNetworking</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
+<span class="kw">impl </span>Default <span class="kw">for </span>LocalNetworking {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
     }
 }
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
-<span class="kw">impl</span> <span class="ident">VirtualNetworking</span> <span class="kw">for</span> <span class="ident">LocalNetworking</span> {
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">listen_tcp</span>(
+<span class="attribute">#[async_trait::async_trait]
+#[allow(unused_variables)]
+</span><span class="kw">impl </span>VirtualNetworking <span class="kw">for </span>LocalNetworking {
+    <span class="kw">async fn </span>listen_tcp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-        <span class="ident">only_v6</span>: <span class="ident">bool</span>,
-        <span class="ident">reuse_port</span>: <span class="ident">bool</span>,
-        <span class="ident">reuse_addr</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpListener</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">listener</span> <span class="op">=</span> <span class="ident">tokio::net::TcpListener::bind</span>(<span class="ident">addr</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">sock</span><span class="op">|</span> {
-                <span class="ident">Box::new</span>(<span class="ident">LocalTcpListener</span> {
-                    <span class="ident">stream</span>: <span class="ident">sock</span>,
-                    <span class="ident">backlog</span>: <span class="ident">Mutex::new</span>(<span class="ident">Vec::new</span>()),
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync&gt;&gt; {
+        <span class="kw">let </span>listener = tokio::net::TcpListener::bind(addr)
+            .<span class="kw">await
+            </span>.map(|sock| {
+                Box::new(LocalTcpListener {
+                    stream: sock,
+                    backlog: Mutex::new(Vec::new()),
                 })
             })
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">listener</span>)
+            .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(listener)
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">bind_udp</span>(
+    <span class="kw">async fn </span>bind_udp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-        <span class="ident">_reuse_port</span>: <span class="ident">bool</span>,
-        <span class="ident">_reuse_addr</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualUdpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">tokio::net::UdpSocket::bind</span>(<span class="ident">addr</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">LocalUdpSocket</span> {
-            <span class="ident">socket</span>,
-            <span class="ident">addr</span>,
-            <span class="ident">nonblocking</span>: <span class="bool-val">false</span>,
+        addr: SocketAddr,
+        _reuse_port: bool,
+        _reuse_addr: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync&gt;&gt; {
+        <span class="kw">let </span>socket = tokio::net::UdpSocket::bind(addr)
+            .<span class="kw">await
+            </span>.map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Box::new(LocalUdpSocket {
+            socket,
+            addr,
+            nonblocking: <span class="bool-val">false</span>,
         }))
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connect_tcp</span>(
+    <span class="kw">async fn </span>connect_tcp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">_addr</span>: <span class="ident">SocketAddr</span>,
-        <span class="ident">peer</span>: <span class="ident">SocketAddr</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">tokio::net::TcpStream::connect</span>(<span class="ident">peer</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">peer</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">peer_addr</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">LocalTcpStream::new</span>(<span class="ident">stream</span>, <span class="ident">peer</span>)))
+        _addr: SocketAddr,
+        peer: SocketAddr,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;&gt; {
+        <span class="kw">let </span>stream = tokio::net::TcpStream::connect(peer)
+            .<span class="kw">await
+            </span>.map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+        <span class="kw">let </span>peer = stream.peer_addr().map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Box::new(LocalTcpStream::new(stream, peer)))
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">resolve</span>(
+    <span class="kw">async fn </span>resolve(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">host</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">port</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>,
-        <span class="ident">dns_server</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IpAddr</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">IpAddr</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">tokio::net::lookup_host</span>(<span class="ident">host</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">ip</span>()).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>())
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+        host: <span class="kw-2">&amp;</span>str,
+        port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+        dns_server: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpAddr&gt;&gt; {
+        tokio::net::lookup_host(host)
+            .<span class="kw">await
+            </span>.map(|a| a.map(|a| a.ip()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;())
+            .map_err(io_err_into_net_error)
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalTcpListener</span> {
-    <span class="ident">stream</span>: <span class="ident">tokio::net::TcpListener</span>,
-    <span class="ident">backlog</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">LocalTcpStream</span><span class="op">&gt;</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>LocalTcpListener {
+    stream: tokio::net::TcpListener,
+    backlog: Mutex&lt;Vec&lt;(Box&lt;LocalTcpStream&gt;, SocketAddr)&gt;&gt;,
 }
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">VirtualTcpListener</span> <span class="kw">for</span> <span class="ident">LocalTcpListener</span> {
-    <span class="kw">fn</span> <span class="ident">try_accept</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span> {
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl </span>VirtualTcpListener <span class="kw">for </span>LocalTcpListener {
+    <span class="kw">fn </span>try_accept(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt;&gt; {
         {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">backlog</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">backlog</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">sock</span>, <span class="ident">addr</span>)) <span class="op">=</span> <span class="ident">backlog</span>.<span class="ident">pop</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((<span class="ident">sock</span>, <span class="ident">addr</span>)));
+            <span class="kw">let </span><span class="kw-2">mut </span>backlog = <span class="self">self</span>.backlog.lock().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((sock, addr)) = backlog.pop() {
+                <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((sock, addr)));
             }
         }
 
-        <span class="kw">let</span> <span class="ident">waker</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Waker::from_raw</span>(<span class="ident">RawWaker::new</span>(<span class="ident">ptr::null</span>(), <span class="kw-2">&amp;</span><span class="ident">NOOP_WAKER_VTABLE</span>)) };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cx</span> <span class="op">=</span> <span class="ident">Context::from_waker</span>(<span class="kw-2">&amp;</span><span class="ident">waker</span>);
-        <span class="kw">match</span> <span class="self">self</span>
-            .<span class="ident">stream</span>
-            .<span class="ident">poll_accept</span>(<span class="kw-2">&amp;mut</span> <span class="ident">cx</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+        <span class="kw">let </span>waker = <span class="kw">unsafe </span>{ Waker::from_raw(RawWaker::new(ptr::null(), <span class="kw-2">&amp;</span>NOOP_WAKER_VTABLE)) };
+        <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
+        <span class="kw">match </span><span class="self">self
+            </span>.stream
+            .poll_accept(<span class="kw-2">&amp;mut </span>cx)
+            .map_err(io_err_into_net_error)
         {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>((<span class="ident">stream</span>, <span class="ident">addr</span>))) =&gt; {
-                <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((<span class="ident">Box::new</span>(<span class="ident">LocalTcpStream::new</span>(<span class="ident">stream</span>, <span class="ident">addr</span>)), <span class="ident">addr</span>)))
+            Poll::Ready(<span class="prelude-val">Ok</span>((stream, addr))) =&gt; {
+                <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((Box::new(LocalTcpStream::new(stream, addr)), addr)))
             }
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">NetworkError::WouldBlock</span>)) =&gt; <span class="prelude-val">None</span>,
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) =&gt; <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
-            <span class="ident">Poll::Pending</span> =&gt; <span class="prelude-val">None</span>,
+            Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::WouldBlock)) =&gt; <span class="prelude-val">None</span>,
+            Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(err)),
+            Poll::Pending =&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_accept</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn </span>poll_accept(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt;&gt; {
         {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">backlog</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">backlog</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">sock</span>, <span class="ident">addr</span>)) <span class="op">=</span> <span class="ident">backlog</span>.<span class="ident">pop</span>() {
-                <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>((<span class="ident">sock</span>, <span class="ident">addr</span>)));
+            <span class="kw">let </span><span class="kw-2">mut </span>backlog = <span class="self">self</span>.backlog.lock().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((sock, addr)) = backlog.pop() {
+                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>((sock, addr)));
             }
         }
 
-        <span class="comment">// We poll the socket</span>
-        <span class="kw">let</span> (<span class="ident">sock</span>, <span class="ident">addr</span>) <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">poll_accept</span>(<span class="ident">cx</span>).<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>) {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>((<span class="ident">sock</span>, <span class="ident">addr</span>))) =&gt; (<span class="ident">Box::new</span>(<span class="ident">LocalTcpStream::new</span>(<span class="ident">sock</span>, <span class="ident">addr</span>)), <span class="ident">addr</span>),
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) =&gt; <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
-            <span class="ident">Poll::Pending</span> =&gt; <span class="kw">return</span> <span class="ident">Poll::Pending</span>,
+        <span class="comment">// We poll the socket
+        </span><span class="kw">let </span>(sock, addr) = <span class="kw">match </span><span class="self">self</span>.stream.poll_accept(cx).map_err(io_err_into_net_error) {
+            Poll::Ready(<span class="prelude-val">Ok</span>((sock, addr))) =&gt; (Box::new(LocalTcpStream::new(sock, addr)), addr),
+            Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
+            Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
         };
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>((<span class="ident">sock</span>, <span class="ident">addr</span>)))
+        Poll::Ready(<span class="prelude-val">Ok</span>((sock, addr)))
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_accept_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn </span>poll_accept_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
         {
-            <span class="kw">let</span> <span class="ident">backlog</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">backlog</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="ident">backlog</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">10</span> {
-                <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">backlog</span>.<span class="ident">len</span>()));
+            <span class="kw">let </span>backlog = <span class="self">self</span>.backlog.lock().unwrap();
+            <span class="kw">if </span>backlog.len() &gt; <span class="number">10 </span>{
+                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(backlog.len()));
             }
         }
-        <span class="self">self</span>.<span class="ident">stream</span>
-            .<span class="ident">poll_accept</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-            .<span class="ident">map_ok</span>(<span class="op">|</span>(<span class="ident">sock</span>, <span class="ident">addr</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">backlog</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">backlog</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-                <span class="ident">backlog</span>.<span class="ident">push</span>((<span class="ident">Box::new</span>(<span class="ident">LocalTcpStream::new</span>(<span class="ident">sock</span>, <span class="ident">addr</span>)), <span class="ident">addr</span>));
-                <span class="ident">backlog</span>.<span class="ident">len</span>()
+        <span class="self">self</span>.stream
+            .poll_accept(cx)
+            .map_err(io_err_into_net_error)
+            .map_ok(|(sock, addr)| {
+                <span class="kw">let </span><span class="kw-2">mut </span>backlog = <span class="self">self</span>.backlog.lock().unwrap();
+                backlog.push((Box::new(LocalTcpStream::new(sock, addr)), addr));
+                backlog.len()
             })
     }
 
-    <span class="kw">fn</span> <span class="ident">addr_local</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">local_addr</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
+        <span class="self">self</span>.stream.local_addr().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">set_ttl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u8</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>
-            .<span class="ident">set_ttl</span>(<span class="ident">ttl</span> <span class="kw">as</span> <span class="ident">u32</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u8) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.stream
+            .set_ttl(ttl <span class="kw">as </span>u32)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">ttl</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>
-            .<span class="ident">ttl</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ttl</span><span class="op">|</span> <span class="ident">ttl</span> <span class="kw">as</span> <span class="ident">u8</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u8&gt; {
+        <span class="self">self</span>.stream
+            .ttl()
+            .map(|ttl| ttl <span class="kw">as </span>u8)
+            .map_err(io_err_into_net_error)
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalTcpStream</span> {
-    <span class="ident">stream</span>: <span class="ident">tokio::net::TcpStream</span>,
-    <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-    <span class="ident">shutdown</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Shutdown</span><span class="op">&gt;</span>,
-    <span class="ident">tx_write_ready</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    <span class="ident">rx_write_ready</span>: <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    <span class="ident">tx_write_poll_ready</span>: <span class="ident">mpsc::Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    <span class="ident">rx_write_poll_ready</span>: <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>LocalTcpStream {
+    stream: tokio::net::TcpStream,
+    addr: SocketAddr,
+    shutdown: <span class="prelude-ty">Option</span>&lt;Shutdown&gt;,
+    tx_write_ready: mpsc::Sender&lt;()&gt;,
+    rx_write_ready: mpsc::Receiver&lt;()&gt;,
+    tx_write_poll_ready: mpsc::Sender&lt;()&gt;,
+    rx_write_poll_ready: mpsc::Receiver&lt;()&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">LocalTcpStream</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream</span>: <span class="ident">tokio::net::TcpStream</span>, <span class="ident">addr</span>: <span class="ident">SocketAddr</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> (<span class="ident">tx_write_ready</span>, <span class="ident">rx_write_ready</span>) <span class="op">=</span> <span class="ident">mpsc::channel</span>(<span class="number">1</span>);
-        <span class="kw">let</span> (<span class="ident">tx_write_poll_ready</span>, <span class="ident">rx_write_poll_ready</span>) <span class="op">=</span> <span class="ident">mpsc::channel</span>(<span class="number">1</span>);
-        <span class="self">Self</span> {
-            <span class="ident">stream</span>,
-            <span class="ident">addr</span>,
-            <span class="ident">shutdown</span>: <span class="prelude-val">None</span>,
-            <span class="ident">tx_write_ready</span>,
-            <span class="ident">rx_write_ready</span>,
-            <span class="ident">tx_write_poll_ready</span>,
-            <span class="ident">rx_write_poll_ready</span>,
+<span class="kw">impl </span>LocalTcpStream {
+    <span class="kw">pub fn </span>new(stream: tokio::net::TcpStream, addr: SocketAddr) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(tx_write_ready, rx_write_ready) = mpsc::channel(<span class="number">1</span>);
+        <span class="kw">let </span>(tx_write_poll_ready, rx_write_poll_ready) = mpsc::channel(<span class="number">1</span>);
+        <span class="self">Self </span>{
+            stream,
+            addr,
+            shutdown: <span class="prelude-val">None</span>,
+            tx_write_ready,
+            rx_write_ready,
+            tx_write_poll_ready,
+            rx_write_poll_ready,
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">VirtualTcpSocket</span> <span class="kw">for</span> <span class="ident">LocalTcpStream</span> {
-    <span class="kw">fn</span> <span class="ident">set_recv_buf_size</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl </span>VirtualTcpSocket <span class="kw">for </span>LocalTcpStream {
+    <span class="kw">fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">recv_buf_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="kw">fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="kw">fn</span> <span class="ident">set_send_buf_size</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn </span>set_send_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">send_buf_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="kw">fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="kw">fn</span> <span class="ident">set_nodelay</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">nodelay</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>
-            .<span class="ident">set_nodelay</span>(<span class="ident">nodelay</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>set_nodelay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nodelay: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.stream
+            .set_nodelay(nodelay)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">nodelay</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">nodelay</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="self">self</span>.stream.nodelay().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">addr_peer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">addr</span>)
+    <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.addr)
     }
 
-    <span class="kw">fn</span> <span class="ident">shutdown</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">how</span>: <span class="ident">Shutdown</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">shutdown</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">how</span>);
+    <span class="kw">fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, how: Shutdown) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.shutdown = <span class="prelude-val">Some</span>(how);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">is_closed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
-    }
+    <span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 }
 
-<span class="kw">impl</span> <span class="ident">VirtualConnectedSocket</span> <span class="kw">for</span> <span class="ident">LocalTcpStream</span> {
-    <span class="kw">fn</span> <span class="ident">set_linger</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">linger</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>
-            .<span class="ident">set_linger</span>(<span class="ident">linger</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)<span class="question-mark">?</span>;
+<span class="kw">impl </span>VirtualConnectedSocket <span class="kw">for </span>LocalTcpStream {
+    <span class="kw">fn </span>set_linger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, linger: <span class="prelude-ty">Option</span>&lt;Duration&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.stream
+            .set_linger(linger)
+            .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">linger</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">linger</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt; {
+        <span class="self">self</span>.stream.linger().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">try_send</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">try_write</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>try_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="self">self</span>.stream.try_write(data).map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_send</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">tokio::io::AsyncWrite</span>;
-        <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">stream</span>)
-            .<span class="ident">poll_write</span>(<span class="ident">cx</span>, <span class="ident">data</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>poll_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="kw">use </span>tokio::io::AsyncWrite;
+        Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stream)
+            .poll_write(cx, data)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">while</span> <span class="self">self</span>.<span class="ident">rx_write_ready</span>.<span class="ident">try_recv</span>().<span class="ident">is_ok</span>() {}
-        <span class="self">self</span>.<span class="ident">tx_write_poll_ready</span>.<span class="ident">try_send</span>(()).<span class="ident">ok</span>();
-        <span class="kw">use</span> <span class="ident">tokio::io::AsyncWrite</span>;
-        <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">stream</span>)
-            .<span class="ident">poll_flush</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>poll_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        <span class="kw">while </span><span class="self">self</span>.rx_write_ready.try_recv().is_ok() {}
+        <span class="self">self</span>.tx_write_poll_ready.try_send(()).ok();
+        <span class="kw">use </span>tokio::io::AsyncWrite;
+        Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stream)
+            .poll_flush(cx)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">close</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_recv</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">tokio::io::AsyncRead</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">read_buf</span> <span class="op">=</span> <span class="ident">tokio::io::ReadBuf::uninit</span>(<span class="ident">buf</span>);
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">stream</span>)
-            .<span class="ident">poll_read</span>(<span class="ident">cx</span>, <span class="kw-2">&amp;mut</span> <span class="ident">read_buf</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>);
-        <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; {
-                <span class="kw">let</span> <span class="ident">amt</span> <span class="op">=</span> <span class="ident">read_buf</span>.<span class="ident">filled</span>().<span class="ident">len</span>();
-                <span class="kw">let</span> <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::mem::transmute</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>[..<span class="ident">amt</span>]) };
-                <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">amt</span>))
+    <span class="kw">fn </span>poll_recv&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="kw">use </span>tokio::io::AsyncRead;
+        <span class="kw">let </span><span class="kw-2">mut </span>read_buf = tokio::io::ReadBuf::uninit(buf);
+        <span class="kw">let </span>res = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stream)
+            .poll_read(cx, <span class="kw-2">&amp;mut </span>read_buf)
+            .map_err(io_err_into_net_error);
+        <span class="kw">match </span>res {
+            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; {
+                <span class="kw">let </span>amt = read_buf.filled().len();
+                <span class="kw">let </span>data: <span class="kw-2">&amp;</span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(<span class="kw-2">&amp;</span>buf[..amt]) };
+                Poll::Ready(<span class="prelude-val">Ok</span>(amt))
             }
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
-            <span class="ident">Poll::Pending</span> =&gt; <span class="ident">Poll::Pending</span>,
+            Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
+            Poll::Pending =&gt; Poll::Pending,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">try_recv</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::mem::transmute</span>(<span class="ident">buf</span>) };
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">try_read</span>(<span class="ident">buf</span>).<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
+        <span class="self">self</span>.stream.try_read(buf).map_err(io_err_into_net_error)
     }
 }
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">VirtualSocket</span> <span class="kw">for</span> <span class="ident">LocalTcpStream</span> {
-    <span class="kw">fn</span> <span class="ident">set_ttl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">set_ttl</span>(<span class="ident">ttl</span>).<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl </span>VirtualSocket <span class="kw">for </span>LocalTcpStream {
+    <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.stream.set_ttl(ttl).map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">ttl</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">ttl</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+        <span class="self">self</span>.stream.ttl().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">addr_local</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>.<span class="ident">local_addr</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
+        <span class="self">self</span>.stream.local_addr().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketStatus</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">SocketStatus::Opened</span>)
+    <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketStatus&gt; {
+        <span class="prelude-val">Ok</span>(SocketStatus::Opened)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stream</span>
-            .<span class="ident">poll_read_ready</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_ok</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="number">1</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>poll_read_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="self">self</span>.stream
+            .poll_read_ready(cx)
+            .map_ok(|<span class="kw">_</span>| <span class="number">1</span>)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">loop</span> {
-            <span class="comment">// this wakes this polling ready call whenever the `rx_write_poll_ready` is triggerd</span>
-            <span class="comment">// (which is triggered whenever a send operation is transmitted)</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rx</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">rx_write_poll_ready</span>);
-            <span class="kw">if</span> <span class="ident">rx</span>.<span class="ident">poll_recv</span>(<span class="ident">cx</span>).<span class="ident">is_pending</span>() {
+    <span class="kw">fn </span>poll_write_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="kw">loop </span>{
+            <span class="comment">// this wakes this polling ready call whenever the `rx_write_poll_ready` is triggerd
+            // (which is triggered whenever a send operation is transmitted)
+            </span><span class="kw">let </span><span class="kw-2">mut </span>rx = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.rx_write_poll_ready);
+            <span class="kw">if </span>rx.poll_recv(cx).is_pending() {
                 <span class="kw">break</span>;
             }
         }
-        <span class="kw">match</span> <span class="self">self</span>
-            .<span class="ident">stream</span>
-            .<span class="ident">poll_write_ready</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+        <span class="kw">match </span><span class="self">self
+            </span>.stream
+            .poll_write_ready(cx)
+            .map_err(io_err_into_net_error)
         {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(())) =&gt; {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">tx_write_ready</span>.<span class="ident">try_send</span>(()).<span class="ident">is_ok</span>() {
-                    <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">1</span>))
-                } <span class="kw">else</span> {
-                    <span class="ident">Poll::Pending</span>
+            Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {
+                <span class="kw">if </span><span class="self">self</span>.tx_write_ready.try_send(()).is_ok() {
+                    Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">1</span>))
+                } <span class="kw">else </span>{
+                    Poll::Pending
                 }
             }
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
-            <span class="ident">Poll::Pending</span> =&gt; <span class="ident">Poll::Pending</span>,
+            Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
+            Poll::Pending =&gt; Poll::Pending,
         }
     }
 }
 
-<span class="kw">struct</span> <span class="ident">LocalTcpStreamReadReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">LocalTcpStream</span>,
+<span class="kw">struct </span>LocalTcpStreamReadReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>LocalTcpStream,
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">LocalTcpStreamReadReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>LocalTcpStreamReadReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_read_ready</span>(<span class="ident">cx</span>)
-    }
-}
-
-<span class="kw">struct</span> <span class="ident">LocalTcpStreamWriteReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">LocalTcpStream</span>,
-}
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">LocalTcpStreamWriteReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
-
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">poll_write_ready</span>(<span class="ident">cx</span>)
+    <span class="kw">fn </span>poll(
+        <span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="self">self</span>.inner.poll_read_ready(cx)
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalUdpSocket</span> {
-    <span class="ident">socket</span>: <span class="ident">tokio::net::UdpSocket</span>,
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-    <span class="ident">nonblocking</span>: <span class="ident">bool</span>,
+<span class="kw">struct </span>LocalTcpStreamWriteReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>LocalTcpStream,
 }
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>LocalTcpStreamWriteReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">VirtualUdpSocket</span> <span class="kw">for</span> <span class="ident">LocalUdpSocket</span> {
-    <span class="kw">fn</span> <span class="ident">set_broadcast</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">broadcast</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">set_broadcast</span>(<span class="ident">broadcast</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">broadcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>.<span class="ident">broadcast</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">set_multicast_loop_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">set_multicast_loop_v4</span>(<span class="ident">val</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">multicast_loop_v4</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">multicast_loop_v4</span>()
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">set_multicast_loop_v6</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">set_multicast_loop_v6</span>(<span class="ident">val</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">multicast_loop_v6</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">multicast_loop_v6</span>()
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">set_multicast_ttl_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">set_multicast_ttl_v4</span>(<span class="ident">ttl</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">multicast_ttl_v4</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">multicast_ttl_v4</span>()
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">join_multicast_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv4Addr</span>, <span class="ident">iface</span>: <span class="ident">Ipv4Addr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">join_multicast_v4</span>(<span class="ident">multiaddr</span>, <span class="ident">iface</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">leave_multicast_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv4Addr</span>, <span class="ident">iface</span>: <span class="ident">Ipv4Addr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">leave_multicast_v4</span>(<span class="ident">multiaddr</span>, <span class="ident">iface</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">join_multicast_v6</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv6Addr</span>, <span class="ident">iface</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">join_multicast_v6</span>(<span class="kw-2">&amp;</span><span class="ident">multiaddr</span>, <span class="ident">iface</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">leave_multicast_v6</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv6Addr</span>, <span class="ident">iface</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">leave_multicast_v6</span>(<span class="kw-2">&amp;</span><span class="ident">multiaddr</span>, <span class="ident">iface</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">addr_peer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">peer_addr</span>()
-            .<span class="ident">map</span>(<span class="prelude-val">Some</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>poll(
+        <span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="self">self</span>.inner.poll_write_ready(cx)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">VirtualConnectionlessSocket</span> <span class="kw">for</span> <span class="ident">LocalUdpSocket</span> {
-    <span class="kw">fn</span> <span class="ident">poll_send_to</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">poll_send_to</span>(<span class="ident">cx</span>, <span class="ident">data</span>, <span class="ident">addr</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>LocalUdpSocket {
+    socket: tokio::net::UdpSocket,
+    <span class="attribute">#[allow(dead_code)]
+    </span>addr: SocketAddr,
+    nonblocking: bool,
+}
+
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl </span>VirtualUdpSocket <span class="kw">for </span>LocalUdpSocket {
+    <span class="kw">fn </span>set_broadcast(<span class="kw-2">&amp;mut </span><span class="self">self</span>, broadcast: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .set_broadcast(broadcast)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">try_send_to</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="ident">addr</span>: <span class="ident">SocketAddr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">try_send_to</span>(<span class="ident">data</span>, <span class="ident">addr</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="self">self</span>.socket.broadcast().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_recv_from</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">usize</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">read_buf</span> <span class="op">=</span> <span class="ident">tokio::io::ReadBuf::uninit</span>(<span class="ident">buf</span>);
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">socket</span>
-            .<span class="ident">poll_recv_from</span>(<span class="ident">cx</span>, <span class="kw-2">&amp;mut</span> <span class="ident">read_buf</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>);
-        <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">addr</span>)) =&gt; {
-                <span class="kw">let</span> <span class="ident">amt</span> <span class="op">=</span> <span class="ident">read_buf</span>.<span class="ident">filled</span>().<span class="ident">len</span>();
-                <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>((<span class="ident">amt</span>, <span class="ident">addr</span>)))
+    <span class="kw">fn </span>set_multicast_loop_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, val: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .set_multicast_loop_v4(val)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>multicast_loop_v4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="self">self</span>.socket
+            .multicast_loop_v4()
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>set_multicast_loop_v6(<span class="kw-2">&amp;mut </span><span class="self">self</span>, val: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .set_multicast_loop_v6(val)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>multicast_loop_v6(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="self">self</span>.socket
+            .multicast_loop_v6()
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>set_multicast_ttl_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .set_multicast_ttl_v4(ttl)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>multicast_ttl_v4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+        <span class="self">self</span>.socket
+            .multicast_ttl_v4()
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>join_multicast_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv4Addr, iface: Ipv4Addr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .join_multicast_v4(multiaddr, iface)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>leave_multicast_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv4Addr, iface: Ipv4Addr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .leave_multicast_v4(multiaddr, iface)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>join_multicast_v6(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv6Addr, iface: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .join_multicast_v6(<span class="kw-2">&amp;</span>multiaddr, iface)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>leave_multicast_v6(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv6Addr, iface: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket
+            .leave_multicast_v6(<span class="kw-2">&amp;</span>multiaddr, iface)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt; {
+        <span class="self">self</span>.socket
+            .peer_addr()
+            .map(<span class="prelude-val">Some</span>)
+            .map_err(io_err_into_net_error)
+    }
+}
+
+<span class="kw">impl </span>VirtualConnectionlessSocket <span class="kw">for </span>LocalUdpSocket {
+    <span class="kw">fn </span>poll_send_to(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        data: <span class="kw-2">&amp;</span>[u8],
+        addr: SocketAddr,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="self">self</span>.socket
+            .poll_send_to(cx, data, addr)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>try_send_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8], addr: SocketAddr) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="self">self</span>.socket
+            .try_send_to(data, addr)
+            .map_err(io_err_into_net_error)
+    }
+
+    <span class="kw">fn </span>poll_recv_from(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>read_buf = tokio::io::ReadBuf::uninit(buf);
+        <span class="kw">let </span>res = <span class="self">self
+            </span>.socket
+            .poll_recv_from(cx, <span class="kw-2">&amp;mut </span>read_buf)
+            .map_err(io_err_into_net_error);
+        <span class="kw">match </span>res {
+            Poll::Ready(<span class="prelude-val">Ok</span>(addr)) =&gt; {
+                <span class="kw">let </span>amt = read_buf.filled().len();
+                Poll::Ready(<span class="prelude-val">Ok</span>((amt, addr)))
             }
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>)),
-            <span class="ident">Poll::Pending</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">nonblocking</span> =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">NetworkError::WouldBlock</span>)),
-            <span class="ident">Poll::Pending</span> =&gt; <span class="ident">Poll::Pending</span>,
+            Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
+            Poll::Pending <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::WouldBlock)),
+            Poll::Pending =&gt; Poll::Pending,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">try_recv_from</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">usize</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::mem::transmute</span>(<span class="ident">buf</span>) };
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">try_recv_from</span>(<span class="ident">buf</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>try_recv_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt; {
+        <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
+        <span class="self">self</span>.socket
+            .try_recv_from(buf)
+            .map_err(io_err_into_net_error)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">VirtualSocket</span> <span class="kw">for</span> <span class="ident">LocalUdpSocket</span> {
-    <span class="kw">fn</span> <span class="ident">set_ttl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>.<span class="ident">set_ttl</span>(<span class="ident">ttl</span>).<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+<span class="kw">impl </span>VirtualSocket <span class="kw">for </span>LocalUdpSocket {
+    <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.socket.set_ttl(ttl).map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">ttl</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>.<span class="ident">ttl</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+        <span class="self">self</span>.socket.ttl().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">addr_local</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>.<span class="ident">local_addr</span>().<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
+        <span class="self">self</span>.socket.local_addr().map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketStatus</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">SocketStatus::Opened</span>)
+    <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketStatus&gt; {
+        <span class="prelude-val">Ok</span>(SocketStatus::Opened)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">poll_recv_ready</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_ok</span>(<span class="op">|</span>()<span class="op">|</span> <span class="number">8192usize</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
+    <span class="kw">fn </span>poll_read_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="self">self</span>.socket
+            .poll_recv_ready(cx)
+            .map_ok(|()| <span class="number">8192usize</span>)
+            .map_err(io_err_into_net_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">poll_send_ready</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_ok</span>(<span class="op">|</span>()<span class="op">|</span> <span class="number">8192usize</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-    }
-}
-
-<span class="kw">struct</span> <span class="ident">LocalUdpSocketReadReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">socket</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">tokio::net::UdpSocket</span>,
-}
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">LocalUdpSocketReadReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
-
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">poll_recv_ready</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-            .<span class="ident">map_ok</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="number">1usize</span>)
+    <span class="kw">fn </span>poll_write_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt; {
+        <span class="self">self</span>.socket
+            .poll_send_ready(cx)
+            .map_ok(|()| <span class="number">8192usize</span>)
+            .map_err(io_err_into_net_error)
     }
 }
 
-<span class="kw">struct</span> <span class="ident">LocalUdpSocketWriteReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">socket</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">tokio::net::UdpSocket</span>,
+<span class="kw">struct </span>LocalUdpSocketReadReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    socket: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>tokio::net::UdpSocket,
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Future</span> <span class="kw">for</span> <span class="ident">LocalUdpSocketWriteReady</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>LocalUdpSocketReadReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Output</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">socket</span>
-            .<span class="ident">poll_send_ready</span>(<span class="ident">cx</span>)
-            .<span class="ident">map_err</span>(<span class="ident">io_err_into_net_error</span>)
-            .<span class="ident">map_ok</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="number">1usize</span>)
+    <span class="kw">fn </span>poll(
+        <span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="self">self</span>.socket
+            .poll_recv_ready(cx)
+            .map_err(io_err_into_net_error)
+            .map_ok(|<span class="kw">_</span>| <span class="number">1usize</span>)
     }
 }
 
-<span class="kw">const</span> <span class="ident">NOOP_WAKER_VTABLE</span>: <span class="ident">RawWakerVTable</span> <span class="op">=</span> <span class="ident">RawWakerVTable::new</span>(<span class="ident">noop_clone</span>, <span class="ident">noop</span>, <span class="ident">noop</span>, <span class="ident">noop</span>);
-<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">noop_clone</span>(<span class="ident">_data</span>: <span class="kw-2">*const</span> ()) -&gt; <span class="ident">RawWaker</span> {
-    <span class="ident">RawWaker::new</span>(<span class="ident">ptr::null</span>(), <span class="kw-2">&amp;</span><span class="ident">NOOP_WAKER_VTABLE</span>)
+<span class="kw">struct </span>LocalUdpSocketWriteReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    socket: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>tokio::net::UdpSocket,
 }
-<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">noop</span>(<span class="ident">_data</span>: <span class="kw-2">*const</span> ()) {}
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>LocalUdpSocketWriteReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">io_err_into_net_error</span>(<span class="ident">net_error</span>: <span class="ident">std::io::Error</span>) -&gt; <span class="ident">NetworkError</span> {
-    <span class="kw">use</span> <span class="ident">std::io::ErrorKind</span>;
-    <span class="kw">match</span> <span class="ident">net_error</span>.<span class="ident">kind</span>() {
-        <span class="ident">ErrorKind::BrokenPipe</span> =&gt; <span class="ident">NetworkError::BrokenPipe</span>,
-        <span class="ident">ErrorKind::AlreadyExists</span> =&gt; <span class="ident">NetworkError::AlreadyExists</span>,
-        <span class="ident">ErrorKind::AddrInUse</span> =&gt; <span class="ident">NetworkError::AddressInUse</span>,
-        <span class="ident">ErrorKind::AddrNotAvailable</span> =&gt; <span class="ident">NetworkError::AddressNotAvailable</span>,
-        <span class="ident">ErrorKind::ConnectionAborted</span> =&gt; <span class="ident">NetworkError::ConnectionAborted</span>,
-        <span class="ident">ErrorKind::ConnectionRefused</span> =&gt; <span class="ident">NetworkError::ConnectionRefused</span>,
-        <span class="ident">ErrorKind::ConnectionReset</span> =&gt; <span class="ident">NetworkError::ConnectionReset</span>,
-        <span class="ident">ErrorKind::Interrupted</span> =&gt; <span class="ident">NetworkError::Interrupted</span>,
-        <span class="ident">ErrorKind::InvalidData</span> =&gt; <span class="ident">NetworkError::InvalidData</span>,
-        <span class="ident">ErrorKind::InvalidInput</span> =&gt; <span class="ident">NetworkError::InvalidInput</span>,
-        <span class="ident">ErrorKind::NotConnected</span> =&gt; <span class="ident">NetworkError::NotConnected</span>,
-        <span class="ident">ErrorKind::PermissionDenied</span> =&gt; <span class="ident">NetworkError::PermissionDenied</span>,
-        <span class="ident">ErrorKind::TimedOut</span> =&gt; <span class="ident">NetworkError::TimedOut</span>,
-        <span class="ident">ErrorKind::UnexpectedEof</span> =&gt; <span class="ident">NetworkError::UnexpectedEof</span>,
-        <span class="ident">ErrorKind::WouldBlock</span> =&gt; <span class="ident">NetworkError::WouldBlock</span>,
-        <span class="ident">ErrorKind::WriteZero</span> =&gt; <span class="ident">NetworkError::WriteZero</span>,
-        <span class="ident">ErrorKind::Unsupported</span> =&gt; <span class="ident">NetworkError::Unsupported</span>,
+    <span class="kw">fn </span>poll(
+        <span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
+        <span class="self">self</span>.socket
+            .poll_send_ready(cx)
+            .map_err(io_err_into_net_error)
+            .map_ok(|<span class="kw">_</span>| <span class="number">1usize</span>)
+    }
+}
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_family</span> <span class="op">=</span> <span class="string">&quot;unix&quot;</span>)]</span>
-        <span class="kw">_</span> =&gt; {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">code</span>) <span class="op">=</span> <span class="ident">net_error</span>.<span class="ident">raw_os_error</span>() {
-                <span class="kw">match</span> <span class="ident">code</span> {
-                    <span class="ident">libc::EPERM</span> =&gt; <span class="ident">NetworkError::PermissionDenied</span>,
-                    <span class="ident">libc::EBADF</span> =&gt; <span class="ident">NetworkError::InvalidFd</span>,
-                    <span class="ident">libc::ECHILD</span> =&gt; <span class="ident">NetworkError::InvalidFd</span>,
-                    <span class="ident">libc::EMFILE</span> =&gt; <span class="ident">NetworkError::TooManyOpenFiles</span>,
-                    <span class="ident">libc::EINTR</span> =&gt; <span class="ident">NetworkError::Interrupted</span>,
-                    <span class="ident">libc::EIO</span> =&gt; <span class="ident">NetworkError::IOError</span>,
-                    <span class="ident">libc::ENXIO</span> =&gt; <span class="ident">NetworkError::IOError</span>,
-                    <span class="ident">libc::EAGAIN</span> =&gt; <span class="ident">NetworkError::WouldBlock</span>,
-                    <span class="ident">libc::ENOMEM</span> =&gt; <span class="ident">NetworkError::InsufficientMemory</span>,
-                    <span class="ident">libc::EACCES</span> =&gt; <span class="ident">NetworkError::PermissionDenied</span>,
-                    <span class="ident">libc::ENODEV</span> =&gt; <span class="ident">NetworkError::NoDevice</span>,
-                    <span class="ident">libc::EINVAL</span> =&gt; <span class="ident">NetworkError::InvalidInput</span>,
-                    <span class="ident">libc::EPIPE</span> =&gt; <span class="ident">NetworkError::BrokenPipe</span>,
-                    <span class="ident">err</span> =&gt; {
-                        <span class="macro">tracing::trace!</span>(<span class="string">&quot;unknown os error {}&quot;</span>, <span class="ident">err</span>);
-                        <span class="ident">NetworkError::UnknownError</span>
+<span class="kw">const </span>NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
+<span class="kw">unsafe fn </span>noop_clone(_data: <span class="kw-2">*const </span>()) -&gt; RawWaker {
+    RawWaker::new(ptr::null(), <span class="kw-2">&amp;</span>NOOP_WAKER_VTABLE)
+}
+<span class="kw">unsafe fn </span>noop(_data: <span class="kw-2">*const </span>()) {}
+
+<span class="kw">pub fn </span>io_err_into_net_error(net_error: std::io::Error) -&gt; NetworkError {
+    <span class="kw">use </span>std::io::ErrorKind;
+    <span class="kw">match </span>net_error.kind() {
+        ErrorKind::BrokenPipe =&gt; NetworkError::BrokenPipe,
+        ErrorKind::AlreadyExists =&gt; NetworkError::AlreadyExists,
+        ErrorKind::AddrInUse =&gt; NetworkError::AddressInUse,
+        ErrorKind::AddrNotAvailable =&gt; NetworkError::AddressNotAvailable,
+        ErrorKind::ConnectionAborted =&gt; NetworkError::ConnectionAborted,
+        ErrorKind::ConnectionRefused =&gt; NetworkError::ConnectionRefused,
+        ErrorKind::ConnectionReset =&gt; NetworkError::ConnectionReset,
+        ErrorKind::Interrupted =&gt; NetworkError::Interrupted,
+        ErrorKind::InvalidData =&gt; NetworkError::InvalidData,
+        ErrorKind::InvalidInput =&gt; NetworkError::InvalidInput,
+        ErrorKind::NotConnected =&gt; NetworkError::NotConnected,
+        ErrorKind::PermissionDenied =&gt; NetworkError::PermissionDenied,
+        ErrorKind::TimedOut =&gt; NetworkError::TimedOut,
+        ErrorKind::UnexpectedEof =&gt; NetworkError::UnexpectedEof,
+        ErrorKind::WouldBlock =&gt; NetworkError::WouldBlock,
+        ErrorKind::WriteZero =&gt; NetworkError::WriteZero,
+        ErrorKind::Unsupported =&gt; NetworkError::Unsupported,
+
+        <span class="attribute">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+        </span><span class="kw">_ </span>=&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(code) = net_error.raw_os_error() {
+                <span class="kw">match </span>code {
+                    libc::EPERM =&gt; NetworkError::PermissionDenied,
+                    libc::EBADF =&gt; NetworkError::InvalidFd,
+                    libc::ECHILD =&gt; NetworkError::InvalidFd,
+                    libc::EMFILE =&gt; NetworkError::TooManyOpenFiles,
+                    libc::EINTR =&gt; NetworkError::Interrupted,
+                    libc::EIO =&gt; NetworkError::IOError,
+                    libc::ENXIO =&gt; NetworkError::IOError,
+                    libc::EAGAIN =&gt; NetworkError::WouldBlock,
+                    libc::ENOMEM =&gt; NetworkError::InsufficientMemory,
+                    libc::EACCES =&gt; NetworkError::PermissionDenied,
+                    libc::ENODEV =&gt; NetworkError::NoDevice,
+                    libc::EINVAL =&gt; NetworkError::InvalidInput,
+                    libc::EPIPE =&gt; NetworkError::BrokenPipe,
+                    err =&gt; {
+                        <span class="macro">tracing::trace!</span>(<span class="string">&quot;unknown os error {}&quot;</span>, err);
+                        NetworkError::UnknownError
                     }
                 }
-            } <span class="kw">else</span> {
-                <span class="ident">NetworkError::UnknownError</span>
+            } <span class="kw">else </span>{
+                NetworkError::UnknownError
             }
         }
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_family</span> <span class="op">=</span> <span class="string">&quot;unix&quot;</span>))]</span>
-        <span class="kw">_</span> =&gt; <span class="ident">NetworkError::UnknownError</span>,
+        <span class="attribute">#[cfg(not(target_family = <span class="string">&quot;unix&quot;</span>))]
+        </span><span class="kw">_ </span>=&gt; NetworkError::UnknownError,
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_net" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_net" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

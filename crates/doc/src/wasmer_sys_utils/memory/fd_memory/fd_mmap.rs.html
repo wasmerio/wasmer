@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/fd_mmap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fd_mmap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_sys_utils/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/fd_mmap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fd_mmap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_sys_utils/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -412,419 +412,419 @@
 <span id="412">412</span>
 <span id="413">413</span>
 <span id="414">414</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Write</span>},
-    <span class="ident">ptr</span>, <span class="ident">slice</span>,
+</span><span class="kw">use </span>std::{
+    io::{<span class="self">self</span>, Read, Write},
+    ptr, slice,
 };
 
-<span class="comment">// /// Round `size` up to the nearest multiple of `page_size`.</span>
-<span class="comment">// fn round_up_to_page_size(size: usize, page_size: usize) -&gt; usize {</span>
-<span class="comment">//     (size + (page_size - 1)) &amp; !(page_size - 1)</span>
-<span class="comment">// }</span>
+<span class="comment">// /// Round `size` up to the nearest multiple of `page_size`.
+// fn round_up_to_page_size(size: usize, page_size: usize) -&gt; usize {
+//     (size + (page_size - 1)) &amp; !(page_size - 1)
+// }
 
-<span class="doccomment">/// A simple struct consisting of a page-aligned pointer to page-aligned</span>
-<span class="doccomment">/// and initially-zeroed memory and a length.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FdMmap</span> {
-    <span class="comment">// Note that this is stored as a `usize` instead of a `*const` or `*mut`</span>
-    <span class="comment">// pointer to allow this structure to be natively `Send` and `Sync` without</span>
-    <span class="comment">// `unsafe impl`. This type is sendable across threads and shareable since</span>
-    <span class="comment">// the coordination all happens at the OS layer.</span>
-    <span class="ident">ptr</span>: <span class="ident">usize</span>,
-    <span class="ident">len</span>: <span class="ident">usize</span>,
-    <span class="comment">// Backing file that will be closed when the memory mapping goes out of scope</span>
-    <span class="ident">fd</span>: <span class="ident">FdGuard</span>,
+</span><span class="doccomment">/// A simple struct consisting of a page-aligned pointer to page-aligned
+/// and initially-zeroed memory and a length.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>FdMmap {
+    <span class="comment">// Note that this is stored as a `usize` instead of a `*const` or `*mut`
+    // pointer to allow this structure to be natively `Send` and `Sync` without
+    // `unsafe impl`. This type is sendable across threads and shareable since
+    // the coordination all happens at the OS layer.
+    </span>ptr: usize,
+    len: usize,
+    <span class="comment">// Backing file that will be closed when the memory mapping goes out of scope
+    </span>fd: FdGuard,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FdGuard</span>(<span class="kw">pub</span> <span class="ident">i32</span>);
+<span class="attribute">#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+</span><span class="kw">pub struct </span>FdGuard(<span class="kw">pub </span>i32);
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">FdGuard</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="op">-</span><span class="number">1</span>)
+<span class="kw">impl </span>Default <span class="kw">for </span>FdGuard {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(-<span class="number">1</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">FdGuard</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">unsafe</span> { <span class="self">Self</span>(<span class="ident">libc::dup</span>(<span class="self">self</span>.<span class="number">0</span>)) }
+<span class="kw">impl </span>Clone <span class="kw">for </span>FdGuard {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="kw">unsafe </span>{ <span class="self">Self</span>(libc::dup(<span class="self">self</span>.<span class="number">0</span>)) }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">FdGuard</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="number">0</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="kw">unsafe</span> {
-                <span class="ident">libc::close</span>(<span class="self">self</span>.<span class="number">0</span>);
+<span class="kw">impl </span>Drop <span class="kw">for </span>FdGuard {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&gt;= <span class="number">0 </span>{
+            <span class="kw">unsafe </span>{
+                libc::close(<span class="self">self</span>.<span class="number">0</span>);
             }
-            <span class="self">self</span>.<span class="number">0</span> <span class="op">=</span> <span class="op">-</span><span class="number">1</span>;
+            <span class="self">self</span>.<span class="number">0 </span>= -<span class="number">1</span>;
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">FdMmap</span> {
-    <span class="doccomment">/// Construct a new empty instance of `Mmap`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="comment">// Rust&#39;s slices require non-null pointers, even when empty. `Vec`</span>
-        <span class="comment">// contains code to create a non-null dangling pointer value when</span>
-        <span class="comment">// constructed empty, so we reuse that here.</span>
-        <span class="kw">let</span> <span class="ident">empty</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>();
-        <span class="self">Self</span> {
-            <span class="ident">ptr</span>: <span class="ident">empty</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="ident">len</span>: <span class="number">0</span>,
-            <span class="ident">fd</span>: <span class="ident">FdGuard::default</span>(),
+<span class="kw">impl </span>FdMmap {
+    <span class="doccomment">/// Construct a new empty instance of `Mmap`.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="comment">// Rust&#39;s slices require non-null pointers, even when empty. `Vec`
+        // contains code to create a non-null dangling pointer value when
+        // constructed empty, so we reuse that here.
+        </span><span class="kw">let </span>empty = Vec::&lt;u8&gt;::new();
+        <span class="self">Self </span>{
+            ptr: empty.as_ptr() <span class="kw">as </span>usize,
+            len: <span class="number">0</span>,
+            fd: FdGuard::default(),
         }
     }
 
-    <span class="comment">// /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.</span>
-    <span class="comment">// pub fn with_at_least(size: usize) -&gt; Result&lt;Self, String&gt; {</span>
-    <span class="comment">//     let page_size = region::page::size();</span>
-    <span class="comment">//     let rounded_size = round_up_to_page_size(size, page_size);</span>
-    <span class="comment">//     Self::accessible_reserved(rounded_size, rounded_size)</span>
-    <span class="comment">// }</span>
+    <span class="comment">// /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
+    // pub fn with_at_least(size: usize) -&gt; Result&lt;Self, String&gt; {
+    //     let page_size = region::page::size();
+    //     let rounded_size = round_up_to_page_size(size, page_size);
+    //     Self::accessible_reserved(rounded_size, rounded_size)
+    // }
 
-    <span class="doccomment">/// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,</span>
-    <span class="doccomment">/// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`</span>
-    <span class="doccomment">/// must be native page-size multiples.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">accessible_reserved</span>(
-        <span class="ident">accessible_size</span>: <span class="ident">usize</span>,
-        <span class="ident">mapping_size</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="macro">assert!</span>(<span class="ident">accessible_size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">mapping_size</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">mapping_size</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">accessible_size</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
+    </span><span class="doccomment">/// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
+    /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
+    /// must be native page-size multiples.
+    </span><span class="kw">pub fn </span>accessible_reserved(
+        accessible_size: usize,
+        mapping_size: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="macro">assert!</span>(accessible_size &lt;= mapping_size);
+        <span class="macro">assert_eq!</span>(mapping_size &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(accessible_size &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
 
-        <span class="comment">// Mmap may return EINVAL if the size is zero, so just</span>
-        <span class="comment">// special-case that.</span>
-        <span class="kw">if</span> <span class="ident">mapping_size</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::new</span>());
+        <span class="comment">// Mmap may return EINVAL if the size is zero, so just
+        // special-case that.
+        </span><span class="kw">if </span>mapping_size == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::new());
         }
 
-        <span class="comment">// Open a temporary file (which is used for swapping)</span>
-        <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">libc::tmpfile</span>();
-            <span class="kw">if</span> <span class="ident">file</span>.<span class="ident">is_null</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+        <span class="comment">// Open a temporary file (which is used for swapping)
+        </span><span class="kw">let </span>fd = <span class="kw">unsafe </span>{
+            <span class="kw">let </span>file = libc::tmpfile();
+            <span class="kw">if </span>file.is_null() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
                     <span class="string">&quot;failed to create temporary file - {}&quot;</span>,
-                    <span class="ident">io::Error::last_os_error</span>()
+                    io::Error::last_os_error()
                 ));
             }
-            <span class="ident">FdGuard</span>(<span class="ident">libc::fileno</span>(<span class="ident">file</span>))
+            FdGuard(libc::fileno(file))
         };
 
-        <span class="comment">// First we initialize it with zeros</span>
-        <span class="kw">unsafe</span> {
-            <span class="kw">if</span> <span class="ident">libc::ftruncate</span>(<span class="ident">fd</span>.<span class="number">0</span>, <span class="ident">mapping_size</span> <span class="kw">as</span> <span class="ident">libc::off_t</span>) <span class="op">&lt;</span> <span class="number">0</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;could not truncate tmpfile&quot;</span>.<span class="ident">to_string</span>());
+        <span class="comment">// First we initialize it with zeros
+        </span><span class="kw">unsafe </span>{
+            <span class="kw">if </span>libc::ftruncate(fd.<span class="number">0</span>, mapping_size <span class="kw">as </span>libc::off_t) &lt; <span class="number">0 </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;could not truncate tmpfile&quot;</span>.to_string());
             }
         }
 
-        <span class="comment">// Compute the flags</span>
-        <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">libc::MAP_FILE</span> <span class="op">|</span> <span class="ident">libc::MAP_SHARED</span>;
+        <span class="comment">// Compute the flags
+        </span><span class="kw">let </span>flags = libc::MAP_FILE | libc::MAP_SHARED;
 
-        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">accessible_size</span> <span class="op">==</span> <span class="ident">mapping_size</span> {
-            <span class="comment">// Allocate a single read-write region at once.</span>
-            <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                <span class="ident">libc::mmap</span>(
-                    <span class="ident">ptr::null_mut</span>(),
-                    <span class="ident">mapping_size</span>,
-                    <span class="ident">libc::PROT_READ</span> <span class="op">|</span> <span class="ident">libc::PROT_WRITE</span>,
-                    <span class="ident">flags</span>,
-                    <span class="ident">fd</span>.<span class="number">0</span>,
+        <span class="prelude-val">Ok</span>(<span class="kw">if </span>accessible_size == mapping_size {
+            <span class="comment">// Allocate a single read-write region at once.
+            </span><span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
+                libc::mmap(
+                    ptr::null_mut(),
+                    mapping_size,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                    flags,
+                    fd.<span class="number">0</span>,
                     <span class="number">0</span>,
                 )
             };
-            <span class="kw">if</span> <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">isize</span> <span class="op">==</span> <span class="op">-</span><span class="number">1_isize</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+            <span class="kw">if </span>ptr <span class="kw">as </span>isize == -<span class="number">1_isize </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
             }
 
-            <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">len</span>: <span class="ident">mapping_size</span>,
-                <span class="ident">fd</span>,
+            <span class="self">Self </span>{
+                ptr: ptr <span class="kw">as </span>usize,
+                len: mapping_size,
+                fd,
             }
-        } <span class="kw">else</span> {
-            <span class="comment">// Reserve the mapping size.</span>
-            <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                <span class="ident">libc::mmap</span>(
-                    <span class="ident">ptr::null_mut</span>(),
-                    <span class="ident">mapping_size</span>,
-                    <span class="ident">libc::PROT_NONE</span>,
-                    <span class="ident">flags</span>,
-                    <span class="ident">fd</span>.<span class="number">0</span>,
+        } <span class="kw">else </span>{
+            <span class="comment">// Reserve the mapping size.
+            </span><span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
+                libc::mmap(
+                    ptr::null_mut(),
+                    mapping_size,
+                    libc::PROT_NONE,
+                    flags,
+                    fd.<span class="number">0</span>,
                     <span class="number">0</span>,
                 )
             };
-            <span class="kw">if</span> <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">isize</span> <span class="op">==</span> <span class="op">-</span><span class="number">1_isize</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+            <span class="kw">if </span>ptr <span class="kw">as </span>isize == -<span class="number">1_isize </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">len</span>: <span class="ident">mapping_size</span>,
-                <span class="ident">fd</span>,
+            <span class="kw">let </span><span class="kw-2">mut </span>result = <span class="self">Self </span>{
+                ptr: ptr <span class="kw">as </span>usize,
+                len: mapping_size,
+                fd,
             };
 
-            <span class="kw">if</span> <span class="ident">accessible_size</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                <span class="comment">// Commit the accessible size.</span>
-                <span class="ident">result</span>.<span class="ident">make_accessible</span>(<span class="number">0</span>, <span class="ident">accessible_size</span>)<span class="question-mark">?</span>;
+            <span class="kw">if </span>accessible_size != <span class="number">0 </span>{
+                <span class="comment">// Commit the accessible size.
+                </span>result.make_accessible(<span class="number">0</span>, accessible_size)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">result</span>
+            result
         })
     }
 
-    <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.</span>
-    <span class="doccomment">/// `start` and `len` must be native page-size multiples and describe a range within</span>
-    <span class="doccomment">/// `self`&#39;s reserved memory.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_accessible</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">start</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">len</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert!</span>(<span class="ident">len</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">len</span>);
-        <span class="macro">assert!</span>(<span class="ident">start</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">len</span> <span class="op">-</span> <span class="ident">len</span>);
+    <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.
+    /// `start` and `len` must be native page-size multiples and describe a range within
+    /// `self`&#39;s reserved memory.
+    </span><span class="kw">pub fn </span>make_accessible(<span class="kw-2">&amp;mut </span><span class="self">self</span>, start: usize, len: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="macro">assert_eq!</span>(start &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(len &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert!</span>(len &lt; <span class="self">self</span>.len);
+        <span class="macro">assert!</span>(start &lt; <span class="self">self</span>.len - len);
 
-        <span class="comment">// Commit the accessible size.</span>
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>;
-        <span class="kw">unsafe</span> { <span class="ident">region::protect</span>(<span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">start</span>), <span class="ident">len</span>, <span class="ident">region::Protection::READ_WRITE</span>) }
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">to_string</span>())
+        <span class="comment">// Commit the accessible size.
+        </span><span class="kw">let </span>ptr = <span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8;
+        <span class="kw">unsafe </span>{ region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
+            .map_err(|e| e.to_string())
     }
 
-    <span class="doccomment">/// Return the allocated memory as a slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">len</span>) }
+    <span class="doccomment">/// Return the allocated memory as a slice of u8.
+    </span><span class="kw">pub fn </span>as_slice(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+        <span class="kw">unsafe </span>{ slice::from_raw_parts(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8, <span class="self">self</span>.len) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_mut_slice</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">len</span>) }
+    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.
+    </span><span class="kw">pub fn </span>as_mut_slice(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
+        <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, <span class="self">self</span>.len) }
     }
 
-    <span class="comment">// /// Return the allocated memory as a pointer to u8.</span>
-    <span class="comment">// pub fn as_ptr(&amp;self) -&gt; *const u8 {</span>
-    <span class="comment">//     self.ptr as *const u8</span>
-    <span class="comment">// }</span>
+    <span class="comment">// /// Return the allocated memory as a pointer to u8.
+    // pub fn as_ptr(&amp;self) -&gt; *const u8 {
+    //     self.ptr as *const u8
+    // }
 
-    <span class="doccomment">/// Return the allocated memory as a mutable pointer to u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_mut_ptr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">*mut</span> <span class="ident">u8</span> {
-        <span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>
+    </span><span class="doccomment">/// Return the allocated memory as a mutable pointer to u8.
+    </span><span class="kw">pub fn </span>as_mut_ptr(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>u8 {
+        <span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8
     }
 
-    <span class="doccomment">/// Return the length of the allocated memory.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">len</span>
+    <span class="doccomment">/// Return the length of the allocated memory.
+    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.len
     }
 
-    <span class="comment">// /// Return whether any memory has been allocated.</span>
-    <span class="comment">// pub fn is_empty(&amp;self) -&gt; bool {</span>
-    <span class="comment">//     self.len() == 0</span>
-    <span class="comment">// }</span>
+    <span class="comment">// /// Return whether any memory has been allocated.
+    // pub fn is_empty(&amp;self) -&gt; bool {
+    //     self.len() == 0
+    // }
 
-    <span class="doccomment">/// Copies the memory to a new swap file (using copy-on-write if available)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">hint_used</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="comment">// Empty memory is an edge case</span>
+    </span><span class="doccomment">/// Copies the memory to a new swap file (using copy-on-write if available)
+    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hint_used: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="comment">// Empty memory is an edge case
 
-        <span class="kw">use</span> <span class="ident">std::os::unix::prelude::FromRawFd</span>;
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">len</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::new</span>());
+        </span><span class="kw">use </span>std::os::unix::prelude::FromRawFd;
+        <span class="kw">if </span><span class="self">self</span>.len == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::new());
         }
 
-        <span class="comment">// First we sync all the data to the backing file</span>
-        <span class="kw">unsafe</span> {
-            <span class="ident">libc::fsync</span>(<span class="self">self</span>.<span class="ident">fd</span>.<span class="number">0</span>);
+        <span class="comment">// First we sync all the data to the backing file
+        </span><span class="kw">unsafe </span>{
+            libc::fsync(<span class="self">self</span>.fd.<span class="number">0</span>);
         }
 
-        <span class="comment">// Open a new temporary file (which is used for swapping for the forked memory)</span>
-        <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">libc::tmpfile</span>();
-            <span class="kw">if</span> <span class="ident">file</span>.<span class="ident">is_null</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+        <span class="comment">// Open a new temporary file (which is used for swapping for the forked memory)
+        </span><span class="kw">let </span>fd = <span class="kw">unsafe </span>{
+            <span class="kw">let </span>file = libc::tmpfile();
+            <span class="kw">if </span>file.is_null() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
                     <span class="string">&quot;failed to create temporary file - {}&quot;</span>,
-                    <span class="ident">io::Error::last_os_error</span>()
+                    io::Error::last_os_error()
                 ));
             }
-            <span class="ident">FdGuard</span>(<span class="ident">libc::fileno</span>(<span class="ident">file</span>))
+            FdGuard(libc::fileno(file))
         };
 
-        <span class="comment">// Attempt to do a shallow copy (needs a backing file system that supports it)</span>
-        <span class="kw">unsafe</span> {
-            <span class="kw">if</span> <span class="ident">libc::ioctl</span>(<span class="ident">fd</span>.<span class="number">0</span>, <span class="number">0x94</span>, <span class="number">9</span>, <span class="self">self</span>.<span class="ident">fd</span>.<span class="number">0</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-            <span class="comment">// FICLONE</span>
-            {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing&quot;</span>)]</span>
-                <span class="macro">trace!</span>(<span class="string">&quot;memory copy started&quot;</span>);
+        <span class="comment">// Attempt to do a shallow copy (needs a backing file system that supports it)
+        </span><span class="kw">unsafe </span>{
+            <span class="kw">if </span>libc::ioctl(fd.<span class="number">0</span>, <span class="number">0x94</span>, <span class="number">9</span>, <span class="self">self</span>.fd.<span class="number">0</span>) != <span class="number">0
+            </span><span class="comment">// FICLONE
+            </span>{
+                <span class="attribute">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
+                </span><span class="macro">trace!</span>(<span class="string">&quot;memory copy started&quot;</span>);
 
-                <span class="comment">// Determine host much to copy</span>
-                <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">hint_used</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
-                    <span class="prelude-val">None</span> =&gt; <span class="self">self</span>.<span class="ident">len</span>,
+                <span class="comment">// Determine host much to copy
+                </span><span class="kw">let </span>len = <span class="kw">match </span>hint_used {
+                    <span class="prelude-val">Some</span>(a) =&gt; a,
+                    <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.len,
                 };
 
-                <span class="comment">// The shallow copy failed so we have to do it the hard way</span>
+                <span class="comment">// The shallow copy failed so we have to do it the hard way
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">source</span> <span class="op">=</span> <span class="ident">std::fs::File::from_raw_fd</span>(<span class="self">self</span>.<span class="ident">fd</span>.<span class="number">0</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">std::fs::File::from_raw_fd</span>(<span class="ident">fd</span>.<span class="number">0</span>);
-                <span class="ident">copy_file_range</span>(<span class="kw-2">&amp;mut</span> <span class="ident">source</span>, <span class="number">0</span>, <span class="kw-2">&amp;mut</span> <span class="ident">out</span>, <span class="number">0</span>, <span class="ident">len</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Could not copy memory: {err}&quot;</span>))<span class="question-mark">?</span>;
+                </span><span class="kw">let </span><span class="kw-2">mut </span>source = std::fs::File::from_raw_fd(<span class="self">self</span>.fd.<span class="number">0</span>);
+                <span class="kw">let </span><span class="kw-2">mut </span>out = std::fs::File::from_raw_fd(fd.<span class="number">0</span>);
+                copy_file_range(<span class="kw-2">&amp;mut </span>source, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>out, <span class="number">0</span>, len)
+                    .map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Could not copy memory: {err}&quot;</span>))<span class="question-mark">?</span>;
 
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing&quot;</span>)]</span>
-                <span class="macro">trace!</span>(<span class="string">&quot;memory copy finished (size={})&quot;</span>, <span class="ident">len</span>);
+                <span class="attribute">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
+                </span><span class="macro">trace!</span>(<span class="string">&quot;memory copy finished (size={})&quot;</span>, len);
             }
         }
 
-        <span class="comment">// Compute the flags</span>
-        <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">libc::MAP_FILE</span> <span class="op">|</span> <span class="ident">libc::MAP_SHARED</span>;
+        <span class="comment">// Compute the flags
+        </span><span class="kw">let </span>flags = libc::MAP_FILE | libc::MAP_SHARED;
 
-        <span class="comment">// Allocate a single read-write region at once.</span>
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="ident">libc::mmap</span>(
-                <span class="ident">ptr::null_mut</span>(),
-                <span class="self">self</span>.<span class="ident">len</span>,
-                <span class="ident">libc::PROT_READ</span> <span class="op">|</span> <span class="ident">libc::PROT_WRITE</span>,
-                <span class="ident">flags</span>,
-                <span class="ident">fd</span>.<span class="number">0</span>,
+        <span class="comment">// Allocate a single read-write region at once.
+        </span><span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
+            libc::mmap(
+                ptr::null_mut(),
+                <span class="self">self</span>.len,
+                libc::PROT_READ | libc::PROT_WRITE,
+                flags,
+                fd.<span class="number">0</span>,
                 <span class="number">0</span>,
             )
         };
-        <span class="kw">if</span> <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">isize</span> <span class="op">==</span> <span class="op">-</span><span class="number">1_isize</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+        <span class="kw">if </span>ptr <span class="kw">as </span>isize == -<span class="number">1_isize </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
         }
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="ident">len</span>: <span class="self">self</span>.<span class="ident">len</span>,
-            <span class="ident">fd</span>,
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            ptr: ptr <span class="kw">as </span>usize,
+            len: <span class="self">self</span>.len,
+            fd,
         })
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">FdMmap</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">len</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc::munmap</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">libc::c_void</span>, <span class="self">self</span>.<span class="ident">len</span>) };
-            <span class="macro">assert_eq!</span>(<span class="ident">r</span>, <span class="number">0</span>, <span class="string">&quot;munmap failed: {}&quot;</span>, <span class="ident">io::Error::last_os_error</span>());
+<span class="kw">impl </span>Drop <span class="kw">for </span>FdMmap {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span><span class="self">self</span>.len != <span class="number">0 </span>{
+            <span class="kw">let </span>r = <span class="kw">unsafe </span>{ libc::munmap(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>libc::c_void, <span class="self">self</span>.len) };
+            <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;munmap failed: {}&quot;</span>, io::Error::last_os_error());
         }
     }
 }
 
-<span class="doccomment">/// Copy a range of a file to another file.</span>
-<span class="comment">// We could also use libc::copy_file_range on some systems, but it&#39;s</span>
-<span class="comment">// hard to do this because it is not available on many libc implementations.</span>
-<span class="comment">// (not on Mac OS, musl, ...)</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_family</span> <span class="op">=</span> <span class="string">&quot;unix&quot;</span>)]</span>
-<span class="kw">fn</span> <span class="ident">copy_file_range</span>(
-    <span class="ident">source</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fs::File</span>,
-    <span class="ident">source_offset</span>: <span class="ident">u64</span>,
-    <span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fs::File</span>,
-    <span class="ident">out_offset</span>: <span class="ident">u64</span>,
-    <span class="ident">len</span>: <span class="ident">usize</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">std::io::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Seek</span>, <span class="ident">SeekFrom</span>};
+<span class="doccomment">/// Copy a range of a file to another file.
+</span><span class="comment">// We could also use libc::copy_file_range on some systems, but it&#39;s
+// hard to do this because it is not available on many libc implementations.
+// (not on Mac OS, musl, ...)
+</span><span class="attribute">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+</span><span class="kw">fn </span>copy_file_range(
+    source: <span class="kw-2">&amp;mut </span>std::fs::File,
+    source_offset: u64,
+    out: <span class="kw-2">&amp;mut </span>std::fs::File,
+    out_offset: u64,
+    len: usize,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+    <span class="kw">use </span>std::io::{Seek, SeekFrom};
 
-    <span class="kw">let</span> <span class="ident">source_original_pos</span> <span class="op">=</span> <span class="ident">source</span>.<span class="ident">stream_position</span>()<span class="question-mark">?</span>;
-    <span class="ident">source</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">source_offset</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>source_original_pos = source.stream_position()<span class="question-mark">?</span>;
+    source.seek(SeekFrom::Start(source_offset))<span class="question-mark">?</span>;
 
-    <span class="comment">// TODO: don&#39;t cast with as</span>
+    <span class="comment">// TODO: don&#39;t cast with as
 
-    <span class="kw">let</span> <span class="ident">out_original_pos</span> <span class="op">=</span> <span class="ident">out</span>.<span class="ident">stream_position</span>()<span class="question-mark">?</span>;
-    <span class="ident">out</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">out_offset</span>))<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>out_original_pos = out.stream_position()<span class="question-mark">?</span>;
+    out.seek(SeekFrom::Start(out_offset))<span class="question-mark">?</span>;
 
-    <span class="comment">// TODO: don&#39;t do this horrible &quot;triple buffering&quot; below&quot;.</span>
-    <span class="comment">// let mut reader = std::io::BufReader::new(source);</span>
+    <span class="comment">// TODO: don&#39;t do this horrible &quot;triple buffering&quot; below&quot;.
+    // let mut reader = std::io::BufReader::new(source);
 
-    <span class="comment">// TODO: larger buffer?</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">4096</span>];
+    // TODO: larger buffer?
+    </span><span class="kw">let </span><span class="kw-2">mut </span>buffer = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">4096</span>];
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to_read</span> <span class="op">=</span> <span class="ident">len</span>;
-    <span class="kw">while</span> <span class="ident">to_read</span> <span class="op">&gt;</span> <span class="number">0</span> {
-        <span class="kw">let</span> <span class="ident">chunk_size</span> <span class="op">=</span> <span class="ident">std::cmp::min</span>(<span class="ident">to_read</span>, <span class="ident">buffer</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">source</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>[<span class="number">0</span>..<span class="ident">chunk_size</span>])<span class="question-mark">?</span>;
-        <span class="ident">out</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>[<span class="number">0</span>..<span class="ident">read</span>])<span class="question-mark">?</span>;
-        <span class="ident">to_read</span> <span class="op">-</span><span class="op">=</span> <span class="ident">read</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>to_read = len;
+    <span class="kw">while </span>to_read &gt; <span class="number">0 </span>{
+        <span class="kw">let </span>chunk_size = std::cmp::min(to_read, buffer.len());
+        <span class="kw">let </span>read = source.read(<span class="kw-2">&amp;mut </span>buffer[<span class="number">0</span>..chunk_size])<span class="question-mark">?</span>;
+        out.write_all(<span class="kw-2">&amp;</span>buffer[<span class="number">0</span>..read])<span class="question-mark">?</span>;
+        to_read -= read;
     }
 
-    <span class="comment">// Need to read the last chunk.</span>
-    <span class="ident">out</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
+    <span class="comment">// Need to read the last chunk.
+    </span>out.flush()<span class="question-mark">?</span>;
 
-    <span class="comment">// Restore files to original position.</span>
-    <span class="ident">source</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">source_original_pos</span>))<span class="question-mark">?</span>;
-    <span class="ident">out</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
-    <span class="ident">out</span>.<span class="ident">sync_data</span>()<span class="question-mark">?</span>;
-    <span class="ident">out</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom::Start</span>(<span class="ident">out_original_pos</span>))<span class="question-mark">?</span>;
+    <span class="comment">// Restore files to original position.
+    </span>source.seek(SeekFrom::Start(source_original_pos))<span class="question-mark">?</span>;
+    out.flush()<span class="question-mark">?</span>;
+    out.sync_data()<span class="question-mark">?</span>;
+    out.seek(SeekFrom::Start(out_original_pos))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="comment">// #[test]</span>
-    <span class="comment">// fn test_round_up_to_page_size() {</span>
-    <span class="comment">//     assert_eq!(round_up_to_page_size(0, 4096), 0);</span>
-    <span class="comment">//     assert_eq!(round_up_to_page_size(1, 4096), 4096);</span>
-    <span class="comment">//     assert_eq!(round_up_to_page_size(4096, 4096), 4096);</span>
-    <span class="comment">//     assert_eq!(round_up_to_page_size(4097, 4096), 8192);</span>
-    <span class="comment">// }</span>
+    <span class="comment">// #[test]
+    // fn test_round_up_to_page_size() {
+    //     assert_eq!(round_up_to_page_size(0, 4096), 0);
+    //     assert_eq!(round_up_to_page_size(1, 4096), 4096);
+    //     assert_eq!(round_up_to_page_size(4096, 4096), 4096);
+    //     assert_eq!(round_up_to_page_size(4097, 4096), 8192);
+    // }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_family</span> <span class="op">=</span> <span class="string">&quot;unix&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_copy_file_range</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">std::io::Error</span><span class="op">&gt;</span> {
-        <span class="comment">// I know tempfile:: exists, but this doesn&#39;t bring in an extra</span>
-        <span class="comment">// dependency.</span>
+    </span><span class="attribute">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+    #[test]
+    </span><span class="kw">fn </span>test_copy_file_range() -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+        <span class="comment">// I know tempfile:: exists, but this doesn&#39;t bring in an extra
+        // dependency.
 
-        <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs::OpenOptions</span>, <span class="ident">io::Seek</span>};
+        </span><span class="kw">use </span>std::{fs::OpenOptions, io::Seek};
 
-        <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">std::env::temp_dir</span>().<span class="ident">join</span>(<span class="string">&quot;wasmer/copy_file_range&quot;</span>);
-        <span class="kw">if</span> <span class="ident">dir</span>.<span class="ident">is_dir</span>() {
-            <span class="ident">std::fs::remove_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">dir</span>).<span class="ident">unwrap</span>()
+        <span class="kw">let </span>dir = std::env::temp_dir().join(<span class="string">&quot;wasmer/copy_file_range&quot;</span>);
+        <span class="kw">if </span>dir.is_dir() {
+            std::fs::remove_dir_all(<span class="kw-2">&amp;</span>dir).unwrap()
         }
-        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">dir</span>).<span class="ident">unwrap</span>();
+        std::fs::create_dir_all(<span class="kw-2">&amp;</span>dir).unwrap();
 
-        <span class="kw">let</span> <span class="ident">pa</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">join</span>(<span class="string">&quot;a&quot;</span>);
-        <span class="kw">let</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">dir</span>.<span class="ident">join</span>(<span class="string">&quot;b&quot;</span>);
+        <span class="kw">let </span>pa = dir.join(<span class="string">&quot;a&quot;</span>);
+        <span class="kw">let </span>pb = dir.join(<span class="string">&quot;b&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="number">100</span>).<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">OpenOptions::new</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">pa</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="ident">a</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>data: Vec&lt;u8&gt; = (<span class="number">0</span>..<span class="number">100</span>).collect();
+        <span class="kw">let </span><span class="kw-2">mut </span>a = OpenOptions::new()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .create_new(<span class="bool-val">true</span>)
+            .open(<span class="kw-2">&amp;</span>pa)
+            .unwrap();
+        a.write_all(<span class="kw-2">&amp;</span>data).unwrap();
 
-        <span class="kw">let</span> <span class="ident">datb</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">100</span>..<span class="number">200</span>).<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">OpenOptions::new</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">pb</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="ident">b</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">datb</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>datb: Vec&lt;u8&gt; = (<span class="number">100</span>..<span class="number">200</span>).collect();
+        <span class="kw">let </span><span class="kw-2">mut </span>b = OpenOptions::new()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .create_new(<span class="bool-val">true</span>)
+            .open(<span class="kw-2">&amp;</span>pb)
+            .unwrap();
+        b.write_all(<span class="kw-2">&amp;</span>datb).unwrap();
 
-        <span class="ident">a</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::Start</span>(<span class="number">30</span>)).<span class="ident">unwrap</span>();
-        <span class="ident">b</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::Start</span>(<span class="number">99</span>)).<span class="ident">unwrap</span>();
-        <span class="ident">copy_file_range</span>(<span class="kw-2">&amp;mut</span> <span class="ident">a</span>, <span class="number">10</span>, <span class="kw-2">&amp;mut</span> <span class="ident">b</span>, <span class="number">40</span>, <span class="number">15</span>).<span class="ident">unwrap</span>();
+        a.seek(io::SeekFrom::Start(<span class="number">30</span>)).unwrap();
+        b.seek(io::SeekFrom::Start(<span class="number">99</span>)).unwrap();
+        copy_file_range(<span class="kw-2">&amp;mut </span>a, <span class="number">10</span>, <span class="kw-2">&amp;mut </span>b, <span class="number">40</span>, <span class="number">15</span>).unwrap();
 
-        <span class="macro">assert_eq!</span>(<span class="ident">a</span>.<span class="ident">stream_position</span>().<span class="ident">unwrap</span>(), <span class="number">30</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">b</span>.<span class="ident">stream_position</span>().<span class="ident">unwrap</span>(), <span class="number">99</span>);
+        <span class="macro">assert_eq!</span>(a.stream_position().unwrap(), <span class="number">30</span>);
+        <span class="macro">assert_eq!</span>(b.stream_position().unwrap(), <span class="number">99</span>);
 
-        <span class="ident">b</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::Start</span>(<span class="number">0</span>)).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">b</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">out</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">len</span>, <span class="number">100</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">out</span>[<span class="number">0</span>..<span class="number">40</span>], <span class="ident">datb</span>[<span class="number">0</span>..<span class="number">40</span>]);
-        <span class="macro">assert_eq!</span>(<span class="ident">out</span>[<span class="number">40</span>..<span class="number">55</span>], <span class="ident">data</span>[<span class="number">10</span>..<span class="number">25</span>]);
-        <span class="macro">assert_eq!</span>(<span class="ident">out</span>[<span class="number">55</span>..<span class="number">100</span>], <span class="ident">datb</span>[<span class="number">55</span>..<span class="number">100</span>]);
+        b.seek(io::SeekFrom::Start(<span class="number">0</span>)).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+        <span class="kw">let </span>len = b.read_to_end(<span class="kw-2">&amp;mut </span>out).unwrap();
+        <span class="macro">assert_eq!</span>(len, <span class="number">100</span>);
+        <span class="macro">assert_eq!</span>(out[<span class="number">0</span>..<span class="number">40</span>], datb[<span class="number">0</span>..<span class="number">40</span>]);
+        <span class="macro">assert_eq!</span>(out[<span class="number">40</span>..<span class="number">55</span>], data[<span class="number">10</span>..<span class="number">25</span>]);
+        <span class="macro">assert_eq!</span>(out[<span class="number">55</span>..<span class="number">100</span>], datb[<span class="number">55</span>..<span class="number">100</span>]);
 
-        <span class="comment">// TODO: needs more variant tests, but this is enough for now.</span>
+        <span class="comment">// TODO: needs more variant tests, but this is enough for now.
 
-        <span class="prelude-val">Ok</span>(())
+        </span><span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_sys_utils" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_sys_utils" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/module.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/module.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -120,127 +120,127 @@
 <span id="120">120</span>
 <span id="121">121</span>
 <span id="122">122</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Translation skeleton that traverses the whole WebAssembly module and call helper functions</span>
-<span class="doccomment">//! to deal with each part of it.</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::environ::ModuleEnvironment</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error::from_binaryreadererror_wasmerror</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::sections</span>::{
-    <span class="ident">parse_data_section</span>, <span class="ident">parse_element_section</span>, <span class="ident">parse_export_section</span>, <span class="ident">parse_function_section</span>,
-    <span class="ident">parse_global_section</span>, <span class="ident">parse_import_section</span>, <span class="ident">parse_memory_section</span>, <span class="ident">parse_name_section</span>,
-    <span class="ident">parse_start_section</span>, <span class="ident">parse_table_section</span>, <span class="ident">parse_type_section</span>,
+</span><span class="doccomment">//! Translation skeleton that traverses the whole WebAssembly module and call helper functions
+//! to deal with each part of it.
+</span><span class="kw">use </span><span class="kw">super</span>::environ::ModuleEnvironment;
+<span class="kw">use </span><span class="kw">super</span>::error::from_binaryreadererror_wasmerror;
+<span class="kw">use </span><span class="kw">super</span>::sections::{
+    parse_data_section, parse_element_section, parse_export_section, parse_function_section,
+    parse_global_section, parse_import_section, parse_memory_section, parse_name_section,
+    parse_start_section, parse_table_section, parse_type_section,
 };
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::state::ModuleTranslationState</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::WasmResult</span>;
-<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">NameSectionReader</span>, <span class="ident">Parser</span>, <span class="ident">Payload</span>};
+<span class="kw">use </span><span class="kw">super</span>::state::ModuleTranslationState;
+<span class="kw">use </span>wasmer_types::WasmResult;
+<span class="kw">use </span>wasmparser::{NameSectionReader, Parser, Payload};
 
-<span class="doccomment">/// Translate a sequence of bytes forming a valid Wasm binary into a</span>
-<span class="doccomment">/// parsed ModuleInfo `ModuleTranslationState`.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">translate_module</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
-    <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
-    <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ModuleEnvironment</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ModuleTranslationState</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module_translation_state</span> <span class="op">=</span> <span class="ident">ModuleTranslationState::new</span>();
+<span class="doccomment">/// Translate a sequence of bytes forming a valid Wasm binary into a
+/// parsed ModuleInfo `ModuleTranslationState`.
+</span><span class="kw">pub fn </span>translate_module&lt;<span class="lifetime">&#39;data</span>&gt;(
+    data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8],
+    environ: <span class="kw-2">&amp;mut </span>ModuleEnvironment&lt;<span class="lifetime">&#39;data</span>&gt;,
+) -&gt; WasmResult&lt;ModuleTranslationState&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>module_translation_state = ModuleTranslationState::new();
 
-    <span class="kw">for</span> <span class="ident">payload</span> <span class="kw">in</span> <span class="ident">Parser::new</span>(<span class="number">0</span>).<span class="ident">parse_all</span>(<span class="ident">data</span>) {
-        <span class="kw">match</span> <span class="ident">payload</span>.<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span> {
-            <span class="ident">Payload::Version</span> { .. } <span class="op">|</span> <span class="ident">Payload::End</span> { .. } =&gt; {}
+    <span class="kw">for </span>payload <span class="kw">in </span>Parser::new(<span class="number">0</span>).parse_all(data) {
+        <span class="kw">match </span>payload.map_err(from_binaryreadererror_wasmerror)<span class="question-mark">? </span>{
+            Payload::Version { .. } | Payload::End { .. } =&gt; {}
 
-            <span class="ident">Payload::TypeSection</span>(<span class="ident">types</span>) =&gt; {
-                <span class="ident">parse_type_section</span>(<span class="ident">types</span>, <span class="kw-2">&amp;mut</span> <span class="ident">module_translation_state</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::TypeSection(types) =&gt; {
+                parse_type_section(types, <span class="kw-2">&amp;mut </span>module_translation_state, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::ImportSection</span>(<span class="ident">imports</span>) =&gt; {
-                <span class="ident">parse_import_section</span>(<span class="ident">imports</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::ImportSection(imports) =&gt; {
+                parse_import_section(imports, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::FunctionSection</span>(<span class="ident">functions</span>) =&gt; {
-                <span class="ident">parse_function_section</span>(<span class="ident">functions</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::FunctionSection(functions) =&gt; {
+                parse_function_section(functions, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::TableSection</span>(<span class="ident">tables</span>) =&gt; {
-                <span class="ident">parse_table_section</span>(<span class="ident">tables</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::TableSection(tables) =&gt; {
+                parse_table_section(tables, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::MemorySection</span>(<span class="ident">memories</span>) =&gt; {
-                <span class="ident">parse_memory_section</span>(<span class="ident">memories</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::MemorySection(memories) =&gt; {
+                parse_memory_section(memories, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::GlobalSection</span>(<span class="ident">globals</span>) =&gt; {
-                <span class="ident">parse_global_section</span>(<span class="ident">globals</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::GlobalSection(globals) =&gt; {
+                parse_global_section(globals, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::ExportSection</span>(<span class="ident">exports</span>) =&gt; {
-                <span class="ident">parse_export_section</span>(<span class="ident">exports</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::ExportSection(exports) =&gt; {
+                parse_export_section(exports, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::StartSection</span> { <span class="ident">func</span>, .. } =&gt; {
-                <span class="ident">parse_start_section</span>(<span class="ident">func</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::StartSection { func, .. } =&gt; {
+                parse_start_section(func, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::ElementSection</span>(<span class="ident">elements</span>) =&gt; {
-                <span class="ident">parse_element_section</span>(<span class="ident">elements</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::ElementSection(elements) =&gt; {
+                parse_element_section(elements, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::CodeSectionStart</span> { .. } =&gt; {}
-            <span class="ident">Payload::CodeSectionEntry</span>(<span class="ident">code</span>) =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code</span> <span class="op">=</span> <span class="ident">code</span>.<span class="ident">get_binary_reader</span>();
-                <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">code</span>.<span class="ident">bytes_remaining</span>();
-                <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">code</span>.<span class="ident">original_position</span>();
-                <span class="ident">environ</span>.<span class="ident">define_function_body</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">module_translation_state</span>,
-                    <span class="ident">code</span>.<span class="ident">read_bytes</span>(<span class="ident">size</span>)
-                        .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>,
-                    <span class="ident">offset</span>,
+            Payload::CodeSectionStart { .. } =&gt; {}
+            Payload::CodeSectionEntry(code) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>code = code.get_binary_reader();
+                <span class="kw">let </span>size = code.bytes_remaining();
+                <span class="kw">let </span>offset = code.original_position();
+                environ.define_function_body(
+                    <span class="kw-2">&amp;</span>module_translation_state,
+                    code.read_bytes(size)
+                        .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>,
+                    offset,
                 )<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::DataSection</span>(<span class="ident">data</span>) =&gt; {
-                <span class="ident">parse_data_section</span>(<span class="ident">data</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+            Payload::DataSection(data) =&gt; {
+                parse_data_section(data, environ)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::DataCountSection</span> { <span class="ident">count</span>, .. } =&gt; {
-                <span class="ident">environ</span>.<span class="ident">reserve_passive_data</span>(<span class="ident">count</span>)<span class="question-mark">?</span>;
+            Payload::DataCountSection { count, .. } =&gt; {
+                environ.reserve_passive_data(count)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload::InstanceSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentSection</span> { .. }
-            <span class="op">|</span> <span class="ident">Payload::CoreTypeSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentTypeSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentInstanceSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentAliasSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentCanonicalSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentStartSection</span> { .. }
-            <span class="op">|</span> <span class="ident">Payload::ComponentImportSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ComponentExportSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload::ModuleSection</span> { .. } =&gt; {
+            Payload::InstanceSection(<span class="kw">_</span>)
+            | Payload::ComponentSection { .. }
+            | Payload::CoreTypeSection(<span class="kw">_</span>)
+            | Payload::ComponentTypeSection(<span class="kw">_</span>)
+            | Payload::ComponentInstanceSection(<span class="kw">_</span>)
+            | Payload::ComponentAliasSection(<span class="kw">_</span>)
+            | Payload::ComponentCanonicalSection(<span class="kw">_</span>)
+            | Payload::ComponentStartSection { .. }
+            | Payload::ComponentImportSection(<span class="kw">_</span>)
+            | Payload::ComponentExportSection(<span class="kw">_</span>)
+            | Payload::ModuleSection { .. } =&gt; {
                 <span class="macro">unimplemented!</span>(<span class="string">&quot;module linking not implemented. It will only be implemented if/when browsers support it&quot;</span>)
             }
 
-            <span class="ident">Payload::TagSection</span>(<span class="kw">_</span>) =&gt; {
+            Payload::TagSection(<span class="kw">_</span>) =&gt; {
                 <span class="macro">unimplemented!</span>(<span class="string">&quot;exception handling not implemented yet&quot;</span>)
             }
 
-            <span class="ident">Payload::CustomSection</span>(<span class="ident">sectionreader</span>) =&gt; {
-                <span class="comment">// We still add the custom section data, but also read it as name section reader</span>
-                <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">sectionreader</span>.<span class="ident">name</span>();
-                <span class="ident">environ</span>.<span class="ident">custom_section</span>(<span class="ident">name</span>, <span class="ident">sectionreader</span>.<span class="ident">data</span>())<span class="question-mark">?</span>;
-                <span class="kw">if</span> <span class="ident">name</span> <span class="op">==</span> <span class="string">&quot;name&quot;</span> {
-                    <span class="ident">parse_name_section</span>(
-                        <span class="ident">NameSectionReader::new</span>(<span class="ident">sectionreader</span>.<span class="ident">data</span>(), <span class="ident">sectionreader</span>.<span class="ident">data_offset</span>())
-                            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>,
-                        <span class="ident">environ</span>,
+            Payload::CustomSection(sectionreader) =&gt; {
+                <span class="comment">// We still add the custom section data, but also read it as name section reader
+                </span><span class="kw">let </span>name = sectionreader.name();
+                environ.custom_section(name, sectionreader.data())<span class="question-mark">?</span>;
+                <span class="kw">if </span>name == <span class="string">&quot;name&quot; </span>{
+                    parse_name_section(
+                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset())
+                            .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>,
+                        environ,
                     )<span class="question-mark">?</span>;
                 }
             }
 
-            <span class="ident">Payload::UnknownSection</span> { .. } =&gt; <span class="macro">unreachable!</span>(),
+            Payload::UnknownSection { .. } =&gt; <span class="macro">unreachable!</span>(),
         }
     }
 
-    <span class="prelude-val">Ok</span>(<span class="ident">module_translation_state</span>)
+    <span class="prelude-val">Ok</span>(module_translation_state)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

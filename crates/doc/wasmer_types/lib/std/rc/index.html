@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference Counted’."><meta name="keywords" content="rust, rustlang, rust-lang, rc"><title>wasmer_types::lib::std::rc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module rc</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#structs">Structs</a></li></ul></div></section></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">rc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.64.0/src/alloc/lib.rs.html#224">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference Counted’."><meta name="keywords" content="rust, rustlang, rust-lang, rc"><title>wasmer_types::lib::std::rc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module rc</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#structs">Structs</a></li></ul></div></section></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">rc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.65.0/src/alloc/lib.rs.html#230">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Single-threaded reference-counting pointers. ‘Rc’ stands for ‘Reference
 Counted’.</p>
 <p>The type <a href="struct.Rc.html" title="Rc"><code>Rc&lt;T&gt;</code></a> provides shared ownership of a value of type <code>T</code>,
-allocated in the heap. Invoking <a href="https://doc.rust-lang.org/1.64.0/core/clone/trait.Clone.html#tymethod.clone"><code>clone</code></a> on <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> produces a new
+allocated in the heap. Invoking <a href="https://doc.rust-lang.org/1.65.0/core/clone/trait.Clone.html#tymethod.clone"><code>clone</code></a> on <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> produces a new
 pointer to the same allocation in the heap. When the last <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> pointer to a
 given allocation is destroyed, the value stored in that allocation (often
 referred to as “inner value”) is also dropped.</p>
@@ -18,7 +18,7 @@ threads. If you need multi-threaded, atomic reference counting, use
 <a href="../sync/struct.Arc.html"><code>sync::Arc</code></a>.</p>
 <p>The <a href="struct.Rc.html#method.downgrade"><code>downgrade</code></a> method can be used to create a non-owning
 <a href="struct.Weak.html" title="Weak"><code>Weak</code></a> pointer. A <a href="struct.Weak.html" title="Weak"><code>Weak</code></a> pointer can be <a href="struct.Weak.html#method.upgrade"><code>upgrade</code></a>d
-to an <a href="struct.Rc.html" title="Rc"><code>Rc</code></a>, but this will return <a href="https://doc.rust-lang.org/1.64.0/core/option/enum.Option.html#variant.None" title="None"><code>None</code></a> if the value stored in the allocation has
+to an <a href="struct.Rc.html" title="Rc"><code>Rc</code></a>, but this will return <a href="https://doc.rust-lang.org/1.65.0/core/option/enum.Option.html#variant.None" title="None"><code>None</code></a> if the value stored in the allocation has
 already been dropped. In other words, <code>Weak</code> pointers do not keep the value
 inside the allocation alive; however, they <em>do</em> keep the allocation
 (the backing store for the inner value) alive.</p>
@@ -31,33 +31,33 @@ so you can call <code>T</code>’s methods on a value of type <a href="struct.Rc
 clashes with <code>T</code>’s methods, the methods of <a href="struct.Rc.html" title="Rc"><code>Rc&lt;T&gt;</code></a> itself are associated
 functions, called using <a href="https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#fully-qualified-syntax-for-disambiguation-calling-methods-with-the-same-name">fully qualified syntax</a>:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::rc::Rc</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
 
-<span class="kw">let</span> <span class="ident">my_rc</span> <span class="op">=</span> <span class="ident">Rc::new</span>(());
-<span class="kw">let</span> <span class="ident">my_weak</span> <span class="op">=</span> <span class="ident">Rc::downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">my_rc</span>);</code></pre></div>
+<span class="kw">let </span>my_rc = Rc::new(());
+<span class="kw">let </span>my_weak = Rc::downgrade(<span class="kw-2">&amp;</span>my_rc);</code></pre></div>
 <p><code>Rc&lt;T&gt;</code>’s implementations of traits like <code>Clone</code> may also be called using
 fully qualified syntax. Some people prefer to use fully qualified syntax,
 while others prefer using method-call syntax.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::rc::Rc</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
 
-<span class="kw">let</span> <span class="ident">rc</span> <span class="op">=</span> <span class="ident">Rc::new</span>(());
-<span class="comment">// Method-call syntax</span>
-<span class="kw">let</span> <span class="ident">rc2</span> <span class="op">=</span> <span class="ident">rc</span>.<span class="ident">clone</span>();
-<span class="comment">// Fully qualified syntax</span>
-<span class="kw">let</span> <span class="ident">rc3</span> <span class="op">=</span> <span class="ident">Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">rc</span>);</code></pre></div>
+<span class="kw">let </span>rc = Rc::new(());
+<span class="comment">// Method-call syntax
+</span><span class="kw">let </span>rc2 = rc.clone();
+<span class="comment">// Fully qualified syntax
+</span><span class="kw">let </span>rc3 = Rc::clone(<span class="kw-2">&amp;</span>rc);</code></pre></div>
 <p><a href="struct.Weak.html" title="Weak"><code>Weak&lt;T&gt;</code></a> does not auto-dereference to <code>T</code>, because the inner value may have
 already been dropped.</p>
 <h2 id="cloning-references"><a href="#cloning-references">Cloning references</a></h2>
 <p>Creating a new reference to the same allocation as an existing reference counted pointer
 is done using the <code>Clone</code> trait implemented for <a href="struct.Rc.html" title="Rc"><code>Rc&lt;T&gt;</code></a> and <a href="struct.Weak.html" title="Weak"><code>Weak&lt;T&gt;</code></a>.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::rc::Rc</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
 
-<span class="kw">let</span> <span class="ident">foo</span> <span class="op">=</span> <span class="ident">Rc::new</span>(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>]);
-<span class="comment">// The two syntaxes below are equivalent.</span>
-<span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">foo</span>.<span class="ident">clone</span>();
-<span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>);
+<span class="kw">let </span>foo = Rc::new(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>]);
+<span class="comment">// The two syntaxes below are equivalent.
+</span><span class="kw">let </span>a = foo.clone();
+<span class="kw">let </span>b = Rc::clone(<span class="kw-2">&amp;</span>foo);
 <span class="comment">// a and b both point to the same memory location as foo.</span></code></pre></div>
 <p>The <code>Rc::clone(&amp;from)</code> syntax is the most idiomatic because it conveys more explicitly
 the meaning of the code. In the example above, this syntax makes it easier to see that
@@ -69,55 +69,55 @@ unique ownership, because more than one gadget may belong to the same
 <code>Owner</code>. <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> allows us to share an <code>Owner</code> between multiple <code>Gadget</code>s,
 and have the <code>Owner</code> remain allocated as long as any <code>Gadget</code> points at it.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::rc::Rc</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
 
-<span class="kw">struct</span> <span class="ident">Owner</span> {
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="comment">// ...other fields</span>
-}
+<span class="kw">struct </span>Owner {
+    name: String,
+    <span class="comment">// ...other fields
+</span>}
 
-<span class="kw">struct</span> <span class="ident">Gadget</span> {
-    <span class="ident">id</span>: <span class="ident">i32</span>,
-    <span class="ident">owner</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Owner</span><span class="op">&gt;</span>,
-    <span class="comment">// ...other fields</span>
-}
+<span class="kw">struct </span>Gadget {
+    id: i32,
+    owner: Rc&lt;Owner&gt;,
+    <span class="comment">// ...other fields
+</span>}
 
-<span class="kw">fn</span> <span class="ident">main</span>() {
-    <span class="comment">// Create a reference-counted `Owner`.</span>
-    <span class="kw">let</span> <span class="ident">gadget_owner</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Owner</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Rc::new</span>(
-        <span class="ident">Owner</span> {
-            <span class="ident">name</span>: <span class="string">&quot;Gadget Man&quot;</span>.<span class="ident">to_string</span>(),
+<span class="kw">fn </span>main() {
+    <span class="comment">// Create a reference-counted `Owner`.
+    </span><span class="kw">let </span>gadget_owner: Rc&lt;Owner&gt; = Rc::new(
+        Owner {
+            name: <span class="string">&quot;Gadget Man&quot;</span>.to_string(),
         }
     );
 
-    <span class="comment">// Create `Gadget`s belonging to `gadget_owner`. Cloning the `Rc&lt;Owner&gt;`</span>
-    <span class="comment">// gives us a new pointer to the same `Owner` allocation, incrementing</span>
-    <span class="comment">// the reference count in the process.</span>
-    <span class="kw">let</span> <span class="ident">gadget1</span> <span class="op">=</span> <span class="ident">Gadget</span> {
-        <span class="ident">id</span>: <span class="number">1</span>,
-        <span class="ident">owner</span>: <span class="ident">Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">gadget_owner</span>),
+    <span class="comment">// Create `Gadget`s belonging to `gadget_owner`. Cloning the `Rc&lt;Owner&gt;`
+    // gives us a new pointer to the same `Owner` allocation, incrementing
+    // the reference count in the process.
+    </span><span class="kw">let </span>gadget1 = Gadget {
+        id: <span class="number">1</span>,
+        owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
     };
-    <span class="kw">let</span> <span class="ident">gadget2</span> <span class="op">=</span> <span class="ident">Gadget</span> {
-        <span class="ident">id</span>: <span class="number">2</span>,
-        <span class="ident">owner</span>: <span class="ident">Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">gadget_owner</span>),
+    <span class="kw">let </span>gadget2 = Gadget {
+        id: <span class="number">2</span>,
+        owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
     };
 
-    <span class="comment">// Dispose of our local variable `gadget_owner`.</span>
-    <span class="ident">drop</span>(<span class="ident">gadget_owner</span>);
+    <span class="comment">// Dispose of our local variable `gadget_owner`.
+    </span>drop(gadget_owner);
 
-    <span class="comment">// Despite dropping `gadget_owner`, we&#39;re still able to print out the name</span>
-    <span class="comment">// of the `Owner` of the `Gadget`s. This is because we&#39;ve only dropped a</span>
-    <span class="comment">// single `Rc&lt;Owner&gt;`, not the `Owner` it points to. As long as there are</span>
-    <span class="comment">// other `Rc&lt;Owner&gt;` pointing at the same `Owner` allocation, it will remain</span>
-    <span class="comment">// live. The field projection `gadget1.owner.name` works because</span>
-    <span class="comment">// `Rc&lt;Owner&gt;` automatically dereferences to `Owner`.</span>
-    <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, <span class="ident">gadget1</span>.<span class="ident">id</span>, <span class="ident">gadget1</span>.<span class="ident">owner</span>.<span class="ident">name</span>);
-    <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, <span class="ident">gadget2</span>.<span class="ident">id</span>, <span class="ident">gadget2</span>.<span class="ident">owner</span>.<span class="ident">name</span>);
+    <span class="comment">// Despite dropping `gadget_owner`, we&#39;re still able to print out the name
+    // of the `Owner` of the `Gadget`s. This is because we&#39;ve only dropped a
+    // single `Rc&lt;Owner&gt;`, not the `Owner` it points to. As long as there are
+    // other `Rc&lt;Owner&gt;` pointing at the same `Owner` allocation, it will remain
+    // live. The field projection `gadget1.owner.name` works because
+    // `Rc&lt;Owner&gt;` automatically dereferences to `Owner`.
+    </span><span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget1.id, gadget1.owner.name);
+    <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget2.id, gadget2.owner.name);
 
-    <span class="comment">// At the end of the function, `gadget1` and `gadget2` are destroyed, and</span>
-    <span class="comment">// with them the last counted references to our `Owner`. Gadget Man now</span>
-    <span class="comment">// gets destroyed as well.</span>
-}</code></pre></div>
+    <span class="comment">// At the end of the function, `gadget1` and `gadget2` are destroyed, and
+    // with them the last counted references to our `Owner`. Gadget Man now
+    // gets destroyed as well.
+</span>}</code></pre></div>
 <p>If our requirements change, and we also need to be able to traverse from
 <code>Owner</code> to <code>Gadget</code>, we will run into problems. An <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> pointer from <code>Owner</code>
 to <code>Gadget</code> introduces a cycle. This means that their
@@ -133,79 +133,77 @@ value we wish to mutate in a <a href="../cell/struct.RefCell.html"><code>RefCell
 mutability</em>: a method to achieve mutability through a shared reference.
 <a href="../cell/struct.RefCell.html"><code>RefCell</code></a> enforces Rust’s borrowing rules at runtime.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::rc::Rc</span>;
-<span class="kw">use</span> <span class="ident">std::rc::Weak</span>;
-<span class="kw">use</span> <span class="ident">std::cell::RefCell</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::rc::Rc;
+<span class="kw">use </span>std::rc::Weak;
+<span class="kw">use </span>std::cell::RefCell;
 
-<span class="kw">struct</span> <span class="ident">Owner</span> {
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="ident">gadgets</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">Gadget</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// ...other fields</span>
-}
+<span class="kw">struct </span>Owner {
+    name: String,
+    gadgets: RefCell&lt;Vec&lt;Weak&lt;Gadget&gt;&gt;&gt;,
+    <span class="comment">// ...other fields
+</span>}
 
-<span class="kw">struct</span> <span class="ident">Gadget</span> {
-    <span class="ident">id</span>: <span class="ident">i32</span>,
-    <span class="ident">owner</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Owner</span><span class="op">&gt;</span>,
-    <span class="comment">// ...other fields</span>
-}
+<span class="kw">struct </span>Gadget {
+    id: i32,
+    owner: Rc&lt;Owner&gt;,
+    <span class="comment">// ...other fields
+</span>}
 
-<span class="kw">fn</span> <span class="ident">main</span>() {
-    <span class="comment">// Create a reference-counted `Owner`. Note that we&#39;ve put the `Owner`&#39;s</span>
-    <span class="comment">// vector of `Gadget`s inside a `RefCell` so that we can mutate it through</span>
-    <span class="comment">// a shared reference.</span>
-    <span class="kw">let</span> <span class="ident">gadget_owner</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">Owner</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Rc::new</span>(
-        <span class="ident">Owner</span> {
-            <span class="ident">name</span>: <span class="string">&quot;Gadget Man&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">gadgets</span>: <span class="ident">RefCell::new</span>(<span class="macro">vec!</span>[]),
+<span class="kw">fn </span>main() {
+    <span class="comment">// Create a reference-counted `Owner`. Note that we&#39;ve put the `Owner`&#39;s
+    // vector of `Gadget`s inside a `RefCell` so that we can mutate it through
+    // a shared reference.
+    </span><span class="kw">let </span>gadget_owner: Rc&lt;Owner&gt; = Rc::new(
+        Owner {
+            name: <span class="string">&quot;Gadget Man&quot;</span>.to_string(),
+            gadgets: RefCell::new(<span class="macro">vec!</span>[]),
         }
     );
 
-    <span class="comment">// Create `Gadget`s belonging to `gadget_owner`, as before.</span>
-    <span class="kw">let</span> <span class="ident">gadget1</span> <span class="op">=</span> <span class="ident">Rc::new</span>(
-        <span class="ident">Gadget</span> {
-            <span class="ident">id</span>: <span class="number">1</span>,
-            <span class="ident">owner</span>: <span class="ident">Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">gadget_owner</span>),
+    <span class="comment">// Create `Gadget`s belonging to `gadget_owner`, as before.
+    </span><span class="kw">let </span>gadget1 = Rc::new(
+        Gadget {
+            id: <span class="number">1</span>,
+            owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
         }
     );
-    <span class="kw">let</span> <span class="ident">gadget2</span> <span class="op">=</span> <span class="ident">Rc::new</span>(
-        <span class="ident">Gadget</span> {
-            <span class="ident">id</span>: <span class="number">2</span>,
-            <span class="ident">owner</span>: <span class="ident">Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">gadget_owner</span>),
+    <span class="kw">let </span>gadget2 = Rc::new(
+        Gadget {
+            id: <span class="number">2</span>,
+            owner: Rc::clone(<span class="kw-2">&amp;</span>gadget_owner),
         }
     );
 
-    <span class="comment">// Add the `Gadget`s to their `Owner`.</span>
-    {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">gadgets</span> <span class="op">=</span> <span class="ident">gadget_owner</span>.<span class="ident">gadgets</span>.<span class="ident">borrow_mut</span>();
-        <span class="ident">gadgets</span>.<span class="ident">push</span>(<span class="ident">Rc::downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">gadget1</span>));
-        <span class="ident">gadgets</span>.<span class="ident">push</span>(<span class="ident">Rc::downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">gadget2</span>));
+    <span class="comment">// Add the `Gadget`s to their `Owner`.
+    </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>gadgets = gadget_owner.gadgets.borrow_mut();
+        gadgets.push(Rc::downgrade(<span class="kw-2">&amp;</span>gadget1));
+        gadgets.push(Rc::downgrade(<span class="kw-2">&amp;</span>gadget2));
 
-        <span class="comment">// `RefCell` dynamic borrow ends here.</span>
+        <span class="comment">// `RefCell` dynamic borrow ends here.
+    </span>}
+
+    <span class="comment">// Iterate over our `Gadget`s, printing their details out.
+    </span><span class="kw">for </span>gadget_weak <span class="kw">in </span>gadget_owner.gadgets.borrow().iter() {
+
+        <span class="comment">// `gadget_weak` is a `Weak&lt;Gadget&gt;`. Since `Weak` pointers can&#39;t
+        // guarantee the allocation still exists, we need to call
+        // `upgrade`, which returns an `Option&lt;Rc&lt;Gadget&gt;&gt;`.
+        //
+        // In this case we know the allocation still exists, so we simply
+        // `unwrap` the `Option`. In a more complicated program, you might
+        // need graceful error handling for a `None` result.
+
+        </span><span class="kw">let </span>gadget = gadget_weak.upgrade().unwrap();
+        <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, gadget.id, gadget.owner.name);
     }
 
-    <span class="comment">// Iterate over our `Gadget`s, printing their details out.</span>
-    <span class="kw">for</span> <span class="ident">gadget_weak</span> <span class="kw">in</span> <span class="ident">gadget_owner</span>.<span class="ident">gadgets</span>.<span class="ident">borrow</span>().<span class="ident">iter</span>() {
-
-        <span class="comment">// `gadget_weak` is a `Weak&lt;Gadget&gt;`. Since `Weak` pointers can&#39;t</span>
-        <span class="comment">// guarantee the allocation still exists, we need to call</span>
-        <span class="comment">// `upgrade`, which returns an `Option&lt;Rc&lt;Gadget&gt;&gt;`.</span>
-        <span class="comment">//</span>
-        <span class="comment">// In this case we know the allocation still exists, so we simply</span>
-        <span class="comment">// `unwrap` the `Option`. In a more complicated program, you might</span>
-        <span class="comment">// need graceful error handling for a `None` result.</span>
-
-        <span class="kw">let</span> <span class="ident">gadget</span> <span class="op">=</span> <span class="ident">gadget_weak</span>.<span class="ident">upgrade</span>().<span class="ident">unwrap</span>();
-        <span class="macro">println!</span>(<span class="string">&quot;Gadget {} owned by {}&quot;</span>, <span class="ident">gadget</span>.<span class="ident">id</span>, <span class="ident">gadget</span>.<span class="ident">owner</span>.<span class="ident">name</span>);
-    }
-
-    <span class="comment">// At the end of the function, `gadget_owner`, `gadget1`, and `gadget2`</span>
-    <span class="comment">// are destroyed. There are now no strong (`Rc`) pointers to the</span>
-    <span class="comment">// gadgets, so they are destroyed. This zeroes the reference count on</span>
-    <span class="comment">// Gadget Man, so he gets destroyed as well.</span>
-}</code></pre></div>
-</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Rc.html" title="wasmer_types::lib::std::rc::Rc struct">Rc</a></div><div class="item-right docblock-short"><p>A single-threaded reference-counting pointer. ‘Rc’ stands for ‘Reference
-Counted’.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Weak.html" title="wasmer_types::lib::std::rc::Weak struct">Weak</a></div><div class="item-right docblock-short"><p><code>Weak</code> is a version of <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> that holds a non-owning reference to the
+    <span class="comment">// At the end of the function, `gadget_owner`, `gadget1`, and `gadget2`
+    // are destroyed. There are now no strong (`Rc`) pointers to the
+    // gadgets, so they are destroyed. This zeroes the reference count on
+    // Gadget Man, so he gets destroyed as well.
+</span>}</code></pre></div>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Rc.html" title="wasmer_types::lib::std::rc::Rc struct">Rc</a></div><div class="item-right docblock-short">A single-threaded reference-counting pointer. ‘Rc’ stands for ‘Reference
+Counted’.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Weak.html" title="wasmer_types::lib::std::rc::Weak struct">Weak</a></div><div class="item-right docblock-short"><code>Weak</code> is a version of <a href="struct.Rc.html" title="Rc"><code>Rc</code></a> that holds a non-owning reference to the
 managed allocation. The allocation is accessed by calling <a href="struct.Weak.html#method.upgrade"><code>upgrade</code></a> on the <code>Weak</code>
-pointer, which returns an <code><a href="https://doc.rust-lang.org/1.64.0/core/option/enum.Option.html" title="Option">Option</a>&lt;<a href="struct.Rc.html" title="Rc">Rc</a>&lt;T&gt;&gt;</code>.</p>
-</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+pointer, which returns an <code><a href="https://doc.rust-lang.org/1.65.0/core/option/enum.Option.html" title="Option">Option</a>&lt;<a href="struct.Rc.html" title="Rc">Rc</a>&lt;T&gt;&gt;</code>.</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

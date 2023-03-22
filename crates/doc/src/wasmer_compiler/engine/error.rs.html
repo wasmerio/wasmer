@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -50,57 +50,57 @@
 <span id="50">50</span>
 <span id="51">51</span>
 <span id="52">52</span>
-</pre><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::trap::RuntimeError</span>;
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">DeserializeError</span>, <span class="ident">ImportError</span>, <span class="ident">SerializeError</span>};
+</pre><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors
+</span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span><span class="kw">crate</span>::engine::trap::RuntimeError;
+<span class="kw">use </span>thiserror::Error;
+<span class="kw">pub use </span>wasmer_types::{DeserializeError, ImportError, SerializeError};
 
-<span class="doccomment">/// The WebAssembly.LinkError object indicates an error during</span>
-<span class="doccomment">/// module instantiation (besides traps from the start function).</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is based on the [link error][link-error] API.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Link error: {0}&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">LinkError</span> {
-    <span class="doccomment">/// An error occurred when checking the import types.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Error while importing {0:?}.{1:?}: {2}&quot;</span>)]</span>
-    <span class="ident">Import</span>(<span class="ident">String</span>, <span class="ident">String</span>, <span class="ident">ImportError</span>),
+<span class="doccomment">/// The WebAssembly.LinkError object indicates an error during
+/// module instantiation (besides traps from the start function).
+///
+/// This is based on the [link error][link-error] API.
+///
+/// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
+</span><span class="attribute">#[derive(Error, Debug)]
+#[error(<span class="string">&quot;Link error: {0}&quot;</span>)]
+</span><span class="kw">pub enum </span>LinkError {
+    <span class="doccomment">/// An error occurred when checking the import types.
+    </span><span class="attribute">#[error(<span class="string">&quot;Error while importing {0:?}.{1:?}: {2}&quot;</span>)]
+    </span>Import(String, String, ImportError),
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
-    <span class="doccomment">/// A trap ocurred during linking.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;RuntimeError occurred during linking: {0}&quot;</span>)]</span>
-    <span class="ident">Trap</span>(<span class="attribute">#[<span class="ident">source</span>]</span> <span class="ident">RuntimeError</span>),
+    <span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="doccomment">/// A trap ocurred during linking.
+    </span><span class="attribute">#[error(<span class="string">&quot;RuntimeError occurred during linking: {0}&quot;</span>)]
+    </span>Trap(<span class="attribute">#[source] </span>RuntimeError),
 
-    <span class="doccomment">/// Insufficient resources available for linking.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Insufficient resources: {0}&quot;</span>)]</span>
-    <span class="ident">Resource</span>(<span class="ident">String</span>),
+    <span class="doccomment">/// Insufficient resources available for linking.
+    </span><span class="attribute">#[error(<span class="string">&quot;Insufficient resources: {0}&quot;</span>)]
+    </span>Resource(String),
 }
 
-<span class="doccomment">/// An error while instantiating a module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is not a common WebAssembly error, however</span>
-<span class="doccomment">/// we need to differentiate from a `LinkError` (an error</span>
-<span class="doccomment">/// that happens while linking, on instantiation) and a</span>
-<span class="doccomment">/// Trap that occurs when calling the WebAssembly module</span>
-<span class="doccomment">/// start function.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">InstantiationError</span> {
-    <span class="doccomment">/// A linking ocurred during instantiation.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-    <span class="ident">Link</span>(<span class="ident">LinkError</span>),
+<span class="doccomment">/// An error while instantiating a module.
+///
+/// This is not a common WebAssembly error, however
+/// we need to differentiate from a `LinkError` (an error
+/// that happens while linking, on instantiation) and a
+/// Trap that occurs when calling the WebAssembly module
+/// start function.
+</span><span class="attribute">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>InstantiationError {
+    <span class="doccomment">/// A linking ocurred during instantiation.
+    </span><span class="attribute">#[error(transparent)]
+    </span>Link(LinkError),
 
-    <span class="doccomment">/// The module was compiled with a CPU feature that is not available on</span>
-    <span class="doccomment">/// the current host.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;module compiled with CPU feature that is missing from host&quot;</span>)]</span>
-    <span class="ident">CpuFeature</span>(<span class="ident">String</span>),
+    <span class="doccomment">/// The module was compiled with a CPU feature that is not available on
+    /// the current host.
+    </span><span class="attribute">#[error(<span class="string">&quot;module compiled with CPU feature that is missing from host&quot;</span>)]
+    </span>CpuFeature(String),
 
-    <span class="doccomment">/// A runtime error occured while invoking the start function</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-    <span class="ident">Start</span>(<span class="ident">RuntimeError</span>),
+    <span class="doccomment">/// A runtime error occured while invoking the start function
+    </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    #[error(transparent)]
+    </span>Start(RuntimeError),
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

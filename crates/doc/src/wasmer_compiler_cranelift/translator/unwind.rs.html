@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/unwind.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>unwind.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/unwind.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>unwind.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -68,75 +68,75 @@
 <span id="68">68</span>
 <span id="69">69</span>
 <span id="70">70</span>
-</pre><pre class="rust"><code><span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly</span>
-<span class="doccomment">//! module.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly
+//! module.
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">cranelift_codegen::isa::unwind</span>::{<span class="ident">systemv::UnwindInfo</span> <span class="kw">as</span> <span class="ident">DwarfFDE</span>, <span class="ident">UnwindInfo</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen::print_errors::pretty_error</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">isa</span>, <span class="ident">Context</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::CompileError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::CompiledFunctionUnwindInfo</span>;
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span>cranelift_codegen::isa::unwind::{systemv::UnwindInfo <span class="kw">as </span>DwarfFDE, UnwindInfo};
+<span class="kw">use </span>cranelift_codegen::print_errors::pretty_error;
+<span class="kw">use </span>cranelift_codegen::{isa, Context};
+<span class="kw">use </span>wasmer_types::CompileError;
+<span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfo;
 
-<span class="doccomment">/// Cranelift specific unwind info</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">CraneliftUnwindInfo</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-    <span class="doccomment">/// Windows Unwind info</span>
-    <span class="ident">WindowsX64</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// Dwarf FDE</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-    <span class="ident">Fde</span>(<span class="ident">DwarfFDE</span>),
-    <span class="doccomment">/// No Unwind info attached</span>
-    <span class="prelude-val">None</span>,
+<span class="doccomment">/// Cranelift specific unwind info
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>CraneliftUnwindInfo {
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+    </span><span class="doccomment">/// Windows Unwind info
+    </span>WindowsX64(Vec&lt;u8&gt;),
+    <span class="doccomment">/// Dwarf FDE
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+    </span>Fde(DwarfFDE),
+    <span class="doccomment">/// No Unwind info attached
+    </span><span class="prelude-val">None</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">CraneliftUnwindInfo</span> {
-    <span class="doccomment">/// Transform the `CraneliftUnwindInfo` to the Windows format.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// We skip the DWARF as it is not needed for trampolines (which are the</span>
-    <span class="doccomment">/// main users of this function)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">maybe_into_to_windows_unwind</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">CompiledFunctionUnwindInfo</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-            <span class="ident"><span class="self">Self</span>::WindowsX64</span>(<span class="ident">unwind_info</span>) =&gt; {
-                <span class="prelude-val">Some</span>(<span class="ident">CompiledFunctionUnwindInfo::WindowsX64</span>(<span class="ident">unwind_info</span>))
+<span class="kw">impl </span>CraneliftUnwindInfo {
+    <span class="doccomment">/// Transform the `CraneliftUnwindInfo` to the Windows format.
+    ///
+    /// We skip the DWARF as it is not needed for trampolines (which are the
+    /// main users of this function)
+    </span><span class="kw">pub fn </span>maybe_into_to_windows_unwind(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;CompiledFunctionUnwindInfo&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+            </span><span class="self">Self</span>::WindowsX64(unwind_info) =&gt; {
+                <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(unwind_info))
             }
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
-<span class="doccomment">/// Constructs unwind info object from Cranelift IR</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">compiled_function_unwind_info</span>(
-    <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">isa::TargetIsa</span>,
-    <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CraneliftUnwindInfo</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="ident">context</span>
-        .<span class="ident">compiled_code</span>()
-        .<span class="ident">unwrap</span>()
-        .<span class="ident">create_unwind_info</span>(<span class="ident">isa</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">pretty_error</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>, <span class="ident">error</span>)))<span class="question-mark">?</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="doccomment">/// Constructs unwind info object from Cranelift IR
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compiled_function_unwind_info(
+    isa: <span class="kw-2">&amp;</span><span class="kw">dyn </span>isa::TargetIsa,
+    context: <span class="kw-2">&amp;</span>Context,
+) -&gt; <span class="prelude-ty">Result</span>&lt;CraneliftUnwindInfo, CompileError&gt; {
+    <span class="kw">let </span>unwind_info = context
+        .compiled_code()
+        .unwrap()
+        .create_unwind_info(isa)
+        .map_err(|error| CompileError::Codegen(pretty_error(<span class="kw-2">&amp;</span>context.func, error)))<span class="question-mark">?</span>;
 
-    <span class="kw">match</span> <span class="ident">unwind_info</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">UnwindInfo::WindowsX64</span>(<span class="ident">unwind</span>)) =&gt; {
-            <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">unwind</span>.<span class="ident">emit_size</span>();
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">size</span>];
-            <span class="ident">unwind</span>.<span class="ident">emit</span>(<span class="kw-2">&amp;mut</span> <span class="ident">data</span>[..]);
-            <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::WindowsX64</span>(<span class="ident">data</span>))
+    <span class="kw">match </span>unwind_info {
+        <span class="prelude-val">Some</span>(UnwindInfo::WindowsX64(unwind)) =&gt; {
+            <span class="kw">let </span>size = unwind.emit_size();
+            <span class="kw">let </span><span class="kw-2">mut </span>data: Vec&lt;u8&gt; = <span class="macro">vec!</span>[<span class="number">0</span>; size];
+            unwind.emit(<span class="kw-2">&amp;mut </span>data[..]);
+            <span class="prelude-val">Ok</span>(CraneliftUnwindInfo::WindowsX64(data))
         }
-        <span class="prelude-val">Some</span>(<span class="ident">UnwindInfo::SystemV</span>(<span class="ident">unwind</span>)) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::Fde</span>(<span class="ident">unwind</span>)),
-        <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::None</span>),
+        <span class="prelude-val">Some</span>(UnwindInfo::SystemV(unwind)) =&gt; <span class="prelude-val">Ok</span>(CraneliftUnwindInfo::Fde(unwind)),
+        <span class="prelude-val">Some</span>(<span class="kw">_</span>) | <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(CraneliftUnwindInfo::None),
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
-<span class="doccomment">/// Constructs unwind info object from Cranelift IR</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">compiled_function_unwind_info</span>(
-    <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">isa::TargetIsa</span>,
-    <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CraneliftUnwindInfo</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-    <span class="prelude-val">Ok</span>(<span class="ident">CraneliftUnwindInfo::None</span>)
+<span class="attribute">#[cfg(not(feature = <span class="string">&quot;unwind&quot;</span>))]
+</span><span class="doccomment">/// Constructs unwind info object from Cranelift IR
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compiled_function_unwind_info(
+    isa: <span class="kw-2">&amp;</span><span class="kw">dyn </span>isa::TargetIsa,
+    context: <span class="kw-2">&amp;</span>Context,
+) -&gt; <span class="prelude-ty">Result</span>&lt;CraneliftUnwindInfo, CompileError&gt; {
+    <span class="prelude-val">Ok</span>(CraneliftUnwindInfo::None)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

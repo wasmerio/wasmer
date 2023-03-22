@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/net/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/net/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -394,399 +394,399 @@
 <span id="392">392</span>
 <span id="393">393</span>
 <span id="394">394</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">intrinsics::transmute</span>,
-    <span class="ident">net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">Ipv6Addr</span>},
-    <span class="ident">time::Duration</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    intrinsics::transmute,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    time::Duration,
 };
 
-<span class="kw">use</span> <span class="ident">virtual_net</span>::{<span class="ident">IpCidr</span>, <span class="ident">IpRoute</span>, <span class="ident">NetworkError</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">MemoryView</span>, <span class="ident">WasmPtr</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::MemorySize</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types</span>::{
-    <span class="ident">types</span>::{
-        <span class="ident">OptionTag</span>, <span class="ident">OptionTimestamp</span>, <span class="ident">Route</span>, <span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">__wasi_addr_ip6_t</span>,
-        <span class="ident">__wasi_addr_port_t</span>, <span class="ident">__wasi_addr_port_u</span>, <span class="ident">__wasi_addr_t</span>, <span class="ident">__wasi_addr_u</span>, <span class="ident">__wasi_cidr_t</span>,
-        <span class="ident">__wasi_cidr_u</span>,
+<span class="kw">use </span>virtual_net::{IpCidr, IpRoute, NetworkError};
+<span class="kw">use </span>wasmer::{MemoryView, WasmPtr};
+<span class="kw">use </span>wasmer_types::MemorySize;
+<span class="kw">use </span>wasmer_wasix_types::{
+    types::{
+        OptionTag, OptionTimestamp, Route, __wasi_addr_ip4_t, __wasi_addr_ip6_t,
+        __wasi_addr_port_t, __wasi_addr_port_u, __wasi_addr_t, __wasi_addr_u, __wasi_cidr_t,
+        __wasi_cidr_u,
     },
-    <span class="ident">wasi</span>::{<span class="ident">Addressfamily</span>, <span class="ident">Errno</span>},
+    wasi::{Addressfamily, Errno},
 };
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">socket</span>;
+<span class="kw">pub mod </span>socket;
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IpAddr</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+<span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_ip&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_addr_t, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;IpAddr, Errno&gt; {
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    <span class="kw">let </span>addr = addr_ptr.read().map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
-    <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">addr</span>.<span class="ident">tag</span> {
-        <span class="ident">Addressfamily::Inet4</span> =&gt; <span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>])),
-        <span class="ident">Addressfamily::Inet6</span> =&gt; {
-            <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">o</span>) };
-            <span class="ident">IpAddr::V6</span>(<span class="ident">Ipv6Addr::new</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>))
+    <span class="kw">let </span>o = addr.u.octs;
+    <span class="prelude-val">Ok</span>(<span class="kw">match </span>addr.tag {
+        Addressfamily::Inet4 =&gt; IpAddr::V4(Ipv4Addr::new(o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>])),
+        Addressfamily::Inet6 =&gt; {
+            <span class="kw">let </span>[a, b, c, d, e, f, g, h] = <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(o) };
+            IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
         }
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Inval</span>),
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
     })
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip_v4</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip4_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ipv4Addr</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_ip_v4&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_addr_ip4_t, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Ipv4Addr, Errno&gt; {
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    <span class="kw">let </span>addr = addr_ptr.read().map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">octs</span>;
-    <span class="prelude-val">Ok</span>(<span class="ident">Ipv4Addr::new</span>(<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>]))
+    <span class="kw">let </span>o = addr.octs;
+    <span class="prelude-val">Ok</span>(Ipv4Addr::new(o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>]))
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip_v6</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip6_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Ipv6Addr</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_ip_v6&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_addr_ip6_t, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Ipv6Addr, Errno&gt; {
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    <span class="kw">let </span>addr = addr_ptr.read().map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">addr</span>.<span class="ident">segs</span>) };
-    <span class="prelude-val">Ok</span>(<span class="ident">Ipv6Addr::new</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>))
+    <span class="kw">let </span>[a, b, c, d, e, f, g, h] = <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(addr.segs) };
+    <span class="prelude-val">Ok</span>(Ipv6Addr::new(a, b, c, d, e, f, g, h))
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write_ip</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">ip</span>: <span class="ident">IpAddr</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">ip</span> {
-        <span class="ident">IpAddr::V4</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_addr_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet4</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_addr_u</span> {
-                    <span class="ident">octs</span>: [<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+<span class="kw">pub fn </span>write_ip&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_addr_t, M&gt;,
+    ip: IpAddr,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>ip = <span class="kw">match </span>ip {
+        IpAddr::V4(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_addr_t {
+                tag: Addressfamily::Inet4,
+                u: __wasi_addr_u {
+                    octs: [o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
                 },
             }
         }
-        <span class="ident">IpAddr::V6</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_addr_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet6</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_addr_u</span> { <span class="ident">octs</span>: <span class="ident">o</span> },
+        IpAddr::V6(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_addr_t {
+                tag: Addressfamily::Inet6,
+                u: __wasi_addr_u { octs: o },
             }
         }
     };
 
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="ident">addr_ptr</span>.<span class="ident">write</span>(<span class="ident">ip</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    addr_ptr.write(ip).map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_cidr</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IpCidr</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+<span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_cidr&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_cidr_t, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;IpCidr, Errno&gt; {
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    <span class="kw">let </span>addr = addr_ptr.read().map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
-    <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">addr</span>.<span class="ident">tag</span> {
-        <span class="ident">Addressfamily::Inet4</span> =&gt; <span class="ident">IpCidr</span> {
-            <span class="ident">ip</span>: <span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>])),
-            <span class="ident">prefix</span>: <span class="ident">o</span>[<span class="number">4</span>],
+    <span class="kw">let </span>o = addr.u.octs;
+    <span class="prelude-val">Ok</span>(<span class="kw">match </span>addr.tag {
+        Addressfamily::Inet4 =&gt; IpCidr {
+            ip: IpAddr::V4(Ipv4Addr::new(o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>])),
+            prefix: o[<span class="number">4</span>],
         },
-        <span class="ident">Addressfamily::Inet6</span> =&gt; {
-            <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> {
-                <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> [
-                    <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>], <span class="ident">o</span>[<span class="number">6</span>], <span class="ident">o</span>[<span class="number">7</span>], <span class="ident">o</span>[<span class="number">8</span>], <span class="ident">o</span>[<span class="number">9</span>], <span class="ident">o</span>[<span class="number">10</span>], <span class="ident">o</span>[<span class="number">11</span>],
-                    <span class="ident">o</span>[<span class="number">12</span>], <span class="ident">o</span>[<span class="number">13</span>], <span class="ident">o</span>[<span class="number">14</span>], <span class="ident">o</span>[<span class="number">15</span>],
+        Addressfamily::Inet6 =&gt; {
+            <span class="kw">let </span>[a, b, c, d, e, f, g, h] = {
+                <span class="kw">let </span>o = [
+                    o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>], o[<span class="number">11</span>],
+                    o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>],
                 ];
-                <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">o</span>) }
+                <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(o) }
             };
-            <span class="ident">IpCidr</span> {
-                <span class="ident">ip</span>: <span class="ident">IpAddr::V6</span>(<span class="ident">Ipv6Addr::new</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>)),
-                <span class="ident">prefix</span>: <span class="ident">o</span>[<span class="number">16</span>],
+            IpCidr {
+                ip: IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                prefix: o[<span class="number">16</span>],
             }
         }
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Inval</span>),
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
     })
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_cidr</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">cidr</span>: <span class="ident">IpCidr</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">cidr</span>.<span class="ident">prefix</span>;
-    <span class="kw">let</span> <span class="ident">cidr</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">cidr</span>.<span class="ident">ip</span> {
-        <span class="ident">IpAddr::V4</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_cidr_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet4</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_cidr_u</span> {
-                    <span class="ident">octs</span>: [
-                        <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">p</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+<span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_cidr&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_cidr_t, M&gt;,
+    cidr: IpCidr,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>p = cidr.prefix;
+    <span class="kw">let </span>cidr = <span class="kw">match </span>cidr.ip {
+        IpAddr::V4(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_cidr_t {
+                tag: Addressfamily::Inet4,
+                u: __wasi_cidr_u {
+                    octs: [
+                        o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], p, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
                     ],
                 },
             }
         }
-        <span class="ident">IpAddr::V6</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_cidr_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet6</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_cidr_u</span> {
-                    <span class="ident">octs</span>: [
-                        <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>], <span class="ident">o</span>[<span class="number">6</span>], <span class="ident">o</span>[<span class="number">7</span>], <span class="ident">o</span>[<span class="number">8</span>], <span class="ident">o</span>[<span class="number">9</span>], <span class="ident">o</span>[<span class="number">10</span>], <span class="ident">o</span>[<span class="number">11</span>],
-                        <span class="ident">o</span>[<span class="number">12</span>], <span class="ident">o</span>[<span class="number">13</span>], <span class="ident">o</span>[<span class="number">14</span>], <span class="ident">o</span>[<span class="number">15</span>], <span class="ident">p</span>,
+        IpAddr::V6(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_cidr_t {
+                tag: Addressfamily::Inet6,
+                u: __wasi_cidr_u {
+                    octs: [
+                        o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>], o[<span class="number">11</span>],
+                        o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>], p,
                     ],
                 },
             }
         }
     };
 
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="ident">addr_ptr</span>.<span class="ident">write</span>(<span class="ident">cidr</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    addr_ptr.write(cidr).map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_ip_port</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">IpAddr</span>, <span class="ident">u16</span>), <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">addr_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_ip_port&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(IpAddr, u16), Errno&gt; {
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    <span class="kw">let </span>addr = addr_ptr.read().map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">addr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
-    <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">addr</span>.<span class="ident">tag</span> {
-        <span class="ident">Addressfamily::Inet4</span> =&gt; {
-            <span class="kw">let</span> <span class="ident">port</span> <span class="op">=</span> <span class="ident">u16::from_ne_bytes</span>([<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>]]);
-            (<span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>])), <span class="ident">port</span>)
+    <span class="kw">let </span>o = addr.u.octs;
+    <span class="prelude-val">Ok</span>(<span class="kw">match </span>addr.tag {
+        Addressfamily::Inet4 =&gt; {
+            <span class="kw">let </span>port = u16::from_ne_bytes([o[<span class="number">0</span>], o[<span class="number">1</span>]]);
+            (IpAddr::V4(Ipv4Addr::new(o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>])), port)
         }
-        <span class="ident">Addressfamily::Inet6</span> =&gt; {
-            <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> {
-                <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> [
-                    <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>], <span class="ident">o</span>[<span class="number">6</span>], <span class="ident">o</span>[<span class="number">7</span>], <span class="ident">o</span>[<span class="number">8</span>], <span class="ident">o</span>[<span class="number">9</span>], <span class="ident">o</span>[<span class="number">10</span>], <span class="ident">o</span>[<span class="number">11</span>], <span class="ident">o</span>[<span class="number">12</span>], <span class="ident">o</span>[<span class="number">13</span>],
-                    <span class="ident">o</span>[<span class="number">14</span>], <span class="ident">o</span>[<span class="number">15</span>], <span class="ident">o</span>[<span class="number">16</span>], <span class="ident">o</span>[<span class="number">17</span>],
+        Addressfamily::Inet6 =&gt; {
+            <span class="kw">let </span>[a, b, c, d, e, f, g, h] = {
+                <span class="kw">let </span>o = [
+                    o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>], o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>],
+                    o[<span class="number">14</span>], o[<span class="number">15</span>], o[<span class="number">16</span>], o[<span class="number">17</span>],
                 ];
-                <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">o</span>) }
+                <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(o) }
             };
             (
-                <span class="ident">IpAddr::V6</span>(<span class="ident">Ipv6Addr::new</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>)),
-                <span class="ident">u16::from_ne_bytes</span>([<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>]]),
+                IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                u16::from_ne_bytes([o[<span class="number">0</span>], o[<span class="number">1</span>]]),
             )
         }
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Inval</span>),
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
     })
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_ip_port</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_port_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">ip</span>: <span class="ident">IpAddr</span>,
-    <span class="ident">port</span>: <span class="ident">u16</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">port</span>.<span class="ident">to_be_bytes</span>();
-    <span class="kw">let</span> <span class="ident">ipport</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">ip</span> {
-        <span class="ident">IpAddr::V4</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_addr_port_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet4</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_addr_port_u</span> {
-                    <span class="ident">octs</span>: [
-                        <span class="ident">p</span>[<span class="number">0</span>], <span class="ident">p</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+<span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_ip_port&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
+    ip: IpAddr,
+    port: u16,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>p = port.to_be_bytes();
+    <span class="kw">let </span>ipport = <span class="kw">match </span>ip {
+        IpAddr::V4(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_addr_port_t {
+                tag: Addressfamily::Inet4,
+                u: __wasi_addr_port_u {
+                    octs: [
+                        p[<span class="number">0</span>], p[<span class="number">1</span>], o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
                     ],
                 },
             }
         }
-        <span class="ident">IpAddr::V6</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_addr_port_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet6</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_addr_port_u</span> {
-                    <span class="ident">octs</span>: [
-                        <span class="ident">p</span>[<span class="number">0</span>], <span class="ident">p</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>], <span class="ident">o</span>[<span class="number">6</span>], <span class="ident">o</span>[<span class="number">7</span>], <span class="ident">o</span>[<span class="number">8</span>], <span class="ident">o</span>[<span class="number">9</span>],
-                        <span class="ident">o</span>[<span class="number">10</span>], <span class="ident">o</span>[<span class="number">11</span>], <span class="ident">o</span>[<span class="number">12</span>], <span class="ident">o</span>[<span class="number">13</span>], <span class="ident">o</span>[<span class="number">14</span>], <span class="ident">o</span>[<span class="number">15</span>],
+        IpAddr::V6(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_addr_port_t {
+                tag: Addressfamily::Inet6,
+                u: __wasi_addr_port_u {
+                    octs: [
+                        p[<span class="number">0</span>], p[<span class="number">1</span>], o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>],
+                        o[<span class="number">10</span>], o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>],
                     ],
                 },
             }
         }
     };
 
-    <span class="kw">let</span> <span class="ident">addr_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="ident">addr_ptr</span>.<span class="ident">write</span>(<span class="ident">ipport</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>addr_ptr = ptr.deref(memory);
+    addr_ptr.write(ipport).map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_route</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Route</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">IpRoute</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">route_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">route</span> <span class="op">=</span> <span class="ident">route_ptr</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+<span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_route&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;Route, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;IpRoute, Errno&gt; {
+    <span class="kw">let </span>route_ptr = ptr.deref(memory);
+    <span class="kw">let </span>route = route_ptr.read().map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">IpRoute</span> {
-        <span class="ident">cidr</span>: {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">route</span>.<span class="ident">cidr</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
-            <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">cidr</span>.<span class="ident">tag</span> {
-                <span class="ident">Addressfamily::Inet4</span> =&gt; <span class="ident">IpCidr</span> {
-                    <span class="ident">ip</span>: <span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>])),
-                    <span class="ident">prefix</span>: <span class="ident">o</span>[<span class="number">4</span>],
+    <span class="prelude-val">Ok</span>(IpRoute {
+        cidr: {
+            <span class="kw">let </span>o = route.cidr.u.octs;
+            <span class="kw">match </span>route.cidr.tag {
+                Addressfamily::Inet4 =&gt; IpCidr {
+                    ip: IpAddr::V4(Ipv4Addr::new(o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>])),
+                    prefix: o[<span class="number">4</span>],
                 },
-                <span class="ident">Addressfamily::Inet6</span> =&gt; {
-                    <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> {
-                        <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> [
-                            <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>], <span class="ident">o</span>[<span class="number">6</span>], <span class="ident">o</span>[<span class="number">7</span>], <span class="ident">o</span>[<span class="number">8</span>], <span class="ident">o</span>[<span class="number">9</span>], <span class="ident">o</span>[<span class="number">10</span>],
-                            <span class="ident">o</span>[<span class="number">11</span>], <span class="ident">o</span>[<span class="number">12</span>], <span class="ident">o</span>[<span class="number">13</span>], <span class="ident">o</span>[<span class="number">14</span>], <span class="ident">o</span>[<span class="number">15</span>],
+                Addressfamily::Inet6 =&gt; {
+                    <span class="kw">let </span>[a, b, c, d, e, f, g, h] = {
+                        <span class="kw">let </span>o = [
+                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>],
+                            o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>],
                         ];
-                        <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">o</span>) }
+                        <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(o) }
                     };
-                    <span class="ident">IpCidr</span> {
-                        <span class="ident">ip</span>: <span class="ident">IpAddr::V6</span>(<span class="ident">Ipv6Addr::new</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>)),
-                        <span class="ident">prefix</span>: <span class="ident">o</span>[<span class="number">16</span>],
+                    IpCidr {
+                        ip: IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                        prefix: o[<span class="number">16</span>],
                     }
                 }
-                <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Inval</span>),
+                <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             }
         },
-        <span class="ident">via_router</span>: {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">route</span>.<span class="ident">via_router</span>.<span class="ident">u</span>.<span class="ident">octs</span>;
-            <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">via_router</span>.<span class="ident">tag</span> {
-                <span class="ident">Addressfamily::Inet4</span> =&gt; <span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>])),
-                <span class="ident">Addressfamily::Inet6</span> =&gt; {
-                    <span class="kw">let</span> [<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>] <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, [<span class="ident">u16</span>; <span class="number">8</span>]<span class="op">&gt;</span>(<span class="ident">o</span>) };
-                    <span class="ident">IpAddr::V6</span>(<span class="ident">Ipv6Addr::new</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">d</span>, <span class="ident">e</span>, <span class="ident">f</span>, <span class="ident">g</span>, <span class="ident">h</span>))
+        via_router: {
+            <span class="kw">let </span>o = route.via_router.u.octs;
+            <span class="kw">match </span>route.via_router.tag {
+                Addressfamily::Inet4 =&gt; IpAddr::V4(Ipv4Addr::new(o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>])),
+                Addressfamily::Inet6 =&gt; {
+                    <span class="kw">let </span>[a, b, c, d, e, f, g, h] = <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(o) };
+                    IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h))
                 }
-                <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Inval</span>),
+                <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             }
         },
-        <span class="ident">preferred_until</span>: <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">preferred_until</span>.<span class="ident">tag</span> {
-            <span class="ident">OptionTag::None</span> =&gt; <span class="prelude-val">None</span>,
-            <span class="ident">OptionTag::Some</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">Duration::from_nanos</span>(<span class="ident">route</span>.<span class="ident">preferred_until</span>.<span class="ident">u</span>)),
+        preferred_until: <span class="kw">match </span>route.preferred_until.tag {
+            OptionTag::None =&gt; <span class="prelude-val">None</span>,
+            OptionTag::Some =&gt; <span class="prelude-val">Some</span>(Duration::from_nanos(route.preferred_until.u)),
         },
-        <span class="ident">expires_at</span>: <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">expires_at</span>.<span class="ident">tag</span> {
-            <span class="ident">OptionTag::None</span> =&gt; <span class="prelude-val">None</span>,
-            <span class="ident">OptionTag::Some</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">Duration::from_nanos</span>(<span class="ident">route</span>.<span class="ident">expires_at</span>.<span class="ident">u</span>)),
+        expires_at: <span class="kw">match </span>route.expires_at.tag {
+            OptionTag::None =&gt; <span class="prelude-val">None</span>,
+            OptionTag::Some =&gt; <span class="prelude-val">Some</span>(Duration::from_nanos(route.expires_at.u)),
         },
     })
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_route</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryView</span>,
-    <span class="ident">ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Route</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">route</span>: <span class="ident">IpRoute</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">cidr</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">route</span>.<span class="ident">cidr</span>.<span class="ident">prefix</span>;
-        <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">cidr</span>.<span class="ident">ip</span> {
-            <span class="ident">IpAddr::V4</span>(<span class="ident">ip</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-                <span class="ident">__wasi_cidr_t</span> {
-                    <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet4</span>,
-                    <span class="ident">u</span>: <span class="ident">__wasi_cidr_u</span> {
-                        <span class="ident">octs</span>: [
-                            <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">p</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_route&lt;M: MemorySize&gt;(
+    memory: <span class="kw-2">&amp;</span>MemoryView,
+    ptr: WasmPtr&lt;Route, M&gt;,
+    route: IpRoute,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>cidr = {
+        <span class="kw">let </span>p = route.cidr.prefix;
+        <span class="kw">match </span>route.cidr.ip {
+            IpAddr::V4(ip) =&gt; {
+                <span class="kw">let </span>o = ip.octets();
+                __wasi_cidr_t {
+                    tag: Addressfamily::Inet4,
+                    u: __wasi_cidr_u {
+                        octs: [
+                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], p, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
                         ],
                     },
                 }
             }
-            <span class="ident">IpAddr::V6</span>(<span class="ident">ip</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-                <span class="ident">__wasi_cidr_t</span> {
-                    <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet6</span>,
-                    <span class="ident">u</span>: <span class="ident">__wasi_cidr_u</span> {
-                        <span class="ident">octs</span>: [
-                            <span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="ident">o</span>[<span class="number">4</span>], <span class="ident">o</span>[<span class="number">5</span>], <span class="ident">o</span>[<span class="number">6</span>], <span class="ident">o</span>[<span class="number">7</span>], <span class="ident">o</span>[<span class="number">8</span>], <span class="ident">o</span>[<span class="number">9</span>], <span class="ident">o</span>[<span class="number">10</span>],
-                            <span class="ident">o</span>[<span class="number">11</span>], <span class="ident">o</span>[<span class="number">12</span>], <span class="ident">o</span>[<span class="number">13</span>], <span class="ident">o</span>[<span class="number">14</span>], <span class="ident">o</span>[<span class="number">15</span>], <span class="ident">p</span>,
+            IpAddr::V6(ip) =&gt; {
+                <span class="kw">let </span>o = ip.octets();
+                __wasi_cidr_t {
+                    tag: Addressfamily::Inet6,
+                    u: __wasi_cidr_u {
+                        octs: [
+                            o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>],
+                            o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>], o[<span class="number">14</span>], o[<span class="number">15</span>], p,
                         ],
                     },
                 }
             }
         }
     };
-    <span class="kw">let</span> <span class="ident">via_router</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">via_router</span> {
-        <span class="ident">IpAddr::V4</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_addr_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet4</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_addr_u</span> {
-                    <span class="ident">octs</span>: [<span class="ident">o</span>[<span class="number">0</span>], <span class="ident">o</span>[<span class="number">1</span>], <span class="ident">o</span>[<span class="number">2</span>], <span class="ident">o</span>[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+    <span class="kw">let </span>via_router = <span class="kw">match </span>route.via_router {
+        IpAddr::V4(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_addr_t {
+                tag: Addressfamily::Inet4,
+                u: __wasi_addr_u {
+                    octs: [o[<span class="number">0</span>], o[<span class="number">1</span>], o[<span class="number">2</span>], o[<span class="number">3</span>], <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
                 },
             }
         }
-        <span class="ident">IpAddr::V6</span>(<span class="ident">ip</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">o</span> <span class="op">=</span> <span class="ident">ip</span>.<span class="ident">octets</span>();
-            <span class="ident">__wasi_addr_t</span> {
-                <span class="ident">tag</span>: <span class="ident">Addressfamily::Inet6</span>,
-                <span class="ident">u</span>: <span class="ident">__wasi_addr_u</span> { <span class="ident">octs</span>: <span class="ident">o</span> },
+        IpAddr::V6(ip) =&gt; {
+            <span class="kw">let </span>o = ip.octets();
+            __wasi_addr_t {
+                tag: Addressfamily::Inet6,
+                u: __wasi_addr_u { octs: o },
             }
         }
     };
-    <span class="kw">let</span> <span class="ident">preferred_until</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">preferred_until</span> {
-        <span class="prelude-val">None</span> =&gt; <span class="ident">OptionTimestamp</span> {
-            <span class="ident">tag</span>: <span class="ident">OptionTag::None</span>,
-            <span class="ident">u</span>: <span class="number">0</span>,
+    <span class="kw">let </span>preferred_until = <span class="kw">match </span>route.preferred_until {
+        <span class="prelude-val">None </span>=&gt; OptionTimestamp {
+            tag: OptionTag::None,
+            u: <span class="number">0</span>,
         },
-        <span class="prelude-val">Some</span>(<span class="ident">u</span>) =&gt; <span class="ident">OptionTimestamp</span> {
-            <span class="ident">tag</span>: <span class="ident">OptionTag::Some</span>,
-            <span class="ident">u</span>: <span class="ident">u</span>.<span class="ident">as_nanos</span>() <span class="kw">as</span> <span class="ident">u64</span>,
-        },
-    };
-    <span class="kw">let</span> <span class="ident">expires_at</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">route</span>.<span class="ident">expires_at</span> {
-        <span class="prelude-val">None</span> =&gt; <span class="ident">OptionTimestamp</span> {
-            <span class="ident">tag</span>: <span class="ident">OptionTag::None</span>,
-            <span class="ident">u</span>: <span class="number">0</span>,
-        },
-        <span class="prelude-val">Some</span>(<span class="ident">u</span>) =&gt; <span class="ident">OptionTimestamp</span> {
-            <span class="ident">tag</span>: <span class="ident">OptionTag::Some</span>,
-            <span class="ident">u</span>: <span class="ident">u</span>.<span class="ident">as_nanos</span>() <span class="kw">as</span> <span class="ident">u64</span>,
+        <span class="prelude-val">Some</span>(u) =&gt; OptionTimestamp {
+            tag: OptionTag::Some,
+            u: u.as_nanos() <span class="kw">as </span>u64,
         },
     };
-
-    <span class="kw">let</span> <span class="ident">route</span> <span class="op">=</span> <span class="ident">Route</span> {
-        <span class="ident">cidr</span>,
-        <span class="ident">via_router</span>,
-        <span class="ident">preferred_until</span>,
-        <span class="ident">expires_at</span>,
+    <span class="kw">let </span>expires_at = <span class="kw">match </span>route.expires_at {
+        <span class="prelude-val">None </span>=&gt; OptionTimestamp {
+            tag: OptionTag::None,
+            u: <span class="number">0</span>,
+        },
+        <span class="prelude-val">Some</span>(u) =&gt; OptionTimestamp {
+            tag: OptionTag::Some,
+            u: u.as_nanos() <span class="kw">as </span>u64,
+        },
     };
 
-    <span class="kw">let</span> <span class="ident">route_ptr</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">deref</span>(<span class="ident">memory</span>);
-    <span class="ident">route_ptr</span>.<span class="ident">write</span>(<span class="ident">route</span>).<span class="ident">map_err</span>(<span class="ident"><span class="kw">crate</span>::mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>route = Route {
+        cidr,
+        via_router,
+        preferred_until,
+        expires_at,
+    };
+
+    <span class="kw">let </span>route_ptr = ptr.deref(memory);
+    route_ptr.write(route).map_err(<span class="kw">crate</span>::mem_error_to_wasi)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">net_error_into_wasi_err</span>(<span class="ident">net_error</span>: <span class="ident">NetworkError</span>) -&gt; <span class="ident">Errno</span> {
-    <span class="kw">match</span> <span class="ident">net_error</span> {
-        <span class="ident">NetworkError::InvalidFd</span> =&gt; <span class="ident">Errno::Badf</span>,
-        <span class="ident">NetworkError::AlreadyExists</span> =&gt; <span class="ident">Errno::Exist</span>,
-        <span class="ident">NetworkError::Lock</span> =&gt; <span class="ident">Errno::Io</span>,
-        <span class="ident">NetworkError::IOError</span> =&gt; <span class="ident">Errno::Io</span>,
-        <span class="ident">NetworkError::AddressInUse</span> =&gt; <span class="ident">Errno::Addrinuse</span>,
-        <span class="ident">NetworkError::AddressNotAvailable</span> =&gt; <span class="ident">Errno::Addrnotavail</span>,
-        <span class="ident">NetworkError::BrokenPipe</span> =&gt; <span class="ident">Errno::Pipe</span>,
-        <span class="ident">NetworkError::ConnectionAborted</span> =&gt; <span class="ident">Errno::Connaborted</span>,
-        <span class="ident">NetworkError::ConnectionRefused</span> =&gt; <span class="ident">Errno::Connrefused</span>,
-        <span class="ident">NetworkError::ConnectionReset</span> =&gt; <span class="ident">Errno::Connreset</span>,
-        <span class="ident">NetworkError::Interrupted</span> =&gt; <span class="ident">Errno::Intr</span>,
-        <span class="ident">NetworkError::InvalidData</span> =&gt; <span class="ident">Errno::Io</span>,
-        <span class="ident">NetworkError::InvalidInput</span> =&gt; <span class="ident">Errno::Inval</span>,
-        <span class="ident">NetworkError::NotConnected</span> =&gt; <span class="ident">Errno::Notconn</span>,
-        <span class="ident">NetworkError::NoDevice</span> =&gt; <span class="ident">Errno::Nodev</span>,
-        <span class="ident">NetworkError::PermissionDenied</span> =&gt; <span class="ident">Errno::Perm</span>,
-        <span class="ident">NetworkError::TimedOut</span> =&gt; <span class="ident">Errno::Timedout</span>,
-        <span class="ident">NetworkError::UnexpectedEof</span> =&gt; <span class="ident">Errno::Proto</span>,
-        <span class="ident">NetworkError::WouldBlock</span> =&gt; <span class="ident">Errno::Again</span>,
-        <span class="ident">NetworkError::WriteZero</span> =&gt; <span class="ident">Errno::Nospc</span>,
-        <span class="ident">NetworkError::TooManyOpenFiles</span> =&gt; <span class="ident">Errno::Mfile</span>,
-        <span class="ident">NetworkError::InsufficientMemory</span> =&gt; <span class="ident">Errno::Nomem</span>,
-        <span class="ident">NetworkError::Unsupported</span> =&gt; <span class="ident">Errno::Notsup</span>,
-        <span class="ident">NetworkError::UnknownError</span> =&gt; <span class="ident">Errno::Io</span>,
+<span class="kw">pub fn </span>net_error_into_wasi_err(net_error: NetworkError) -&gt; Errno {
+    <span class="kw">match </span>net_error {
+        NetworkError::InvalidFd =&gt; Errno::Badf,
+        NetworkError::AlreadyExists =&gt; Errno::Exist,
+        NetworkError::Lock =&gt; Errno::Io,
+        NetworkError::IOError =&gt; Errno::Io,
+        NetworkError::AddressInUse =&gt; Errno::Addrinuse,
+        NetworkError::AddressNotAvailable =&gt; Errno::Addrnotavail,
+        NetworkError::BrokenPipe =&gt; Errno::Pipe,
+        NetworkError::ConnectionAborted =&gt; Errno::Connaborted,
+        NetworkError::ConnectionRefused =&gt; Errno::Connrefused,
+        NetworkError::ConnectionReset =&gt; Errno::Connreset,
+        NetworkError::Interrupted =&gt; Errno::Intr,
+        NetworkError::InvalidData =&gt; Errno::Io,
+        NetworkError::InvalidInput =&gt; Errno::Inval,
+        NetworkError::NotConnected =&gt; Errno::Notconn,
+        NetworkError::NoDevice =&gt; Errno::Nodev,
+        NetworkError::PermissionDenied =&gt; Errno::Perm,
+        NetworkError::TimedOut =&gt; Errno::Timedout,
+        NetworkError::UnexpectedEof =&gt; Errno::Proto,
+        NetworkError::WouldBlock =&gt; Errno::Again,
+        NetworkError::WriteZero =&gt; Errno::Nospc,
+        NetworkError::TooManyOpenFiles =&gt; Errno::Mfile,
+        NetworkError::InsufficientMemory =&gt; Errno::Nomem,
+        NetworkError::Unsupported =&gt; Errno::Notsup,
+        NetworkError::UnknownError =&gt; Errno::Io,
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

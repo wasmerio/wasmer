@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/wapm/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/wapm/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -505,456 +505,456 @@
 <span id="503">503</span>
 <span id="504">504</span>
 <span id="505">505</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">bail</span>, <span class="ident">Context</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">ops::Deref</span>,
-    <span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>},
-    <span class="ident">sync::Arc</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
+<span class="kw">use </span>std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+    sync::Arc,
 };
-<span class="kw">use</span> <span class="ident">virtual_fs::FileSystem</span>;
+<span class="kw">use </span>virtual_fs::FileSystem;
 
-<span class="kw">use</span> <span class="ident">tracing</span>::<span class="kw-2">*</span>;
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">warn</span>};
-<span class="kw">use</span> <span class="ident">webc</span>::{
-    <span class="ident">metadata</span>::{<span class="ident">Annotation</span>, <span class="ident">UrlOrManifest</span>},
-    <span class="ident">v1::WebC</span>,
-};
-
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">bin_factory</span>::{<span class="ident">BinaryPackage</span>, <span class="ident">BinaryPackageCommand</span>},
-    <span class="ident">WasiRuntime</span>,
+<span class="kw">use </span>tracing::<span class="kw-2">*</span>;
+<span class="attribute">#[allow(unused_imports)]
+</span><span class="kw">use </span>tracing::{error, warn};
+<span class="kw">use </span>webc::{
+    metadata::{Annotation, UrlOrManifest},
+    v1::WebC,
 };
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wapm-tar&quot;</span>)]</span>
-<span class="kw">mod</span> <span class="ident">manifest</span>;
-<span class="kw">mod</span> <span class="ident">pirita</span>;
+<span class="kw">use crate</span>::{
+    bin_factory::{BinaryPackage, BinaryPackageCommand},
+    WasiRuntime,
+};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::http</span>::{<span class="ident">DynHttpClient</span>, <span class="ident">HttpRequest</span>, <span class="ident">HttpRequestOptions</span>};
-<span class="kw">use</span> <span class="ident">pirita</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;wapm-tar&quot;</span>)]
+</span><span class="kw">mod </span>manifest;
+<span class="kw">mod </span>pirita;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fetch_webc_task</span>(
-    <span class="ident">cache_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">webc</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">runtime</span>
-        .<span class="ident">http_client</span>()
-        .<span class="ident">context</span>(<span class="string">&quot;no http client available&quot;</span>)<span class="question-mark">?</span>
-        .<span class="ident">clone</span>();
+<span class="kw">use </span><span class="kw">crate</span>::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
+<span class="kw">use </span>pirita::<span class="kw-2">*</span>;
 
-    <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">cache_dir</span> <span class="op">=</span> <span class="ident">cache_dir</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">to_string</span>();
-        <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">fetch_webc</span>(<span class="kw-2">&amp;</span><span class="ident">cache_dir</span>, <span class="kw-2">&amp;</span><span class="ident">webc</span>, <span class="ident">client</span>).<span class="kw">await</span> }
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fetch_webc_task(
+    cache_dir: <span class="kw-2">&amp;</span>str,
+    webc: <span class="kw-2">&amp;</span>str,
+    runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
+) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+    <span class="kw">let </span>client = runtime
+        .http_client()
+        .context(<span class="string">&quot;no http client available&quot;</span>)<span class="question-mark">?
+        </span>.clone();
+
+    <span class="kw">let </span>f = {
+        <span class="kw">let </span>cache_dir = cache_dir.to_string();
+        <span class="kw">let </span>webc = webc.to_string();
+        <span class="kw">async move </span>{ fetch_webc(<span class="kw-2">&amp;</span>cache_dir, <span class="kw-2">&amp;</span>webc, client).<span class="kw">await </span>}
     };
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">runtime</span>
-        .<span class="ident">task_manager</span>()
-        .<span class="ident">block_on</span>(<span class="ident">f</span>)
-        .<span class="ident">context</span>(<span class="string">&quot;webc fetch task has died&quot;</span>);
-    <span class="ident">result</span>.<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;could not fetch webc &#39;{webc}&#39;&quot;</span>))
+    <span class="kw">let </span>result = runtime
+        .task_manager()
+        .block_on(f)
+        .context(<span class="string">&quot;webc fetch task has died&quot;</span>);
+    result.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not fetch webc &#39;{webc}&#39;&quot;</span>))
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">fetch_webc</span>(
-    <span class="ident">cache_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">webc</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">client</span>: <span class="ident">DynHttpClient</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">split_once</span>(<span class="string">&#39;:&#39;</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="number">0</span>).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">webc</span>);
-    <span class="kw">let</span> (<span class="ident">name</span>, <span class="ident">version</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">name</span>.<span class="ident">split_once</span>(<span class="string">&#39;@&#39;</span>) {
-        <span class="prelude-val">Some</span>((<span class="ident">name</span>, <span class="ident">version</span>)) =&gt; (<span class="ident">name</span>, <span class="prelude-val">Some</span>(<span class="ident">version</span>)),
-        <span class="prelude-val">None</span> =&gt; (<span class="ident">name</span>, <span class="prelude-val">None</span>),
+<span class="kw">async fn </span>fetch_webc(
+    cache_dir: <span class="kw-2">&amp;</span>str,
+    webc: <span class="kw-2">&amp;</span>str,
+    client: DynHttpClient,
+) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+    <span class="kw">let </span>name = webc.split_once(<span class="string">&#39;:&#39;</span>).map(|a| a.<span class="number">0</span>).unwrap_or_else(|| webc);
+    <span class="kw">let </span>(name, version) = <span class="kw">match </span>name.split_once(<span class="string">&#39;@&#39;</span>) {
+        <span class="prelude-val">Some</span>((name, version)) =&gt; (name, <span class="prelude-val">Some</span>(version)),
+        <span class="prelude-val">None </span>=&gt; (name, <span class="prelude-val">None</span>),
     };
-    <span class="kw">let</span> <span class="ident">url_query</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">version</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">version</span>) =&gt; <span class="ident">WAPM_WEBC_QUERY_SPECIFIC</span>
-            .<span class="ident">replace</span>(<span class="ident">WAPM_WEBC_QUERY_TAG</span>, <span class="ident">name</span>.<span class="ident">replace</span>(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).<span class="ident">as_str</span>())
-            .<span class="ident">replace</span>(<span class="ident">WAPM_WEBC_VERSION_TAG</span>, <span class="ident">version</span>.<span class="ident">replace</span>(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).<span class="ident">as_str</span>()),
-        <span class="prelude-val">None</span> =&gt; <span class="ident">WAPM_WEBC_QUERY_LAST</span>.<span class="ident">replace</span>(<span class="ident">WAPM_WEBC_QUERY_TAG</span>, <span class="ident">name</span>.<span class="ident">replace</span>(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).<span class="ident">as_str</span>()),
+    <span class="kw">let </span>url_query = <span class="kw">match </span>version {
+        <span class="prelude-val">Some</span>(version) =&gt; WAPM_WEBC_QUERY_SPECIFIC
+            .replace(WAPM_WEBC_QUERY_TAG, name.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str())
+            .replace(WAPM_WEBC_VERSION_TAG, version.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str()),
+        <span class="prelude-val">None </span>=&gt; WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str()),
     };
-    <span class="macro">debug!</span>(<span class="string">&quot;request: {}&quot;</span>, <span class="ident">url_query</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;request: {}&quot;</span>, url_query);
 
-    <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="macro">format!</span>(
+    <span class="kw">let </span>url = <span class="macro">format!</span>(
         <span class="string">&quot;{}{}&quot;</span>,
-        <span class="ident">WAPM_WEBC_URL</span>,
-        <span class="ident">urlencoding::encode</span>(<span class="ident">url_query</span>.<span class="ident">as_str</span>())
+        WAPM_WEBC_URL,
+        urlencoding::encode(url_query.as_str())
     );
 
-    <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">client</span>
-        .<span class="ident">request</span>(<span class="ident">HttpRequest</span> {
-            <span class="ident">url</span>,
-            <span class="ident">method</span>: <span class="string">&quot;GET&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">headers</span>: <span class="macro">vec!</span>[],
-            <span class="ident">body</span>: <span class="prelude-val">None</span>,
-            <span class="ident">options</span>: <span class="ident">HttpRequestOptions::default</span>(),
+    <span class="kw">let </span>response = client
+        .request(HttpRequest {
+            url,
+            method: <span class="string">&quot;GET&quot;</span>.to_string(),
+            headers: <span class="macro">vec!</span>[],
+            body: <span class="prelude-val">None</span>,
+            options: HttpRequestOptions::default(),
         })
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="ident">response</span>.<span class="ident">status</span> <span class="op">!</span><span class="op">=</span> <span class="number">200</span> {
-        <span class="macro">bail!</span>(<span class="string">&quot; http request failed with status {}&quot;</span>, <span class="ident">response</span>.<span class="ident">status</span>);
+    <span class="kw">if </span>response.status != <span class="number">200 </span>{
+        <span class="macro">bail!</span>(<span class="string">&quot; http request failed with status {}&quot;</span>, response.status);
     }
-    <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">body</span>.<span class="ident">context</span>(<span class="string">&quot;HTTP response with empty body&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">data</span>: <span class="ident">WapmWebQuery</span> <span class="op">=</span>
-        <span class="ident">serde_json::from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">body</span>).<span class="ident">context</span>(<span class="string">&quot;Could not parse webc registry JSON data&quot;</span>)<span class="question-mark">?</span>;
-    <span class="macro">debug!</span>(<span class="string">&quot;response: {:?}&quot;</span>, <span class="ident">data</span>);
+    <span class="kw">let </span>body = response.body.context(<span class="string">&quot;HTTP response with empty body&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>data: WapmWebQuery =
+        serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">&quot;Could not parse webc registry JSON data&quot;</span>)<span class="question-mark">?</span>;
+    <span class="macro">debug!</span>(<span class="string">&quot;response: {:?}&quot;</span>, data);
 
-    <span class="kw">let</span> <span class="ident">PiritaVersionedDownload</span> {
-        <span class="ident">url</span>: <span class="ident">download_url</span>,
-        <span class="ident">version</span>,
-    } <span class="op">=</span> <span class="ident">wapm_extract_version</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>).<span class="ident">context</span>(<span class="string">&quot;No pirita download URL available&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pkg</span> <span class="op">=</span> <span class="ident">download_webc</span>(<span class="ident">cache_dir</span>, <span class="ident">name</span>, <span class="ident">download_url</span>, <span class="ident">client</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="ident">pkg</span>.<span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">into</span>();
-    <span class="prelude-val">Ok</span>(<span class="ident">pkg</span>)
+    <span class="kw">let </span>PiritaVersionedDownload {
+        url: download_url,
+        version,
+    } = wapm_extract_version(<span class="kw-2">&amp;</span>data).context(<span class="string">&quot;No pirita download URL available&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>pkg = download_webc(cache_dir, name, download_url, client).<span class="kw">await</span><span class="question-mark">?</span>;
+    pkg.version = version.into();
+    <span class="prelude-val">Ok</span>(pkg)
 }
 
-<span class="kw">struct</span> <span class="ident">PiritaVersionedDownload</span> {
-    <span class="ident">url</span>: <span class="ident">String</span>,
-    <span class="ident">version</span>: <span class="ident">String</span>,
+<span class="kw">struct </span>PiritaVersionedDownload {
+    url: String,
+    version: String,
 }
 
-<span class="kw">fn</span> <span class="ident">wapm_extract_version</span>(<span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">WapmWebQuery</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PiritaVersionedDownload</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">package</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">data</span>.<span class="ident">data</span>.<span class="ident">get_package_version</span> {
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">package</span>.<span class="ident">distribution</span>.<span class="ident">pirita_download_url</span>.<span class="ident">clone</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Some</span>(<span class="ident">PiritaVersionedDownload</span> {
-            <span class="ident">url</span>,
-            <span class="ident">version</span>: <span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">clone</span>(),
+<span class="kw">fn </span>wapm_extract_version(data: <span class="kw-2">&amp;</span>WapmWebQuery) -&gt; <span class="prelude-ty">Option</span>&lt;PiritaVersionedDownload&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="kw-2">&amp;</span>data.data.get_package_version {
+        <span class="kw">let </span>url = package.distribution.pirita_download_url.clone()<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(PiritaVersionedDownload {
+            url,
+            version: package.version.clone(),
         })
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">package</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">data</span>.<span class="ident">data</span>.<span class="ident">get_package</span> {
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">package</span>
-            .<span class="ident">last_version</span>
-            .<span class="ident">distribution</span>
-            .<span class="ident">pirita_download_url</span>
-            .<span class="ident">clone</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Some</span>(<span class="ident">PiritaVersionedDownload</span> {
-            <span class="ident">url</span>,
-            <span class="ident">version</span>: <span class="ident">package</span>.<span class="ident">last_version</span>.<span class="ident">version</span>.<span class="ident">clone</span>(),
+    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(package) = <span class="kw-2">&amp;</span>data.data.get_package {
+        <span class="kw">let </span>url = package
+            .last_version
+            .distribution
+            .pirita_download_url
+            .clone()<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(PiritaVersionedDownload {
+            url,
+            version: package.last_version.version.clone(),
         })
-    } <span class="kw">else</span> {
-        <span class="prelude-val">None</span>
-    }
+    } <span class="kw">else </span>{
+        <span class="prelude-val">None
+    </span>}
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_static_webc</span>(<span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="ident">webc::v1::ParseOptions::default</span>();
-    <span class="kw">match</span> <span class="ident">webc::v1::WebCOwned::parse</span>(<span class="ident">data</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">webc</span>) =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">webc</span>);
-            <span class="kw">return</span> <span class="ident">parse_webc</span>(<span class="ident">webc</span>.<span class="ident">as_webc_ref</span>(), <span class="ident">webc</span>.<span class="ident">clone</span>())
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;Could not parse webc&quot;</span>.<span class="ident">to_string</span>());
+<span class="kw">pub fn </span>parse_static_webc(data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+    <span class="kw">let </span>options = webc::v1::ParseOptions::default();
+    <span class="kw">match </span>webc::v1::WebCOwned::parse(data, <span class="kw-2">&amp;</span>options) {
+        <span class="prelude-val">Ok</span>(webc) =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>webc = Arc::new(webc);
+            <span class="kw">return </span>parse_webc(webc.as_webc_ref(), webc.clone())
+                .with_context(|| <span class="string">&quot;Could not parse webc&quot;</span>.to_string());
         },
-        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, <span class="ident">err</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>.<span class="ident">into</span>())
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, err);
+            <span class="prelude-val">Err</span>(err.into())
         }
     }
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">download_webc</span>(
-    <span class="ident">cache_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">pirita_download_url</span>: <span class="ident">String</span>,
-    <span class="ident">client</span>: <span class="ident">DynHttpClient</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">name_comps</span> <span class="op">=</span> <span class="ident">pirita_download_url</span>
-        .<span class="ident">split</span>(<span class="string">&#39;/&#39;</span>)
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">rev</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">name_comps</span>.<span class="ident">next</span>().<span class="ident">unwrap_or</span>(<span class="ident">name</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">name_store</span>;
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">2</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">prefix</span>) <span class="op">=</span> <span class="ident">name_comps</span>.<span class="ident">next</span>() {
-            <span class="ident">name_store</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}_{}&quot;</span>, <span class="ident">prefix</span>, <span class="ident">name</span>);
-            <span class="ident">name</span> <span class="op">=</span> <span class="ident">name_store</span>.<span class="ident">as_str</span>();
+<span class="kw">async fn </span>download_webc(
+    cache_dir: <span class="kw-2">&amp;</span>str,
+    name: <span class="kw-2">&amp;</span>str,
+    pirita_download_url: String,
+    client: DynHttpClient,
+) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>name_comps = pirita_download_url
+        .split(<span class="string">&#39;/&#39;</span>)
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+        .into_iter()
+        .rev();
+    <span class="kw">let </span><span class="kw-2">mut </span>name = name_comps.next().unwrap_or(name);
+    <span class="kw">let </span><span class="kw-2">mut </span>name_store;
+    <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(prefix) = name_comps.next() {
+            name_store = <span class="macro">format!</span>(<span class="string">&quot;{}_{}&quot;</span>, prefix, name);
+            name = name_store.as_str();
         }
     }
-    <span class="kw">let</span> <span class="ident">compute_path</span> <span class="op">=</span> <span class="op">|</span><span class="ident">cache_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>.<span class="ident">replace</span>(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;._.&quot;</span>);
-        <span class="ident">std::path::Path::new</span>(<span class="ident">cache_dir</span>).<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>)
+    <span class="kw">let </span>compute_path = |cache_dir: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str| {
+        <span class="kw">let </span>name = name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;._.&quot;</span>);
+        std::path::Path::new(cache_dir).join(<span class="kw-2">&amp;</span>name)
     };
 
-    <span class="comment">// build the parse options</span>
-    <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="ident">webc::v1::ParseOptions::default</span>();
+    <span class="comment">// build the parse options
+    </span><span class="kw">let </span>options = webc::v1::ParseOptions::default();
 
-    <span class="comment">// fast path</span>
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">compute_path</span>(<span class="ident">cache_dir</span>, <span class="ident">name</span>);
+    <span class="comment">// fast path
+    </span><span class="kw">let </span>path = compute_path(cache_dir, name);
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-    <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">exists</span>() {
-        <span class="kw">match</span> <span class="ident">webc::v1::WebCMmap::parse</span>(<span class="ident">path</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">options</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">webc</span>) =&gt; <span class="kw">unsafe</span> {
-                <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">webc</span>);
-                <span class="kw">return</span> <span class="ident">parse_webc</span>(<span class="ident">webc</span>.<span class="ident">as_webc_ref</span>(), <span class="ident">webc</span>.<span class="ident">clone</span>()).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
-                    <span class="macro">format!</span>(<span class="string">&quot;could not parse webc file at path : &#39;{}&#39;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>())
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+    </span><span class="kw">if </span>path.exists() {
+        <span class="kw">match </span>webc::v1::WebCMmap::parse(path.clone(), <span class="kw-2">&amp;</span>options) {
+            <span class="prelude-val">Ok</span>(webc) =&gt; <span class="kw">unsafe </span>{
+                <span class="kw">let </span>webc = Arc::new(webc);
+                <span class="kw">return </span>parse_webc(webc.as_webc_ref(), webc.clone()).with_context(|| {
+                    <span class="macro">format!</span>(<span class="string">&quot;could not parse webc file at path : &#39;{}&#39;&quot;</span>, path.display())
                 });
             },
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, <span class="ident">err</span>);
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, err);
             }
         }
     }
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">webc</span>) <span class="op">=</span> <span class="ident">parse_static_webc</span>(<span class="ident">data</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">webc</span>);
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(data) = std::fs::read(<span class="kw-2">&amp;</span>path) {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = parse_static_webc(data) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(webc);
         }
     }
 
-    <span class="comment">// slow path</span>
-    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">download_package</span>(<span class="kw-2">&amp;</span><span class="ident">pirita_download_url</span>, <span class="ident">client</span>)
-        .<span class="kw">await</span>
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+    <span class="comment">// slow path
+    </span><span class="kw">let </span>data = download_package(<span class="kw-2">&amp;</span>pirita_download_url, client)
+        .<span class="kw">await
+        </span>.with_context(|| {
             <span class="macro">format!</span>(
                 <span class="string">&quot;Could not download webc package from &#39;{}&#39;&quot;</span>,
-                <span class="ident">pirita_download_url</span>
+                pirita_download_url
             )
         })<span class="question-mark">?</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-    {
-        <span class="kw">let</span> <span class="ident">cache_dir</span> <span class="op">=</span> <span class="ident">cache_dir</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">compute_path</span>(<span class="ident">cache_dir</span>.<span class="ident">as_str</span>(), <span class="ident">name</span>.<span class="ident">as_str</span>());
-        <span class="ident">std::fs::create_dir_all</span>(<span class="ident">path</span>.<span class="ident">parent</span>().<span class="ident">unwrap</span>())
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Could not create cache directory &#39;{}&#39;&quot;</span>, <span class="ident">cache_dir</span>))<span class="question-mark">?</span>;
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+    </span>{
+        <span class="kw">let </span>cache_dir = cache_dir.to_string();
+        <span class="kw">let </span>name = name.to_string();
+        <span class="kw">let </span>path = compute_path(cache_dir.as_str(), name.as_str());
+        std::fs::create_dir_all(path.parent().unwrap())
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not create cache directory &#39;{}&#39;&quot;</span>, cache_dir))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">rand_128</span>: <span class="ident">u128</span> <span class="op">=</span> <span class="ident">rand::random</span>();
-        <span class="ident">temp_path</span> <span class="op">=</span> <span class="ident">std::path::PathBuf::from</span>(<span class="macro">format!</span>(
+        <span class="kw">let </span><span class="kw-2">mut </span>temp_path = path.clone();
+        <span class="kw">let </span>rand_128: u128 = rand::random();
+        temp_path = std::path::PathBuf::from(<span class="macro">format!</span>(
             <span class="string">&quot;{}.{}.temp&quot;</span>,
-            <span class="ident">temp_path</span>.<span class="ident">as_os_str</span>().<span class="ident">to_string_lossy</span>(),
-            <span class="ident">rand_128</span>
+            temp_path.as_os_str().to_string_lossy(),
+            rand_128
         ));
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">std::fs::write</span>(<span class="ident">temp_path</span>.<span class="ident">as_path</span>(), <span class="kw-2">&amp;</span><span class="ident">data</span>[..]) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::fs::write(temp_path.as_path(), <span class="kw-2">&amp;</span>data[..]) {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;failed to write webc cache file [{}] - {}&quot;</span>,
-                <span class="ident">temp_path</span>.<span class="ident">as_path</span>().<span class="ident">to_string_lossy</span>(),
-                <span class="ident">err</span>
+                temp_path.as_path().to_string_lossy(),
+                err
             );
         }
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">std::fs::rename</span>(<span class="ident">temp_path</span>.<span class="ident">as_path</span>(), <span class="ident">path</span>.<span class="ident">as_path</span>()) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
             <span class="macro">debug!</span>(
                 <span class="string">&quot;failed to rename webc cache file [{}] - {}&quot;</span>,
-                <span class="ident">temp_path</span>.<span class="ident">as_path</span>().<span class="ident">to_string_lossy</span>(),
-                <span class="ident">err</span>
+                temp_path.as_path().to_string_lossy(),
+                err
             );
         }
 
-        <span class="kw">match</span> <span class="ident">webc::v1::WebCMmap::parse</span>(<span class="ident">path</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">options</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">webc</span>) =&gt; <span class="kw">unsafe</span> {
-                <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">webc</span>);
-                <span class="kw">return</span> <span class="ident">parse_webc</span>(<span class="ident">webc</span>.<span class="ident">as_webc_ref</span>(), <span class="ident">webc</span>.<span class="ident">clone</span>())
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Could not parse webc at path &#39;{}&#39;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()));
+        <span class="kw">match </span>webc::v1::WebCMmap::parse(path.clone(), <span class="kw-2">&amp;</span>options) {
+            <span class="prelude-val">Ok</span>(webc) =&gt; <span class="kw">unsafe </span>{
+                <span class="kw">let </span>webc = Arc::new(webc);
+                <span class="kw">return </span>parse_webc(webc.as_webc_ref(), webc.clone())
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not parse webc at path &#39;{}&#39;&quot;</span>, path.display()));
             },
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, <span class="ident">err</span>);
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, err);
             }
         }
     }
 
-    <span class="kw">let</span> <span class="ident">webc_raw</span> <span class="op">=</span> <span class="ident">webc::v1::WebCOwned::parse</span>(<span class="ident">data</span>, <span class="kw-2">&amp;</span><span class="ident">options</span>)
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Failed to parse downloaded from &#39;{pirita_download_url}&#39;&quot;</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">webc_raw</span>);
-    <span class="comment">// FIXME: add SAFETY comment</span>
-    <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-        <span class="ident">parse_webc</span>(<span class="ident">webc</span>.<span class="ident">as_webc_ref</span>(), <span class="ident">webc</span>.<span class="ident">clone</span>()).<span class="ident">context</span>(<span class="string">&quot;Could not parse binary package&quot;</span>)<span class="question-mark">?</span>
-    };
+    <span class="kw">let </span>webc_raw = webc::v1::WebCOwned::parse(data, <span class="kw-2">&amp;</span>options)
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to parse downloaded from &#39;{pirita_download_url}&#39;&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>webc = Arc::new(webc_raw);
+    <span class="comment">// FIXME: add SAFETY comment
+    </span><span class="kw">let </span>package = <span class="kw">unsafe </span>{
+        parse_webc(webc.as_webc_ref(), webc.clone()).context(<span class="string">&quot;Could not parse binary package&quot;</span>)<span class="question-mark">?
+    </span>};
 
-    <span class="prelude-val">Ok</span>(<span class="ident">package</span>)
+    <span class="prelude-val">Ok</span>(package)
 }
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">download_package</span>(
-    <span class="ident">download_url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">client</span>: <span class="ident">DynHttpClient</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">HttpRequest</span> {
-        <span class="ident">url</span>: <span class="ident">download_url</span>.<span class="ident">to_string</span>(),
-        <span class="ident">method</span>: <span class="string">&quot;GET&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">headers</span>: <span class="macro">vec!</span>[],
-        <span class="ident">body</span>: <span class="prelude-val">None</span>,
-        <span class="ident">options</span>: <span class="ident">HttpRequestOptions</span> {
-            <span class="ident">gzip</span>: <span class="bool-val">true</span>,
-            <span class="ident">cors_proxy</span>: <span class="prelude-val">None</span>,
+<span class="kw">async fn </span>download_package(
+    download_url: <span class="kw-2">&amp;</span>str,
+    client: DynHttpClient,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>request = HttpRequest {
+        url: download_url.to_string(),
+        method: <span class="string">&quot;GET&quot;</span>.to_string(),
+        headers: <span class="macro">vec!</span>[],
+        body: <span class="prelude-val">None</span>,
+        options: HttpRequestOptions {
+            gzip: <span class="bool-val">true</span>,
+            cors_proxy: <span class="prelude-val">None</span>,
         },
     };
-    <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">request</span>(<span class="ident">request</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="kw">if</span> <span class="ident">response</span>.<span class="ident">status</span> <span class="op">!</span><span class="op">=</span> <span class="number">200</span> {
-        <span class="macro">bail!</span>(<span class="string">&quot;HTTP request failed with status {}&quot;</span>, <span class="ident">response</span>.<span class="ident">status</span>);
+    <span class="kw">let </span>response = client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">if </span>response.status != <span class="number">200 </span>{
+        <span class="macro">bail!</span>(<span class="string">&quot;HTTP request failed with status {}&quot;</span>, response.status);
     }
-    <span class="ident">response</span>.<span class="ident">body</span>.<span class="ident">context</span>(<span class="string">&quot;HTTP response with empty body&quot;</span>)
+    response.body.context(<span class="string">&quot;HTTP response with empty body&quot;</span>)
 }
 
-<span class="comment">// TODO: should return Result&lt;_, anyhow::Error&gt;</span>
-<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">parse_webc</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">webc</span>: <span class="ident">webc::v1::WebC</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>, <span class="ident">ownership</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">T</span>: <span class="ident">Deref</span><span class="op">&lt;</span><span class="ident">Target</span> <span class="op">=</span> <span class="ident">WebC</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="comment">// TODO: should return Result&lt;_, anyhow::Error&gt;
+</span><span class="kw">unsafe fn </span>parse_webc&lt;<span class="lifetime">&#39;a</span>, T&gt;(webc: webc::v1::WebC&lt;<span class="lifetime">&#39;a</span>&gt;, ownership: Arc&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt;
+<span class="kw">where
+    </span>T: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
+    T: Deref&lt;Target = WebC&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
 {
-    <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">get_package_name</span>();
+    <span class="kw">let </span>package_name = webc.get_package_name();
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pck</span> <span class="op">=</span> <span class="ident">webc</span>
-        .<span class="ident">manifest</span>
-        .<span class="ident">entrypoint</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">commands</span>.<span class="ident">get</span>(<span class="ident">entry</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> (<span class="ident">a</span>, <span class="ident">entry</span>)))
-        .<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">cmd</span>, <span class="ident">entry</span>)<span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">cmd</span>.<span class="ident">runner</span>.<span class="ident">starts_with</span>(<span class="string">&quot;https://webc.org/runner/emscripten&quot;</span>) {
-                <span class="string">&quot;emscripten&quot;</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">cmd</span>.<span class="ident">runner</span>.<span class="ident">starts_with</span>(<span class="string">&quot;https://webc.org/runner/wasi&quot;</span>) {
-                <span class="string">&quot;wasi&quot;</span>
-            } <span class="kw">else</span> {
-                <span class="macro">warn!</span>(<span class="string">&quot;unsupported runner - {}&quot;</span>, <span class="ident">cmd</span>.<span class="ident">runner</span>);
-                <span class="kw">return</span> <span class="prelude-val">None</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>pck = webc
+        .manifest
+        .entrypoint
+        .iter()
+        .filter_map(|entry| webc.manifest.commands.get(entry).map(|a| (a, entry)))
+        .filter_map(|(cmd, entry)| {
+            <span class="kw">let </span>api = <span class="kw">if </span>cmd.runner.starts_with(<span class="string">&quot;https://webc.org/runner/emscripten&quot;</span>) {
+                <span class="string">&quot;emscripten&quot;
+            </span>} <span class="kw">else if </span>cmd.runner.starts_with(<span class="string">&quot;https://webc.org/runner/wasi&quot;</span>) {
+                <span class="string">&quot;wasi&quot;
+            </span>} <span class="kw">else </span>{
+                <span class="macro">warn!</span>(<span class="string">&quot;unsupported runner - {}&quot;</span>, cmd.runner);
+                <span class="kw">return </span><span class="prelude-val">None</span>;
             };
-            <span class="kw">let</span> <span class="ident">atom</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">get_atom_name_for_command</span>(<span class="ident">api</span>, <span class="ident">entry</span>.<span class="ident">as_str</span>());
-            <span class="kw">match</span> <span class="ident">atom</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">a</span>),
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+            <span class="kw">let </span>atom = webc.get_atom_name_for_command(api, entry.as_str());
+            <span class="kw">match </span>atom {
+                <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Some</span>(a),
+                <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;failed to find atom name for entry command({}) - {} - falling back on the command name itself&quot;</span>,
-                        <span class="ident">entry</span>.<span class="ident">as_str</span>(),
-                        <span class="ident">err</span>
+                        entry.as_str(),
+                        err
                     );
-                    <span class="kw">for</span> (<span class="ident">name</span>, <span class="ident">atom</span>) <span class="kw">in</span> <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">atoms</span>.<span class="ident">iter</span>() {
-                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;found atom (name={}, kind={})&quot;</span>, <span class="ident">name</span>, <span class="ident">atom</span>.<span class="ident">kind</span>);
+                    <span class="kw">for </span>(name, atom) <span class="kw">in </span>webc.manifest.atoms.iter() {
+                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;found atom (name={}, kind={})&quot;</span>, name, atom.kind);
                     }
-                    <span class="prelude-val">Some</span>(<span class="ident">entry</span>.<span class="ident">clone</span>())
+                    <span class="prelude-val">Some</span>(entry.clone())
                 }
             }
         })
-        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">atom</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">webc</span>.<span class="ident">get_atom</span>(<span class="kw-2">&amp;</span><span class="ident">package_name</span>, <span class="ident">atom</span>.<span class="ident">as_str</span>()) {
-            <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">a</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed to find atom for atom name({}) - {}&quot;</span>, <span class="ident">atom</span>, <span class="ident">err</span>);
-                <span class="prelude-val">None</span>
-            }
+        .filter_map(|atom| <span class="kw">match </span>webc.get_atom(<span class="kw-2">&amp;</span>package_name, atom.as_str()) {
+            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Some</span>(a),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;failed to find atom for atom name({}) - {}&quot;</span>, atom, err);
+                <span class="prelude-val">None
+            </span>}
         })
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">atom</span><span class="op">|</span> {
-            <span class="ident">BinaryPackage::new_with_ownership</span>(
-                <span class="ident">package_name</span>.<span class="ident">as_str</span>(),
-                <span class="prelude-val">Some</span>(<span class="ident">atom</span>.<span class="ident">into</span>()),
-                <span class="ident">ownership</span>.<span class="ident">clone</span>(),
+        .map(|atom| {
+            BinaryPackage::new_with_ownership(
+                package_name.as_str(),
+                <span class="prelude-val">Some</span>(atom.into()),
+                ownership.clone(),
             )
         })
-        .<span class="ident">next</span>();
+        .next();
 
-    <span class="comment">// Otherwise add a package without an entry point</span>
-    <span class="kw">if</span> <span class="ident">pck</span>.<span class="ident">is_none</span>() {
-        <span class="ident">pck</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">BinaryPackage::new_with_ownership</span>(
-            <span class="ident">package_name</span>.<span class="ident">as_str</span>(),
+    <span class="comment">// Otherwise add a package without an entry point
+    </span><span class="kw">if </span>pck.is_none() {
+        pck = <span class="prelude-val">Some</span>(BinaryPackage::new_with_ownership(
+            package_name.as_str(),
             <span class="prelude-val">None</span>,
-            <span class="ident">ownership</span>.<span class="ident">clone</span>(),
+            ownership.clone(),
         ))
     }
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pck</span> <span class="op">=</span> <span class="ident">pck</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>pck = pck.take().unwrap();
 
-    <span class="comment">// Add all the dependencies</span>
-    <span class="kw">for</span> <span class="ident">uses</span> <span class="kw">in</span> <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">use_map</span>.<span class="ident">values</span>() {
-        <span class="kw">let</span> <span class="ident">uses</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">uses</span> {
-            <span class="ident">UrlOrManifest::Url</span>(<span class="ident">url</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">url</span>.<span class="ident">path</span>().<span class="ident">to_string</span>()),
-            <span class="ident">UrlOrManifest::Manifest</span>(<span class="ident">manifest</span>) =&gt; <span class="ident">manifest</span>.<span class="ident">origin</span>.<span class="ident">clone</span>(),
-            <span class="ident">UrlOrManifest::RegistryDependentUrl</span>(<span class="ident">url</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">url</span>.<span class="ident">clone</span>()),
+    <span class="comment">// Add all the dependencies
+    </span><span class="kw">for </span>uses <span class="kw">in </span>webc.manifest.use_map.values() {
+        <span class="kw">let </span>uses = <span class="kw">match </span>uses {
+            UrlOrManifest::Url(url) =&gt; <span class="prelude-val">Some</span>(url.path().to_string()),
+            UrlOrManifest::Manifest(manifest) =&gt; manifest.origin.clone(),
+            UrlOrManifest::RegistryDependentUrl(url) =&gt; <span class="prelude-val">Some</span>(url.clone()),
         };
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">uses</span>) <span class="op">=</span> <span class="ident">uses</span> {
-            <span class="ident">pck</span>.<span class="ident">uses</span>.<span class="ident">push</span>(<span class="ident">uses</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(uses) = uses {
+            pck.uses.push(uses);
         }
     }
 
-    <span class="comment">// Set the version of this package</span>
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Annotation::Map</span>(<span class="ident">wapm</span>)) <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">get</span>(<span class="string">&quot;wapm&quot;</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Annotation::Text</span>(<span class="ident">version</span>)) <span class="op">=</span> <span class="ident">wapm</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">Annotation::Text</span>(<span class="string">&quot;version&quot;</span>.<span class="ident">to_string</span>()))
+    <span class="comment">// Set the version of this package
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(Annotation::Map(wapm)) = webc.manifest.package.get(<span class="string">&quot;wapm&quot;</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(Annotation::Text(version)) = wapm.get(<span class="kw-2">&amp;</span>Annotation::Text(<span class="string">&quot;version&quot;</span>.to_string()))
         {
-            <span class="ident">pck</span>.<span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">clone</span>().<span class="ident">into</span>();
+            pck.version = version.clone().into();
         }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Annotation::Text</span>(<span class="ident">version</span>)) <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">package</span>.<span class="ident">get</span>(<span class="string">&quot;version&quot;</span>) {
-        <span class="ident">pck</span>.<span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">clone</span>().<span class="ident">into</span>();
+    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(Annotation::Text(version)) = webc.manifest.package.get(<span class="string">&quot;version&quot;</span>) {
+        pck.version = version.clone().into();
     }
 
-    <span class="comment">// Add the file system from the webc</span>
-    <span class="kw">let</span> <span class="ident">webc_fs</span> <span class="op">=</span> <span class="ident">virtual_fs::webc_fs::WebcFileSystem::init_all</span>(<span class="ident">ownership</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">webc_fs</span>.<span class="ident">top_level_dirs</span>().<span class="ident">clone</span>();
-    <span class="ident">pck</span>.<span class="ident">webc_fs</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc::new</span>(<span class="ident">webc_fs</span>));
-    <span class="ident">pck</span>.<span class="ident">webc_top_level_dirs</span> <span class="op">=</span> <span class="ident">top_level_dirs</span>;
+    <span class="comment">// Add the file system from the webc
+    </span><span class="kw">let </span>webc_fs = virtual_fs::webc_fs::WebcFileSystem::init_all(ownership.clone());
+    <span class="kw">let </span>top_level_dirs = webc_fs.top_level_dirs().clone();
+    pck.webc_fs = <span class="prelude-val">Some</span>(Arc::new(webc_fs));
+    pck.webc_top_level_dirs = top_level_dirs;
 
-    <span class="comment">// Add the memory footprint of the file system</span>
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">webc_fs</span>) <span class="op">=</span> <span class="ident">pck</span>.<span class="ident">webc_fs</span>.<span class="ident">as_ref</span>() {
-        <span class="kw">let</span> <span class="ident">root_path</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;/&quot;</span>);
-        <span class="ident">pck</span>.<span class="ident">file_system_memory_footprint</span> <span class="op">+</span><span class="op">=</span>
-            <span class="ident">count_file_system</span>(<span class="ident">webc_fs</span>.<span class="ident">as_ref</span>(), <span class="ident">root_path</span>.<span class="ident">as_path</span>());
+    <span class="comment">// Add the memory footprint of the file system
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(webc_fs) = pck.webc_fs.as_ref() {
+        <span class="kw">let </span>root_path = PathBuf::from(<span class="string">&quot;/&quot;</span>);
+        pck.file_system_memory_footprint +=
+            count_file_system(webc_fs.as_ref(), root_path.as_path());
     }
 
-    <span class="comment">// Add all the commands</span>
-    <span class="kw">for</span> (<span class="ident">command</span>, <span class="ident">action</span>) <span class="kw">in</span> <span class="ident">webc</span>.<span class="ident">get_metadata</span>().<span class="ident">commands</span>.<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">action</span>
-            .<span class="ident">runner</span>
-            .<span class="ident">starts_with</span>(<span class="string">&quot;https://webc.org/runner/emscripten&quot;</span>)
+    <span class="comment">// Add all the commands
+    </span><span class="kw">for </span>(command, action) <span class="kw">in </span>webc.get_metadata().commands.iter() {
+        <span class="kw">let </span>api = <span class="kw">if </span>action
+            .runner
+            .starts_with(<span class="string">&quot;https://webc.org/runner/emscripten&quot;</span>)
         {
-            <span class="string">&quot;emscripten&quot;</span>
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">action</span>.<span class="ident">runner</span>.<span class="ident">starts_with</span>(<span class="string">&quot;https://webc.org/runner/wasi&quot;</span>) {
-            <span class="string">&quot;wasi&quot;</span>
-        } <span class="kw">else</span> {
-            <span class="macro">warn!</span>(<span class="string">&quot;unsupported runner - {}&quot;</span>, <span class="ident">action</span>.<span class="ident">runner</span>);
+            <span class="string">&quot;emscripten&quot;
+        </span>} <span class="kw">else if </span>action.runner.starts_with(<span class="string">&quot;https://webc.org/runner/wasi&quot;</span>) {
+            <span class="string">&quot;wasi&quot;
+        </span>} <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;unsupported runner - {}&quot;</span>, action.runner);
             <span class="kw">continue</span>;
         };
-        <span class="kw">let</span> <span class="ident">atom</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">get_atom_name_for_command</span>(<span class="ident">api</span>, <span class="ident">command</span>.<span class="ident">as_str</span>());
-        <span class="kw">let</span> <span class="ident">atom</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">atom</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">a</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+        <span class="kw">let </span>atom = webc.get_atom_name_for_command(api, command.as_str());
+        <span class="kw">let </span>atom = <span class="kw">match </span>atom {
+            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Some</span>(a),
+            <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="macro">debug!</span>(
                     <span class="string">&quot;failed to find atom name for entry command({}) - {} - falling back on the command name itself&quot;</span>,
-                    <span class="ident">command</span>.<span class="ident">as_str</span>(),
-                    <span class="ident">err</span>
+                    command.as_str(),
+                    err
                 );
-                <span class="prelude-val">Some</span>(<span class="ident">command</span>.<span class="ident">clone</span>())
+                <span class="prelude-val">Some</span>(command.clone())
             }
         };
 
-        <span class="comment">// Load the atom as a command</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">atom_name</span>) <span class="op">=</span> <span class="ident">atom</span> {
-            <span class="kw">match</span> <span class="ident">webc</span>.<span class="ident">get_atom</span>(<span class="ident">package_name</span>.<span class="ident">as_str</span>(), <span class="ident">atom_name</span>.<span class="ident">as_str</span>()) {
-                <span class="prelude-val">Ok</span>(<span class="ident">atom</span>) =&gt; {
+        <span class="comment">// Load the atom as a command
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(atom_name) = atom {
+            <span class="kw">match </span>webc.get_atom(package_name.as_str(), atom_name.as_str()) {
+                <span class="prelude-val">Ok</span>(atom) =&gt; {
                     <span class="macro">trace!</span>(
                         <span class="string">&quot;added atom (name={}, size={}) for command [{}]&quot;</span>,
-                        <span class="ident">atom_name</span>,
-                        <span class="ident">atom</span>.<span class="ident">len</span>(),
-                        <span class="ident">command</span>
+                        atom_name,
+                        atom.len(),
+                        command
                     );
-                    <span class="kw">if</span> <span class="ident">pck</span>.<span class="ident">entry</span>.<span class="ident">is_none</span>() {
-                        <span class="macro">trace!</span>(<span class="string">&quot;defaulting entry to command [{}]&quot;</span>, <span class="ident">command</span>);
-                        <span class="kw">let</span> <span class="ident">entry</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>] <span class="op">=</span> {
-                            <span class="kw">let</span> <span class="ident">atom</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">atom</span>;
-                            <span class="ident">std::mem::transmute</span>(<span class="ident">atom</span>)
+                    <span class="kw">if </span>pck.entry.is_none() {
+                        <span class="macro">trace!</span>(<span class="string">&quot;defaulting entry to command [{}]&quot;</span>, command);
+                        <span class="kw">let </span>entry: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = {
+                            <span class="kw">let </span>atom: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>[u8] = atom;
+                            std::mem::transmute(atom)
                         };
-                        <span class="ident">pck</span>.<span class="ident">entry</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>.<span class="ident">into</span>());
+                        pck.entry = <span class="prelude-val">Some</span>(entry.into());
                     }
 
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">pck</span>.<span class="ident">commands</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">commands</span>.<span class="ident">push</span>(<span class="ident">BinaryPackageCommand::new_with_ownership</span>(
-                        <span class="ident">command</span>.<span class="ident">clone</span>(),
-                        <span class="ident">atom</span>.<span class="ident">into</span>(),
-                        <span class="ident">ownership</span>.<span class="ident">clone</span>(),
+                    <span class="kw">let </span><span class="kw-2">mut </span>commands = pck.commands.write().unwrap();
+                    commands.push(BinaryPackageCommand::new_with_ownership(
+                        command.clone(),
+                        atom.into(),
+                        ownership.clone(),
                     ));
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+                <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">debug!</span>(
                         <span class="string">&quot;Failed to find atom [{}].[{}] - {} - falling back on the first atom&quot;</span>,
-                        <span class="ident">package_name</span>, <span class="ident">atom_name</span>, <span class="ident">err</span>
+                        package_name, atom_name, err
                     );
 
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">files</span>) <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">atoms</span>.<span class="ident">get_all_files_and_directories_with_bytes</span>() {
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">file</span>) <span class="op">=</span> <span class="ident">files</span>.<span class="ident">iter</span>().<span class="ident">next</span>() {
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">atom</span>) <span class="op">=</span> <span class="ident">file</span>.<span class="ident">get_bytes</span>() {
+                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = files.iter().next() {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(atom) = file.get_bytes() {
                                 <span class="macro">trace!</span>(
                                     <span class="string">&quot;added atom (name={}, size={}) for command [{}]&quot;</span>,
-                                    <span class="ident">atom_name</span>,
-                                    <span class="ident">atom</span>.<span class="ident">len</span>(),
-                                    <span class="ident">command</span>
+                                    atom_name,
+                                    atom.len(),
+                                    command
                                 );
-                                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">pck</span>.<span class="ident">commands</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                                <span class="ident">commands</span>.<span class="ident">push</span>(<span class="ident">BinaryPackageCommand::new_with_ownership</span>(
-                                    <span class="ident">command</span>.<span class="ident">clone</span>(),
-                                    <span class="ident">atom</span>.<span class="ident">into</span>(),
-                                    <span class="ident">ownership</span>.<span class="ident">clone</span>(),
+                                <span class="kw">let </span><span class="kw-2">mut </span>commands = pck.commands.write().unwrap();
+                                commands.push(BinaryPackageCommand::new_with_ownership(
+                                    command.clone(),
+                                    atom.into(),
+                                    ownership.clone(),
                                 ));
                                 <span class="kw">continue</span>;
                             }
@@ -963,14 +963,14 @@
 
                     <span class="macro">debug!</span>(
                         <span class="string">&quot;Failed to find atom [{}].[{}] - {} - command will be ignored&quot;</span>,
-                        <span class="ident">package_name</span>, <span class="ident">package_name</span>, <span class="ident">err</span>
+                        package_name, package_name, err
                     );
-                    <span class="kw">for</span> (<span class="ident">name</span>, <span class="ident">atom</span>) <span class="kw">in</span> <span class="ident">webc</span>.<span class="ident">manifest</span>.<span class="ident">atoms</span>.<span class="ident">iter</span>() {
-                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;found atom (name={}, kind={})&quot;</span>, <span class="ident">name</span>, <span class="ident">atom</span>.<span class="ident">kind</span>);
+                    <span class="kw">for </span>(name, atom) <span class="kw">in </span>webc.manifest.atoms.iter() {
+                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;found atom (name={}, kind={})&quot;</span>, name, atom.kind);
                     }
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">files</span>) <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">atoms</span>.<span class="ident">get_all_files_and_directories_with_bytes</span>() {
-                        <span class="kw">for</span> <span class="ident">file</span> <span class="kw">in</span> <span class="ident">files</span>.<span class="ident">iter</span>() {
-                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;found file ({})&quot;</span>, <span class="ident">file</span>.<span class="ident">get_path</span>().<span class="ident">to_string_lossy</span>());
+                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
+                        <span class="kw">for </span>file <span class="kw">in </span>files.iter() {
+                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;found file ({})&quot;</span>, file.get_path().to_string_lossy());
                         }
                     }
                 }
@@ -978,37 +978,37 @@
         }
     }
 
-    <span class="prelude-val">Some</span>(<span class="ident">pck</span>)
+    <span class="prelude-val">Some</span>(pck)
 }
 
-<span class="kw">fn</span> <span class="ident">count_file_system</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">u64</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total</span> <span class="op">=</span> <span class="number">0</span>;
+<span class="kw">fn </span>count_file_system(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem, path: <span class="kw-2">&amp;</span>Path) -&gt; u64 {
+    <span class="kw">let </span><span class="kw-2">mut </span>total = <span class="number">0</span>;
 
-    <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">path</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">d</span>) =&gt; <span class="ident">d</span>,
-        <span class="prelude-val">Err</span>(<span class="ident">_err</span>) =&gt; {
-            <span class="comment">// TODO: propagate error?</span>
-            <span class="kw">return</span> <span class="number">0</span>;
+    <span class="kw">let </span>dir = <span class="kw">match </span>fs.read_dir(path) {
+        <span class="prelude-val">Ok</span>(d) =&gt; d,
+        <span class="prelude-val">Err</span>(_err) =&gt; {
+            <span class="comment">// TODO: propagate error?
+            </span><span class="kw">return </span><span class="number">0</span>;
         }
     };
 
-    <span class="kw">for</span> <span class="ident">res</span> <span class="kw">in</span> <span class="ident">dir</span> {
-        <span class="kw">match</span> <span class="ident">res</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">entry</span>) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">meta</span>) <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">metadata</span>() {
-                    <span class="ident">total</span> <span class="op">+</span><span class="op">=</span> <span class="ident">meta</span>.<span class="ident">len</span>();
-                    <span class="kw">if</span> <span class="ident">meta</span>.<span class="ident">is_dir</span>() {
-                        <span class="ident">total</span> <span class="op">+</span><span class="op">=</span> <span class="ident">count_file_system</span>(<span class="ident">fs</span>, <span class="ident">entry</span>.<span class="ident">path</span>.<span class="ident">as_path</span>());
+    <span class="kw">for </span>res <span class="kw">in </span>dir {
+        <span class="kw">match </span>res {
+            <span class="prelude-val">Ok</span>(entry) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(meta) = entry.metadata() {
+                    total += meta.len();
+                    <span class="kw">if </span>meta.is_dir() {
+                        total += count_file_system(fs, entry.path.as_path());
                     }
                 }
             }
-            <span class="prelude-val">Err</span>(<span class="ident">_err</span>) =&gt; {
-                <span class="comment">// TODO: propagate error?</span>
-            }
+            <span class="prelude-val">Err</span>(_err) =&gt; {
+                <span class="comment">// TODO: propagate error?
+            </span>}
         };
     }
 
-    <span class="ident">total</span>
+    total
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

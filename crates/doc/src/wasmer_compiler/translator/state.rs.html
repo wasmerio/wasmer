@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -56,63 +56,63 @@
 <span id="56">56</span>
 <span id="57">57</span>
 <span id="58">58</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="kw">use</span> <span class="ident">std::boxed::Box</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">SignatureIndex</span>, <span class="ident">WasmResult</span>};
+</span><span class="kw">use </span>std::boxed::Box;
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::{SignatureIndex, WasmResult};
 
-<span class="doccomment">/// Map of signatures to a function&#39;s parameter and return types.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type</span> <span class="ident">WasmTypes</span> <span class="op">=</span>
-    <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, (<span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">wasmparser::ValType</span>]<span class="op">&gt;</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">wasmparser::ValType</span>]<span class="op">&gt;</span>)<span class="op">&gt;</span>;
+<span class="doccomment">/// Map of signatures to a function&#39;s parameter and return types.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>WasmTypes =
+    PrimaryMap&lt;SignatureIndex, (Box&lt;[wasmparser::ValType]&gt;, Box&lt;[wasmparser::ValType]&gt;)&gt;;
 
-<span class="doccomment">/// Contains information decoded from the Wasm module that must be referenced</span>
-<span class="doccomment">/// during each Wasm function&#39;s translation.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is only for data that is maintained by `wasmer-compiler` itself, as</span>
-<span class="doccomment">/// opposed to being maintained by the embedder. Data that is maintained by the</span>
-<span class="doccomment">/// embedder is represented with `ModuleEnvironment`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleTranslationState</span> {
-    <span class="doccomment">/// A map containing a Wasm module&#39;s original, raw signatures.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is used for translating multi-value Wasm blocks inside functions,</span>
-    <span class="doccomment">/// which are encoded to refer to their type signature via index.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wasm_types</span>: <span class="ident">WasmTypes</span>,
+<span class="doccomment">/// Contains information decoded from the Wasm module that must be referenced
+/// during each Wasm function&#39;s translation.
+///
+/// This is only for data that is maintained by `wasmer-compiler` itself, as
+/// opposed to being maintained by the embedder. Data that is maintained by the
+/// embedder is represented with `ModuleEnvironment`.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>ModuleTranslationState {
+    <span class="doccomment">/// A map containing a Wasm module&#39;s original, raw signatures.
+    ///
+    /// This is used for translating multi-value Wasm blocks inside functions,
+    /// which are encoded to refer to their type signature via index.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) wasm_types: WasmTypes,
 }
 
-<span class="kw">impl</span> <span class="ident">ModuleTranslationState</span> {
-    <span class="doccomment">/// Creates a new empty ModuleTranslationState.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">wasm_types</span>: <span class="ident">PrimaryMap::new</span>(),
+<span class="kw">impl </span>ModuleTranslationState {
+    <span class="doccomment">/// Creates a new empty ModuleTranslationState.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            wasm_types: PrimaryMap::new(),
         }
     }
 
-    <span class="doccomment">/// Get the parameter and result types for the given Wasm blocktype.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">blocktype_params_results</span>(
+    <span class="doccomment">/// Get the parameter and result types for the given Wasm blocktype.
+    </span><span class="kw">pub fn </span>blocktype_params_results(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty_or_ft</span>: <span class="ident">wasmparser::BlockType</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType</span>], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType</span>])<span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">ty_or_ft</span> {
-            <span class="ident">wasmparser::BlockType::Type</span>(<span class="ident">ty</span>) =&gt; <span class="kw">match</span> <span class="ident">ty</span> {
-                <span class="ident">wasmparser::ValType::I32</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::I32</span>]),
-                <span class="ident">wasmparser::ValType::I64</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::I64</span>]),
-                <span class="ident">wasmparser::ValType::F32</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::F32</span>]),
-                <span class="ident">wasmparser::ValType::F64</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::F64</span>]),
-                <span class="ident">wasmparser::ValType::V128</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::V128</span>]),
-                <span class="ident">wasmparser::ValType::ExternRef</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::ExternRef</span>]),
-                <span class="ident">wasmparser::ValType::FuncRef</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType::FuncRef</span>]),
+        ty_or_ft: wasmparser::BlockType,
+    ) -&gt; WasmResult&lt;(<span class="kw-2">&amp;</span>[wasmparser::ValType], <span class="kw-2">&amp;</span>[wasmparser::ValType])&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span>ty_or_ft {
+            wasmparser::BlockType::Type(ty) =&gt; <span class="kw">match </span>ty {
+                wasmparser::ValType::I32 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::I32]),
+                wasmparser::ValType::I64 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::I64]),
+                wasmparser::ValType::F32 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::F32]),
+                wasmparser::ValType::F64 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::F64]),
+                wasmparser::ValType::V128 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::V128]),
+                wasmparser::ValType::ExternRef =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::ExternRef]),
+                wasmparser::ValType::FuncRef =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::FuncRef]),
             },
-            <span class="ident">wasmparser::BlockType::FuncType</span>(<span class="ident">ty_index</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="ident">SignatureIndex::from_u32</span>(<span class="ident">ty_index</span>);
-                <span class="kw">let</span> (<span class="kw-2">ref</span> <span class="ident">params</span>, <span class="kw-2">ref</span> <span class="ident">results</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">wasm_types</span>[<span class="ident">sig_idx</span>];
-                (<span class="ident">params</span>, <span class="ident">results</span>)
+            wasmparser::BlockType::FuncType(ty_index) =&gt; {
+                <span class="kw">let </span>sig_idx = SignatureIndex::from_u32(ty_index);
+                <span class="kw">let </span>(<span class="kw-2">ref </span>params, <span class="kw-2">ref </span>results) = <span class="self">self</span>.wasm_types[sig_idx];
+                (params, results)
             }
-            <span class="ident">wasmparser::BlockType::Empty</span> =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[]),
+            wasmparser::BlockType::Empty =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[]),
         })
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

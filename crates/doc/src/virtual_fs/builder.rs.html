@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/builder.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/builder.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -183,190 +183,190 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::random_file::RandomFile</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FileSystem</span>, <span class="ident">VirtualFile</span>};
-<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::random_file::RandomFile;
+<span class="kw">use crate</span>::{FileSystem, VirtualFile};
+<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ZeroFile</span>;
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">DeviceFile</span>, <span class="ident">NullFile</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::tmp_fs::TmpFileSystem</span>;
+<span class="kw">use </span><span class="kw">super</span>::ZeroFile;
+<span class="kw">use super</span>::{DeviceFile, NullFile};
+<span class="kw">use </span><span class="kw">crate</span>::tmp_fs::TmpFileSystem;
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RootFileSystemBuilder</span> {
-    <span class="ident">default_root_dirs</span>: <span class="ident">bool</span>,
-    <span class="ident">default_dev_files</span>: <span class="ident">bool</span>,
-    <span class="ident">add_wasmer_command</span>: <span class="ident">bool</span>,
-    <span class="ident">stdin</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stdout</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">stderr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">tty</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="kw">pub struct </span>RootFileSystemBuilder {
+    default_root_dirs: bool,
+    default_dev_files: bool,
+    add_wasmer_command: bool,
+    stdin: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;,
+    stdout: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;,
+    stderr: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;,
+    tty: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">RootFileSystemBuilder</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">default_root_dirs</span>: <span class="bool-val">true</span>,
-            <span class="ident">default_dev_files</span>: <span class="bool-val">true</span>,
-            <span class="ident">add_wasmer_command</span>: <span class="bool-val">true</span>,
-            <span class="ident">stdin</span>: <span class="prelude-val">None</span>,
-            <span class="ident">stdout</span>: <span class="prelude-val">None</span>,
-            <span class="ident">stderr</span>: <span class="prelude-val">None</span>,
-            <span class="ident">tty</span>: <span class="prelude-val">None</span>,
+<span class="kw">impl </span>Default <span class="kw">for </span>RootFileSystemBuilder {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            default_root_dirs: <span class="bool-val">true</span>,
+            default_dev_files: <span class="bool-val">true</span>,
+            add_wasmer_command: <span class="bool-val">true</span>,
+            stdin: <span class="prelude-val">None</span>,
+            stdout: <span class="prelude-val">None</span>,
+            stderr: <span class="prelude-val">None</span>,
+            tty: <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">RootFileSystemBuilder</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::default</span>()
+<span class="kw">impl </span>RootFileSystemBuilder {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::default()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_stdin</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">stdin</span>.<span class="ident">replace</span>(<span class="ident">file</span>);
-        <span class="self">self</span>
-    }
+    <span class="kw">pub fn </span>with_stdin(<span class="kw-2">mut </span><span class="self">self</span>, file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.stdin.replace(file);
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_stdout</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">stdout</span>.<span class="ident">replace</span>(<span class="ident">file</span>);
-        <span class="self">self</span>
-    }
+    <span class="kw">pub fn </span>with_stdout(<span class="kw-2">mut </span><span class="self">self</span>, file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.stdout.replace(file);
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_stderr</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">stderr</span>.<span class="ident">replace</span>(<span class="ident">file</span>);
-        <span class="self">self</span>
-    }
+    <span class="kw">pub fn </span>with_stderr(<span class="kw-2">mut </span><span class="self">self</span>, file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.stderr.replace(file);
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_tty</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">file</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">tty</span>.<span class="ident">replace</span>(<span class="ident">file</span>);
-        <span class="self">self</span>
-    }
+    <span class="kw">pub fn </span>with_tty(<span class="kw-2">mut </span><span class="self">self</span>, file: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.tty.replace(file);
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">default_root_dirs</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">default_root_dirs</span> <span class="op">=</span> <span class="ident">val</span>;
-        <span class="self">self</span>
-    }
+    <span class="kw">pub fn </span>default_root_dirs(<span class="kw-2">mut </span><span class="self">self</span>, val: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.default_root_dirs = val;
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build</span>(<span class="self">self</span>) -&gt; <span class="ident">TmpFileSystem</span> {
-        <span class="kw">let</span> <span class="ident">tmp</span> <span class="op">=</span> <span class="ident">TmpFileSystem::new</span>();
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">default_root_dirs</span> {
-            <span class="kw">for</span> <span class="ident">root_dir</span> <span class="kw">in</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;/.app&quot;</span>, <span class="string">&quot;/.private&quot;</span>, <span class="string">&quot;/bin&quot;</span>, <span class="string">&quot;/dev&quot;</span>, <span class="string">&quot;/etc&quot;</span>, <span class="string">&quot;/tmp&quot;</span>] {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="ident">root_dir</span>)) {
-                    <span class="macro">debug!</span>(<span class="string">&quot;failed to create dir [{}] - {}&quot;</span>, <span class="ident">root_dir</span>, <span class="ident">err</span>);
+    <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; TmpFileSystem {
+        <span class="kw">let </span>tmp = TmpFileSystem::new();
+        <span class="kw">if </span><span class="self">self</span>.default_root_dirs {
+            <span class="kw">for </span>root_dir <span class="kw">in </span><span class="kw-2">&amp;</span>[<span class="string">&quot;/.app&quot;</span>, <span class="string">&quot;/.private&quot;</span>, <span class="string">&quot;/bin&quot;</span>, <span class="string">&quot;/dev&quot;</span>, <span class="string">&quot;/etc&quot;</span>, <span class="string">&quot;/tmp&quot;</span>] {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tmp.create_dir(Path::new(root_dir)) {
+                    <span class="macro">debug!</span>(<span class="string">&quot;failed to create dir [{}] - {}&quot;</span>, root_dir, err);
                 }
             }
         }
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">add_wasmer_command</span> {
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>
-                .<span class="ident">new_open_options_ext</span>()
-                .<span class="ident">insert_device_file</span>(<span class="ident">PathBuf::from</span>(<span class="string">&quot;/bin/wasmer&quot;</span>), <span class="ident">Box::new</span>(<span class="ident">NullFile::default</span>()));
+        <span class="kw">if </span><span class="self">self</span>.add_wasmer_command {
+            <span class="kw">let _ </span>= tmp
+                .new_open_options_ext()
+                .insert_device_file(PathBuf::from(<span class="string">&quot;/bin/wasmer&quot;</span>), Box::new(NullFile::default()));
         }
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">default_dev_files</span> {
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>
-                .<span class="ident">new_open_options_ext</span>()
-                .<span class="ident">insert_device_file</span>(<span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/null&quot;</span>), <span class="ident">Box::new</span>(<span class="ident">NullFile::default</span>()));
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>
-                .<span class="ident">new_open_options_ext</span>()
-                .<span class="ident">insert_device_file</span>(<span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/zero&quot;</span>), <span class="ident">Box::new</span>(<span class="ident">ZeroFile::default</span>()));
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/urandom&quot;</span>),
-                <span class="ident">Box::new</span>(<span class="ident">RandomFile::default</span>()),
+        <span class="kw">if </span><span class="self">self</span>.default_dev_files {
+            <span class="kw">let _ </span>= tmp
+                .new_open_options_ext()
+                .insert_device_file(PathBuf::from(<span class="string">&quot;/dev/null&quot;</span>), Box::new(NullFile::default()));
+            <span class="kw">let _ </span>= tmp
+                .new_open_options_ext()
+                .insert_device_file(PathBuf::from(<span class="string">&quot;/dev/zero&quot;</span>), Box::new(ZeroFile::default()));
+            <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from(<span class="string">&quot;/dev/urandom&quot;</span>),
+                Box::new(RandomFile::default()),
             );
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/stdin&quot;</span>),
-                <span class="self">self</span>.<span class="ident">stdin</span>
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Box::new</span>(<span class="ident">DeviceFile::new</span>(<span class="ident">DeviceFile::STDIN</span>))),
+            <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from(<span class="string">&quot;/dev/stdin&quot;</span>),
+                <span class="self">self</span>.stdin
+                    .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDIN))),
             );
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/stdout&quot;</span>),
-                <span class="self">self</span>.<span class="ident">stdout</span>
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Box::new</span>(<span class="ident">DeviceFile::new</span>(<span class="ident">DeviceFile::STDOUT</span>))),
+            <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from(<span class="string">&quot;/dev/stdout&quot;</span>),
+                <span class="self">self</span>.stdout
+                    .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDOUT))),
             );
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/stderr&quot;</span>),
-                <span class="self">self</span>.<span class="ident">stderr</span>
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Box::new</span>(<span class="ident">DeviceFile::new</span>(<span class="ident">DeviceFile::STDERR</span>))),
+            <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from(<span class="string">&quot;/dev/stderr&quot;</span>),
+                <span class="self">self</span>.stderr
+                    .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDERR))),
             );
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">tmp</span>.<span class="ident">new_open_options_ext</span>().<span class="ident">insert_device_file</span>(
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/dev/tty&quot;</span>),
-                <span class="self">self</span>.<span class="ident">tty</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Box::new</span>(<span class="ident">NullFile::default</span>())),
+            <span class="kw">let _ </span>= tmp.new_open_options_ext().insert_device_file(
+                PathBuf::from(<span class="string">&quot;/dev/tty&quot;</span>),
+                <span class="self">self</span>.tty.unwrap_or_else(|| Box::new(NullFile::default())),
             );
         }
-        <span class="ident">tmp</span>
+        tmp
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_builder</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FileSystem</span>, <span class="ident">RootFileSystemBuilder</span>};
-    <span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncReadExt</span>, <span class="ident">AsyncWriteExt</span>};
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_builder {
+    <span class="kw">use crate</span>::{FileSystem, RootFileSystemBuilder};
+    <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_root_file_system</span>() {
-        <span class="kw">let</span> <span class="ident">root_fs</span> <span class="op">=</span> <span class="ident">RootFileSystemBuilder::new</span>().<span class="ident">build</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dev_null</span> <span class="op">=</span> <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/dev/null&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">dev_null</span>.<span class="ident">write</span>(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>(), <span class="number">5</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="ident">dev_null</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">buf</span>.<span class="ident">is_empty</span>());
-        <span class="macro">assert!</span>(<span class="ident">dev_null</span>.<span class="ident">get_special_fd</span>().<span class="ident">is_none</span>());
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_root_file_system() {
+        <span class="kw">let </span>root_fs = RootFileSystemBuilder::new().build();
+        <span class="kw">let </span><span class="kw-2">mut </span>dev_null = root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/dev/null&quot;</span>)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(dev_null.write(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
+        dev_null.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert!</span>(buf.is_empty());
+        <span class="macro">assert!</span>(dev_null.get_special_fd().is_none());
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dev_zero</span> <span class="op">=</span> <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/dev/zero&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">dev_zero</span>.<span class="ident">write</span>(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>(), <span class="number">5</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">10</span>];
-        <span class="ident">dev_zero</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>[..]).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">buf</span>, <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">10</span>]);
-        <span class="macro">assert!</span>(<span class="ident">dev_zero</span>.<span class="ident">get_special_fd</span>().<span class="ident">is_none</span>());
+        <span class="kw">let </span><span class="kw-2">mut </span>dev_zero = root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/dev/zero&quot;</span>)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(dev_zero.write(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">10</span>];
+        dev_zero.read_exact(<span class="kw-2">&amp;mut </span>buf[..]).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_eq!</span>(buf, <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">10</span>]);
+        <span class="macro">assert!</span>(dev_zero.get_special_fd().is_none());
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dev_tty</span> <span class="op">=</span> <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/dev/tty&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">dev_tty</span>.<span class="ident">write</span>(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>(), <span class="number">5</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="ident">dev_tty</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buf</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">buf</span>.<span class="ident">is_empty</span>());
-        <span class="macro">assert!</span>(<span class="ident">dev_tty</span>.<span class="ident">get_special_fd</span>().<span class="ident">is_none</span>());
+        <span class="kw">let </span><span class="kw-2">mut </span>dev_tty = root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/dev/tty&quot;</span>)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(dev_tty.write(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap(), <span class="number">5</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
+        dev_tty.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert!</span>(buf.is_empty());
+        <span class="macro">assert!</span>(dev_tty.get_special_fd().is_none());
 
-        <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/bin/wasmer&quot;</span>)
-            .<span class="ident">unwrap</span>();
+        root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/bin/wasmer&quot;</span>)
+            .unwrap();
 
-        <span class="kw">let</span> <span class="ident">dev_stdin</span> <span class="op">=</span> <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/dev/stdin&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">dev_stdin</span>.<span class="ident">get_special_fd</span>().<span class="ident">unwrap</span>(), <span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">dev_stdout</span> <span class="op">=</span> <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/dev/stdout&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">dev_stdout</span>.<span class="ident">get_special_fd</span>().<span class="ident">unwrap</span>(), <span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">dev_stderr</span> <span class="op">=</span> <span class="ident">root_fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/dev/stderr&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">dev_stderr</span>.<span class="ident">get_special_fd</span>().<span class="ident">unwrap</span>(), <span class="number">2</span>);
+        <span class="kw">let </span>dev_stdin = root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/dev/stdin&quot;</span>)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(dev_stdin.get_special_fd().unwrap(), <span class="number">0</span>);
+        <span class="kw">let </span>dev_stdout = root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/dev/stdout&quot;</span>)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(dev_stdout.get_special_fd().unwrap(), <span class="number">1</span>);
+        <span class="kw">let </span>dev_stderr = root_fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/dev/stderr&quot;</span>)
+            .unwrap();
+        <span class="macro">assert_eq!</span>(dev_stderr.get_special_fd().unwrap(), <span class="number">2</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

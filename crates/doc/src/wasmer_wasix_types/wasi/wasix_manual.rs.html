@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/wasi/wasix_manual.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasix_manual.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix_types/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix_types/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi-types/src/wasi/wasix_manual.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasix_manual.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix_types/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix_types/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix_types/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -323,328 +323,328 @@
 <span id="321">321</span>
 <span id="322">322</span>
 <span id="323">323</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::mem::MaybeUninit;
 
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">MemorySize</span>, <span class="ident">ValueType</span>};
+<span class="kw">use </span>wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">Errno</span>, <span class="ident">ErrnoSignal</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventtype</span>, <span class="ident">JoinStatusType</span>, <span class="ident">Signal</span>,
-    <span class="ident">Snapshot0SubscriptionClock</span>, <span class="ident">SubscriptionClock</span>, <span class="ident">SubscriptionFsReadwrite</span>, <span class="ident">Userdata</span>,
+<span class="kw">use super</span>::{
+    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
+    Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite, Userdata,
 };
 
-<span class="doccomment">/// Thread local key</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TlKey</span> <span class="op">=</span> <span class="ident">u32</span>;
-<span class="doccomment">/// Thread local value</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TlVal</span> <span class="op">=</span> <span class="ident">u64</span>;
-<span class="doccomment">/// Thread local user data (associated with the value)</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TlUser</span> <span class="op">=</span> <span class="ident">u64</span>;
-<span class="doccomment">/// Long size used by checkpoints</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Longsize</span> <span class="op">=</span> <span class="ident">u64</span>;
+<span class="doccomment">/// Thread local key
+</span><span class="kw">pub type </span>TlKey = u32;
+<span class="doccomment">/// Thread local value
+</span><span class="kw">pub type </span>TlVal = u64;
+<span class="doccomment">/// Thread local user data (associated with the value)
+</span><span class="kw">pub type </span>TlUser = u64;
+<span class="doccomment">/// Long size used by checkpoints
+</span><span class="kw">pub type </span>Longsize = u64;
 
-<span class="doccomment">/// The contents of a `subscription`, snapshot0 version.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">Snapshot0SubscriptionUnion</span> {
-    <span class="kw">pub</span> <span class="ident">clock</span>: <span class="ident">Snapshot0SubscriptionClock</span>,
-    <span class="kw">pub</span> <span class="ident">fd_readwrite</span>: <span class="ident">SubscriptionFsReadwrite</span>,
+<span class="doccomment">/// The contents of a `subscription`, snapshot0 version.
+</span><span class="attribute">#[repr(C)]
+#[derive(Clone, Copy)]
+</span><span class="kw">pub union </span>Snapshot0SubscriptionUnion {
+    <span class="kw">pub </span>clock: Snapshot0SubscriptionClock,
+    <span class="kw">pub </span>fd_readwrite: SubscriptionFsReadwrite,
 }
-<span class="doccomment">/// The contents of a `subscription`.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">SubscriptionUnion</span> {
-    <span class="kw">pub</span> <span class="ident">clock</span>: <span class="ident">SubscriptionClock</span>,
-    <span class="kw">pub</span> <span class="ident">fd_readwrite</span>: <span class="ident">SubscriptionFsReadwrite</span>,
+<span class="doccomment">/// The contents of a `subscription`.
+</span><span class="attribute">#[repr(C)]
+#[derive(Clone, Copy)]
+</span><span class="kw">pub union </span>SubscriptionUnion {
+    <span class="kw">pub </span>clock: SubscriptionClock,
+    <span class="kw">pub </span>fd_readwrite: SubscriptionFsReadwrite,
 }
 
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Snapshot0Subscription</span> {
-    <span class="kw">pub</span> <span class="ident">userdata</span>: <span class="ident">Userdata</span>,
-    <span class="kw">pub</span> <span class="ident">type_</span>: <span class="ident">Eventtype</span>,
-    <span class="kw">pub</span> <span class="ident">u</span>: <span class="ident">Snapshot0SubscriptionUnion</span>,
+<span class="attribute">#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>Snapshot0Subscription {
+    <span class="kw">pub </span>userdata: Userdata,
+    <span class="kw">pub </span>type_: Eventtype,
+    <span class="kw">pub </span>u: Snapshot0SubscriptionUnion,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Snapshot0Subscription</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Snapshot0Subscription&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">userdata</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">type_</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Snapshot0Subscription {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Snapshot0Subscription&quot;</span>)
+            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+            .finish()
     }
 }
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Subscription</span> {
-    <span class="kw">pub</span> <span class="ident">userdata</span>: <span class="ident">Userdata</span>,
-    <span class="kw">pub</span> <span class="ident">type_</span>: <span class="ident">Eventtype</span>,
-    <span class="kw">pub</span> <span class="ident">data</span>: <span class="ident">SubscriptionUnion</span>,
+<span class="attribute">#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>Subscription {
+    <span class="kw">pub </span>userdata: Userdata,
+    <span class="kw">pub </span>type_: Eventtype,
+    <span class="kw">pub </span>data: SubscriptionUnion,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Subscription</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Subscription&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">userdata</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">type_</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Subscription {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Subscription&quot;</span>)
+            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+            .finish()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Snapshot0Subscription</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Subscription</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">Snapshot0Subscription</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">userdata</span>: <span class="ident">other</span>.<span class="ident">userdata</span>,
-            <span class="ident">type_</span>: <span class="ident">other</span>.<span class="ident">type_</span>,
-            <span class="ident">data</span>: <span class="kw">match</span> <span class="ident">other</span>.<span class="ident">type_</span> {
-                <span class="ident">Eventtype::Clock</span> =&gt; <span class="ident">SubscriptionUnion</span> {
-                    <span class="ident">clock</span>: <span class="kw">unsafe</span> {
-                        <span class="ident">SubscriptionClock</span> {
-                            <span class="ident">clock_id</span>: <span class="ident">other</span>.<span class="ident">u</span>.<span class="ident">clock</span>.<span class="ident">id</span>.<span class="ident">into</span>(),
-                            <span class="ident">timeout</span>: <span class="ident">other</span>.<span class="ident">u</span>.<span class="ident">clock</span>.<span class="ident">timeout</span>,
-                            <span class="ident">precision</span>: <span class="ident">other</span>.<span class="ident">u</span>.<span class="ident">clock</span>.<span class="ident">precision</span>,
-                            <span class="ident">flags</span>: <span class="ident">other</span>.<span class="ident">u</span>.<span class="ident">clock</span>.<span class="ident">flags</span>,
+<span class="kw">impl </span>From&lt;Snapshot0Subscription&gt; <span class="kw">for </span>Subscription {
+    <span class="kw">fn </span>from(other: Snapshot0Subscription) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            userdata: other.userdata,
+            type_: other.type_,
+            data: <span class="kw">match </span>other.type_ {
+                Eventtype::Clock =&gt; SubscriptionUnion {
+                    clock: <span class="kw">unsafe </span>{
+                        SubscriptionClock {
+                            clock_id: other.u.clock.id.into(),
+                            timeout: other.u.clock.timeout,
+                            precision: other.u.clock.precision,
+                            flags: other.u.clock.flags,
                         }
                     },
                 },
-                <span class="ident">Eventtype::FdRead</span> =&gt; <span class="ident">SubscriptionUnion</span> {
-                    <span class="ident">fd_readwrite</span>: <span class="kw">unsafe</span> { <span class="ident">other</span>.<span class="ident">u</span>.<span class="ident">fd_readwrite</span> },
+                Eventtype::FdRead =&gt; SubscriptionUnion {
+                    fd_readwrite: <span class="kw">unsafe </span>{ other.u.fd_readwrite },
                 },
-                <span class="ident">Eventtype::FdWrite</span> =&gt; <span class="ident">SubscriptionUnion</span> {
-                    <span class="ident">fd_readwrite</span>: <span class="kw">unsafe</span> { <span class="ident">other</span>.<span class="ident">u</span>.<span class="ident">fd_readwrite</span> },
+                Eventtype::FdWrite =&gt; SubscriptionUnion {
+                    fd_readwrite: <span class="kw">unsafe </span>{ other.u.fd_readwrite },
                 },
             },
         }
     }
 }
 
-<span class="doccomment">/// The contents of an `event`.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">EventUnion</span> {
-    <span class="kw">pub</span> <span class="ident">clock</span>: <span class="ident">u8</span>,
-    <span class="kw">pub</span> <span class="ident">fd_readwrite</span>: <span class="ident">EventFdReadwrite</span>,
+<span class="doccomment">/// The contents of an `event`.
+</span><span class="attribute">#[repr(C)]
+#[derive(Clone, Copy)]
+</span><span class="kw">pub union </span>EventUnion {
+    <span class="kw">pub </span>clock: u8,
+    <span class="kw">pub </span>fd_readwrite: EventFdReadwrite,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StackSnapshot</span> {
-    <span class="kw">pub</span> <span class="ident">user</span>: <span class="ident">u64</span>,
-    <span class="kw">pub</span> <span class="ident">hash</span>: <span class="ident">u128</span>,
+<span class="attribute">#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>StackSnapshot {
+    <span class="kw">pub </span>user: u64,
+    <span class="kw">pub </span>hash: u128,
 }
 
-<span class="doccomment">/// An event that occurred.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Event</span> {
-    <span class="doccomment">/// User-provided value that got attached to `subscription::userdata`.</span>
-    <span class="kw">pub</span> <span class="ident">userdata</span>: <span class="ident">Userdata</span>,
-    <span class="doccomment">/// If non-zero, an error that occurred while processing the subscription request.</span>
-    <span class="kw">pub</span> <span class="ident">error</span>: <span class="ident">Errno</span>,
-    <span class="doccomment">/// Type of event that was triggered</span>
-    <span class="kw">pub</span> <span class="ident">type_</span>: <span class="ident">Eventtype</span>,
-    <span class="doccomment">/// The type of the event that occurred, and the contents of the event</span>
-    <span class="kw">pub</span> <span class="ident">u</span>: <span class="ident">EventUnion</span>,
+<span class="doccomment">/// An event that occurred.
+</span><span class="attribute">#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>Event {
+    <span class="doccomment">/// User-provided value that got attached to `subscription::userdata`.
+    </span><span class="kw">pub </span>userdata: Userdata,
+    <span class="doccomment">/// If non-zero, an error that occurred while processing the subscription request.
+    </span><span class="kw">pub </span>error: Errno,
+    <span class="doccomment">/// Type of event that was triggered
+    </span><span class="kw">pub </span>type_: Eventtype,
+    <span class="doccomment">/// The type of the event that occurred, and the contents of the event
+    </span><span class="kw">pub </span>u: EventUnion,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Event</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Event&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">userdata</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">error</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">type_</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Event {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Event&quot;</span>)
+            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
+            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+            .finish()
     }
 }
-<span class="doccomment">/// An event that occurred.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Snapshot0Event</span> {
-    <span class="doccomment">/// User-provided value that got attached to `subscription::userdata`.</span>
-    <span class="kw">pub</span> <span class="ident">userdata</span>: <span class="ident">Userdata</span>,
-    <span class="doccomment">/// If non-zero, an error that occurred while processing the subscription request.</span>
-    <span class="kw">pub</span> <span class="ident">error</span>: <span class="ident">Errno</span>,
-    <span class="doccomment">/// The type of event that occured</span>
-    <span class="kw">pub</span> <span class="ident">type_</span>: <span class="ident">Eventtype</span>,
-    <span class="doccomment">/// The contents of the event, if it is an `eventtype::fd_read` or</span>
-    <span class="doccomment">/// `eventtype::fd_write`. `eventtype::clock` events ignore this field.</span>
-    <span class="kw">pub</span> <span class="ident">fd_readwrite</span>: <span class="ident">EventFdReadwrite</span>,
+<span class="doccomment">/// An event that occurred.
+</span><span class="attribute">#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>Snapshot0Event {
+    <span class="doccomment">/// User-provided value that got attached to `subscription::userdata`.
+    </span><span class="kw">pub </span>userdata: Userdata,
+    <span class="doccomment">/// If non-zero, an error that occurred while processing the subscription request.
+    </span><span class="kw">pub </span>error: Errno,
+    <span class="doccomment">/// The type of event that occured
+    </span><span class="kw">pub </span>type_: Eventtype,
+    <span class="doccomment">/// The contents of the event, if it is an `eventtype::fd_read` or
+    /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.
+    </span><span class="kw">pub </span>fd_readwrite: EventFdReadwrite,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Snapshot0Event</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Snapshot0Event&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">userdata</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">error</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">type_</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;fd-readwrite&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">fd_readwrite</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Snapshot0Event {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Snapshot0Event&quot;</span>)
+            .field(<span class="string">&quot;userdata&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.userdata)
+            .field(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
+            .field(<span class="string">&quot;type&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.type_)
+            .field(<span class="string">&quot;fd-readwrite&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fd_readwrite)
+            .finish()
     }
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">Snapshot0Subscription</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>Snapshot0Subscription {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">Snapshot0Event</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>Snapshot0Event {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">Subscription</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>Subscription {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">Event</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>Event {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">StackSnapshot</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>StackSnapshot {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">JoinStatusUnion</span> {
-    <span class="kw">pub</span> <span class="ident">nothing</span>: <span class="ident">u8</span>,
-    <span class="kw">pub</span> <span class="ident">exit_normal</span>: <span class="ident">Errno</span>,
-    <span class="kw">pub</span> <span class="ident">exit_signal</span>: <span class="ident">ErrnoSignal</span>,
-    <span class="kw">pub</span> <span class="ident">stopped</span>: <span class="ident">Signal</span>,
+<span class="attribute">#[repr(C)]
+#[derive(Clone, Copy)]
+</span><span class="kw">pub union </span>JoinStatusUnion {
+    <span class="kw">pub </span>nothing: u8,
+    <span class="kw">pub </span>exit_normal: Errno,
+    <span class="kw">pub </span>exit_signal: ErrnoSignal,
+    <span class="kw">pub </span>stopped: Signal,
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">JoinStatus</span> {
-    <span class="kw">pub</span> <span class="ident">tag</span>: <span class="ident">JoinStatusType</span>,
-    <span class="kw">pub</span> <span class="ident">u</span>: <span class="ident">JoinStatusUnion</span>,
+<span class="attribute">#[derive(Copy, Clone)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>JoinStatus {
+    <span class="kw">pub </span>tag: JoinStatusType,
+    <span class="kw">pub </span>u: JoinStatusUnion,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">JoinStatus</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">binding</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;JoinStatus&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">binding</span>.<span class="ident">field</span>(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">tag</span>);
-        <span class="ident">f</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">tag</span> {
-                <span class="ident">JoinStatusType::Nothing</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;pid&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">nothing</span>),
-                <span class="ident">JoinStatusType::ExitNormal</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;exit_normal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">exit_normal</span>),
-                <span class="ident">JoinStatusType::ExitSignal</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;exit_signal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">exit_signal</span>),
-                <span class="ident">JoinStatusType::Stopped</span> =&gt; <span class="ident">f</span>.<span class="ident">field</span>(<span class="string">&quot;stopped&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">u</span>.<span class="ident">stopped</span>),
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>JoinStatus {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">let </span><span class="kw-2">mut </span>binding = f.debug_struct(<span class="string">&quot;JoinStatus&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>f = binding.field(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag);
+        f = <span class="kw">unsafe </span>{
+            <span class="kw">match </span><span class="self">self</span>.tag {
+                JoinStatusType::Nothing =&gt; f.field(<span class="string">&quot;pid&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing),
+                JoinStatusType::ExitNormal =&gt; f.field(<span class="string">&quot;exit_normal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_normal),
+                JoinStatusType::ExitSignal =&gt; f.field(<span class="string">&quot;exit_signal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_signal),
+                JoinStatusType::Stopped =&gt; f.field(<span class="string">&quot;stopped&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.stopped),
             }
         };
-        <span class="ident">f</span>.<span class="ident">finish</span>()
+        f.finish()
     }
 }
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">JoinStatus</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>JoinStatus {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="attribute">#[<span class="ident">doc</span> <span class="op">=</span> <span class="string">&quot; Represents the thread start object&quot;</span>]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">stack_start</span>: <span class="ident">M::Offset</span>,
-    <span class="kw">pub</span> <span class="ident">tls_base</span>: <span class="ident">M::Offset</span>,
-    <span class="kw">pub</span> <span class="ident">start_funct</span>: <span class="ident">M::Offset</span>,
-    <span class="kw">pub</span> <span class="ident">start_args</span>: <span class="ident">M::Offset</span>,
-    <span class="kw">pub</span> <span class="ident">reserved</span>: [<span class="ident">M::Offset</span>; <span class="number">10</span>],
-    <span class="kw">pub</span> <span class="ident">stack_size</span>: <span class="ident">M::Offset</span>,
-    <span class="kw">pub</span> <span class="ident">guard_size</span>: <span class="ident">M::Offset</span>,
+<span class="attribute">#[doc = <span class="string">&quot; Represents the thread start object&quot;</span>]
+#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>ThreadStart&lt;M: MemorySize&gt; {
+    <span class="kw">pub </span>stack_start: M::Offset,
+    <span class="kw">pub </span>tls_base: M::Offset,
+    <span class="kw">pub </span>start_funct: M::Offset,
+    <span class="kw">pub </span>start_args: M::Offset,
+    <span class="kw">pub </span>reserved: [M::Offset; <span class="number">10</span>],
+    <span class="kw">pub </span>stack_size: M::Offset,
+    <span class="kw">pub </span>guard_size: M::Offset,
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;ThreadStart&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;stack_start&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stack_start</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;tls-base&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">tls_base</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;start-funct&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">start_funct</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;start-args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">start_args</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;stack_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stack_size</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;guard_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">guard_size</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl</span>&lt;M: MemorySize&gt; core::fmt::Debug <span class="kw">for </span>ThreadStart&lt;M&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;ThreadStart&quot;</span>)
+            .field(<span class="string">&quot;stack_start&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_start)
+            .field(<span class="string">&quot;tls-base&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tls_base)
+            .field(<span class="string">&quot;start-funct&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_funct)
+            .field(<span class="string">&quot;start-args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_args)
+            .field(<span class="string">&quot;stack_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_size)
+            .field(<span class="string">&quot;guard_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.guard_size)
+            .finish()
     }
 }
 
-<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">ThreadStart</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen
+</span><span class="kw">unsafe impl</span>&lt;M: MemorySize&gt; ValueType <span class="kw">for </span>ThreadStart&lt;M&gt; {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExitCode</span> {
-    <span class="ident">Errno</span>(<span class="ident">Errno</span>),
-    <span class="ident">Other</span>(<span class="ident">i32</span>),
+<span class="attribute">#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+</span><span class="kw">pub enum </span>ExitCode {
+    Errno(Errno),
+    Other(i32),
 }
-<span class="kw">impl</span> <span class="ident">ExitCode</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">i32</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ExitCode::Errno</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">to_native</span>(),
-            <span class="ident">ExitCode::Other</span>(<span class="ident">code</span>) =&gt; <span class="kw-2">*</span><span class="ident">code</span>,
+<span class="kw">impl </span>ExitCode {
+    <span class="kw">pub fn </span>raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i32 {
+        <span class="kw">match </span><span class="self">self </span>{
+            ExitCode::Errno(err) =&gt; err.to_native(),
+            ExitCode::Other(code) =&gt; <span class="kw-2">*</span>code,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_success</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">raw</span>() <span class="op">==</span> <span class="number">0</span>
-    }
+    <span class="kw">pub fn </span>is_success(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.raw() == <span class="number">0
+    </span>}
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ExitCode::Errno</span>(<span class="ident">a</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExitCode::{}&quot;</span>, <span class="ident">a</span>),
-            <span class="ident">ExitCode::Other</span>(<span class="ident">a</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExitCode::{}&quot;</span>, <span class="ident">a</span>),
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>ExitCode {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            ExitCode::Errno(a) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ExitCode::{}&quot;</span>, a),
+            ExitCode::Other(a) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ExitCode::{}&quot;</span>, a),
         }
     }
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Display</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="ident">core::fmt::Debug::fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>)
+<span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>ExitCode {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        core::fmt::Debug::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f)
     }
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">wasmer::FromToNativeWasmType</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">i32</span>;
+<span class="kw">unsafe impl </span>wasmer::FromToNativeWasmType <span class="kw">for </span>ExitCode {
+    <span class="kw">type </span>Native = i32;
 
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-        <span class="self">self</span>.<span class="ident">into</span>()
+    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+        <span class="self">self</span>.into()
     }
 
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">n</span>.<span class="ident">into</span>()
+    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+        n.into()
     }
 
-    <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">wasmer::AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
+    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>wasmer::AsStoreRef) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
+}
+
+<span class="kw">impl </span>From&lt;Errno&gt; <span class="kw">for </span>ExitCode {
+    <span class="kw">fn </span>from(val: Errno) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Errno(val)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Errno</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">Errno</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::Errno</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">ExitCode</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="ident">Errno::from_native</span>(<span class="ident">val</span>);
-        <span class="kw">match</span> <span class="ident">err</span> {
-            <span class="ident">Errno::Unknown</span> =&gt; <span class="ident"><span class="self">Self</span>::Other</span>(<span class="ident">val</span>),
-            <span class="ident">err</span> =&gt; <span class="ident"><span class="self">Self</span>::Errno</span>(<span class="ident">err</span>),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Errno</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">code</span>: <span class="ident">ExitCode</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">code</span> {
-            <span class="ident">ExitCode::Errno</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>,
-            <span class="ident">ExitCode::Other</span>(<span class="ident">code</span>) =&gt; <span class="ident">Errno::from_native</span>(<span class="ident">code</span>),
+<span class="kw">impl </span>From&lt;i32&gt; <span class="kw">for </span>ExitCode {
+    <span class="kw">fn </span>from(val: i32) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>err = Errno::from_native(val);
+        <span class="kw">match </span>err {
+            Errno::Unknown =&gt; <span class="self">Self</span>::Other(val),
+            err =&gt; <span class="self">Self</span>::Errno(err),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">i32</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">ExitCode</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">val</span> {
-            <span class="ident">ExitCode::Errno</span>(<span class="ident">err</span>) =&gt; <span class="ident">err</span>.<span class="ident">to_native</span>(),
-            <span class="ident">ExitCode::Other</span>(<span class="ident">code</span>) =&gt; <span class="ident">code</span>,
+<span class="kw">impl </span>From&lt;ExitCode&gt; <span class="kw">for </span>Errno {
+    <span class="kw">fn </span>from(code: ExitCode) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>code {
+            ExitCode::Errno(err) =&gt; err,
+            ExitCode::Other(code) =&gt; Errno::from_native(code),
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;ExitCode&gt; <span class="kw">for </span>i32 {
+    <span class="kw">fn </span>from(val: ExitCode) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>val {
+            ExitCode::Errno(err) =&gt; err.to_native(),
+            ExitCode::Other(code) =&gt; code,
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

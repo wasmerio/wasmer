@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/binfmt.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>binfmt.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/binfmt.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>binfmt.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -151,156 +151,156 @@
 <span id="149">149</span>
 <span id="150">150</span>
 <span id="151">151</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::env</span>;
-<span class="kw">use</span> <span class="ident">std::fs</span>;
-<span class="kw">use</span> <span class="ident">std::io::Write</span>;
-<span class="kw">use</span> <span class="ident">std::os::unix::ffi::OsStrExt</span>;
-<span class="kw">use</span> <span class="ident">std::os::unix::fs::MetadataExt</span>;
-<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">Action</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>std::env;
+<span class="kw">use </span>std::fs;
+<span class="kw">use </span>std::io::Write;
+<span class="kw">use </span>std::os::unix::ffi::OsStrExt;
+<span class="kw">use </span>std::os::unix::fs::MetadataExt;
+<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>Action::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">enum</span> <span class="ident">Action</span> {
-    <span class="doccomment">/// Register wasmer as binfmt interpreter</span>
-    <span class="ident">Register</span>,
-    <span class="doccomment">/// Unregister a binfmt interpreter for wasm32</span>
-    <span class="ident">Unregister</span>,
-    <span class="doccomment">/// Soft unregister, and register</span>
-    <span class="ident">Reregister</span>,
+<span class="attribute">#[derive(Debug, Parser, Clone, Copy)]
+</span><span class="kw">enum </span>Action {
+    <span class="doccomment">/// Register wasmer as binfmt interpreter
+    </span>Register,
+    <span class="doccomment">/// Unregister a binfmt interpreter for wasm32
+    </span>Unregister,
+    <span class="doccomment">/// Soft unregister, and register
+    </span>Reregister,
 }
 
-<span class="doccomment">/// Unregister and/or register wasmer as binfmt interpreter</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Check the wasmer repository for a systemd service definition example</span>
-<span class="doccomment">/// to automate the process at start-up.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Binfmt</span> {
-    <span class="comment">// Might be better to traverse the mount list</span>
-    <span class="doccomment">/// Mount point of binfmt_misc fs</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;/proc/sys/fs/binfmt_misc/&quot;</span>)]</span>
-    <span class="ident">binfmt_misc</span>: <span class="ident">PathBuf</span>,
+<span class="doccomment">/// Unregister and/or register wasmer as binfmt interpreter
+///
+/// Check the wasmer repository for a systemd service definition example
+/// to automate the process at start-up.
+</span><span class="attribute">#[derive(Debug, Parser)]
+</span><span class="kw">pub struct </span>Binfmt {
+    <span class="comment">// Might be better to traverse the mount list
+    </span><span class="doccomment">/// Mount point of binfmt_misc fs
+    </span><span class="attribute">#[clap(long, default_value = <span class="string">&quot;/proc/sys/fs/binfmt_misc/&quot;</span>)]
+    </span>binfmt_misc: PathBuf,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>)]</span>
-    <span class="ident">action</span>: <span class="ident">Action</span>,
+    <span class="attribute">#[clap(subcommand)]
+    </span>action: Action,
 }
 
-<span class="comment">// Quick safety check:</span>
-<span class="comment">// This folder isn&#39;t world writeable (or else its sticky bit is set), and neither are its parents.</span>
-<span class="comment">//</span>
-<span class="comment">// If somebody mounted /tmp wrong, this might result in a TOCTOU problem.</span>
-<span class="kw">fn</span> <span class="ident">seccheck</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">parent</span>() {
-        <span class="ident">seccheck</span>(<span class="ident">parent</span>)<span class="question-mark">?</span>;
+<span class="comment">// Quick safety check:
+// This folder isn&#39;t world writeable (or else its sticky bit is set), and neither are its parents.
+//
+// If somebody mounted /tmp wrong, this might result in a TOCTOU problem.
+</span><span class="kw">fn </span>seccheck(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+        seccheck(parent)<span class="question-mark">?</span>;
     }
-    <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">std::fs::metadata</span>(<span class="ident">path</span>)
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Can&#39;t check permissions of {}&quot;</span>, <span class="ident">path</span>.<span class="ident">to_string_lossy</span>()))<span class="question-mark">?</span>;
-    <span class="kw">use</span> <span class="ident">unix_mode</span>::<span class="kw-2">*</span>;
+    <span class="kw">let </span>m = std::fs::metadata(path)
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Can&#39;t check permissions of {}&quot;</span>, path.to_string_lossy()))<span class="question-mark">?</span>;
+    <span class="kw">use </span>unix_mode::<span class="kw-2">*</span>;
     <span class="macro">anyhow::ensure!</span>(
-        <span class="op">!</span><span class="ident">is_allowed</span>(<span class="ident">Accessor::Other</span>, <span class="ident">Access::Write</span>, <span class="ident">m</span>.<span class="ident">mode</span>()) <span class="op">|</span><span class="op">|</span> <span class="ident">is_sticky</span>(<span class="ident">m</span>.<span class="ident">mode</span>()),
+        !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
         <span class="string">&quot;{} is world writeable and not sticky&quot;</span>,
-        <span class="ident">path</span>.<span class="ident">to_string_lossy</span>()
+        path.to_string_lossy()
     );
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">impl</span> <span class="ident">Binfmt</span> {
-    <span class="doccomment">/// execute [Binfmt]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">binfmt_misc</span>.<span class="ident">exists</span>() {
-            <span class="macro">panic!</span>(<span class="string">&quot;{} does not exist&quot;</span>, <span class="self">self</span>.<span class="ident">binfmt_misc</span>.<span class="ident">to_string_lossy</span>());
+<span class="kw">impl </span>Binfmt {
+    <span class="doccomment">/// execute [Binfmt]
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.binfmt_misc.exists() {
+            <span class="macro">panic!</span>(<span class="string">&quot;{} does not exist&quot;</span>, <span class="self">self</span>.binfmt_misc.to_string_lossy());
         }
-        <span class="kw">let</span> <span class="ident">temp_dir</span>;
-        <span class="kw">let</span> <span class="ident">specs</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">action</span> {
-            <span class="ident">Register</span> <span class="op">|</span> <span class="ident">Reregister</span> =&gt; {
-                <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>().<span class="ident">context</span>(<span class="string">&quot;Make temporary directory&quot;</span>)<span class="question-mark">?</span>;
-                <span class="ident">seccheck</span>(<span class="ident">temp_dir</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">bin_path_orig</span>: <span class="ident">PathBuf</span> <span class="op">=</span> <span class="ident">env::current_exe</span>()
-                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">canonicalize</span>())
-                    .<span class="ident">context</span>(<span class="string">&quot;Cannot get path to wasmer executable&quot;</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">bin_path</span> <span class="op">=</span> <span class="ident">temp_dir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>);
-                <span class="ident">fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">bin_path_orig</span>, <span class="kw-2">&amp;</span><span class="ident">bin_path</span>).<span class="ident">context</span>(<span class="string">&quot;Copy wasmer binary to temp folder&quot;</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">bin_path</span> <span class="op">=</span> <span class="ident">fs::canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">bin_path</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="kw">let </span>temp_dir;
+        <span class="kw">let </span>specs = <span class="kw">match </span><span class="self">self</span>.action {
+            Register | Reregister =&gt; {
+                temp_dir = tempfile::tempdir().context(<span class="string">&quot;Make temporary directory&quot;</span>)<span class="question-mark">?</span>;
+                seccheck(temp_dir.path())<span class="question-mark">?</span>;
+                <span class="kw">let </span>bin_path_orig: PathBuf = env::current_exe()
+                    .and_then(|p| p.canonicalize())
+                    .context(<span class="string">&quot;Cannot get path to wasmer executable&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>bin_path = temp_dir.path().join(<span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>);
+                fs::copy(<span class="kw-2">&amp;</span>bin_path_orig, <span class="kw-2">&amp;</span>bin_path).context(<span class="string">&quot;Copy wasmer binary to temp folder&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>bin_path = fs::canonicalize(<span class="kw-2">&amp;</span>bin_path).with_context(|| {
                     <span class="macro">format!</span>(
                         <span class="string">&quot;Couldn&#39;t get absolute path for {}&quot;</span>,
-                        <span class="ident">bin_path</span>.<span class="ident">to_string_lossy</span>()
+                        bin_path.to_string_lossy()
                     )
                 })<span class="question-mark">?</span>;
                 <span class="prelude-val">Some</span>([
                     [
-                        <span class="string">b&quot;:wasm32:M::\\x00asm\\x01\\x00\\x00::&quot;</span>.<span class="ident">as_ref</span>(),
-                        <span class="ident">bin_path</span>.<span class="ident">as_os_str</span>().<span class="ident">as_bytes</span>(),
+                        <span class="string">b&quot;:wasm32:M::\\x00asm\\x01\\x00\\x00::&quot;</span>.as_ref(),
+                        bin_path.as_os_str().as_bytes(),
                         <span class="string">b&quot;:PFC&quot;</span>,
                     ]
-                    .<span class="ident">concat</span>(),
+                    .concat(),
                     [
-                        <span class="string">b&quot;:wasm32-wat:E::wat::&quot;</span>.<span class="ident">as_ref</span>(),
-                        <span class="ident">bin_path</span>.<span class="ident">as_os_str</span>().<span class="ident">as_bytes</span>(),
+                        <span class="string">b&quot;:wasm32-wat:E::wat::&quot;</span>.as_ref(),
+                        bin_path.as_os_str().as_bytes(),
                         <span class="string">b&quot;:PFC&quot;</span>,
                     ]
-                    .<span class="ident">concat</span>(),
+                    .concat(),
                 ])
             }
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         };
-        <span class="kw">let</span> <span class="ident">wasm_registration</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">binfmt_misc</span>.<span class="ident">join</span>(<span class="string">&quot;wasm32&quot;</span>);
-        <span class="kw">let</span> <span class="ident">wat_registration</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">binfmt_misc</span>.<span class="ident">join</span>(<span class="string">&quot;wasm32-wat&quot;</span>);
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">action</span> {
-            <span class="ident">Reregister</span> <span class="op">|</span> <span class="ident">Unregister</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">unregister</span> <span class="op">=</span> [<span class="ident">wasm_registration</span>, <span class="ident">wat_registration</span>]
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">registration</span><span class="op">|</span> {
-                        <span class="kw">if</span> <span class="ident">registration</span>.<span class="ident">exists</span>() {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">registration</span> <span class="op">=</span> <span class="ident">fs::OpenOptions::new</span>()
-                                .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                                .<span class="ident">open</span>(<span class="ident">registration</span>)
-                                .<span class="ident">context</span>(<span class="string">&quot;Open existing binfmt entry to remove&quot;</span>)<span class="question-mark">?</span>;
-                            <span class="ident">registration</span>
-                                .<span class="ident">write_all</span>(<span class="string">b&quot;-1&quot;</span>)
-                                .<span class="ident">context</span>(<span class="string">&quot;Couldn&#39;t write binfmt unregister request&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>wasm_registration = <span class="self">self</span>.binfmt_misc.join(<span class="string">&quot;wasm32&quot;</span>);
+        <span class="kw">let </span>wat_registration = <span class="self">self</span>.binfmt_misc.join(<span class="string">&quot;wasm32-wat&quot;</span>);
+        <span class="kw">match </span><span class="self">self</span>.action {
+            Reregister | Unregister =&gt; {
+                <span class="kw">let </span>unregister = [wasm_registration, wat_registration]
+                    .iter()
+                    .map(|registration| {
+                        <span class="kw">if </span>registration.exists() {
+                            <span class="kw">let </span><span class="kw-2">mut </span>registration = fs::OpenOptions::new()
+                                .write(<span class="bool-val">true</span>)
+                                .open(registration)
+                                .context(<span class="string">&quot;Open existing binfmt entry to remove&quot;</span>)<span class="question-mark">?</span>;
+                            registration
+                                .write_all(<span class="string">b&quot;-1&quot;</span>)
+                                .context(<span class="string">&quot;Couldn&#39;t write binfmt unregister request&quot;</span>)<span class="question-mark">?</span>;
                             <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
-                        } <span class="kw">else</span> {
+                        } <span class="kw">else </span>{
                             <span class="macro">eprintln!</span>(
                                 <span class="string">&quot;Warning: {} does not exist, not unregistered.&quot;</span>,
-                                <span class="ident">registration</span>.<span class="ident">to_string_lossy</span>()
+                                registration.to_string_lossy()
                             );
                             <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
                         }
                     })
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                    .<span class="ident">into_iter</span>()
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-                <span class="kw">if</span> <span class="kw">let</span> (<span class="ident">Unregister</span>, <span class="bool-val">false</span>) <span class="op">=</span> (<span class="self">self</span>.<span class="ident">action</span>, <span class="ident">unregister</span>.<span class="ident">into_iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>)) {
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                    .into_iter()
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
+                <span class="kw">if let </span>(Unregister, <span class="bool-val">false</span>) = (<span class="self">self</span>.action, unregister.into_iter().any(|b| b)) {
                     <span class="macro">bail!</span>(<span class="string">&quot;Nothing unregistered&quot;</span>);
                 }
             }
-            <span class="kw">_</span> =&gt; (),
+            <span class="kw">_ </span>=&gt; (),
         };
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">specs</span>) <span class="op">=</span> <span class="ident">specs</span> {
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;gnu&quot;</span>) {
-                <span class="comment">// Approximate. ELF parsing for a proper check feels like overkill here.</span>
-                <span class="macro">eprintln!</span>(<span class="string">&quot;Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work.&quot;</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(specs) = specs {
+            <span class="kw">if </span><span class="macro">cfg!</span>(target_env = <span class="string">&quot;gnu&quot;</span>) {
+                <span class="comment">// Approximate. ELF parsing for a proper check feels like overkill here.
+                </span><span class="macro">eprintln!</span>(<span class="string">&quot;Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work.&quot;</span>);
             }
-            <span class="ident">specs</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">spec</span><span class="op">|</span> {
-                    <span class="kw">let</span> <span class="ident">register</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">binfmt_misc</span>.<span class="ident">join</span>(<span class="string">&quot;register&quot;</span>);
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">register</span> <span class="op">=</span> <span class="ident">fs::OpenOptions::new</span>()
-                        .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                        .<span class="ident">open</span>(<span class="ident">register</span>)
-                        .<span class="ident">context</span>(<span class="string">&quot;Open binfmt misc for registration&quot;</span>)<span class="question-mark">?</span>;
-                    <span class="ident">register</span>
-                        .<span class="ident">write_all</span>(<span class="ident">spec</span>)
-                        .<span class="ident">context</span>(<span class="string">&quot;Couldn&#39;t register binfmt&quot;</span>)<span class="question-mark">?</span>;
+            specs
+                .iter()
+                .map(|spec| {
+                    <span class="kw">let </span>register = <span class="self">self</span>.binfmt_misc.join(<span class="string">&quot;register&quot;</span>);
+                    <span class="kw">let </span><span class="kw-2">mut </span>register = fs::OpenOptions::new()
+                        .write(<span class="bool-val">true</span>)
+                        .open(register)
+                        .context(<span class="string">&quot;Open binfmt misc for registration&quot;</span>)<span class="question-mark">?</span>;
+                    register
+                        .write_all(spec)
+                        .context(<span class="string">&quot;Couldn&#39;t register binfmt&quot;</span>)<span class="question-mark">?</span>;
                     <span class="prelude-val">Ok</span>(())
                 })
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                .<span class="ident">into_iter</span>()
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                .into_iter()
+                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

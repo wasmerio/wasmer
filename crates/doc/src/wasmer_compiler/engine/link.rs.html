@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/link.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>link.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/link.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>link.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -138,145 +138,209 @@
 <span id="138">138</span>
 <span id="139">139</span>
 <span id="140">140</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::get_libcall_trampoline</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FunctionExtent</span>;
-<span class="kw">use</span> <span class="ident">std::ptr</span>::{<span class="ident">read_unaligned</span>, <span class="ident">write_unaligned</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">Relocations</span>, <span class="ident">SectionIndex</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::function_pointer</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm::SectionBodyPtr</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::get_libcall_trampoline;
+<span class="kw">use </span><span class="kw">crate</span>::FunctionExtent;
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::ptr::{read_unaligned, write_unaligned};
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::{LocalFunctionIndex, ModuleInfo};
+<span class="kw">use </span>wasmer_types::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};
+<span class="kw">use </span>wasmer_vm::libcalls::function_pointer;
+<span class="kw">use </span>wasmer_vm::SectionBodyPtr;
 
-<span class="kw">fn</span> <span class="ident">apply_relocation</span>(
-    <span class="ident">body</span>: <span class="ident">usize</span>,
-    <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">Relocation</span>,
-    <span class="ident">allocated_functions</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionExtent</span><span class="op">&gt;</span>,
-    <span class="ident">allocated_sections</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">SectionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">libcall_trampolines</span>: <span class="ident">SectionIndex</span>,
-    <span class="ident">libcall_trampoline_len</span>: <span class="ident">usize</span>,
+<span class="kw">fn </span>apply_relocation(
+    body: usize,
+    r: <span class="kw-2">&amp;</span>Relocation,
+    allocated_functions: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
+    allocated_sections: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
+    libcall_trampolines: SectionIndex,
+    libcall_trampoline_len: usize,
+    riscv_pcrel_hi20s: <span class="kw-2">&amp;mut </span>HashMap&lt;usize, u32&gt;,
 ) {
-    <span class="kw">let</span> <span class="ident">target_func_address</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">reloc_target</span> {
-        <span class="ident">RelocationTarget::LocalFunc</span>(<span class="ident">index</span>) =&gt; <span class="kw-2">*</span><span class="ident">allocated_functions</span>[<span class="ident">index</span>].<span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">libcall</span>) =&gt; {
-            <span class="comment">// Use the direct target of the libcall if the relocation supports</span>
-            <span class="comment">// a full 64-bit address. Otherwise use a trampoline.</span>
-            <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">kind</span> <span class="op">==</span> <span class="ident">RelocationKind::Abs8</span> <span class="op">|</span><span class="op">|</span> <span class="ident">r</span>.<span class="ident">kind</span> <span class="op">==</span> <span class="ident">RelocationKind::X86PCRel8</span> {
-                <span class="ident">function_pointer</span>(<span class="ident">libcall</span>)
-            } <span class="kw">else</span> {
-                <span class="ident">get_libcall_trampoline</span>(
-                    <span class="ident">libcall</span>,
-                    <span class="ident">allocated_sections</span>[<span class="ident">libcall_trampolines</span>].<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                    <span class="ident">libcall_trampoline_len</span>,
+    <span class="kw">let </span>target_func_address: usize = <span class="kw">match </span>r.reloc_target {
+        RelocationTarget::LocalFunc(index) =&gt; <span class="kw-2">*</span>allocated_functions[index].ptr <span class="kw">as </span>usize,
+        RelocationTarget::LibCall(libcall) =&gt; {
+            <span class="comment">// Use the direct target of the libcall if the relocation supports
+            // a full 64-bit address. Otherwise use a trampoline.
+            </span><span class="kw">if </span>r.kind == RelocationKind::Abs8 || r.kind == RelocationKind::X86PCRel8 {
+                function_pointer(libcall)
+            } <span class="kw">else </span>{
+                get_libcall_trampoline(
+                    libcall,
+                    allocated_sections[libcall_trampolines].<span class="number">0 </span><span class="kw">as </span>usize,
+                    libcall_trampoline_len,
                 )
             }
         }
-        <span class="ident">RelocationTarget::CustomSection</span>(<span class="ident">custom_section</span>) =&gt; {
-            <span class="kw-2">*</span><span class="ident">allocated_sections</span>[<span class="ident">custom_section</span>] <span class="kw">as</span> <span class="ident">usize</span>
+        RelocationTarget::CustomSection(custom_section) =&gt; {
+            <span class="kw-2">*</span>allocated_sections[custom_section] <span class="kw">as </span>usize
         }
     };
 
-    <span class="kw">match</span> <span class="ident">r</span>.<span class="ident">kind</span> {
-        <span class="ident">RelocationKind::Abs8</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u64</span>, <span class="ident">reloc_delta</span>);
+    <span class="kw">match </span>r.kind {
+        RelocationKind::Abs8 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64, reloc_delta);
         },
-        <span class="ident">RelocationKind::X86PCRel4</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span> <span class="kw">as</span> <span class="kw">_</span>);
+        RelocationKind::X86PCRel4 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta <span class="kw">as _</span>);
         },
-        <span class="ident">RelocationKind::X86PCRel8</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u64</span>, <span class="ident">reloc_delta</span>);
+        RelocationKind::X86PCRel8 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64, reloc_delta);
         },
-        <span class="ident">RelocationKind::X86CallPCRel4</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span> <span class="kw">as</span> <span class="kw">_</span>);
+        RelocationKind::X86CallPCRel4 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta <span class="kw">as _</span>);
         },
-        <span class="ident">RelocationKind::Arm64Call</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="kw">if</span> (<span class="ident">reloc_delta</span> <span class="kw">as</span> <span class="ident">i64</span>).<span class="ident">abs</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="number">0x1000_0000</span> {
+        RelocationKind::Arm64Call =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">if </span>(reloc_delta <span class="kw">as </span>i64).abs() &gt;= <span class="number">0x1000_0000 </span>{
                 <span class="macro">panic!</span>(
                     <span class="string">&quot;Relocation to big for {:?} for {:?} with {:x}, current val {:x}&quot;</span>,
-                    <span class="ident">r</span>.<span class="ident">kind</span>,
-                    <span class="ident">r</span>.<span class="ident">reloc_target</span>,
-                    <span class="ident">reloc_delta</span>,
-                    <span class="ident">read_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>)
+                    r.kind,
+                    r.reloc_target,
+                    reloc_delta,
+                    read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32)
                 )
             }
-            <span class="kw">let</span> <span class="ident">reloc_delta</span> <span class="op">=</span> (((<span class="ident">reloc_delta</span> <span class="op">/</span> <span class="number">4</span>) <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">&amp;</span> <span class="number">0x3ff_ffff</span>)
-                <span class="op">|</span> (<span class="ident">read_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>) <span class="op">&amp;</span> <span class="number">0xfc00_0000</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span>);
+            <span class="kw">let </span>reloc_delta = (((reloc_delta / <span class="number">4</span>) <span class="kw">as </span>u32) &amp; <span class="number">0x3ff_ffff</span>)
+                | (read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32) &amp; <span class="number">0xfc00_0000</span>);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
         },
-        <span class="ident">RelocationKind::Arm64Movw0</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="kw">let</span> <span class="ident">reloc_delta</span> <span class="op">=</span>
-                (((<span class="ident">reloc_delta</span> <span class="op">&amp;</span> <span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">5</span>) <span class="op">|</span> <span class="ident">read_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span>);
+        RelocationKind::Arm64Movw0 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta =
+                (((reloc_delta &amp; <span class="number">0xffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>) | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
         },
-        <span class="ident">RelocationKind::Arm64Movw1</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="kw">let</span> <span class="ident">reloc_delta</span> <span class="op">=</span> ((((<span class="ident">reloc_delta</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">16</span>) <span class="op">&amp;</span> <span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">5</span>)
-                <span class="op">|</span> <span class="ident">read_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span>);
+        RelocationKind::Arm64Movw1 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta = ((((reloc_delta &gt;&gt; <span class="number">16</span>) &amp; <span class="number">0xffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
         },
-        <span class="ident">RelocationKind::Arm64Movw2</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="kw">let</span> <span class="ident">reloc_delta</span> <span class="op">=</span> ((((<span class="ident">reloc_delta</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">32</span>) <span class="op">&amp;</span> <span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">5</span>)
-                <span class="op">|</span> <span class="ident">read_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span>);
+        RelocationKind::Arm64Movw2 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta = ((((reloc_delta &gt;&gt; <span class="number">32</span>) &amp; <span class="number">0xffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
         },
-        <span class="ident">RelocationKind::Arm64Movw3</span> =&gt; <span class="kw">unsafe</span> {
-            <span class="kw">let</span> (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>) <span class="op">=</span> <span class="ident">r</span>.<span class="ident">for_address</span>(<span class="ident">body</span>, <span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u64</span>);
-            <span class="kw">let</span> <span class="ident">reloc_delta</span> <span class="op">=</span> ((((<span class="ident">reloc_delta</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">48</span>) <span class="op">&amp;</span> <span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">5</span>)
-                <span class="op">|</span> <span class="ident">read_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>);
-            <span class="ident">write_unaligned</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u32</span>, <span class="ident">reloc_delta</span>);
+        RelocationKind::Arm64Movw3 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta = ((((reloc_delta &gt;&gt; <span class="number">48</span>) &amp; <span class="number">0xffff</span>) <span class="kw">as </span>u32) &lt;&lt; <span class="number">5</span>)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
         },
-        <span class="ident">kind</span> =&gt; <span class="macro">panic!</span>(
+        RelocationKind::RiscvPCRelHi20 =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+
+            <span class="comment">// save for later reference with RiscvPCRelLo12I
+            </span>riscv_pcrel_hi20s.insert(reloc_address, reloc_delta <span class="kw">as </span>u32);
+
+            <span class="kw">let </span>reloc_delta = ((reloc_delta.wrapping_add(<span class="number">0x800</span>) &amp; <span class="number">0xfffff000</span>) <span class="kw">as </span>u32)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
+        },
+        RelocationKind::RiscvPCRelLo12I =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_abs) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta = ((riscv_pcrel_hi20s.get(<span class="kw-2">&amp;</span>(reloc_abs <span class="kw">as </span>usize)).expect(
+                <span class="string">&quot;R_RISCV_PCREL_LO12_I relocation target must be a symbol with R_RISCV_PCREL_HI20&quot;</span>,
+            ) &amp; <span class="number">0xfff</span>)
+                &lt;&lt; <span class="number">20</span>)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32, reloc_delta);
+        },
+        RelocationKind::RiscvCall =&gt; <span class="kw">unsafe </span>{
+            <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
+            <span class="kw">let </span>reloc_delta = ((reloc_delta &amp; <span class="number">0xfff</span>) &lt;&lt; <span class="number">52</span>)
+                | (reloc_delta.wrapping_add(<span class="number">0x800</span>) &amp; <span class="number">0xfffff000</span>)
+                | read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64);
+            write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64, reloc_delta);
+        },
+        kind =&gt; <span class="macro">panic!</span>(
             <span class="string">&quot;Relocation kind unsupported in the current architecture {}&quot;</span>,
-            <span class="ident">kind</span>
+            kind
         ),
     }
 }
 
-<span class="doccomment">/// Links a module, patching the allocated functions with the</span>
-<span class="doccomment">/// required relocations and jump tables.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">link_module</span>(
-    <span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    <span class="ident">allocated_functions</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionExtent</span><span class="op">&gt;</span>,
-    <span class="ident">function_relocations</span>: <span class="ident">Relocations</span>,
-    <span class="ident">allocated_sections</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">SectionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">section_relocations</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">libcall_trampolines</span>: <span class="ident">SectionIndex</span>,
-    <span class="ident">trampoline_len</span>: <span class="ident">usize</span>,
+<span class="doccomment">/// Links a module, patching the allocated functions with the
+/// required relocations and jump tables.
+</span><span class="kw">pub fn </span>link_module(
+    _module: <span class="kw-2">&amp;</span>ModuleInfo,
+    allocated_functions: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
+    function_relocations: Relocations,
+    allocated_sections: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
+    section_relocations: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, Vec&lt;Relocation&gt;&gt;,
+    libcall_trampolines: SectionIndex,
+    trampoline_len: usize,
 ) {
-    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">section_relocs</span>) <span class="kw">in</span> <span class="ident">section_relocations</span>.<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">allocated_sections</span>[<span class="ident">i</span>] <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">section_relocs</span> {
-            <span class="ident">apply_relocation</span>(
-                <span class="ident">body</span>,
-                <span class="ident">r</span>,
-                <span class="ident">allocated_functions</span>,
-                <span class="ident">allocated_sections</span>,
-                <span class="ident">libcall_trampolines</span>,
-                <span class="ident">trampoline_len</span>,
+    <span class="kw">let </span><span class="kw-2">mut </span>riscv_pcrel_hi20s: HashMap&lt;usize, u32&gt; = HashMap::new();
+
+    <span class="kw">for </span>(i, section_relocs) <span class="kw">in </span>section_relocations.iter() {
+        <span class="kw">let </span>body = <span class="kw-2">*</span>allocated_sections[i] <span class="kw">as </span>usize;
+        <span class="kw">for </span>r <span class="kw">in </span>section_relocs {
+            apply_relocation(
+                body,
+                r,
+                allocated_functions,
+                allocated_sections,
+                libcall_trampolines,
+                trampoline_len,
+                <span class="kw-2">&amp;mut </span>riscv_pcrel_hi20s,
             );
         }
     }
-    <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">function_relocs</span>) <span class="kw">in</span> <span class="ident">function_relocations</span>.<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">allocated_functions</span>[<span class="ident">i</span>].<span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">function_relocs</span> {
-            <span class="ident">apply_relocation</span>(
-                <span class="ident">body</span>,
-                <span class="ident">r</span>,
-                <span class="ident">allocated_functions</span>,
-                <span class="ident">allocated_sections</span>,
-                <span class="ident">libcall_trampolines</span>,
-                <span class="ident">trampoline_len</span>,
+    <span class="kw">for </span>(i, function_relocs) <span class="kw">in </span>function_relocations.iter() {
+        <span class="kw">let </span>body = <span class="kw-2">*</span>allocated_functions[i].ptr <span class="kw">as </span>usize;
+        <span class="kw">for </span>r <span class="kw">in </span>function_relocs {
+            apply_relocation(
+                body,
+                r,
+                allocated_functions,
+                allocated_sections,
+                libcall_trampolines,
+                trampoline_len,
+                <span class="kw-2">&amp;mut </span>riscv_pcrel_hi20s,
             );
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/trampoline/function_call.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function_call.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/trampoline/function_call.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function_call.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -113,120 +113,120 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! A trampoline generator for calling Wasm functions easily.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! That way, you can start calling Wasm functions doing things like:</span>
-<span class="doccomment">//! ```ignore</span>
-<span class="doccomment">//! let my_func = instance.exports.get(&quot;func&quot;);</span>
-<span class="doccomment">//! my_func.call([1, 2])</span>
-<span class="doccomment">//! ```</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator</span>::{<span class="ident">compiled_function_unwind_info</span>, <span class="ident">signature_to_cranelift_ir</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::ir::InstBuilder</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetIsa</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::Context</span>;
-<span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>};
-<span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileError</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionType</span>};
+</span><span class="doccomment">//! A trampoline generator for calling Wasm functions easily.
+//!
+//! That way, you can start calling Wasm functions doing things like:
+//! ```ignore
+//! let my_func = instance.exports.get(&quot;func&quot;);
+//! my_func.call([1, 2])
+//! ```
+</span><span class="kw">use </span><span class="kw">crate</span>::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
+<span class="kw">use </span>cranelift_codegen::ir;
+<span class="kw">use </span>cranelift_codegen::ir::InstBuilder;
+<span class="kw">use </span>cranelift_codegen::isa::TargetIsa;
+<span class="kw">use </span>cranelift_codegen::Context;
+<span class="kw">use </span>cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+<span class="kw">use </span>std::mem;
+<span class="kw">use </span>wasmer_types::{CompileError, FunctionBody, FunctionType};
 
-<span class="doccomment">/// Create a trampoline for invoking a WebAssembly function.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_trampoline_function_call</span>(
-    <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">TargetIsa</span>,
-    <span class="ident">fn_builder_ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilderContext</span>,
-    <span class="ident">func_type</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FunctionBody</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">pointer_type</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">pointer_type</span>();
-    <span class="kw">let</span> <span class="ident">frontend_config</span> <span class="op">=</span> <span class="ident">isa</span>.<span class="ident">frontend_config</span>();
-    <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">signature_to_cranelift_ir</span>(<span class="ident">func_type</span>, <span class="ident">frontend_config</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wrapper_sig</span> <span class="op">=</span> <span class="ident">ir::Signature::new</span>(<span class="ident">frontend_config</span>.<span class="ident">default_call_conv</span>);
+<span class="doccomment">/// Create a trampoline for invoking a WebAssembly function.
+</span><span class="kw">pub fn </span>make_trampoline_function_call(
+    isa: <span class="kw-2">&amp;</span><span class="kw">dyn </span>TargetIsa,
+    fn_builder_ctx: <span class="kw-2">&amp;mut </span>FunctionBuilderContext,
+    func_type: <span class="kw-2">&amp;</span>FunctionType,
+) -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
+    <span class="kw">let </span>pointer_type = isa.pointer_type();
+    <span class="kw">let </span>frontend_config = isa.frontend_config();
+    <span class="kw">let </span>signature = signature_to_cranelift_ir(func_type, frontend_config);
+    <span class="kw">let </span><span class="kw-2">mut </span>wrapper_sig = ir::Signature::new(frontend_config.default_call_conv);
 
-    <span class="comment">// Add the callee `vmctx` parameter.</span>
-    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::special</span>(
-        <span class="ident">pointer_type</span>,
-        <span class="ident">ir::ArgumentPurpose::VMContext</span>,
+    <span class="comment">// Add the callee `vmctx` parameter.
+    </span>wrapper_sig.params.push(ir::AbiParam::special(
+        pointer_type,
+        ir::ArgumentPurpose::VMContext,
     ));
 
-    <span class="comment">// Add the `callee_address` parameter.</span>
-    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::new</span>(<span class="ident">pointer_type</span>));
+    <span class="comment">// Add the `callee_address` parameter.
+    </span>wrapper_sig.params.push(ir::AbiParam::new(pointer_type));
 
-    <span class="comment">// Add the `values_vec` parameter.</span>
-    <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::new</span>(<span class="ident">pointer_type</span>));
+    <span class="comment">// Add the `values_vec` parameter.
+    </span>wrapper_sig.params.push(ir::AbiParam::new(pointer_type));
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">Context::new</span>();
-    <span class="ident">context</span>.<span class="ident">func</span> <span class="op">=</span> <span class="ident">ir::Function::with_name_signature</span>(<span class="ident">ir::UserFuncName::user</span>(<span class="number">0</span>, <span class="number">0</span>), <span class="ident">wrapper_sig</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>context = Context::new();
+    context.func = ir::Function::with_name_signature(ir::UserFuncName::user(<span class="number">0</span>, <span class="number">0</span>), wrapper_sig);
 
-    <span class="kw">let</span> <span class="ident">value_size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span>();
+    <span class="kw">let </span>value_size = mem::size_of::&lt;u128&gt;();
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">FunctionBuilder::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">context</span>.<span class="ident">func</span>, <span class="ident">fn_builder_ctx</span>);
-        <span class="kw">let</span> <span class="ident">block0</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = FunctionBuilder::new(<span class="kw-2">&amp;mut </span>context.func, fn_builder_ctx);
+        <span class="kw">let </span>block0 = builder.create_block();
 
-        <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_params</span>(<span class="ident">block0</span>);
-        <span class="ident">builder</span>.<span class="ident">switch_to_block</span>(<span class="ident">block0</span>);
-        <span class="ident">builder</span>.<span class="ident">seal_block</span>(<span class="ident">block0</span>);
+        builder.append_block_params_for_function_params(block0);
+        builder.switch_to_block(block0);
+        builder.seal_block(block0);
 
-        <span class="kw">let</span> (<span class="ident">vmctx_ptr_val</span>, <span class="ident">callee_value</span>, <span class="ident">values_vec_ptr_val</span>) <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">block_params</span>(<span class="ident">block0</span>);
-            (<span class="ident">params</span>[<span class="number">0</span>], <span class="ident">params</span>[<span class="number">1</span>], <span class="ident">params</span>[<span class="number">2</span>])
+        <span class="kw">let </span>(vmctx_ptr_val, callee_value, values_vec_ptr_val) = {
+            <span class="kw">let </span>params = builder.func.dfg.block_params(block0);
+            (params[<span class="number">0</span>], params[<span class="number">1</span>], params[<span class="number">2</span>])
         };
 
-        <span class="comment">// Load the argument values out of `values_vec`.</span>
-        <span class="kw">let</span> <span class="ident">mflags</span> <span class="op">=</span> <span class="ident">ir::MemFlags::trusted</span>();
-        <span class="kw">let</span> <span class="ident">callee_args</span> <span class="op">=</span> <span class="ident">signature</span>
-            .<span class="ident">params</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">r</span>)<span class="op">|</span> {
-                <span class="kw">match</span> <span class="ident">i</span> {
-                    <span class="number">0</span> =&gt; <span class="ident">vmctx_ptr_val</span>,
-                    <span class="kw">_</span> =&gt;
-                    <span class="comment">// i - 1 because vmctx is not passed through `values_vec`.</span>
-                    {
-                        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">load</span>(
-                            <span class="ident">r</span>.<span class="ident">value_type</span>,
-                            <span class="ident">mflags</span>,
-                            <span class="ident">values_vec_ptr_val</span>,
-                            ((<span class="ident">i</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">*</span> <span class="ident">value_size</span>) <span class="kw">as</span> <span class="ident">i32</span>,
+        <span class="comment">// Load the argument values out of `values_vec`.
+        </span><span class="kw">let </span>mflags = ir::MemFlags::trusted();
+        <span class="kw">let </span>callee_args = signature
+            .params
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                <span class="kw">match </span>i {
+                    <span class="number">0 </span>=&gt; vmctx_ptr_val,
+                    <span class="kw">_ </span>=&gt;
+                    <span class="comment">// i - 1 because vmctx is not passed through `values_vec`.
+                    </span>{
+                        builder.ins().load(
+                            r.value_type,
+                            mflags,
+                            values_vec_ptr_val,
+                            ((i - <span class="number">1</span>) * value_size) <span class="kw">as </span>i32,
                         )
                     }
                 }
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let</span> <span class="ident">new_sig</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">import_signature</span>(<span class="ident">signature</span>);
+        <span class="kw">let </span>new_sig = builder.import_signature(signature);
 
-        <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">builder</span>
-            .<span class="ident">ins</span>()
-            .<span class="ident">call_indirect</span>(<span class="ident">new_sig</span>, <span class="ident">callee_value</span>, <span class="kw-2">&amp;</span><span class="ident">callee_args</span>);
+        <span class="kw">let </span>call = builder
+            .ins()
+            .call_indirect(new_sig, callee_value, <span class="kw-2">&amp;</span>callee_args);
 
-        <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">inst_results</span>(<span class="ident">call</span>).<span class="ident">to_vec</span>();
+        <span class="kw">let </span>results = builder.func.dfg.inst_results(call).to_vec();
 
-        <span class="comment">// Store the return values into `values_vec`.</span>
-        <span class="kw">let</span> <span class="ident">mflags</span> <span class="op">=</span> <span class="ident">ir::MemFlags::trusted</span>();
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">r</span>) <span class="kw">in</span> <span class="ident">results</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-            <span class="ident">builder</span>
-                .<span class="ident">ins</span>()
-                .<span class="ident">store</span>(<span class="ident">mflags</span>, <span class="kw-2">*</span><span class="ident">r</span>, <span class="ident">values_vec_ptr_val</span>, (<span class="ident">i</span> <span class="op">*</span> <span class="ident">value_size</span>) <span class="kw">as</span> <span class="ident">i32</span>);
+        <span class="comment">// Store the return values into `values_vec`.
+        </span><span class="kw">let </span>mflags = ir::MemFlags::trusted();
+        <span class="kw">for </span>(i, r) <span class="kw">in </span>results.iter().enumerate() {
+            builder
+                .ins()
+                .store(mflags, <span class="kw-2">*</span>r, values_vec_ptr_val, (i * value_size) <span class="kw">as </span>i32);
         }
 
-        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">return_</span>(<span class="kw-2">&amp;</span>[]);
-        <span class="ident">builder</span>.<span class="ident">finalize</span>()
+        builder.ins().return_(<span class="kw-2">&amp;</span>[]);
+        builder.finalize()
     }
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code_buf</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>code_buf = Vec::new();
 
-    <span class="ident">context</span>
-        .<span class="ident">compile_and_emit</span>(<span class="ident">isa</span>, <span class="kw-2">&amp;mut</span> <span class="ident">code_buf</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">error</span>.<span class="ident">inner</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+    context
+        .compile_and_emit(isa, <span class="kw-2">&amp;mut </span>code_buf)
+        .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="ident">compiled_function_unwind_info</span>(<span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>)<span class="question-mark">?</span>.<span class="ident">maybe_into_to_windows_unwind</span>();
+    <span class="kw">let </span>unwind_info = compiled_function_unwind_info(isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">?</span>.maybe_into_to_windows_unwind();
 
-    <span class="prelude-val">Ok</span>(<span class="ident">FunctionBody</span> {
-        <span class="ident">body</span>: <span class="ident">code_buf</span>,
-        <span class="ident">unwind_info</span>,
+    <span class="prelude-val">Ok</span>(FunctionBody {
+        body: code_buf,
+        unwind_info,
     })
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

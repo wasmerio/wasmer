@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli-compiler/src/common.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>common.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli-compiler/src/common.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>common.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -53,58 +53,58 @@
 <span id="51">51</span>
 <span id="52">52</span>
 <span id="53">53</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
-<span class="doccomment">//! commands.</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VERSION</span>;
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::env</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+</pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
+//! commands.
+</span><span class="kw">use </span><span class="kw">crate</span>::VERSION;
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>std::env;
+<span class="kw">use </span>std::path::PathBuf;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>, <span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
-<span class="doccomment">/// The WebAssembly features that can be passed through the</span>
-<span class="doccomment">/// Command Line args.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmFeatures</span> {
-    <span class="doccomment">/// Enable support for the SIMD proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-simd&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">simd</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Debug, Parser, Clone, Default)]
+</span><span class="doccomment">/// The WebAssembly features that can be passed through the
+/// Command Line args.
+</span><span class="kw">pub struct </span>WasmFeatures {
+    <span class="doccomment">/// Enable support for the SIMD proposal.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;enable-simd&quot;</span>)]
+    </span><span class="kw">pub </span>simd: bool,
 
-    <span class="doccomment">/// Enable support for the threads proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-threads&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable support for the threads proposal.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;enable-threads&quot;</span>)]
+    </span><span class="kw">pub </span>threads: bool,
 
-    <span class="doccomment">/// Enable support for the reference types proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-reference-types&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">reference_types</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable support for the reference types proposal.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;enable-reference-types&quot;</span>)]
+    </span><span class="kw">pub </span>reference_types: bool,
 
-    <span class="doccomment">/// Enable support for the multi value proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-multi-value&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">multi_value</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable support for the multi value proposal.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;enable-multi-value&quot;</span>)]
+    </span><span class="kw">pub </span>multi_value: bool,
 
-    <span class="doccomment">/// Enable support for the bulk memory proposal.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-bulk-memory&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">bulk_memory</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable support for the bulk memory proposal.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;enable-bulk-memory&quot;</span>)]
+    </span><span class="kw">pub </span>bulk_memory: bool,
 
-    <span class="doccomment">/// Enable support for all pre-standard proposals.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-all&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">all</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Enable support for all pre-standard proposals.
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;enable-all&quot;</span>)]
+    </span><span class="kw">pub </span>all: bool,
 }
 
-<span class="doccomment">/// Get the cache dir</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_cache_dir</span>() -&gt; <span class="ident">PathBuf</span> {
-    <span class="kw">match</span> <span class="ident">env::var</span>(<span class="string">&quot;WASMER_CACHE_DIR&quot;</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">dir</span>) =&gt; {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">dir</span>);
-            <span class="ident">path</span>.<span class="ident">push</span>(<span class="ident">VERSION</span>);
-            <span class="ident">path</span>
+<span class="doccomment">/// Get the cache dir
+</span><span class="kw">pub fn </span>get_cache_dir() -&gt; PathBuf {
+    <span class="kw">match </span>env::var(<span class="string">&quot;WASMER_CACHE_DIR&quot;</span>) {
+        <span class="prelude-val">Ok</span>(dir) =&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>path = PathBuf::from(dir);
+            path.push(VERSION);
+            path
         }
         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-            <span class="comment">// We use a temporal directory for saving cache files</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">env::temp_dir</span>();
-            <span class="ident">temp_dir</span>.<span class="ident">push</span>(<span class="string">&quot;wasmer&quot;</span>);
-            <span class="ident">temp_dir</span>.<span class="ident">push</span>(<span class="ident">VERSION</span>);
-            <span class="ident">temp_dir</span>
+            <span class="comment">// We use a temporal directory for saving cache files
+            </span><span class="kw">let </span><span class="kw-2">mut </span>temp_dir = env::temp_dir();
+            temp_dir.push(<span class="string">&quot;wasmer&quot;</span>);
+            temp_dir.push(VERSION);
+            temp_dir
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

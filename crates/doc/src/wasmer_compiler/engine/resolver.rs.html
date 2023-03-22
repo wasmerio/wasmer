@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/resolver.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>resolver.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/resolver.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>resolver.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -198,205 +198,207 @@
 <span id="198">198</span>
 <span id="199">199</span>
 <span id="200">200</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.</span>
+<span id="201">201</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::LinkError</span>;
-<span class="kw">use</span> <span class="ident">more_asserts::assert_ge</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">ExternType</span>, <span class="ident">FunctionIndex</span>, <span class="ident">ImportError</span>, <span class="ident">ImportIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableIndex</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::LinkError;
+<span class="kw">use </span>more_asserts::assert_ge;
+<span class="kw">use </span>wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::{
+    ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
 };
 
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FunctionBodyPtr</span>, <span class="ident">Imports</span>, <span class="ident">LinearMemory</span>, <span class="ident">MemoryStyle</span>, <span class="ident">StoreObjects</span>, <span class="ident">TableStyle</span>, <span class="ident">VMExtern</span>,
-    <span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionImport</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMGlobalImport</span>, <span class="ident">VMMemoryImport</span>,
-    <span class="ident">VMTableImport</span>,
+<span class="kw">use </span>wasmer_vm::{
+    FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
+    VMTableImport,
 };
 
-<span class="doccomment">/// Get an `ExternType` given a import index.</span>
-<span class="kw">fn</span> <span class="ident">get_extern_from_import</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>, <span class="ident">import_index</span>: <span class="kw-2">&amp;</span><span class="ident">ImportIndex</span>) -&gt; <span class="ident">ExternType</span> {
-    <span class="kw">match</span> <span class="ident">import_index</span> {
-        <span class="ident">ImportIndex::Function</span>(<span class="ident">index</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">signatures</span>[<span class="ident">module</span>.<span class="ident">functions</span>[<span class="kw-2">*</span><span class="ident">index</span>]].<span class="ident">clone</span>();
-            <span class="ident">ExternType::Function</span>(<span class="ident">func</span>)
+<span class="doccomment">/// Get an `ExternType` given a import index.
+</span><span class="kw">fn </span>get_extern_from_import(module: <span class="kw-2">&amp;</span>ModuleInfo, import_index: <span class="kw-2">&amp;</span>ImportIndex) -&gt; ExternType {
+    <span class="kw">match </span>import_index {
+        ImportIndex::Function(index) =&gt; {
+            <span class="kw">let </span>func = module.signatures[module.functions[<span class="kw-2">*</span>index]].clone();
+            ExternType::Function(func)
         }
-        <span class="ident">ImportIndex::Table</span>(<span class="ident">index</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">tables</span>[<span class="kw-2">*</span><span class="ident">index</span>];
-            <span class="ident">ExternType::Table</span>(<span class="ident">table</span>)
+        ImportIndex::Table(index) =&gt; {
+            <span class="kw">let </span>table = module.tables[<span class="kw-2">*</span>index];
+            ExternType::Table(table)
         }
-        <span class="ident">ImportIndex::Memory</span>(<span class="ident">index</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">memories</span>[<span class="kw-2">*</span><span class="ident">index</span>];
-            <span class="ident">ExternType::Memory</span>(<span class="ident">memory</span>)
+        ImportIndex::Memory(index) =&gt; {
+            <span class="kw">let </span>memory = module.memories[<span class="kw-2">*</span>index];
+            ExternType::Memory(memory)
         }
-        <span class="ident">ImportIndex::Global</span>(<span class="ident">index</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">global</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">globals</span>[<span class="kw-2">*</span><span class="ident">index</span>];
-            <span class="ident">ExternType::Global</span>(<span class="ident">global</span>)
-        }
-    }
-}
-
-<span class="doccomment">/// Get an `ExternType` given an export (and Engine signatures in case is a function).</span>
-<span class="kw">fn</span> <span class="ident">get_extern_type</span>(<span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>, <span class="ident">extern_</span>: <span class="kw-2">&amp;</span><span class="ident">VMExtern</span>) -&gt; <span class="ident">ExternType</span> {
-    <span class="kw">match</span> <span class="ident">extern_</span> {
-        <span class="ident">VMExtern::Function</span>(<span class="ident">f</span>) =&gt; <span class="ident">ExternType::Function</span>(<span class="ident">f</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">signature</span>.<span class="ident">clone</span>()),
-        <span class="ident">VMExtern::Table</span>(<span class="ident">t</span>) =&gt; <span class="ident">ExternType::Table</span>(<span class="kw-2">*</span><span class="ident">t</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">ty</span>()),
-        <span class="ident">VMExtern::Memory</span>(<span class="ident">m</span>) =&gt; <span class="ident">ExternType::Memory</span>(<span class="ident">m</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">ty</span>()),
-        <span class="ident">VMExtern::Global</span>(<span class="ident">g</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">global</span> <span class="op">=</span> <span class="ident">g</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">ty</span>();
-            <span class="ident">ExternType::Global</span>(<span class="kw-2">*</span><span class="ident">global</span>)
+        ImportIndex::Global(index) =&gt; {
+            <span class="kw">let </span>global = module.globals[<span class="kw-2">*</span>index];
+            ExternType::Global(global)
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">get_runtime_size</span>(<span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>, <span class="ident">extern_</span>: <span class="kw-2">&amp;</span><span class="ident">VMExtern</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-    <span class="kw">match</span> <span class="ident">extern_</span> {
-        <span class="ident">VMExtern::Table</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">t</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">get_runtime_size</span>()),
-        <span class="ident">VMExtern::Memory</span>(<span class="ident">m</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">m</span>.<span class="ident">get</span>(<span class="ident">context</span>).<span class="ident">get_runtime_size</span>()),
-        <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+<span class="doccomment">/// Get an `ExternType` given an export (and Engine signatures in case is a function).
+</span><span class="kw">fn </span>get_extern_type(context: <span class="kw-2">&amp;</span>StoreObjects, extern_: <span class="kw-2">&amp;</span>VMExtern) -&gt; ExternType {
+    <span class="kw">match </span>extern_ {
+        VMExtern::Function(f) =&gt; ExternType::Function(f.get(context).signature.clone()),
+        VMExtern::Table(t) =&gt; ExternType::Table(<span class="kw-2">*</span>t.get(context).ty()),
+        VMExtern::Memory(m) =&gt; ExternType::Memory(m.get(context).ty()),
+        VMExtern::Global(g) =&gt; {
+            <span class="kw">let </span>global = g.get(context).ty();
+            ExternType::Global(<span class="kw-2">*</span>global)
+        }
     }
 }
 
-<span class="doccomment">/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by</span>
-<span class="doccomment">/// a `Resolver`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// If all imports are satisfied returns an `Imports` instance required for a module instantiation.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">resolve_imports</span>(
-    <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">VMExtern</span>],
-    <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">StoreObjects</span>,
-    <span class="ident">finished_dynamic_function_trampolines</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
-    <span class="ident">memory_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>,
-    <span class="ident">_table_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Imports</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_functions</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_tables</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_memories</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_imports</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">num_imported_globals</span>);
+<span class="kw">fn </span>get_runtime_size(context: <span class="kw-2">&amp;</span>StoreObjects, extern_: <span class="kw-2">&amp;</span>VMExtern) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+    <span class="kw">match </span>extern_ {
+        VMExtern::Table(t) =&gt; <span class="prelude-val">Some</span>(t.get(context).get_runtime_size()),
+        VMExtern::Memory(m) =&gt; <span class="prelude-val">Some</span>(m.get(context).get_runtime_size()),
+        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+    }
+}
 
-    <span class="kw">for</span> (
-        <span class="ident">wasmer_types::ImportKey</span> {
-            <span class="ident">module</span>: <span class="ident">module_name</span>,
-            <span class="ident">field</span>,
-            <span class="ident">import_idx</span>,
+<span class="doccomment">/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
+/// a `Resolver`.
+///
+/// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
+</span><span class="attribute">#[allow(clippy::result_large_err)]
+</span><span class="kw">pub fn </span>resolve_imports(
+    module: <span class="kw-2">&amp;</span>ModuleInfo,
+    imports: <span class="kw-2">&amp;</span>[VMExtern],
+    context: <span class="kw-2">&amp;</span>StoreObjects,
+    finished_dynamic_function_trampolines: <span class="kw-2">&amp;</span>BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt;,
+    memory_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+    _table_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Imports, LinkError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
+    <span class="kw">let </span><span class="kw-2">mut </span>table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
+    <span class="kw">let </span><span class="kw-2">mut </span>memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
+    <span class="kw">let </span><span class="kw-2">mut </span>global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
+
+    <span class="kw">for </span>(
+        wasmer_types::ImportKey {
+            module: module_name,
+            field,
+            import_idx,
         },
-        <span class="ident">import_index</span>,
-    ) <span class="kw">in</span> <span class="ident">module</span>.<span class="ident">imports</span>.<span class="ident">iter</span>()
+        import_index,
+    ) <span class="kw">in </span>module.imports.iter()
     {
-        <span class="kw">let</span> <span class="ident">import_extern</span> <span class="op">=</span> <span class="ident">get_extern_from_import</span>(<span class="ident">module</span>, <span class="ident">import_index</span>);
-        <span class="kw">let</span> <span class="ident">resolved</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="ident">imports</span>.<span class="ident">get</span>(<span class="kw-2">*</span><span class="ident">import_idx</span> <span class="kw">as</span> <span class="ident">usize</span>) {
-            <span class="ident">r</span>
-        } <span class="kw">else</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
-                <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
-                <span class="ident">field</span>.<span class="ident">to_string</span>(),
-                <span class="ident">ImportError::UnknownImport</span>(<span class="ident">import_extern</span>),
+        <span class="kw">let </span>import_extern = get_extern_from_import(module, import_index);
+        <span class="kw">let </span>resolved = <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = imports.get(<span class="kw-2">*</span>import_idx <span class="kw">as </span>usize) {
+            r
+        } <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+                module_name.to_string(),
+                field.to_string(),
+                ImportError::UnknownImport(import_extern),
             ));
         };
-        <span class="kw">let</span> <span class="ident">extern_type</span> <span class="op">=</span> <span class="ident">get_extern_type</span>(<span class="ident">context</span>, <span class="ident">resolved</span>);
-        <span class="kw">let</span> <span class="ident">runtime_size</span> <span class="op">=</span> <span class="ident">get_runtime_size</span>(<span class="ident">context</span>, <span class="ident">resolved</span>);
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">extern_type</span>.<span class="ident">is_compatible_with</span>(<span class="kw-2">&amp;</span><span class="ident">import_extern</span>, <span class="ident">runtime_size</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
-                <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
-                <span class="ident">field</span>.<span class="ident">to_string</span>(),
-                <span class="ident">ImportError::IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">extern_type</span>),
+        <span class="kw">let </span>extern_type = get_extern_type(context, resolved);
+        <span class="kw">let </span>runtime_size = get_runtime_size(context, resolved);
+        <span class="kw">if </span>!extern_type.is_compatible_with(<span class="kw-2">&amp;</span>import_extern, runtime_size) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+                module_name.to_string(),
+                field.to_string(),
+                ImportError::IncompatibleType(import_extern, extern_type),
             ));
         }
-        <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">resolved</span> {
-            <span class="ident">VMExtern::Function</span>(<span class="ident">handle</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
-                <span class="kw">let</span> <span class="ident">address</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">f</span>.<span class="ident">kind</span> {
-                    <span class="ident">VMFunctionKind::Dynamic</span> =&gt; {
-                        <span class="comment">// If this is a dynamic imported function,</span>
-                        <span class="comment">// the address of the function is the address of the</span>
-                        <span class="comment">// reverse trampoline.</span>
-                        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">FunctionIndex::new</span>(<span class="ident">function_imports</span>.<span class="ident">len</span>());
-                        <span class="ident">finished_dynamic_function_trampolines</span>[<span class="ident">index</span>].<span class="number">0</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">VMFunctionBody</span> <span class="kw">as</span> <span class="kw">_</span>
-                    }
-                    <span class="ident">VMFunctionKind::Static</span> =&gt; <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">func_ptr</span> },
+        <span class="kw">match </span><span class="kw-2">*</span>resolved {
+            VMExtern::Function(handle) =&gt; {
+                <span class="kw">let </span>f = handle.get(context);
+                <span class="kw">let </span>address = <span class="kw">match </span>f.kind {
+                    VMFunctionKind::Dynamic =&gt; {
+                        <span class="comment">// If this is a dynamic imported function,
+                        // the address of the function is the address of the
+                        // reverse trampoline.
+                        </span><span class="kw">let </span>index = FunctionIndex::new(function_imports.len());
+                        finished_dynamic_function_trampolines[index].<span class="number">0 </span><span class="kw">as </span><span class="kw-2">*mut </span>VMFunctionBody <span class="kw">as _
+                    </span>}
+                    VMFunctionKind::Static =&gt; <span class="kw">unsafe </span>{ f.anyfunc.as_ptr().as_ref().func_ptr },
                 };
 
-                <span class="ident">function_imports</span>.<span class="ident">push</span>(<span class="ident">VMFunctionImport</span> {
-                    <span class="ident">body</span>: <span class="ident">address</span>,
-                    <span class="ident">environment</span>: <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">vmctx</span> },
-                    <span class="ident">handle</span>,
+                function_imports.push(VMFunctionImport {
+                    body: address,
+                    environment: <span class="kw">unsafe </span>{ f.anyfunc.as_ptr().as_ref().vmctx },
+                    handle,
                 });
             }
-            <span class="ident">VMExtern::Table</span>(<span class="ident">handle</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">t</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
-                <span class="kw">match</span> <span class="ident">import_index</span> {
-                    <span class="ident">ImportIndex::Table</span>(<span class="ident">index</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">import_table_ty</span> <span class="op">=</span> <span class="ident">t</span>.<span class="ident">ty</span>();
-                        <span class="kw">let</span> <span class="ident">expected_table_ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">tables</span>[<span class="kw-2">*</span><span class="ident">index</span>];
-                        <span class="kw">if</span> <span class="ident">import_table_ty</span>.<span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">expected_table_ty</span>.<span class="ident">ty</span> {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError::Import</span>(
-                                <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
-                                <span class="ident">field</span>.<span class="ident">to_string</span>(),
-                                <span class="ident">ImportError::IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">extern_type</span>),
+            VMExtern::Table(handle) =&gt; {
+                <span class="kw">let </span>t = handle.get(context);
+                <span class="kw">match </span>import_index {
+                    ImportIndex::Table(index) =&gt; {
+                        <span class="kw">let </span>import_table_ty = t.ty();
+                        <span class="kw">let </span>expected_table_ty = <span class="kw-2">&amp;</span>module.tables[<span class="kw-2">*</span>index];
+                        <span class="kw">if </span>import_table_ty.ty != expected_table_ty.ty {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+                                module_name.to_string(),
+                                field.to_string(),
+                                ImportError::IncompatibleType(import_extern, extern_type),
                             ));
                         }
 
-                        <span class="ident">table_imports</span>.<span class="ident">push</span>(<span class="ident">VMTableImport</span> {
-                            <span class="ident">definition</span>: <span class="ident">t</span>.<span class="ident">vmtable</span>(),
-                            <span class="ident">handle</span>,
+                        table_imports.push(VMTableImport {
+                            definition: t.vmtable(),
+                            handle,
                         });
                     }
-                    <span class="kw">_</span> =&gt; {
+                    <span class="kw">_ </span>=&gt; {
                         <span class="macro">unreachable!</span>(<span class="string">&quot;Table resolution did not match&quot;</span>);
                     }
                 }
             }
-            <span class="ident">VMExtern::Memory</span>(<span class="ident">handle</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
-                <span class="kw">match</span> <span class="ident">import_index</span> {
-                    <span class="ident">ImportIndex::Memory</span>(<span class="ident">index</span>) =&gt; {
-                        <span class="comment">// Sanity-check: Ensure that the imported memory has at least</span>
-                        <span class="comment">// guard-page protections the importing module expects it to have.</span>
-                        <span class="kw">let</span> <span class="ident">export_memory_style</span> <span class="op">=</span> <span class="ident">m</span>.<span class="ident">style</span>();
-                        <span class="kw">let</span> <span class="ident">import_memory_style</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">memory_styles</span>[<span class="kw-2">*</span><span class="ident">index</span>];
-                        <span class="kw">if</span> <span class="kw">let</span> (
-                            <span class="ident">MemoryStyle::Static</span> { <span class="ident">bound</span>, .. },
-                            <span class="ident">MemoryStyle::Static</span> {
-                                <span class="ident">bound</span>: <span class="ident">import_bound</span>,
+            VMExtern::Memory(handle) =&gt; {
+                <span class="kw">let </span>m = handle.get(context);
+                <span class="kw">match </span>import_index {
+                    ImportIndex::Memory(index) =&gt; {
+                        <span class="comment">// Sanity-check: Ensure that the imported memory has at least
+                        // guard-page protections the importing module expects it to have.
+                        </span><span class="kw">let </span>export_memory_style = m.style();
+                        <span class="kw">let </span>import_memory_style = <span class="kw-2">&amp;</span>memory_styles[<span class="kw-2">*</span>index];
+                        <span class="kw">if let </span>(
+                            MemoryStyle::Static { bound, .. },
+                            MemoryStyle::Static {
+                                bound: import_bound,
                                 ..
                             },
-                        ) <span class="op">=</span> (<span class="ident">export_memory_style</span>, <span class="kw-2">&amp;</span><span class="ident">import_memory_style</span>)
+                        ) = (export_memory_style, <span class="kw-2">&amp;</span>import_memory_style)
                         {
-                            <span class="macro">assert_ge!</span>(<span class="ident">bound</span>, <span class="kw-2">*</span><span class="ident">import_bound</span>);
+                            <span class="macro">assert_ge!</span>(bound, <span class="kw-2">*</span>import_bound);
                         }
                         <span class="macro">assert_ge!</span>(
-                            <span class="ident">export_memory_style</span>.<span class="ident">offset_guard_size</span>(),
-                            <span class="ident">import_memory_style</span>.<span class="ident">offset_guard_size</span>()
+                            export_memory_style.offset_guard_size(),
+                            import_memory_style.offset_guard_size()
                         );
                     }
-                    <span class="kw">_</span> =&gt; {
-                        <span class="comment">// This should never be reached, as we did compatibility</span>
-                        <span class="comment">// checks before</span>
-                        <span class="macro">panic!</span>(<span class="string">&quot;Memory resolution didn&#39;t matched&quot;</span>);
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="comment">// This should never be reached, as we did compatibility
+                        // checks before
+                        </span><span class="macro">panic!</span>(<span class="string">&quot;Memory resolution didn&#39;t matched&quot;</span>);
                     }
                 }
 
-                <span class="ident">memory_imports</span>.<span class="ident">push</span>(<span class="ident">VMMemoryImport</span> {
-                    <span class="ident">definition</span>: <span class="ident">m</span>.<span class="ident">vmmemory</span>(),
-                    <span class="ident">handle</span>,
+                memory_imports.push(VMMemoryImport {
+                    definition: m.vmmemory(),
+                    handle,
                 });
             }
 
-            <span class="ident">VMExtern::Global</span>(<span class="ident">handle</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">g</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">context</span>);
-                <span class="ident">global_imports</span>.<span class="ident">push</span>(<span class="ident">VMGlobalImport</span> {
-                    <span class="ident">definition</span>: <span class="ident">g</span>.<span class="ident">vmglobal</span>(),
-                    <span class="ident">handle</span>,
+            VMExtern::Global(handle) =&gt; {
+                <span class="kw">let </span>g = handle.get(context);
+                global_imports.push(VMGlobalImport {
+                    definition: g.vmglobal(),
+                    handle,
                 });
             }
         }
     }
 
-    <span class="prelude-val">Ok</span>(<span class="ident">Imports::new</span>(
-        <span class="ident">function_imports</span>,
-        <span class="ident">table_imports</span>,
-        <span class="ident">memory_imports</span>,
-        <span class="ident">global_imports</span>,
+    <span class="prelude-val">Ok</span>(Imports::new(
+        function_imports,
+        table_imports,
+        memory_imports,
+        global_imports,
     ))
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

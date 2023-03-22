@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/value.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/value.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -475,480 +475,480 @@
 <span id="473">473</span>
 <span id="474">474</span>
 <span id="475">475</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>std::convert::TryFrom;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::string::{String, ToString};
 
-<span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
+<span class="kw">use </span>wasmer_types::Type;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vm</span>::{<span class="ident">VMExternRef</span>, <span class="ident">VMFuncRef</span>};
+<span class="kw">use </span><span class="kw">crate</span>::vm::{VMExternRef, VMFuncRef};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ExternRef</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Function</span>;
+<span class="kw">use </span><span class="kw">crate</span>::ExternRef;
+<span class="kw">use </span><span class="kw">crate</span>::Function;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::AsStoreRef</span>;
+<span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
+<span class="kw">pub use </span>wasmer_types::RawValue;
 
-<span class="doccomment">/// WebAssembly computations manipulate values of basic value types:</span>
-<span class="doccomment">/// * Integers (32 or 64 bit width)</span>
-<span class="doccomment">/// * Floating-point (32 or 64 bit width)</span>
-<span class="doccomment">/// * Vectors (128 bits, with 32 or 64 bit lanes)</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#values&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Value</span> {
-    <span class="doccomment">/// A 32-bit integer.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.</span>
-    <span class="ident">I32</span>(<span class="ident">i32</span>),
+<span class="doccomment">/// WebAssembly computations manipulate values of basic value types:
+/// * Integers (32 or 64 bit width)
+/// * Floating-point (32 or 64 bit width)
+/// * Vectors (128 bits, with 32 or 64 bit lanes)
+///
+/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#values&gt;
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>Value {
+    <span class="doccomment">/// A 32-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
+    </span>I32(i32),
 
-    <span class="doccomment">/// A 64-bit integer.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.</span>
-    <span class="ident">I64</span>(<span class="ident">i64</span>),
+    <span class="doccomment">/// A 64-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
+    </span>I64(i64),
 
-    <span class="doccomment">/// A 32-bit float.</span>
-    <span class="ident">F32</span>(<span class="ident">f32</span>),
+    <span class="doccomment">/// A 32-bit float.
+    </span>F32(f32),
 
-    <span class="doccomment">/// A 64-bit float.</span>
-    <span class="ident">F64</span>(<span class="ident">f64</span>),
+    <span class="doccomment">/// A 64-bit float.
+    </span>F64(f64),
 
-    <span class="doccomment">/// An `externref` value which can hold opaque data to the wasm instance itself.</span>
-    <span class="ident">ExternRef</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// An `externref` value which can hold opaque data to the wasm instance itself.
+    </span>ExternRef(<span class="prelude-ty">Option</span>&lt;ExternRef&gt;),
 
-    <span class="doccomment">/// A first-class reference to a WebAssembly function.</span>
-    <span class="ident">FuncRef</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>),
+    <span class="doccomment">/// A first-class reference to a WebAssembly function.
+    </span>FuncRef(<span class="prelude-ty">Option</span>&lt;Function&gt;),
 
-    <span class="doccomment">/// A 128-bit number</span>
-    <span class="ident">V128</span>(<span class="ident">u128</span>),
+    <span class="doccomment">/// A 128-bit number
+    </span>V128(u128),
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">accessors</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">bind</span>:<span class="ident">ident</span> $((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>:<span class="ident">ident</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ty</span>) <span class="macro-nonterminal">$</span><span class="macro-nonterminal">get</span>:<span class="ident">ident</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">unwrap</span>:<span class="ident">ident</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cvt</span>:<span class="ident">expr</span>))<span class="kw-2">*</span>) =&gt; ($(
-        <span class="doccomment">/// Attempt to access the underlying value of this `Value`, returning</span>
-        <span class="doccomment">/// `None` if it is not the correct type.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span><span class="op">&gt;</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="self">Self</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">bind</span>) <span class="op">=</span> <span class="self">self</span> {
-                <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">cvt</span>)
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            }
+<span class="macro">macro_rules! </span>accessors {
+    (<span class="macro-nonterminal">$bind</span>:ident $((<span class="macro-nonterminal">$variant</span>:ident(<span class="macro-nonterminal">$ty</span>:ty) <span class="macro-nonterminal">$get</span>:ident <span class="macro-nonterminal">$unwrap</span>:ident <span class="macro-nonterminal">$cvt</span>:expr))<span class="kw-2">*</span>) =&gt; ($(
+        <span class="doccomment">/// Attempt to access the underlying value of this `Value`, returning
+        /// `None` if it is not the correct type.
+        </span><span class="kw">pub fn </span><span class="macro-nonterminal">$get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="macro-nonterminal">$ty</span>&gt; {
+            <span class="kw">if let </span><span class="self">Self</span>::<span class="macro-nonterminal">$variant</span>(<span class="macro-nonterminal">$bind</span>) = <span class="self">self </span>{
+                <span class="prelude-val">Some</span>(<span class="macro-nonterminal">$cvt</span>)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
         }
 
-        <span class="doccomment">/// Returns the underlying value of this `Value`, panicking if it&#39;s the</span>
-        <span class="doccomment">/// wrong type.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Panics</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// Panics if `self` is not of the right type.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">unwrap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
-            <span class="self">self</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">get</span>().<span class="ident">expect</span>(<span class="macro">concat!</span>(<span class="string">&quot;expected &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>)))
+        <span class="doccomment">/// Returns the underlying value of this `Value`, panicking if it&#39;s the
+        /// wrong type.
+        ///
+        /// # Panics
+        ///
+        /// Panics if `self` is not of the right type.
+        </span><span class="kw">pub fn </span><span class="macro-nonterminal">$unwrap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="macro-nonterminal">$ty </span>{
+            <span class="self">self</span>.<span class="macro-nonterminal">$get</span>().expect(<span class="macro">concat!</span>(<span class="string">&quot;expected &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$ty</span>)))
         }
     )<span class="kw-2">*</span>)
 }
 
-<span class="kw">impl</span> <span class="ident">Value</span> {
-    <span class="doccomment">/// Returns a null `externref` value.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">null</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">None</span>)
+<span class="kw">impl </span>Value {
+    <span class="doccomment">/// Returns a null `externref` value.
+    </span><span class="kw">pub fn </span>null() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>)
     }
 
-    <span class="doccomment">/// Returns the corresponding [`Type`] for this `Value`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Type</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::I32</span>,
-            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::I64</span>,
-            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::F32</span>,
-            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::F64</span>,
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::ExternRef</span>,
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::FuncRef</span>,
-            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="kw">_</span>) =&gt; <span class="ident">Type::V128</span>,
+    <span class="doccomment">/// Returns the corresponding [`Type`] for this `Value`.
+    </span><span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Type {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::I32(<span class="kw">_</span>) =&gt; Type::I32,
+            <span class="self">Self</span>::I64(<span class="kw">_</span>) =&gt; Type::I64,
+            <span class="self">Self</span>::F32(<span class="kw">_</span>) =&gt; Type::F32,
+            <span class="self">Self</span>::F64(<span class="kw">_</span>) =&gt; Type::F64,
+            <span class="self">Self</span>::ExternRef(<span class="kw">_</span>) =&gt; Type::ExternRef,
+            <span class="self">Self</span>::FuncRef(<span class="kw">_</span>) =&gt; Type::FuncRef,
+            <span class="self">Self</span>::V128(<span class="kw">_</span>) =&gt; Type::V128,
         }
     }
 
-    <span class="doccomment">/// Converts the `Value` into a `RawValue`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">i32</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">i32</span> },
-            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">i64</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">i64</span> },
-            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">f32</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">f32</span> },
-            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">f64</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">f64</span> },
-            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">u128</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">u128</span> },
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">f</span>)) =&gt; <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>).<span class="ident">into_raw</span>(),
+    <span class="doccomment">/// Converts the `Value` into a `RawValue`.
+    </span><span class="kw">pub fn </span>as_raw(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; RawValue {
+        <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+            <span class="self">Self</span>::I32(i32) =&gt; RawValue { i32 },
+            <span class="self">Self</span>::I64(i64) =&gt; RawValue { i64 },
+            <span class="self">Self</span>::F32(f32) =&gt; RawValue { f32 },
+            <span class="self">Self</span>::F64(f64) =&gt; RawValue { f64 },
+            <span class="self">Self</span>::V128(u128) =&gt; RawValue { u128 },
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>f)) =&gt; f.vm_funcref(store).into_raw(),
 
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">funcref</span>: <span class="number">0</span> },
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">e</span>)) =&gt; <span class="ident">e</span>.<span class="ident">vm_externref</span>().<span class="ident">into_raw</span>(),
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="number">0</span> },
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) =&gt; RawValue { funcref: <span class="number">0 </span>},
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>e)) =&gt; e.vm_externref().into_raw(),
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; RawValue { externref: <span class="number">0 </span>},
         }
     }
 
-    <span class="doccomment">/// Converts a `RawValue` to a `Value`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident"><span class="kw">crate</span>::AsStoreMut</span>, <span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">ty</span> {
-            <span class="ident">Type::I32</span> =&gt; <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">raw</span>.<span class="ident">i32</span>),
-            <span class="ident">Type::I64</span> =&gt; <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">raw</span>.<span class="ident">i64</span>),
-            <span class="ident">Type::F32</span> =&gt; <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">raw</span>.<span class="ident">f32</span>),
-            <span class="ident">Type::F64</span> =&gt; <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">raw</span>.<span class="ident">f64</span>),
-            <span class="ident">Type::V128</span> =&gt; <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">raw</span>.<span class="ident">u128</span>),
-            <span class="ident">Type::FuncRef</span> =&gt; {
-                <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="ident">VMFuncRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>)))
+    <span class="doccomment">/// Converts a `RawValue` to a `Value`.
+    ///
+    /// # Safety
+    ///
+    </span><span class="kw">pub unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span><span class="kw">crate</span>::AsStoreMut, ty: Type, raw: RawValue) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>ty {
+            Type::I32 =&gt; <span class="self">Self</span>::I32(raw.i32),
+            Type::I64 =&gt; <span class="self">Self</span>::I64(raw.i64),
+            Type::F32 =&gt; <span class="self">Self</span>::F32(raw.f32),
+            Type::F64 =&gt; <span class="self">Self</span>::F64(raw.f64),
+            Type::V128 =&gt; <span class="self">Self</span>::V128(raw.u128),
+            Type::FuncRef =&gt; {
+                <span class="self">Self</span>::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f)))
             }
-            <span class="ident">Type::ExternRef</span> =&gt; <span class="ident"><span class="self">Self</span>::ExternRef</span>(
-                <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>)),
+            Type::ExternRef =&gt; <span class="self">Self</span>::ExternRef(
+                VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
             ),
         }
     }
 
-    <span class="doccomment">/// Checks whether a value can be used with the given context.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not</span>
-    <span class="doccomment">/// tied to a context and can be freely shared between contexts.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Externref and funcref values are tied to a context and can only be used</span>
-    <span class="doccomment">/// with that context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I64</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::F32</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::F64</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::V128</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">None</span>)
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="bool-val">true</span>,
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">e</span>)) =&gt; <span class="ident">e</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">f</span>)) =&gt; <span class="ident">f</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>),
+    <span class="doccomment">/// Checks whether a value can be used with the given context.
+    ///
+    /// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not
+    /// tied to a context and can be freely shared between contexts.
+    ///
+    /// Externref and funcref values are tied to a context and can only be used
+    /// with that context.
+    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::I32(<span class="kw">_</span>)
+            | <span class="self">Self</span>::I64(<span class="kw">_</span>)
+            | <span class="self">Self</span>::F32(<span class="kw">_</span>)
+            | <span class="self">Self</span>::F64(<span class="kw">_</span>)
+            | <span class="self">Self</span>::V128(<span class="kw">_</span>)
+            | <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>)
+            | <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) =&gt; <span class="bool-val">true</span>,
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(e)) =&gt; e.is_from_store(store),
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(f)) =&gt; f.is_from_store(store),
         }
     }
 
-    <span class="macro">accessors!</span> {
-        <span class="ident">e</span>
-        (<span class="ident">I32</span>(<span class="ident">i32</span>) <span class="ident">i32</span> <span class="ident">unwrap_i32</span> <span class="kw-2">*</span><span class="ident">e</span>)
-        (<span class="ident">I64</span>(<span class="ident">i64</span>) <span class="ident">i64</span> <span class="ident">unwrap_i64</span> <span class="kw-2">*</span><span class="ident">e</span>)
-        (<span class="ident">F32</span>(<span class="ident">f32</span>) <span class="ident">f32</span> <span class="ident">unwrap_f32</span> <span class="kw-2">*</span><span class="ident">e</span>)
-        (<span class="ident">F64</span>(<span class="ident">f64</span>) <span class="ident">f64</span> <span class="ident">unwrap_f64</span> <span class="kw-2">*</span><span class="ident">e</span>)
-        (<span class="ident">ExternRef</span>(<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span>) <span class="ident">externref</span> <span class="ident">unwrap_externref</span> <span class="ident">e</span>)
-        (<span class="ident">FuncRef</span>(<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>) <span class="ident">funcref</span> <span class="ident">unwrap_funcref</span> <span class="ident">e</span>)
-        (<span class="ident">V128</span>(<span class="ident">u128</span>) <span class="ident">v128</span> <span class="ident">unwrap_v128</span> <span class="kw-2">*</span><span class="ident">e</span>)
+    <span class="macro">accessors! </span>{
+        e
+        (I32(i32) i32 unwrap_i32 <span class="kw-2">*</span>e)
+        (I64(i64) i64 unwrap_i64 <span class="kw-2">*</span>e)
+        (F32(f32) f32 unwrap_f32 <span class="kw-2">*</span>e)
+        (F64(f64) f64 unwrap_f64 <span class="kw-2">*</span>e)
+        (ExternRef(<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;ExternRef&gt;) externref unwrap_externref e)
+        (FuncRef(<span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Function&gt;) funcref unwrap_funcref e)
+        (V128(u128) v128 unwrap_v128 <span class="kw-2">*</span>e)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">v</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;I32({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">v</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;I64({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">v</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;F32({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">v</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;F64({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Null ExternRef&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">v</span>)) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ExternRef({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Null FuncRef&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">v</span>)) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;FuncRef({:?})&quot;</span>, <span class="ident">v</span>),
-            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">v</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;V128({:?})&quot;</span>, <span class="ident">v</span>),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;externref&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;funcref&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>.<span class="ident">to_string</span>(),
+<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Value {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::I32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;I32({:?})&quot;</span>, v),
+            <span class="self">Self</span>::I64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;I64({:?})&quot;</span>, v),
+            <span class="self">Self</span>::F32(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;F32({:?})&quot;</span>, v),
+            <span class="self">Self</span>::F64(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;F64({:?})&quot;</span>, v),
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Null ExternRef&quot;</span>),
+            <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ExternRef({:?})&quot;</span>, v),
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Null FuncRef&quot;</span>),
+            <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(v)) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;FuncRef({:?})&quot;</span>, v),
+            <span class="self">Self</span>::V128(v) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;V128({:?})&quot;</span>, v),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">o</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">o</span>) {
-            (<span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            (<span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            (<span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            (<span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            (<span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::V128</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
+<span class="kw">impl </span>ToString <span class="kw">for </span>Value {
+    <span class="kw">fn </span>to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::I32(v) =&gt; v.to_string(),
+            <span class="self">Self</span>::I64(v) =&gt; v.to_string(),
+            <span class="self">Self</span>::F32(v) =&gt; v.to_string(),
+            <span class="self">Self</span>::F64(v) =&gt; v.to_string(),
+            <span class="self">Self</span>::ExternRef(<span class="kw">_</span>) =&gt; <span class="string">&quot;externref&quot;</span>.to_string(),
+            <span class="self">Self</span>::FuncRef(<span class="kw">_</span>) =&gt; <span class="string">&quot;funcref&quot;</span>.to_string(),
+            <span class="self">Self</span>::V128(v) =&gt; v.to_string(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="self">Self</span> {
-        <span class="comment">// In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.</span>
-        <span class="ident"><span class="self">Self</span>::I32</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">i32</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">i64</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">u64</span>) -&gt; <span class="self">Self</span> {
-        <span class="comment">// In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.</span>
-        <span class="ident"><span class="self">Self</span>::I64</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">i64</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">f32</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::F32</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">f64</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::F64</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">Function</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">val</span>))
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::FuncRef</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">ExternRef</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">val</span>))
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::ExternRef</span>(<span class="ident">val</span>)
-    }
-}
-
-<span class="kw">const</span> <span class="ident">NOT_I32</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Value is not of Wasm type i32&quot;</span>;
-<span class="kw">const</span> <span class="ident">NOT_I64</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Value is not of Wasm type i64&quot;</span>;
-<span class="kw">const</span> <span class="ident">NOT_F32</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Value is not of Wasm type f32&quot;</span>;
-<span class="kw">const</span> <span class="ident">NOT_F64</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Value is not of Wasm type f64&quot;</span>;
-<span class="kw">const</span> <span class="ident">NOT_FUNCREF</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Value is not of Wasm type funcref&quot;</span>;
-<span class="kw">const</span> <span class="ident">NOT_EXTERNREF</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;Value is not of Wasm type externref&quot;</span>;
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">i32</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">value</span>.<span class="ident">i32</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I32</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">u32</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">value</span>.<span class="ident">i32</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I32</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">int</span><span class="op">|</span> <span class="ident">int</span> <span class="kw">as</span> <span class="self">Self</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">i64</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">value</span>.<span class="ident">i64</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I64</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">u64</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">value</span>.<span class="ident">i64</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_I64</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">int</span><span class="op">|</span> <span class="ident">int</span> <span class="kw">as</span> <span class="self">Self</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">f32</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">value</span>.<span class="ident">f32</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_F32</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">f64</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">value</span>.<span class="ident">f64</span>().<span class="ident">ok_or</span>(<span class="ident">NOT_F64</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
-
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">value</span> {
-            <span class="ident">Value::FuncRef</span>(<span class="ident">f</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">f</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">NOT_FUNCREF</span>),
+<span class="kw">impl </span>PartialEq <span class="kw">for </span>Value {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, o: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="kw">match </span>(<span class="self">self</span>, o) {
+            (<span class="self">Self</span>::I32(a), <span class="self">Self</span>::I32(b)) =&gt; a == b,
+            (<span class="self">Self</span>::I64(a), <span class="self">Self</span>::I64(b)) =&gt; a == b,
+            (<span class="self">Self</span>::F32(a), <span class="self">Self</span>::F32(b)) =&gt; a == b,
+            (<span class="self">Self</span>::F64(a), <span class="self">Self</span>::F64(b)) =&gt; a == b,
+            (<span class="self">Self</span>::V128(a), <span class="self">Self</span>::V128(b)) =&gt; a == b,
+            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
+<span class="kw">impl </span>From&lt;i32&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: i32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::I32(val)
+    }
+}
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">value</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">value</span> {
-            <span class="ident">Value::ExternRef</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">e</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">NOT_EXTERNREF</span>),
+<span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: u32) -&gt; <span class="self">Self </span>{
+        <span class="comment">// In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
+        </span><span class="self">Self</span>::I32(val <span class="kw">as </span>i32)
+    }
+}
+
+<span class="kw">impl </span>From&lt;i64&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: i64) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::I64(val)
+    }
+}
+
+<span class="kw">impl </span>From&lt;u64&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: u64) -&gt; <span class="self">Self </span>{
+        <span class="comment">// In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
+        </span><span class="self">Self</span>::I64(val <span class="kw">as </span>i64)
+    }
+}
+
+<span class="kw">impl </span>From&lt;f32&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: f32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::F32(val)
+    }
+}
+
+<span class="kw">impl </span>From&lt;f64&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: f64) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::F64(val)
+    }
+}
+
+<span class="kw">impl </span>From&lt;Function&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: Function) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(val))
+    }
+}
+
+<span class="kw">impl </span>From&lt;<span class="prelude-ty">Option</span>&lt;Function&gt;&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: <span class="prelude-ty">Option</span>&lt;Function&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::FuncRef(val)
+    }
+}
+
+<span class="kw">impl </span>From&lt;ExternRef&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: ExternRef) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(val))
+    }
+}
+
+<span class="kw">impl </span>From&lt;<span class="prelude-ty">Option</span>&lt;ExternRef&gt;&gt; <span class="kw">for </span>Value {
+    <span class="kw">fn </span>from(val: <span class="prelude-ty">Option</span>&lt;ExternRef&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::ExternRef(val)
+    }
+}
+
+<span class="kw">const </span>NOT_I32: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type i32&quot;</span>;
+<span class="kw">const </span>NOT_I64: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type i64&quot;</span>;
+<span class="kw">const </span>NOT_F32: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type f32&quot;</span>;
+<span class="kw">const </span>NOT_F64: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type f64&quot;</span>;
+<span class="kw">const </span>NOT_FUNCREF: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type funcref&quot;</span>;
+<span class="kw">const </span>NOT_EXTERNREF: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Value is not of Wasm type externref&quot;</span>;
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>i32 {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        value.i32().ok_or(NOT_I32)
+    }
+}
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>u32 {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        value.i32().ok_or(NOT_I32).map(|int| int <span class="kw">as </span><span class="self">Self</span>)
+    }
+}
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>i64 {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        value.i64().ok_or(NOT_I64)
+    }
+}
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>u64 {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        value.i64().ok_or(NOT_I64).map(|int| int <span class="kw">as </span><span class="self">Self</span>)
+    }
+}
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>f32 {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        value.f32().ok_or(NOT_F32)
+    }
+}
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>f64 {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        value.f64().ok_or(NOT_F64)
+    }
+}
+
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">match </span>value {
+            Value::FuncRef(f) =&gt; <span class="prelude-val">Ok</span>(f),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(NOT_FUNCREF),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ExternRef&gt; {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_value_i32_from_u32</span>() {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
+    <span class="kw">fn </span>try_from(value: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">match </span>value {
+            Value::ExternRef(e) =&gt; <span class="prelude-val">Ok</span>(e),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(NOT_EXTERNREF),
+        }
+    }
+}
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_value_i32_from_u32() {
+        <span class="kw">let </span>bytes = [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>];
+        <span class="kw">let </span>v = Value::from(u32::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I32(i32::from_be_bytes(bytes)));
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u32::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I32</span>(<span class="ident">i32::from_be_bytes</span>(<span class="ident">bytes</span>)));
+        <span class="kw">let </span>bytes = [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>];
+        <span class="kw">let </span>v = Value::from(u32::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I32(i32::from_be_bytes(bytes)));
+
+        <span class="kw">let </span>bytes = [<span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>];
+        <span class="kw">let </span>v = Value::from(u32::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I32(i32::from_be_bytes(bytes)));
+
+        <span class="kw">let </span>bytes = [<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>];
+        <span class="kw">let </span>v = Value::from(u32::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I32(i32::from_be_bytes(bytes)));
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_value_i64_from_u64</span>() {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_value_i64_from_u64() {
+        <span class="kw">let </span>bytes = [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>];
+        <span class="kw">let </span>v = Value::from(u64::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I64(i64::from_be_bytes(bytes)));
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
+        <span class="kw">let </span>bytes = [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x01</span>];
+        <span class="kw">let </span>v = Value::from(u64::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I64(i64::from_be_bytes(bytes)));
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>, <span class="number">0xEE</span>, <span class="number">0xFF</span>, <span class="number">0x00</span>, <span class="number">0x11</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
+        <span class="kw">let </span>bytes = [<span class="number">0xAA</span>, <span class="number">0xBB</span>, <span class="number">0xCC</span>, <span class="number">0xDD</span>, <span class="number">0xEE</span>, <span class="number">0xFF</span>, <span class="number">0x00</span>, <span class="number">0x11</span>];
+        <span class="kw">let </span>v = Value::from(u64::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I64(i64::from_be_bytes(bytes)));
 
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>];
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u64::from_be_bytes</span>(<span class="ident">bytes</span>));
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, <span class="ident">Value::I64</span>(<span class="ident">i64::from_be_bytes</span>(<span class="ident">bytes</span>)));
+        <span class="kw">let </span>bytes = [<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>];
+        <span class="kw">let </span>v = Value::from(u64::from_be_bytes(bytes));
+        <span class="macro">assert_eq!</span>(v, Value::I64(i64::from_be_bytes(bytes)));
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_value_to_i32</span>() {
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::I32</span>(<span class="number">5678</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">i32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="number">5678</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_value_to_i32() {
+        <span class="kw">let </span>value = Value::I32(<span class="number">5678</span>);
+        <span class="kw">let </span>result = i32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="number">5678</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u32::MAX</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">i32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="op">-</span><span class="number">1</span>);
+        <span class="kw">let </span>value = Value::from(u32::MAX);
+        <span class="kw">let </span>result = i32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), -<span class="number">1</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::V128</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">i32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type i32&quot;</span>);
+        <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
+        <span class="kw">let </span>result = i32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i32&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_value_to_u32</span>() {
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u32::MAX</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">u32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="ident">u32::MAX</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_value_to_u32() {
+        <span class="kw">let </span>value = Value::from(u32::MAX);
+        <span class="kw">let </span>result = u32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), u32::MAX);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::I32</span>(<span class="op">-</span><span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">u32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="ident">u32::MAX</span>);
+        <span class="kw">let </span>value = Value::I32(-<span class="number">1</span>);
+        <span class="kw">let </span>result = u32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), u32::MAX);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::V128</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">u32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type i32&quot;</span>);
+        <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
+        <span class="kw">let </span>result = u32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i32&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_value_to_i64</span>() {
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::I64</span>(<span class="number">5678</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">i64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="number">5678</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_value_to_i64() {
+        <span class="kw">let </span>value = Value::I64(<span class="number">5678</span>);
+        <span class="kw">let </span>result = i64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="number">5678</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u64::MAX</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">i64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="op">-</span><span class="number">1</span>);
+        <span class="kw">let </span>value = Value::from(u64::MAX);
+        <span class="kw">let </span>result = i64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), -<span class="number">1</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::V128</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">i64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type i64&quot;</span>);
+        <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
+        <span class="kw">let </span>result = i64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i64&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_value_to_u64</span>() {
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::from</span>(<span class="ident">u64::MAX</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">u64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="ident">u64::MAX</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_value_to_u64() {
+        <span class="kw">let </span>value = Value::from(u64::MAX);
+        <span class="kw">let </span>result = u64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), u64::MAX);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::I64</span>(<span class="op">-</span><span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">u64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="ident">u64::MAX</span>);
+        <span class="kw">let </span>value = Value::I64(-<span class="number">1</span>);
+        <span class="kw">let </span>result = u64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), u64::MAX);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::V128</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">u64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type i64&quot;</span>);
+        <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
+        <span class="kw">let </span>result = u64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type i64&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_value_to_f32</span>() {
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::F32</span>(<span class="number">1.234</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">f32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="number">1.234</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_value_to_f32() {
+        <span class="kw">let </span>value = Value::F32(<span class="number">1.234</span>);
+        <span class="kw">let </span>result = f32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="number">1.234</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::V128</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">f32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type f32&quot;</span>);
+        <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
+        <span class="kw">let </span>result = f32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f32&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::F64</span>(<span class="number">1.234</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">f32::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type f32&quot;</span>);
+        <span class="kw">let </span>value = Value::F64(<span class="number">1.234</span>);
+        <span class="kw">let </span>result = f32::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f32&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_value_to_f64</span>() {
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::F64</span>(<span class="number">1.234</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">f64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap</span>(), <span class="number">1.234</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_value_to_f64() {
+        <span class="kw">let </span>value = Value::F64(<span class="number">1.234</span>);
+        <span class="kw">let </span>result = f64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap(), <span class="number">1.234</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::V128</span>(<span class="number">42</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">f64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
+        <span class="kw">let </span>value = Value::V128(<span class="number">42</span>);
+        <span class="kw">let </span>result = f64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">Value::F32</span>(<span class="number">1.234</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">f64::try_from</span>(<span class="ident">value</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">result</span>.<span class="ident">unwrap_err</span>(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
+        <span class="kw">let </span>value = Value::F32(<span class="number">1.234</span>);
+        <span class="kw">let </span>result = f64::try_from(value);
+        <span class="macro">assert_eq!</span>(result.unwrap_err(), <span class="string">&quot;Value is not of Wasm type f64&quot;</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

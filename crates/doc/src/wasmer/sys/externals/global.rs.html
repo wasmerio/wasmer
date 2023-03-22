@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/global.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>global.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/global.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>global.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -101,106 +101,106 @@
 <span id="99">99</span>
 <span id="100">100</span>
 <span id="101">101</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::errors::RuntimeError</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::value::Value</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vm::VMExternGlobal</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::GlobalType</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Mutability</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">StoreHandle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMGlobal</span>};
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::errors::RuntimeError;
+<span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
+<span class="kw">use </span><span class="kw">crate</span>::value::Value;
+<span class="kw">use </span><span class="kw">crate</span>::vm::VMExternGlobal;
+<span class="kw">use </span><span class="kw">crate</span>::GlobalType;
+<span class="kw">use </span><span class="kw">crate</span>::Mutability;
+<span class="kw">use </span>wasmer_vm::{StoreHandle, VMExtern, VMGlobal};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Global</span> {
-    <span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Global {
+    handle: StoreHandle&lt;VMGlobal&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Global</span> {
-    <span class="doccomment">/// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_value</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">val</span>: <span class="ident">Value</span>,
-        <span class="ident">mutability</span>: <span class="ident">Mutability</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
+<span class="kw">impl </span>Global {
+    <span class="doccomment">/// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_value(
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        val: Value,
+        mutability: Mutability,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, RuntimeError&gt; {
+        <span class="kw">if </span>!val.is_from_store(store) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
         }
-        <span class="kw">let</span> <span class="ident">global</span> <span class="op">=</span> <span class="ident">VMGlobal::new</span>(<span class="ident">GlobalType</span> {
-            <span class="ident">mutability</span>,
-            <span class="ident">ty</span>: <span class="ident">val</span>.<span class="ident">ty</span>(),
+        <span class="kw">let </span>global = VMGlobal::new(GlobalType {
+            mutability,
+            ty: val.ty(),
         });
-        <span class="kw">unsafe</span> {
-            <span class="ident">global</span>.<span class="ident">vmglobal</span>().<span class="ident">as_mut</span>().<span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">as_raw</span>(<span class="ident">store</span>);
+        <span class="kw">unsafe </span>{
+            global.vmglobal().as_mut().val = val.as_raw(store);
         }
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>(), <span class="ident">global</span>),
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            handle: StoreHandle::new(store.objects_mut(), global),
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">GlobalType</span> {
-        <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
+    <span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; GlobalType {
+        <span class="kw-2">*</span><span class="self">self</span>.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">Value</span> {
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">raw</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">handle</span>
-                .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
-                .<span class="ident">vmglobal</span>()
-                .<span class="ident">as_ref</span>()
-                .<span class="ident">val</span>;
-            <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>().<span class="ident">ty</span>;
-            <span class="ident">Value::from_raw</span>(<span class="ident">store</span>, <span class="ident">ty</span>, <span class="ident">raw</span>)
+    <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; Value {
+        <span class="kw">unsafe </span>{
+            <span class="kw">let </span>raw = <span class="self">self
+                </span>.handle
+                .get(store.as_store_ref().objects())
+                .vmglobal()
+                .as_ref()
+                .val;
+            <span class="kw">let </span>ty = <span class="self">self</span>.handle.get(store.as_store_ref().objects()).ty().ty;
+            Value::from_raw(store, ty, raw)
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">val</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
+    <span class="kw">pub fn </span>set(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, val: Value) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">if </span>!val.is_from_store(store) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
         }
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">mutability</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Mutability::Var</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;Attempted to set an immutable global&quot;</span>));
+        <span class="kw">if </span><span class="self">self</span>.ty(store).mutability != Mutability::Var {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;Attempted to set an immutable global&quot;</span>));
         }
-        <span class="kw">if</span> <span class="ident">val</span>.<span class="ident">ty</span>() <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">ty</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
+        <span class="kw">if </span>val.ty() != <span class="self">self</span>.ty(store).ty {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
                 <span class="string">&quot;Attempted to operate on a global of type {expected} as a global of type {found}&quot;</span>,
-                <span class="ident">expected</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">ty</span>,
-                <span class="ident">found</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">ty</span>(),
+                expected = <span class="self">self</span>.ty(store).ty,
+                found = val.ty(),
             )));
         }
-        <span class="kw">unsafe</span> {
-            <span class="self">self</span>.<span class="ident">handle</span>
-                .<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>())
-                .<span class="ident">vmglobal</span>()
-                .<span class="ident">as_mut</span>()
-                .<span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">as_raw</span>(<span class="ident">store</span>);
+        <span class="kw">unsafe </span>{
+            <span class="self">self</span>.handle
+                .get_mut(store.objects_mut())
+                .vmglobal()
+                .as_mut()
+                .val = val.as_raw(store);
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">vm_extern</span>: <span class="ident">VMExternGlobal</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="kw">unsafe</span> {
-                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">vm_extern</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternGlobal) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            handle: <span class="kw">unsafe </span>{
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
+    <span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="self">self</span>.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {
-        <span class="ident">VMExtern::Global</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>())
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">std::cmp::PartialEq</span> <span class="kw">for</span> <span class="ident">Global</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">handle</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
+        VMExtern::Global(<span class="self">self</span>.handle.internal_handle())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::cmp::Eq</span> <span class="kw">for</span> <span class="ident">Global</span> {}
+<span class="kw">impl </span>std::cmp::PartialEq <span class="kw">for </span>Global {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.handle == other.handle
+    }
+}
+
+<span class="kw">impl </span>std::cmp::Eq <span class="kw">for </span>Global {}
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

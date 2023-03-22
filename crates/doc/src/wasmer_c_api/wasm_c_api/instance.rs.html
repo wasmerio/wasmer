@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/instance.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>instance.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/instance.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>instance.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -318,323 +318,323 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::externals</span>::{<span class="ident">wasm_extern_t</span>, <span class="ident">wasm_extern_vec_t</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::module::wasm_module_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store</span>::{<span class="ident">wasm_store_t</span>, <span class="ident">StoreRef</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::trap::wasm_trap_t</span>;
-<span class="kw">use</span> <span class="ident">wasmer_api</span>::{<span class="ident">Extern</span>, <span class="ident">Instance</span>, <span class="ident">InstantiationError</span>};
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::externals::{wasm_extern_t, wasm_extern_vec_t};
+<span class="kw">use </span><span class="kw">super</span>::module::wasm_module_t;
+<span class="kw">use </span><span class="kw">super</span>::store::{wasm_store_t, StoreRef};
+<span class="kw">use </span><span class="kw">super</span>::trap::wasm_trap_t;
+<span class="kw">use </span>wasmer_api::{Extern, Instance, InstantiationError};
 
-<span class="doccomment">/// Opaque type representing a WebAssembly instance.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_instance_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">StoreRef</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Instance</span>,
+<span class="doccomment">/// Opaque type representing a WebAssembly instance.
+</span><span class="attribute">#[allow(non_camel_case_types)]
+</span><span class="kw">pub struct </span>wasm_instance_t {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) store: StoreRef,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Instance,
 }
 
-<span class="doccomment">/// Creates a new instance from a WebAssembly module and a</span>
-<span class="doccomment">/// set of imports.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The function can fail in 2 ways:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// 1. Link errors that happen when plugging the imports into the</span>
-<span class="doccomment">///    instance,</span>
-<span class="doccomment">/// 2. Runtime errors that happen when running the module `start`</span>
-<span class="doccomment">///    function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The failure is stored in the `trap` argument; the program doesn&#39;t</span>
-<span class="doccomment">/// panic.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Notes</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The `store` argument is ignored. The store from the given module</span>
-<span class="doccomment">/// will be used.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_instance_new</span>(
-    <span class="ident">store</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasm_store_t</span><span class="op">&gt;</span>,
-    <span class="ident">module</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span><span class="op">&gt;</span>,
-    <span class="ident">imports</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_extern_vec_t</span><span class="op">&gt;</span>,
-    <span class="ident">trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="kw-2">*mut</span> <span class="ident">wasm_trap_t</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_instance_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span><span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">inner</span>.<span class="ident">store_mut</span>();
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span><span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">imports</span><span class="question-mark">?</span>;
+<span class="doccomment">/// Creates a new instance from a WebAssembly module and a
+/// set of imports.
+///
+/// ## Errors
+///
+/// The function can fail in 2 ways:
+///
+/// 1. Link errors that happen when plugging the imports into the
+///    instance,
+/// 2. Runtime errors that happen when running the module `start`
+///    function.
+///
+/// The failure is stored in the `trap` argument; the program doesn&#39;t
+/// panic.
+///
+/// # Notes
+///
+/// The `store` argument is ignored. The store from the given module
+/// will be used.
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_instance_new(
+    store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasm_store_t&gt;,
+    module: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_module_t&gt;,
+    imports: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_extern_vec_t&gt;,
+    trap: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut *mut </span>wasm_trap_t&gt;,
+) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_instance_t&gt;&gt; {
+    <span class="kw">let </span>store = store<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>store_mut = store.inner.store_mut();
+    <span class="kw">let </span>module = module<span class="question-mark">?</span>;
+    <span class="kw">let </span>imports = imports<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">wasm_module</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">inner</span>;
-    <span class="kw">let</span> <span class="ident">module_imports</span> <span class="op">=</span> <span class="ident">wasm_module</span>.<span class="ident">imports</span>();
-    <span class="kw">let</span> <span class="ident">module_import_count</span> <span class="op">=</span> <span class="ident">module_imports</span>.<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="ident">externs</span> <span class="op">=</span> <span class="ident">imports</span>
-        .<span class="ident">as_slice</span>()
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">imp</span><span class="op">|</span> <span class="ident">Extern::from</span>(<span class="ident">imp</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">as_ref</span>().<span class="ident">clone</span>()))
-        .<span class="ident">take</span>(<span class="ident">module_import_count</span>)
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">let </span>wasm_module = <span class="kw-2">&amp;</span>module.inner;
+    <span class="kw">let </span>module_imports = wasm_module.imports();
+    <span class="kw">let </span>module_import_count = module_imports.len();
+    <span class="kw">let </span>externs = imports
+        .as_slice()
+        .iter()
+        .map(|imp| Extern::from(imp.as_ref().unwrap().as_ref().clone()))
+        .take(module_import_count)
+        .collect::&lt;Vec&lt;Extern&gt;&gt;();
 
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">Instance::new_by_index</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store_mut</span>, <span class="ident">wasm_module</span>, <span class="kw-2">&amp;</span><span class="ident">externs</span>) {
-        <span class="prelude-val">Ok</span>(<span class="ident">instance</span>) =&gt; <span class="ident">instance</span>,
+    <span class="kw">let </span>instance = <span class="kw">match </span>Instance::new_by_index(<span class="kw-2">&amp;mut </span>store_mut, wasm_module, <span class="kw-2">&amp;</span>externs) {
+        <span class="prelude-val">Ok</span>(instance) =&gt; instance,
 
-        <span class="prelude-val">Err</span>(<span class="ident">InstantiationError::Link</span>(<span class="ident">link_error</span>)) =&gt; {
-            <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">link_error</span>);
+        <span class="prelude-val">Err</span>(InstantiationError::Link(link_error)) =&gt; {
+            <span class="kw">crate</span>::error::update_last_error(link_error);
 
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">InstantiationError::Start</span>(<span class="ident">runtime_error</span>)) =&gt; {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">trap</span> {
-                <span class="kw">let</span> <span class="ident">this_trap</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_trap_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">runtime_error</span>.<span class="ident">into</span>());
-                <span class="kw-2">*</span><span class="ident">trap</span> <span class="op">=</span> <span class="ident">Box::into_raw</span>(<span class="ident">this_trap</span>);
+        <span class="prelude-val">Err</span>(InstantiationError::Start(runtime_error)) =&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(trap) = trap {
+                <span class="kw">let </span>this_trap: Box&lt;wasm_trap_t&gt; = Box::new(runtime_error.into());
+                <span class="kw-2">*</span>trap = Box::into_raw(this_trap);
             }
 
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">e</span> @ <span class="ident">InstantiationError::CpuFeature</span>(<span class="kw">_</span>)) =&gt; {
-            <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">e</span>);
+        <span class="prelude-val">Err</span>(e @ InstantiationError::CpuFeature(<span class="kw">_</span>)) =&gt; {
+            <span class="kw">crate</span>::error::update_last_error(e);
 
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">e</span> @ <span class="ident">InstantiationError::DifferentStores</span>) =&gt; {
-            <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">e</span>);
+        <span class="prelude-val">Err</span>(e @ InstantiationError::DifferentStores) =&gt; {
+            <span class="kw">crate</span>::error::update_last_error(e);
 
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">e</span> @ <span class="ident">InstantiationError::DifferentArchOS</span>) =&gt; {
-            <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">e</span>);
+        <span class="prelude-val">Err</span>(e @ InstantiationError::DifferentArchOS) =&gt; {
+            <span class="kw">crate</span>::error::update_last_error(e);
 
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
     };
 
-    <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_instance_t</span> {
-        <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
-        <span class="ident">inner</span>: <span class="ident">instance</span>,
+    <span class="prelude-val">Some</span>(Box::new(wasm_instance_t {
+        store: store.inner.clone(),
+        inner: instance,
     }))
 }
 
-<span class="doccomment">/// Deletes an instance.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_instance_new`].</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_instance_delete</span>(<span class="ident">_instance</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_instance_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="doccomment">/// Deletes an instance.
+///
+/// # Example
+///
+/// See [`wasm_instance_new`].
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_instance_delete(_instance: <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_instance_t&gt;&gt;) {}
 
-<span class="doccomment">/// Gets the exports of the instance.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the engine and the store.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create a WebAssembly module from a WAT definition.</span>
-<span class="doccomment">///     wasm_byte_vec_t wat;</span>
-<span class="doccomment">///     wasmer_byte_vec_new_from_string(</span>
-<span class="doccomment">///         &amp;wat,</span>
-<span class="doccomment">///         &quot;(module\n&quot;</span>
-<span class="doccomment">///         &quot;  (func (export \&quot;function\&quot;) (param i32 i64))\n&quot;</span>
-<span class="doccomment">///         &quot;  (global (export \&quot;global\&quot;) i32 (i32.const 7))\n&quot;</span>
-<span class="doccomment">///         &quot;  (table (export \&quot;table\&quot;) 0 funcref)\n&quot;</span>
-<span class="doccomment">///         &quot;  (memory (export \&quot;memory\&quot;) 1))&quot;</span>
-<span class="doccomment">///     );</span>
-<span class="doccomment">///     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">///     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the module.</span>
-<span class="doccomment">///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Instantiate the module.</span>
-<span class="doccomment">///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">///     wasm_trap_t* trap = NULL;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
-<span class="doccomment">///     assert(instance);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Read the exports.</span>
-<span class="doccomment">///     wasm_extern_vec_t exports;</span>
-<span class="doccomment">///     wasm_instance_exports(instance, &amp;exports);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // We have 4 of them.</span>
-<span class="doccomment">///     assert(exports.size == 4);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // The first one is a function. Use `wasm_extern_as_func`</span>
-<span class="doccomment">///     // to go further.</span>
-<span class="doccomment">///     assert(wasm_extern_kind(exports.data[0]) == WASM_EXTERN_FUNC);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // The second one is a global. Use `wasm_extern_as_global` to</span>
-<span class="doccomment">///     // go further.</span>
-<span class="doccomment">///     assert(wasm_extern_kind(exports.data[1]) == WASM_EXTERN_GLOBAL);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // The third one is a table. Use `wasm_extern_as_table` to</span>
-<span class="doccomment">///     // go further.</span>
-<span class="doccomment">///     assert(wasm_extern_kind(exports.data[2]) == WASM_EXTERN_TABLE);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // The fourth one is a memory. Use `wasm_extern_as_memory` to</span>
-<span class="doccomment">///     // go further.</span>
-<span class="doccomment">///     assert(wasm_extern_kind(exports.data[3]) == WASM_EXTERN_MEMORY);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_extern_vec_delete(&amp;exports);</span>
-<span class="doccomment">///     wasm_instance_delete(instance);</span>
-<span class="doccomment">///     wasm_module_delete(module);</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wasm);</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wat);</span>
-<span class="doccomment">///     wasm_store_delete(store);</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// To go further:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// * [`wasm_extern_as_func`][super::externals::wasm_extern_as_func],</span>
-<span class="doccomment">/// * [`wasm_extern_as_global`][super::externals::wasm_extern_as_global],</span>
-<span class="doccomment">/// * [`wasm_extern_as_table`][super::externals::wasm_extern_as_table],</span>
-<span class="doccomment">/// * [`wasm_extern_as_memory`][super::externals::wasm_extern_as_memory].</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_instance_exports</span>(
-    <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_instance_t</span>,
-    <span class="comment">// own</span>
-    <span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_extern_vec_t</span>,
+<span class="doccomment">/// Gets the exports of the instance.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(
+///         &amp;wat,
+///         &quot;(module\n&quot;
+///         &quot;  (func (export \&quot;function\&quot;) (param i32 i64))\n&quot;
+///         &quot;  (global (export \&quot;global\&quot;) i32 (i32.const 7))\n&quot;
+///         &quot;  (table (export \&quot;table\&quot;) 0 funcref)\n&quot;
+///         &quot;  (memory (export \&quot;memory\&quot;) 1))&quot;
+///     );
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&amp;wat, &amp;wasm);
+///
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);
+///
+///     // Instantiate the module.
+///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+///     wasm_trap_t* trap = NULL;
+///
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);
+///     assert(instance);
+///
+///     // Read the exports.
+///     wasm_extern_vec_t exports;
+///     wasm_instance_exports(instance, &amp;exports);
+///
+///     // We have 4 of them.
+///     assert(exports.size == 4);
+///
+///     // The first one is a function. Use `wasm_extern_as_func`
+///     // to go further.
+///     assert(wasm_extern_kind(exports.data[0]) == WASM_EXTERN_FUNC);
+///
+///     // The second one is a global. Use `wasm_extern_as_global` to
+///     // go further.
+///     assert(wasm_extern_kind(exports.data[1]) == WASM_EXTERN_GLOBAL);
+///
+///     // The third one is a table. Use `wasm_extern_as_table` to
+///     // go further.
+///     assert(wasm_extern_kind(exports.data[2]) == WASM_EXTERN_TABLE);
+///
+///     // The fourth one is a memory. Use `wasm_extern_as_memory` to
+///     // go further.
+///     assert(wasm_extern_kind(exports.data[3]) == WASM_EXTERN_MEMORY);
+///
+///     // Free everything.
+///     wasm_extern_vec_delete(&amp;exports);
+///     wasm_instance_delete(instance);
+///     wasm_module_delete(module);
+///     wasm_byte_vec_delete(&amp;wasm);
+///     wasm_byte_vec_delete(&amp;wat);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// To go further:
+///
+/// * [`wasm_extern_as_func`][super::externals::wasm_extern_as_func],
+/// * [`wasm_extern_as_global`][super::externals::wasm_extern_as_global],
+/// * [`wasm_extern_as_table`][super::externals::wasm_extern_as_table],
+/// * [`wasm_extern_as_memory`][super::externals::wasm_extern_as_memory].
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_instance_exports(
+    instance: <span class="kw-2">&amp;</span>wasm_instance_t,
+    <span class="comment">// own
+    </span>out: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
 ) {
-    <span class="kw">let</span> <span class="ident">original_instance</span> <span class="op">=</span> <span class="ident">instance</span>;
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">inner</span>;
-    <span class="kw">let</span> <span class="ident">extern_vec</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">instance</span>
-        .<span class="ident">exports</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">_name</span>, <span class="ident">r#extern</span>)<span class="op">|</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_extern_t::new</span>(
-                <span class="ident">original_instance</span>.<span class="ident">store</span>.<span class="ident">clone</span>(),
-                <span class="ident">r#extern</span>.<span class="ident">clone</span>(),
+    <span class="kw">let </span>original_instance = instance;
+    <span class="kw">let </span>instance = <span class="kw-2">&amp;</span>instance.inner;
+    <span class="kw">let </span>extern_vec: Vec&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;wasm_extern_t&gt;&gt;&gt; = instance
+        .exports
+        .iter()
+        .map(|(_name, r#extern)| {
+            <span class="prelude-val">Some</span>(Box::new(wasm_extern_t::new(
+                original_instance.store.clone(),
+                r#extern.clone(),
             )))
         })
-        .<span class="ident">collect</span>();
-    <span class="ident">out</span>.<span class="ident">set_buffer</span>(<span class="ident">extern_vec</span>);
+        .collect();
+    out.set_buffer(extern_vec);
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">use</span> <span class="ident">inline_c::assert_c</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+    </span><span class="kw">use </span>inline_c::assert_c;
+    <span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
 
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_instance_new</span>() {
-        (<span class="macro">assert_c!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
+    <span class="attribute">#[cfg_attr(coverage, ignore)]
+    #[test]
+    </span><span class="kw">fn </span>test_instance_new() {
+        (<span class="macro">assert_c! </span>{
+            #include <span class="string">&quot;tests/wasmer.h&quot;
 
-            <span class="comment">// The `sum` host function implementation.</span>
-            <span class="ident">wasm_trap_t</span><span class="op">*</span> <span class="ident">sum_callback</span>(
-                <span class="kw">const</span> <span class="ident">wasm_val_vec_t</span><span class="op">*</span> <span class="ident">arguments</span>,
-                <span class="ident">wasm_val_vec_t</span><span class="op">*</span> <span class="ident">results</span>
+            </span><span class="comment">// The `sum` host function implementation.
+            </span>wasm_trap_t* sum_callback(
+                <span class="kw">const </span>wasm_val_vec_t* arguments,
+                wasm_val_vec_t* results
             ) {
-                <span class="ident">wasm_val_t</span> <span class="ident">sum</span> <span class="op">=</span> {
-                    .<span class="ident">kind</span> <span class="op">=</span> <span class="ident">WASM_I32</span>,
-                    .<span class="ident">of</span> <span class="op">=</span> { <span class="ident">arguments</span>-&gt;<span class="ident">data</span>[<span class="number">0</span>].<span class="ident">of</span>.<span class="ident">i32</span> <span class="op">+</span> <span class="ident">arguments</span>-&gt;<span class="ident">data</span>[<span class="number">1</span>].<span class="ident">of</span>.<span class="ident">i32</span> },
+                wasm_val_t sum = {
+                    .kind = WASM_I32,
+                    .of = { arguments-&gt;data[<span class="number">0</span>].of.i32 + arguments-&gt;data[<span class="number">1</span>].of.i32 },
                 };
-                <span class="ident">results</span>-&gt;<span class="ident">data</span>[<span class="number">0</span>] <span class="op">=</span> <span class="ident">sum</span>;
+                results-&gt;data[<span class="number">0</span>] = sum;
 
-                <span class="kw">return</span> <span class="ident">NULL</span>;
+                <span class="kw">return </span>NULL;
             }
 
-            <span class="ident">int</span> <span class="ident">main</span>() {
-                <span class="comment">// Create the engine and the store.</span>
-                <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
-                <span class="ident">wasm_store_t</span><span class="op">*</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">wasm_store_new</span>(<span class="ident">engine</span>);
+            int main() {
+                <span class="comment">// Create the engine and the store.
+                </span>wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
 
-                <span class="comment">// Create a WebAssembly module from a WAT definition.</span>
-                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;
-                <span class="ident">wasmer_byte_vec_new_from_string</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">wat</span>,
-                    <span class="string">&quot;(module\n&quot;</span>
-                    <span class="string">&quot;  (import \&quot;math\&quot; \&quot;sum\&quot; (func $sum (param i32 i32) (result i32)))\n&quot;</span>
-                    <span class="string">&quot;  (func (export \&quot;add_one\&quot;) (param i32) (result i32)\n&quot;</span>
-                    <span class="string">&quot;    local.get 0\n&quot;</span>
-                    <span class="string">&quot;    i32.const 1\n&quot;</span>
-                    <span class="string">&quot;    call $sum))&quot;</span>
+                <span class="comment">// Create a WebAssembly module from a WAT definition.
+                </span>wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(
+                    <span class="kw-2">&amp;</span>wat,
+                    <span class="string">&quot;(module\n&quot;
+                    &quot;  (import \&quot;math\&quot; \&quot;sum\&quot; (func $sum (param i32 i32) (result i32)))\n&quot;
+                    &quot;  (func (export \&quot;add_one\&quot;) (param i32) (result i32)\n&quot;
+                    &quot;    local.get 0\n&quot;
+                    &quot;    i32.const 1\n&quot;
+                    &quot;    call $sum))&quot;
+                </span>);
+                wasm_byte_vec_t wasm;
+                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+
+                <span class="comment">// Create the module.
+                </span>wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
+
+                assert(module);
+
+                <span class="comment">// Prepare the imports.
+                </span>wasm_functype_t* sum_type = wasm_functype_new_2_1(
+                    wasm_valtype_new_i32(),
+                    wasm_valtype_new_i32(),
+                    wasm_valtype_new_i32()
                 );
-                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wasm</span>;
-                <span class="ident">wat2wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                wasm_func_t* sum_function = wasm_func_new(store, sum_type, sum_callback);
+                wasm_extern_t* externs[] = { wasm_func_as_extern(sum_function) };
+                wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
 
-                <span class="comment">// Create the module.</span>
-                <span class="ident">wasm_module_t</span><span class="op">*</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">wasm_module_new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="comment">// Instantiate the module.
+                </span>wasm_trap_t* trap = NULL;
+                wasm_instance_t* instance = wasm_instance_new(store, module, <span class="kw-2">&amp;</span>imports, <span class="kw-2">&amp;</span>trap);
 
-                <span class="ident">assert</span>(<span class="ident">module</span>);
+                assert(instance);
 
-                <span class="comment">// Prepare the imports.</span>
-                <span class="ident">wasm_functype_t</span><span class="op">*</span> <span class="ident">sum_type</span> <span class="op">=</span> <span class="ident">wasm_functype_new_2_1</span>(
-                    <span class="ident">wasm_valtype_new_i32</span>(),
-                    <span class="ident">wasm_valtype_new_i32</span>(),
-                    <span class="ident">wasm_valtype_new_i32</span>()
-                );
-                <span class="ident">wasm_func_t</span><span class="op">*</span> <span class="ident">sum_function</span> <span class="op">=</span> <span class="ident">wasm_func_new</span>(<span class="ident">store</span>, <span class="ident">sum_type</span>, <span class="ident">sum_callback</span>);
-                <span class="ident">wasm_extern_t</span><span class="op">*</span> <span class="ident">externs</span>[] <span class="op">=</span> { <span class="ident">wasm_func_as_extern</span>(<span class="ident">sum_function</span>) };
-                <span class="ident">wasm_extern_vec_t</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">WASM_ARRAY_VEC</span>(<span class="ident">externs</span>);
+                <span class="comment">// Run the exported function.
+                </span>wasm_extern_vec_t exports;
+                wasm_instance_exports(instance, <span class="kw-2">&amp;</span>exports);
 
-                <span class="comment">// Instantiate the module.</span>
-                <span class="ident">wasm_trap_t</span><span class="op">*</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">NULL</span>;
-                <span class="ident">wasm_instance_t</span><span class="op">*</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">wasm_instance_new</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>, <span class="kw-2">&amp;</span><span class="ident">trap</span>);
+                assert(exports.size == <span class="number">1</span>);
 
-                <span class="ident">assert</span>(<span class="ident">instance</span>);
+                <span class="kw">const </span>wasm_func_t* run_function = wasm_extern_as_func(exports.data[<span class="number">0</span>]);
 
-                <span class="comment">// Run the exported function.</span>
-                <span class="ident">wasm_extern_vec_t</span> <span class="ident">exports</span>;
-                <span class="ident">wasm_instance_exports</span>(<span class="ident">instance</span>, <span class="kw-2">&amp;</span><span class="ident">exports</span>);
+                assert(run_function);
 
-                <span class="ident">assert</span>(<span class="ident">exports</span>.<span class="ident">size</span> <span class="op">==</span> <span class="number">1</span>);
+                wasm_val_t arguments[<span class="number">1</span>] = { WASM_I32_VAL(<span class="number">1</span>) };
+                wasm_val_t results[<span class="number">1</span>] = { WASM_INIT_VAL };
 
-                <span class="kw">const</span> <span class="ident">wasm_func_t</span><span class="op">*</span> <span class="ident">run_function</span> <span class="op">=</span> <span class="ident">wasm_extern_as_func</span>(<span class="ident">exports</span>.<span class="ident">data</span>[<span class="number">0</span>]);
+                wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
+                wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
 
-                <span class="ident">assert</span>(<span class="ident">run_function</span>);
+                trap = wasm_func_call(run_function, <span class="kw-2">&amp;</span>arguments_as_array, <span class="kw-2">&amp;</span>results_as_array);
 
-                <span class="ident">wasm_val_t</span> <span class="ident">arguments</span>[<span class="number">1</span>] <span class="op">=</span> { <span class="ident">WASM_I32_VAL</span>(<span class="number">1</span>) };
-                <span class="ident">wasm_val_t</span> <span class="ident">results</span>[<span class="number">1</span>] <span class="op">=</span> { <span class="ident">WASM_INIT_VAL</span> };
+                assert(trap == NULL);
+                assert(results[<span class="number">0</span>].of.i32 == <span class="number">2</span>);
 
-                <span class="ident">wasm_val_vec_t</span> <span class="ident">arguments_as_array</span> <span class="op">=</span> <span class="ident">WASM_ARRAY_VEC</span>(<span class="ident">arguments</span>);
-                <span class="ident">wasm_val_vec_t</span> <span class="ident">results_as_array</span> <span class="op">=</span> <span class="ident">WASM_ARRAY_VEC</span>(<span class="ident">results</span>);
+                <span class="comment">// Free everything.
+                </span>wasm_extern_vec_delete(<span class="kw-2">&amp;</span>exports);
+                wasm_instance_delete(instance);
+                wasm_func_delete(sum_function);
+                wasm_functype_delete(sum_type);
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
 
-                <span class="ident">trap</span> <span class="op">=</span> <span class="ident">wasm_func_call</span>(<span class="ident">run_function</span>, <span class="kw-2">&amp;</span><span class="ident">arguments_as_array</span>, <span class="kw-2">&amp;</span><span class="ident">results_as_array</span>);
-
-                <span class="ident">assert</span>(<span class="ident">trap</span> <span class="op">==</span> <span class="ident">NULL</span>);
-                <span class="ident">assert</span>(<span class="ident">results</span>[<span class="number">0</span>].<span class="ident">of</span>.<span class="ident">i32</span> <span class="op">==</span> <span class="number">2</span>);
-
-                <span class="comment">// Free everything.</span>
-                <span class="ident">wasm_extern_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">exports</span>);
-                <span class="ident">wasm_instance_delete</span>(<span class="ident">instance</span>);
-                <span class="ident">wasm_func_delete</span>(<span class="ident">sum_function</span>);
-                <span class="ident">wasm_functype_delete</span>(<span class="ident">sum_type</span>);
-                <span class="ident">wasm_module_delete</span>(<span class="ident">module</span>);
-                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);
-                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>);
-                <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
-                <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
-
-                <span class="kw">return</span> <span class="number">0</span>;
+                <span class="kw">return </span><span class="number">0</span>;
             }
         })
-        .<span class="ident">success</span>();
+        .success();
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

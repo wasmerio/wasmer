@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/value.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/value.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -139,146 +139,146 @@
 <span id="139">139</span>
 <span id="140">140</span>
 <span id="141">141</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">fmt</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">mem::MaybeUninit</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>core::{fmt, marker::PhantomData, mem::MaybeUninit};
 
-<span class="doccomment">/// Raw representation of a WebAssembly value.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// In most cases you will want to use the type-safe `Value` wrapper instead.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">RawValue</span> {
-    <span class="kw">pub</span> <span class="ident">i32</span>: <span class="ident">i32</span>,
-    <span class="kw">pub</span> <span class="ident">i64</span>: <span class="ident">i64</span>,
-    <span class="kw">pub</span> <span class="ident">u32</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">u64</span>: <span class="ident">u64</span>,
-    <span class="kw">pub</span> <span class="ident">f32</span>: <span class="ident">f32</span>,
-    <span class="kw">pub</span> <span class="ident">f64</span>: <span class="ident">f64</span>,
-    <span class="kw">pub</span> <span class="ident">i128</span>: <span class="ident">i128</span>,
-    <span class="kw">pub</span> <span class="ident">u128</span>: <span class="ident">u128</span>,
-    <span class="kw">pub</span> <span class="ident">funcref</span>: <span class="ident">usize</span>,
-    <span class="kw">pub</span> <span class="ident">externref</span>: <span class="ident">usize</span>,
-    <span class="kw">pub</span> <span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">16</span>],
+<span class="doccomment">/// Raw representation of a WebAssembly value.
+///
+/// In most cases you will want to use the type-safe `Value` wrapper instead.
+</span><span class="attribute">#[allow(missing_docs)]
+#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub union </span>RawValue {
+    <span class="kw">pub </span>i32: i32,
+    <span class="kw">pub </span>i64: i64,
+    <span class="kw">pub </span>u32: u32,
+    <span class="kw">pub </span>u64: u64,
+    <span class="kw">pub </span>f32: f32,
+    <span class="kw">pub </span>f64: f64,
+    <span class="kw">pub </span>i128: i128,
+    <span class="kw">pub </span>u128: u128,
+    <span class="kw">pub </span>funcref: usize,
+    <span class="kw">pub </span>externref: usize,
+    <span class="kw">pub </span>bytes: [u8; <span class="number">16</span>],
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">i32</span>: <span class="ident">value</span> }
+<span class="kw">impl </span>From&lt;i32&gt; <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>from(value: i32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ i32: value }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">i64</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">i64</span>: <span class="ident">value</span> }
+<span class="kw">impl </span>From&lt;i64&gt; <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>from(value: i64) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ i64: value }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">f32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">f32</span>: <span class="ident">value</span> }
+<span class="kw">impl </span>From&lt;f32&gt; <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>from(value: f32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ f32: value }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">f64</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">f64</span>: <span class="ident">value</span> }
+<span class="kw">impl </span>From&lt;f64&gt; <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>from(value: f64) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ f64: value }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">bytes</span>: [<span class="number">0</span>; <span class="number">16</span>] }
+<span class="kw">impl </span>Default <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ bytes: [<span class="number">0</span>; <span class="number">16</span>] }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RawValue&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;bytes&quot;</span>, <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bytes</span> })
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;RawValue&quot;</span>)
+            .field(<span class="string">&quot;bytes&quot;</span>, <span class="kw">unsafe </span>{ <span class="kw-2">&amp;</span><span class="self">self</span>.bytes })
+            .finish()
     }
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">partial_eq</span> {
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ty</span> =&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span>:<span class="ident">tt</span>),<span class="kw-2">*</span>) =&gt; ($(
-        <span class="kw">impl</span> <span class="ident">PartialEq</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-            <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">o</span>: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>) -&gt; <span class="ident">bool</span> {
-                <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">f</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">o</span> }
+<span class="macro">macro_rules! </span>partial_eq {
+    ($(<span class="macro-nonterminal">$t</span>:ty =&gt; <span class="macro-nonterminal">$f</span>:tt),<span class="kw-2">*</span>) =&gt; ($(
+        <span class="kw">impl </span>PartialEq&lt;<span class="macro-nonterminal">$t</span>&gt; <span class="kw">for </span>RawValue {
+            <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, o: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$t</span>) -&gt; bool {
+                <span class="kw">unsafe </span>{ <span class="self">self</span>.<span class="macro-nonterminal">$f </span>== <span class="kw-2">*</span>o }
             }
         }
     )<span class="kw-2">*</span>)
 }
 
-<span class="macro">partial_eq!</span> {
-    <span class="ident">i32</span> =&gt; <span class="ident">i32</span>,
-    <span class="ident">u32</span> =&gt; <span class="ident">u32</span>,
-    <span class="ident">i64</span> =&gt; <span class="ident">i64</span>,
-    <span class="ident">u64</span> =&gt; <span class="ident">u64</span>,
-    <span class="ident">f32</span> =&gt; <span class="ident">f32</span>,
-    <span class="ident">f64</span> =&gt; <span class="ident">f64</span>,
-    <span class="ident">i128</span> =&gt; <span class="ident">i128</span>,
-    <span class="ident">u128</span> =&gt; <span class="ident">u128</span>
+<span class="macro">partial_eq! </span>{
+    i32 =&gt; i32,
+    u32 =&gt; u32,
+    i64 =&gt; i64,
+    u64 =&gt; u64,
+    f32 =&gt; f32,
+    f64 =&gt; f64,
+    i128 =&gt; i128,
+    u128 =&gt; u128
 }
 
-<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">o</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">u128</span> <span class="op">==</span> <span class="ident">o</span>.<span class="ident">u128</span> }
+<span class="kw">impl </span>PartialEq <span class="kw">for </span>RawValue {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, o: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="kw">unsafe </span>{ <span class="self">self</span>.u128 == o.u128 }
     }
 }
 
-<span class="doccomment">/// Trait for a Value type. A Value type is a type that is always valid and may</span>
-<span class="doccomment">/// be safely copied.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// To maintain safety, types which implement this trait must be valid for all</span>
-<span class="doccomment">/// bit patterns. This means that it cannot contain enums, `bool`, references,</span>
-<span class="doccomment">/// etc.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Concretely a `u32` is a Value type because every combination of 32 bits is</span>
-<span class="doccomment">/// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns</span>
-<span class="doccomment">/// other than `0` and `1` are invalid in Rust and may cause undefined behavior if</span>
-<span class="doccomment">/// a `bool` is constructed from those bytes.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Additionally this trait has a method which zeros out any uninitializes bytes</span>
-<span class="doccomment">/// prior to writing them to Wasm memory, which prevents information leaks into</span>
-<span class="doccomment">/// the sandbox.</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">ValueType</span>: <span class="ident">Copy</span> {
-    <span class="doccomment">/// This method is passed a byte slice which contains the byte</span>
-    <span class="doccomment">/// representation of `self`. It must zero out any bytes which are</span>
-    <span class="doccomment">/// uninitialized (e.g. padding bytes).</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]);
+<span class="doccomment">/// Trait for a Value type. A Value type is a type that is always valid and may
+/// be safely copied.
+///
+/// # Safety
+///
+/// To maintain safety, types which implement this trait must be valid for all
+/// bit patterns. This means that it cannot contain enums, `bool`, references,
+/// etc.
+///
+/// Concretely a `u32` is a Value type because every combination of 32 bits is
+/// a valid `u32`. However a `bool` is _not_ a Value type because any bit patterns
+/// other than `0` and `1` are invalid in Rust and may cause undefined behavior if
+/// a `bool` is constructed from those bytes.
+///
+/// Additionally this trait has a method which zeros out any uninitializes bytes
+/// prior to writing them to Wasm memory, which prevents information leaks into
+/// the sandbox.
+</span><span class="kw">pub unsafe trait </span>ValueType: Copy {
+    <span class="doccomment">/// This method is passed a byte slice which contains the byte
+    /// representation of `self`. It must zero out any bytes which are
+    /// uninitialized (e.g. padding bytes).
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]);
 }
 
-<span class="comment">// Trivial implementations for primitive types and arrays of them.</span>
-<span class="macro">macro_rules!</span> <span class="ident">primitives</span> {
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ident</span>)<span class="kw-2">*</span>) =&gt; ($(
-        <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
-            <span class="attribute">#[<span class="ident">inline</span>]</span>
-            <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="comment">// Trivial implementations for primitive types and arrays of them.
+</span><span class="macro">macro_rules! </span>primitives {
+    ($(<span class="macro-nonterminal">$t</span>:ident)<span class="kw-2">*</span>) =&gt; ($(
+        <span class="kw">unsafe impl </span>ValueType <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="attribute">#[inline]
+            </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
         }
-        <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="kw">const</span> <span class="ident">N</span>: <span class="ident">usize</span><span class="op">&gt;</span> <span class="ident">ValueType</span> <span class="kw">for</span> [<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>; <span class="ident">N</span>] {
-            <span class="attribute">#[<span class="ident">inline</span>]</span>
-            <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+        <span class="kw">unsafe impl</span>&lt;<span class="kw">const </span>N: usize&gt; ValueType <span class="kw">for </span>[<span class="macro-nonterminal">$t</span>; N] {
+            <span class="attribute">#[inline]
+            </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
         }
     )<span class="kw-2">*</span>)
 }
-<span class="macro">primitives!</span> {
-    <span class="ident">bool</span>
-    <span class="ident">i8</span> <span class="ident">u8</span>
-    <span class="ident">i16</span> <span class="ident">u16</span>
-    <span class="ident">i32</span> <span class="ident">u32</span>
-    <span class="ident">i64</span> <span class="ident">u64</span>
-    <span class="ident">i128</span> <span class="ident">u128</span>
-    <span class="ident">isize</span> <span class="ident">usize</span>
-    <span class="ident">f32</span> <span class="ident">f64</span>
+<span class="macro">primitives! </span>{
+    bool
+    i8 u8
+    i16 u16
+    i32 u32
+    i64 u64
+    i128 u128
+    isize usize
+    f32 f64
 }
 
-<span class="comment">// This impl for PhantomData allows #[derive(ValueType)] to work with types</span>
-<span class="comment">// that contain a PhantomData.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span> <span class="ident">ValueType</span> <span class="kw">for</span> <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {}
+<span class="comment">// This impl for PhantomData allows #[derive(ValueType)] to work with types
+// that contain a PhantomData.
+</span><span class="kw">unsafe impl</span>&lt;T: <span class="question-mark">?</span>Sized&gt; ValueType <span class="kw">for </span>PhantomData&lt;T&gt; {
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

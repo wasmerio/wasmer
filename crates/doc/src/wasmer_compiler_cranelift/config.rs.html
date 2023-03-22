@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -225,232 +225,246 @@
 <span id="225">225</span>
 <span id="226">226</span>
 <span id="227">227</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::CraneliftCompiler</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen::settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen::CodegenResult</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>, <span class="ident">ModuleMiddleware</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Architecture</span>, <span class="ident">CpuFeature</span>, <span class="ident">Target</span>};
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::CraneliftCompiler;
+<span class="kw">use </span>cranelift_codegen::isa::{lookup, TargetIsa};
+<span class="kw">use </span>cranelift_codegen::settings::{<span class="self">self</span>, Configurable};
+<span class="kw">use </span>cranelift_codegen::CodegenResult;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+<span class="kw">use </span>wasmer_types::{Architecture, CpuFeature, Target};
 
-<span class="comment">// Runtime Environment</span>
+<span class="comment">// Runtime Environment
 
-<span class="doccomment">/// Possible optimization levels for the Cranelift codegen backend.</span>
-<span class="attribute">#[<span class="ident">non_exhaustive</span>]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CraneliftOptLevel</span> {
-    <span class="doccomment">/// No optimizations performed, minimizes compilation time by disabling most</span>
-    <span class="doccomment">/// optimizations.</span>
-    <span class="prelude-val">None</span>,
-    <span class="doccomment">/// Generates the fastest possible code, but may take longer.</span>
-    <span class="ident">Speed</span>,
-    <span class="doccomment">/// Similar to `speed`, but also performs transformations aimed at reducing</span>
-    <span class="doccomment">/// code size.</span>
-    <span class="ident">SpeedAndSize</span>,
+</span><span class="doccomment">/// Possible optimization levels for the Cranelift codegen backend.
+</span><span class="attribute">#[non_exhaustive]
+#[derive(Clone, Debug)]
+</span><span class="kw">pub enum </span>CraneliftOptLevel {
+    <span class="doccomment">/// No optimizations performed, minimizes compilation time by disabling most
+    /// optimizations.
+    </span><span class="prelude-val">None</span>,
+    <span class="doccomment">/// Generates the fastest possible code, but may take longer.
+    </span>Speed,
+    <span class="doccomment">/// Similar to `speed`, but also performs transformations aimed at reducing
+    /// code size.
+    </span>SpeedAndSize,
 }
 
-<span class="doccomment">/// Global configuration options used to create an</span>
-<span class="doccomment">/// `wasmer_engine::Engine` and customize its behavior.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This structure exposes a builder-like interface and is primarily</span>
-<span class="doccomment">/// consumed by `wasmer_engine::Engine::new`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Cranelift</span> {
-    <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
-    <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,
-    <span class="ident">enable_pic</span>: <span class="ident">bool</span>,
-    <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel</span>,
-    <span class="doccomment">/// The middleware chain.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Global configuration options used to create an
+/// `wasmer_engine::Engine` and customize its behavior.
+///
+/// This structure exposes a builder-like interface and is primarily
+/// consumed by `wasmer_engine::Engine::new`.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Cranelift {
+    enable_nan_canonicalization: bool,
+    enable_verifier: bool,
+    enable_pic: bool,
+    opt_level: CraneliftOptLevel,
+    <span class="doccomment">/// The middleware chain.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) middlewares: Vec&lt;Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Cranelift</span> {
-    <span class="doccomment">/// Creates a new configuration object with the default configuration</span>
-    <span class="doccomment">/// specified.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">enable_nan_canonicalization</span>: <span class="bool-val">false</span>,
-            <span class="ident">enable_verifier</span>: <span class="bool-val">false</span>,
-            <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel::Speed</span>,
-            <span class="ident">enable_pic</span>: <span class="bool-val">false</span>,
-            <span class="ident">middlewares</span>: <span class="macro">vec!</span>[],
+<span class="kw">impl </span>Cranelift {
+    <span class="doccomment">/// Creates a new configuration object with the default configuration
+    /// specified.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            enable_nan_canonicalization: <span class="bool-val">false</span>,
+            enable_verifier: <span class="bool-val">false</span>,
+            opt_level: CraneliftOptLevel::Speed,
+            enable_pic: <span class="bool-val">false</span>,
+            middlewares: <span class="macro">vec!</span>[],
         }
     }
 
-    <span class="doccomment">/// Enable NaN canonicalization.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// NaN canonicalization is useful when trying to run WebAssembly</span>
-    <span class="doccomment">/// deterministically across different architectures.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">canonicalize_nans</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    </span><span class="kw">pub fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.enable_nan_canonicalization = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// The optimization levels when optimizing the IR.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">opt_level</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">opt_level</span>: <span class="ident">CraneliftOptLevel</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">opt_level</span> <span class="op">=</span> <span class="ident">opt_level</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// The optimization levels when optimizing the IR.
+    </span><span class="kw">pub fn </span>opt_level(<span class="kw-2">&amp;mut </span><span class="self">self</span>, opt_level: CraneliftOptLevel) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.opt_level = opt_level;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Generates the ISA for the provided target</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">isa</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="ident">CodegenResult</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">TargetIsa</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span>
-            <span class="ident">lookup</span>(<span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">clone</span>()).<span class="ident">expect</span>(<span class="string">&quot;construct Cranelift ISA for triple&quot;</span>);
-        <span class="comment">// Cpu Features</span>
-        <span class="kw">let</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">cpu_features</span>();
-        <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> <span class="op">==</span> <span class="ident">Architecture::X86_64</span>
-            <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE2</span>)
+    <span class="doccomment">/// Generates the ISA for the provided target
+    </span><span class="kw">pub fn </span>isa(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; CodegenResult&lt;Box&lt;<span class="kw">dyn </span>TargetIsa&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>builder =
+            lookup(target.triple().clone()).expect(<span class="string">&quot;construct Cranelift ISA for triple&quot;</span>);
+        <span class="comment">// Cpu Features
+        </span><span class="kw">let </span>cpu_features = target.cpu_features();
+        <span class="kw">if </span>target.triple().architecture == Architecture::X86_64
+            &amp;&amp; !cpu_features.contains(CpuFeature::SSE2)
         {
             <span class="macro">panic!</span>(<span class="string">&quot;x86 support requires SSE2&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE3</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_sse3&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::SSE3) {
+            builder.enable(<span class="string">&quot;has_sse3&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSSE3</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_ssse3&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::SSSE3) {
+            builder.enable(<span class="string">&quot;has_ssse3&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE41</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_sse41&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::SSE41) {
+            builder.enable(<span class="string">&quot;has_sse41&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::SSE42</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_sse42&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::SSE42) {
+            builder.enable(<span class="string">&quot;has_sse42&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::POPCNT</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_popcnt&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::POPCNT) {
+            builder.enable(<span class="string">&quot;has_popcnt&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_avx&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX) {
+            builder.enable(<span class="string">&quot;has_avx&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::BMI1</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_bmi1&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::BMI1) {
+            builder.enable(<span class="string">&quot;has_bmi1&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::BMI2</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_bmi2&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::BMI2) {
+            builder.enable(<span class="string">&quot;has_bmi2&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX2</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_avx2&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX2) {
+            builder.enable(<span class="string">&quot;has_avx2&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX512DQ</span>) {
-            <span class="ident">builder</span>
-                .<span class="ident">enable</span>(<span class="string">&quot;has_avx512dq&quot;</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX512DQ) {
+            builder
+                .enable(<span class="string">&quot;has_avx512dq&quot;</span>)
+                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::AVX512VL</span>) {
-            <span class="ident">builder</span>
-                .<span class="ident">enable</span>(<span class="string">&quot;has_avx512vl&quot;</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::AVX512VL) {
+            builder
+                .enable(<span class="string">&quot;has_avx512vl&quot;</span>)
+                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">cpu_features</span>.<span class="ident">contains</span>(<span class="ident">CpuFeature::LZCNT</span>) {
-            <span class="ident">builder</span>.<span class="ident">enable</span>(<span class="string">&quot;has_lzcnt&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>cpu_features.contains(CpuFeature::LZCNT) {
+            builder.enable(<span class="string">&quot;has_lzcnt&quot;</span>).expect(<span class="string">&quot;should be valid flag&quot;</span>);
         }
 
-        <span class="ident">builder</span>.<span class="ident">finish</span>(<span class="self">self</span>.<span class="ident">flags</span>())
+        builder.finish(<span class="self">self</span>.flags(target))
     }
 
-    <span class="doccomment">/// Generates the flags for the compiler</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flags</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">settings::Flags</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">settings::builder</span>();
+    <span class="doccomment">/// Generates the flags for the compiler
+    </span><span class="kw">pub fn </span>flags(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; settings::Flags {
+        <span class="kw">let </span>is_riscv = <span class="macro">matches!</span>(target.triple().architecture, Architecture::Riscv64(<span class="kw">_</span>));
+        <span class="kw">let </span><span class="kw-2">mut </span>flags = settings::builder();
 
-        <span class="comment">// Enable probestack</span>
-        <span class="ident">flags</span>
-            .<span class="ident">enable</span>(<span class="string">&quot;enable_probestack&quot;</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="comment">// Enable probestack
+        </span>flags
+            .enable(<span class="string">&quot;enable_probestack&quot;</span>)
+            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="comment">// There are two possible traps for division, and this way</span>
-        <span class="comment">// we get the proper one if code traps.</span>
-        <span class="ident">flags</span>
-            .<span class="ident">enable</span>(<span class="string">&quot;avoid_div_traps&quot;</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="comment">// There are two possible traps for division, and this way
+        // we get the proper one if code traps.
+        </span>flags
+            .enable(<span class="string">&quot;avoid_div_traps&quot;</span>)
+            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_pic</span> {
-            <span class="ident">flags</span>.<span class="ident">enable</span>(<span class="string">&quot;is_pic&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;should be a valid flag&quot;</span>);
+        <span class="kw">if </span><span class="self">self</span>.enable_pic {
+            flags.enable(<span class="string">&quot;is_pic&quot;</span>).expect(<span class="string">&quot;should be a valid flag&quot;</span>);
         }
 
-        <span class="comment">// We set up libcall trampolines in engine-universal.</span>
-        <span class="comment">// These trampolines are always reachable through short jumps.</span>
-        <span class="ident">flags</span>
-            .<span class="ident">enable</span>(<span class="string">&quot;use_colocated_libcalls&quot;</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be a valid flag&quot;</span>);
+        <span class="comment">// We set up libcall trampolines in engine-universal.
+        // These trampolines are always reachable through short jumps.
+        </span>flags
+            .enable(<span class="string">&quot;use_colocated_libcalls&quot;</span>)
+            .expect(<span class="string">&quot;should be a valid flag&quot;</span>);
 
-        <span class="comment">// Invert cranelift&#39;s default-on verification to instead default off.</span>
-        <span class="kw">let</span> <span class="ident">enable_verifier</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_verifier</span> {
-            <span class="string">&quot;true&quot;</span>
-        } <span class="kw">else</span> {
-            <span class="string">&quot;false&quot;</span>
-        };
-        <span class="ident">flags</span>
-            .<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="ident">enable_verifier</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
-        <span class="ident">flags</span>
-            .<span class="ident">set</span>(<span class="string">&quot;enable_safepoints&quot;</span>, <span class="string">&quot;true&quot;</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="comment">// Invert cranelift&#39;s default-on verification to instead default off.
+        </span><span class="kw">let </span>enable_verifier = <span class="kw">if </span><span class="self">self</span>.enable_verifier {
+            <span class="string">&quot;true&quot;
+        </span>} <span class="kw">else </span>{
+            <span class="string">&quot;false&quot;
+        </span>};
+        flags
+            .set(<span class="string">&quot;enable_verifier&quot;</span>, enable_verifier)
+            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+        flags
+            .set(<span class="string">&quot;enable_safepoints&quot;</span>, <span class="string">&quot;true&quot;</span>)
+            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="ident">flags</span>
-            .<span class="ident">set</span>(
+        flags
+            .set(
                 <span class="string">&quot;opt_level&quot;</span>,
-                <span class="kw">match</span> <span class="self">self</span>.<span class="ident">opt_level</span> {
-                    <span class="ident">CraneliftOptLevel::None</span> =&gt; <span class="string">&quot;none&quot;</span>,
-                    <span class="ident">CraneliftOptLevel::Speed</span> =&gt; <span class="string">&quot;speed&quot;</span>,
-                    <span class="ident">CraneliftOptLevel::SpeedAndSize</span> =&gt; <span class="string">&quot;speed_and_size&quot;</span>,
+                <span class="kw">match </span><span class="self">self</span>.opt_level {
+                    CraneliftOptLevel::None =&gt; <span class="string">&quot;none&quot;</span>,
+                    CraneliftOptLevel::Speed =&gt; <span class="string">&quot;speed&quot;</span>,
+                    CraneliftOptLevel::SpeedAndSize =&gt; <span class="string">&quot;speed_and_size&quot;</span>,
                 },
             )
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="ident">flags</span>
-            .<span class="ident">set</span>(<span class="string">&quot;enable_simd&quot;</span>, <span class="string">&quot;true&quot;</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">if </span>is_riscv {
+            flags
+                .set(<span class="string">&quot;enable_simd&quot;</span>, <span class="string">&quot;false&quot;</span>)
+                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+        } <span class="kw">else </span>{
+            flags
+                .set(<span class="string">&quot;enable_simd&quot;</span>, <span class="string">&quot;true&quot;</span>)
+                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+        }
 
-        <span class="kw">let</span> <span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> {
-            <span class="string">&quot;true&quot;</span>
-        } <span class="kw">else</span> {
-            <span class="string">&quot;false&quot;</span>
-        };
-        <span class="ident">flags</span>
-            .<span class="ident">set</span>(<span class="string">&quot;enable_nan_canonicalization&quot;</span>, <span class="ident">enable_nan_canonicalization</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="kw">let </span>enable_nan_canonicalization = <span class="kw">if </span><span class="self">self</span>.enable_nan_canonicalization {
+            <span class="string">&quot;true&quot;
+        </span>} <span class="kw">else </span>{
+            <span class="string">&quot;false&quot;
+        </span>};
+        flags
+            .set(<span class="string">&quot;enable_nan_canonicalization&quot;</span>, enable_nan_canonicalization)
+            .expect(<span class="string">&quot;should be valid flag&quot;</span>);
 
-        <span class="ident">settings::Flags::new</span>(<span class="ident">flags</span>)
+        settings::Flags::new(flags)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">CompilerConfig</span> <span class="kw">for</span> <span class="ident">Cranelift</span> {
-    <span class="kw">fn</span> <span class="ident">enable_pic</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">enable_pic</span> <span class="op">=</span> <span class="bool-val">true</span>;
+<span class="kw">impl </span>CompilerConfig <span class="kw">for </span>Cranelift {
+    <span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.enable_pic = <span class="bool-val">true</span>;
     }
 
-    <span class="kw">fn</span> <span class="ident">enable_verifier</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">enable_verifier</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
     }
 
-    <span class="kw">fn</span> <span class="ident">enable_nan_canonicalization</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="kw">fn </span>enable_nan_canonicalization(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.enable_nan_canonicalization = <span class="bool-val">true</span>;
     }
 
-    <span class="kw">fn</span> <span class="ident">canonicalize_nans</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) {
-        <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="ident">enable</span>;
+    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
+        <span class="self">self</span>.enable_nan_canonicalization = enable;
     }
 
-    <span class="doccomment">/// Transform it into the compiler</span>
-    <span class="kw">fn</span> <span class="ident">compiler</span>(<span class="self">self</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span> {
-        <span class="ident">Box::new</span>(<span class="ident">CraneliftCompiler::new</span>(<span class="kw-2">*</span><span class="self">self</span>))
+    <span class="doccomment">/// Transform it into the compiler
+    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
+        Box::new(CraneliftCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
     }
 
-    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.</span>
-    <span class="kw">fn</span> <span class="ident">push_middleware</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">middleware</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">middlewares</span>.<span class="ident">push</span>(<span class="ident">middleware</span>);
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Cranelift</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
+    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
+    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
+        <span class="self">self</span>.middlewares.push(middleware);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Cranelift</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Engine</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">config</span>: <span class="ident">Cranelift</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">EngineBuilder::new</span>(<span class="ident">config</span>).<span class="ident">engine</span>()
+<span class="kw">impl </span>Default <span class="kw">for </span>Cranelift {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
+    }
+}
+
+<span class="kw">impl </span>From&lt;Cranelift&gt; <span class="kw">for </span>Engine {
+    <span class="kw">fn </span>from(config: Cranelift) -&gt; <span class="self">Self </span>{
+        EngineBuilder::new(config).engine()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

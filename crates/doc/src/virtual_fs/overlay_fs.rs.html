@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/overlay_fs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>overlay_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/overlay_fs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>overlay_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -613,620 +613,620 @@
 <span id="613">613</span>
 <span id="614">614</span>
 <span id="615">615</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt::Debug</span>, <span class="ident">path::Path</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, path::Path};
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">ops</span>, <span class="ident">FileOpener</span>, <span class="ident">FileSystem</span>, <span class="ident">FileSystems</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>,
-    <span class="ident">ReadDir</span>, <span class="ident">VirtualFile</span>,
+<span class="kw">use crate</span>::{
+    ops, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
+    ReadDir, VirtualFile,
 };
 
-<span class="doccomment">/// A primary filesystem and chain of secondary filesystems that are overlayed</span>
-<span class="doccomment">/// on top of each other.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Precedence</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [`OverlayFileSystem`] will execute operations based on precedence.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Most importantly, this means earlier filesystems can shadow files and</span>
-<span class="doccomment">/// directories that have a lower precedence.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///# Examples</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Something useful to know is that the [`FileSystems`] trait is implemented</span>
-<span class="doccomment">/// for both arrays and tuples.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// For example, if you want to create a [`crate::FileSystem`] which will</span>
-<span class="doccomment">/// create files in-memory while still being able to read from the host, you</span>
-<span class="doccomment">/// might do something like this:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// use virtual_fs::{</span>
-<span class="doccomment">///     mem_fs::FileSystem as MemFS,</span>
-<span class="doccomment">///     host_fs::FileSystem as HostFS,</span>
-<span class="doccomment">///     OverlayFileSystem,</span>
-<span class="doccomment">/// };</span>
-<span class="doccomment">/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS]);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// // This also has the benefit of storing the two values in-line with no extra</span>
-<span class="doccomment">/// // overhead or indirection.</span>
-<span class="doccomment">/// assert_eq!(</span>
-<span class="doccomment">///     std::mem::size_of_val(&amp;fs),</span>
-<span class="doccomment">///     std::mem::size_of::&lt;(MemFS, HostFS)&gt;(),</span>
-<span class="doccomment">/// );</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// A more complex example is</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="ident">primary</span>: <span class="ident">P</span>,
-    <span class="ident">secondaries</span>: <span class="ident">S</span>,
+<span class="doccomment">/// A primary filesystem and chain of secondary filesystems that are overlayed
+/// on top of each other.
+///
+/// # Precedence
+///
+/// The [`OverlayFileSystem`] will execute operations based on precedence.
+///
+///
+/// Most importantly, this means earlier filesystems can shadow files and
+/// directories that have a lower precedence.
+///
+///# Examples
+///
+/// Something useful to know is that the [`FileSystems`] trait is implemented
+/// for both arrays and tuples.
+///
+/// For example, if you want to create a [`crate::FileSystem`] which will
+/// create files in-memory while still being able to read from the host, you
+/// might do something like this:
+///
+/// ```rust
+/// use virtual_fs::{
+///     mem_fs::FileSystem as MemFS,
+///     host_fs::FileSystem as HostFS,
+///     OverlayFileSystem,
+/// };
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS]);
+///
+/// // This also has the benefit of storing the two values in-line with no extra
+/// // overhead or indirection.
+/// assert_eq!(
+///     std::mem::size_of_val(&amp;fs),
+///     std::mem::size_of::&lt;(MemFS, HostFS)&gt;(),
+/// );
+/// ```
+///
+/// A more complex example is
+</span><span class="attribute">#[derive(Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>OverlayFileSystem&lt;P, S&gt; {
+    primary: P,
+    secondaries: S,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">P</span>: <span class="ident">FileSystem</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="kw">impl</span>&lt;P, S&gt; OverlayFileSystem&lt;P, S&gt;
+<span class="kw">where
+    </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-    <span class="doccomment">/// Create a new [`FileSystem`] using a primary [`crate::FileSystem`] and a</span>
-    <span class="doccomment">/// chain of secondary [`FileSystems`].</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">primary</span>: <span class="ident">P</span>, <span class="ident">secondaries</span>: <span class="ident">S</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">OverlayFileSystem</span> {
-            <span class="ident">primary</span>,
-            <span class="ident">secondaries</span>,
+    <span class="doccomment">/// Create a new [`FileSystem`] using a primary [`crate::FileSystem`] and a
+    /// chain of secondary [`FileSystems`].
+    </span><span class="kw">pub fn </span>new(primary: P, secondaries: S) -&gt; <span class="self">Self </span>{
+        OverlayFileSystem {
+            primary,
+            secondaries,
         }
     }
 
-    <span class="doccomment">/// Get a reference to the primary filesystem.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">primary</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">P</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">primary</span>
+    <span class="doccomment">/// Get a reference to the primary filesystem.
+    </span><span class="kw">pub fn </span>primary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>P {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.primary
     }
 
-    <span class="doccomment">/// Get a mutable reference to the primary filesystem.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">primary_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">P</span> {
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">primary</span>
+    <span class="doccomment">/// Get a mutable reference to the primary filesystem.
+    </span><span class="kw">pub fn </span>primary_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>P {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.primary
     }
 
-    <span class="doccomment">/// Get a reference to the secondary filesystems.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">secondaries</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">S</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">secondaries</span>
+    <span class="doccomment">/// Get a reference to the secondary filesystems.
+    </span><span class="kw">pub fn </span>secondaries(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>S {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.secondaries
     }
 
-    <span class="doccomment">/// Get a mutable reference to the secondary filesystems.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">secondaries_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">S</span> {
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">secondaries</span>
+    <span class="doccomment">/// Get a mutable reference to the secondary filesystems.
+    </span><span class="kw">pub fn </span>secondaries_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>S {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.secondaries
     }
 
-    <span class="doccomment">/// Consume the [`OverlayFileSystem`], returning the underlying primary and</span>
-    <span class="doccomment">/// secondary filesystems.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_inner</span>(<span class="self">self</span>) -&gt; (<span class="ident">P</span>, <span class="ident">S</span>) {
-        (<span class="self">self</span>.<span class="ident">primary</span>, <span class="self">self</span>.<span class="ident">secondaries</span>)
+    <span class="doccomment">/// Consume the [`OverlayFileSystem`], returning the underlying primary and
+    /// secondary filesystems.
+    </span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; (P, S) {
+        (<span class="self">self</span>.primary, <span class="self">self</span>.secondaries)
     }
 
-    <span class="kw">fn</span> <span class="ident">permission_error_or_not_found</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">for</span> <span class="ident">fs</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">secondaries</span>.<span class="ident">filesystems</span>() {
-            <span class="kw">if</span> <span class="ident">ops::exists</span>(<span class="ident">fs</span>, <span class="ident">path</span>) {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::PermissionDenied</span>);
+    <span class="kw">fn </span>permission_error_or_not_found(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">for </span>fs <span class="kw">in </span><span class="self">self</span>.secondaries.filesystems() {
+            <span class="kw">if </span>ops::exists(fs, path) {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied);
             }
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>)
+        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">FileSystem</span> <span class="kw">for</span> <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">P</span>: <span class="ident">FileSystem</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="kw">impl</span>&lt;P, S&gt; FileSystem <span class="kw">for </span>OverlayFileSystem&lt;P, S&gt;
+<span class="kw">where
+    </span>P: FileSystem + <span class="lifetime">&#39;static</span>,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">fn</span> <span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ReadDir</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">had_at_least_one_success</span> <span class="op">=</span> <span class="bool-val">false</span>;
+    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir, FsError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>entries = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>had_at_least_one_success = <span class="bool-val">false</span>;
 
-        <span class="kw">let</span> <span class="ident">filesystems</span> <span class="op">=</span> <span class="ident">std::iter::once</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">primary</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span>)
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">chain</span>(<span class="self">self</span>.<span class="ident">secondaries</span>().<span class="ident">filesystems</span>());
+        <span class="kw">let </span>filesystems = std::iter::once(<span class="kw-2">&amp;</span><span class="self">self</span>.primary <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem)
+            .into_iter()
+            .chain(<span class="self">self</span>.secondaries().filesystems());
 
-        <span class="kw">for</span> <span class="ident">fs</span> <span class="kw">in</span> <span class="ident">filesystems</span> {
-            <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">path</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">r</span>) =&gt; {
-                    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">r</span> {
-                        <span class="ident">entries</span>.<span class="ident">push</span>(<span class="ident">entry</span><span class="question-mark">?</span>);
+        <span class="kw">for </span>fs <span class="kw">in </span>filesystems {
+            <span class="kw">match </span>fs.read_dir(path) {
+                <span class="prelude-val">Ok</span>(r) =&gt; {
+                    <span class="kw">for </span>entry <span class="kw">in </span>r {
+                        entries.push(entry<span class="question-mark">?</span>);
                     }
-                    <span class="ident">had_at_least_one_success</span> <span class="op">=</span> <span class="bool-val">true</span>;
+                    had_at_least_one_success = <span class="bool-val">true</span>;
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                    <span class="kw">if</span> {
-                        <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                        <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+                <span class="prelude-val">Err</span>(e)
+                    <span class="kw">if </span>{
+                        <span class="kw">let </span>e = e;
+                        <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                     } =&gt;
                 {
-                    <span class="kw">continue</span>
-                }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>),
+                    <span class="kw">continue
+                </span>}
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
             }
         }
 
-        <span class="kw">if</span> <span class="ident">had_at_least_one_success</span> {
-            <span class="comment">// Make sure later entries are removed in favour of earlier ones.</span>
-            <span class="comment">// Note: this sort is guaranteed to be stable, meaning filesystems</span>
-            <span class="comment">// &quot;higher up&quot; the chain will be further towards the start and kept</span>
-            <span class="comment">// when deduplicating.</span>
-            <span class="ident">entries</span>.<span class="ident">sort_by</span>(<span class="op">|</span><span class="ident">a</span>, <span class="ident">b</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">path</span>.<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">b</span>.<span class="ident">path</span>));
-            <span class="ident">entries</span>.<span class="ident">dedup_by</span>(<span class="op">|</span><span class="ident">a</span>, <span class="ident">b</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">path</span> <span class="op">==</span> <span class="ident">b</span>.<span class="ident">path</span>);
+        <span class="kw">if </span>had_at_least_one_success {
+            <span class="comment">// Make sure later entries are removed in favour of earlier ones.
+            // Note: this sort is guaranteed to be stable, meaning filesystems
+            // &quot;higher up&quot; the chain will be further towards the start and kept
+            // when deduplicating.
+            </span>entries.sort_by(|a, b| a.path.cmp(<span class="kw-2">&amp;</span>b.path));
+            entries.dedup_by(|a, b| a.path == b.path);
 
-            <span class="prelude-val">Ok</span>(<span class="ident">ReadDir::new</span>(<span class="ident">entries</span>))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>)
+            <span class="prelude-val">Ok</span>(ReadDir::new(entries))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory)
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">primary</span>.<span class="ident">create_dir</span>(<span class="ident">path</span>) {
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                <span class="kw">if</span> {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.primary.create_dir(path) {
+            <span class="prelude-val">Err</span>(e)
+                <span class="kw">if </span>{
+                    <span class="kw">let </span>e = e;
+                    <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                 } =&gt; {}
-            <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+            other =&gt; <span class="kw">return </span>other,
         }
 
-        <span class="self">self</span>.<span class="ident">permission_error_or_not_found</span>(<span class="ident">path</span>)
+        <span class="self">self</span>.permission_error_or_not_found(path)
     }
 
-    <span class="kw">fn</span> <span class="ident">remove_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">primary</span>.<span class="ident">remove_dir</span>(<span class="ident">path</span>) {
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                <span class="kw">if</span> {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+    <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.primary.remove_dir(path) {
+            <span class="prelude-val">Err</span>(e)
+                <span class="kw">if </span>{
+                    <span class="kw">let </span>e = e;
+                    <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                 } =&gt; {}
-            <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+            other =&gt; <span class="kw">return </span>other,
         }
 
-        <span class="self">self</span>.<span class="ident">permission_error_or_not_found</span>(<span class="ident">path</span>)
+        <span class="self">self</span>.permission_error_or_not_found(path)
     }
 
-    <span class="kw">fn</span> <span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">from</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">to</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">primary</span>.<span class="ident">rename</span>(<span class="ident">from</span>, <span class="ident">to</span>) {
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                <span class="kw">if</span> {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.primary.rename(from, to) {
+            <span class="prelude-val">Err</span>(e)
+                <span class="kw">if </span>{
+                    <span class="kw">let </span>e = e;
+                    <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                 } =&gt; {}
-            <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+            other =&gt; <span class="kw">return </span>other,
         }
 
-        <span class="self">self</span>.<span class="ident">permission_error_or_not_found</span>(<span class="ident">from</span>)
+        <span class="self">self</span>.permission_error_or_not_found(from)
     }
 
-    <span class="kw">fn</span> <span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Metadata</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">primary</span>.<span class="ident">metadata</span>(<span class="ident">path</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">meta</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">meta</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                <span class="kw">if</span> {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata, FsError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.primary.metadata(path) {
+            <span class="prelude-val">Ok</span>(meta) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(meta),
+            <span class="prelude-val">Err</span>(e)
+                <span class="kw">if </span>{
+                    <span class="kw">let </span>e = e;
+                    <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                 } =&gt; {}
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
         }
 
-        <span class="kw">for</span> <span class="ident">fs</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">secondaries</span>.<span class="ident">filesystems</span>() {
-            <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">path</span>) {
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                    <span class="kw">if</span> {
-                        <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                        <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+        <span class="kw">for </span>fs <span class="kw">in </span><span class="self">self</span>.secondaries.filesystems() {
+            <span class="kw">match </span>fs.metadata(path) {
+                <span class="prelude-val">Err</span>(e)
+                    <span class="kw">if </span>{
+                        <span class="kw">let </span>e = e;
+                        <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                     } =&gt;
                 {
-                    <span class="kw">continue</span>
-                }
-                <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+                    <span class="kw">continue
+                </span>}
+                other =&gt; <span class="kw">return </span>other,
             }
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>)
+        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
     }
 
-    <span class="kw">fn</span> <span class="ident">remove_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">primary</span>.<span class="ident">remove_file</span>(<span class="ident">path</span>) {
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                <span class="kw">if</span> {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+    <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.primary.remove_file(path) {
+            <span class="prelude-val">Err</span>(e)
+                <span class="kw">if </span>{
+                    <span class="kw">let </span>e = e;
+                    <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                 } =&gt; {}
-            <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+            other =&gt; <span class="kw">return </span>other,
         }
 
-        <span class="self">self</span>.<span class="ident">permission_error_or_not_found</span>(<span class="ident">path</span>)
+        <span class="self">self</span>.permission_error_or_not_found(path)
     }
 
-    <span class="kw">fn</span> <span class="ident">new_open_options</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">OpenOptions</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">OpenOptions::new</span>(<span class="self">self</span>)
+    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions&lt;<span class="lifetime">&#39;_</span>&gt; {
+        OpenOptions::new(<span class="self">self</span>)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">FileOpener</span> <span class="kw">for</span> <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">P</span>: <span class="ident">FileSystem</span>,
-    <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="kw">impl</span>&lt;P, S&gt; FileOpener <span class="kw">for </span>OverlayFileSystem&lt;P, S&gt;
+<span class="kw">where
+    </span>P: FileSystem,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">fn</span> <span class="ident">open</span>(
+    <span class="kw">fn </span>open(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>
-            .<span class="ident">primary</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">options</span>(<span class="ident">conf</span>.<span class="ident">clone</span>())
-            .<span class="ident">open</span>(<span class="ident">path</span>)
+        path: <span class="kw-2">&amp;</span>Path,
+        conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;, FsError&gt; {
+        <span class="kw">match </span><span class="self">self
+            </span>.primary
+            .new_open_options()
+            .options(conf.clone())
+            .open(path)
         {
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                <span class="kw">if</span> {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+            <span class="prelude-val">Err</span>(e)
+                <span class="kw">if </span>{
+                    <span class="kw">let </span>e = e;
+                    <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                 } =&gt; {}
-            <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+            other =&gt; <span class="kw">return </span>other,
         }
 
-        <span class="kw">if</span> (<span class="ident">conf</span>.<span class="ident">create</span> <span class="op">|</span><span class="op">|</span> <span class="ident">conf</span>.<span class="ident">create_new</span>) <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">ops::exists</span>(<span class="self">self</span>, <span class="ident">path</span>) {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">parent</span>() {
-                <span class="kw">let</span> <span class="ident">parent_exists_on_secondary_fs</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">secondaries</span>
-                    .<span class="ident">filesystems</span>()
-                    .<span class="ident">into_iter</span>()
-                    .<span class="ident">any</span>(<span class="op">|</span><span class="ident">fs</span><span class="op">|</span> <span class="ident">ops::is_dir</span>(<span class="ident">fs</span>, <span class="ident">parent</span>));
-                <span class="kw">if</span> <span class="ident">parent_exists_on_secondary_fs</span> {
-                    <span class="comment">// We fall into the special case where you can create a file</span>
-                    <span class="comment">// that looks like it is inside a secondary filesystem folder,</span>
-                    <span class="comment">// but actually it gets created on the host</span>
-                    <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">primary</span>, <span class="ident">parent</span>)<span class="question-mark">?</span>;
-                    <span class="kw">return</span> <span class="self">self</span>
-                        .<span class="ident">primary</span>
-                        .<span class="ident">new_open_options</span>()
-                        .<span class="ident">options</span>(<span class="ident">conf</span>.<span class="ident">clone</span>())
-                        .<span class="ident">open</span>(<span class="ident">path</span>);
-                } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>);
+        <span class="kw">if </span>(conf.create || conf.create_new) &amp;&amp; !ops::exists(<span class="self">self</span>, path) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+                <span class="kw">let </span>parent_exists_on_secondary_fs = <span class="self">self
+                    </span>.secondaries
+                    .filesystems()
+                    .into_iter()
+                    .any(|fs| ops::is_dir(fs, parent));
+                <span class="kw">if </span>parent_exists_on_secondary_fs {
+                    <span class="comment">// We fall into the special case where you can create a file
+                    // that looks like it is inside a secondary filesystem folder,
+                    // but actually it gets created on the host
+                    </span>ops::create_dir_all(<span class="kw-2">&amp;</span><span class="self">self</span>.primary, parent)<span class="question-mark">?</span>;
+                    <span class="kw">return </span><span class="self">self
+                        </span>.primary
+                        .new_open_options()
+                        .options(conf.clone())
+                        .open(path);
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
                 }
             }
         }
 
-        <span class="kw">if</span> <span class="ident">opening_would_require_mutations</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">secondaries</span>, <span class="ident">path</span>, <span class="ident">conf</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::PermissionDenied</span>);
+        <span class="kw">if </span>opening_would_require_mutations(<span class="kw-2">&amp;</span><span class="self">self</span>.secondaries, path, conf) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied);
         }
 
-        <span class="kw">for</span> <span class="ident">fs</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">secondaries</span>.<span class="ident">filesystems</span>() {
-            <span class="kw">match</span> <span class="ident">fs</span>.<span class="ident">new_open_options</span>().<span class="ident">options</span>(<span class="ident">conf</span>.<span class="ident">clone</span>()).<span class="ident">open</span>(<span class="ident">path</span>) {
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>)
-                    <span class="kw">if</span> {
-                        <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">e</span>;
-                        <span class="macro">matches!</span>(<span class="ident">e</span>, <span class="ident">FsError::EntryNotFound</span>)
+        <span class="kw">for </span>fs <span class="kw">in </span><span class="self">self</span>.secondaries.filesystems() {
+            <span class="kw">match </span>fs.new_open_options().options(conf.clone()).open(path) {
+                <span class="prelude-val">Err</span>(e)
+                    <span class="kw">if </span>{
+                        <span class="kw">let </span>e = e;
+                        <span class="macro">matches!</span>(e, FsError::EntryNotFound)
                     } =&gt;
                 {
-                    <span class="kw">continue</span>
-                }
-                <span class="ident">other</span> =&gt; <span class="kw">return</span> <span class="ident">other</span>,
+                    <span class="kw">continue
+                </span>}
+                other =&gt; <span class="kw">return </span>other,
             }
         }
 
-        <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>)
+        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
     }
 }
 
-<span class="kw">fn</span> <span class="ident">opening_would_require_mutations</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(
-    <span class="ident">secondaries</span>: <span class="kw-2">&amp;</span><span class="ident">S</span>,
-    <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
-) -&gt; <span class="ident">bool</span>
-<span class="kw">where</span>
-    <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>,
+<span class="kw">fn </span>opening_would_require_mutations&lt;S&gt;(
+    secondaries: <span class="kw-2">&amp;</span>S,
+    path: <span class="kw-2">&amp;</span>Path,
+    conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
+) -&gt; bool
+<span class="kw">where
+    </span>S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync,
 {
-    <span class="kw">if</span> <span class="ident">conf</span>.<span class="ident">append</span> <span class="op">|</span><span class="op">|</span> <span class="ident">conf</span>.<span class="ident">write</span> <span class="op">|</span><span class="op">|</span> <span class="ident">conf</span>.<span class="ident">create_new</span> <span class="op">|</span> <span class="ident">conf</span>.<span class="ident">truncate</span> {
-        <span class="kw">return</span> <span class="bool-val">true</span>;
+    <span class="kw">if </span>conf.append || conf.write || conf.create_new | conf.truncate {
+        <span class="kw">return </span><span class="bool-val">true</span>;
     }
 
-    <span class="kw">if</span> <span class="ident">conf</span>.<span class="ident">create</span> {
-        <span class="comment">// Would we create the file if it doesn&#39;t exist yet?</span>
-        <span class="kw">let</span> <span class="ident">already_exists</span> <span class="op">=</span> <span class="ident">secondaries</span>
-            .<span class="ident">filesystems</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">any</span>(<span class="op">|</span><span class="ident">fs</span><span class="op">|</span> <span class="ident">ops::is_file</span>(<span class="ident">fs</span>, <span class="ident">path</span>));
+    <span class="kw">if </span>conf.create {
+        <span class="comment">// Would we create the file if it doesn&#39;t exist yet?
+        </span><span class="kw">let </span>already_exists = secondaries
+            .filesystems()
+            .into_iter()
+            .any(|fs| ops::is_file(fs, path));
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">already_exists</span> {
-            <span class="kw">return</span> <span class="bool-val">true</span>;
+        <span class="kw">if </span>!already_exists {
+            <span class="kw">return </span><span class="bool-val">true</span>;
         }
     }
 
-    <span class="bool-val">false</span>
-}
+    <span class="bool-val">false
+</span>}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">P</span>, <span class="ident">S</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">P</span>: <span class="ident">FileSystem</span>,
-    <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
+<span class="kw">impl</span>&lt;P, S&gt; Debug <span class="kw">for </span>OverlayFileSystem&lt;P, S&gt;
+<span class="kw">where
+    </span>P: FileSystem,
+    S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">struct</span> <span class="ident">IterFilesystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">S</span>);
-        <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">IterFilesystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">S</span><span class="op">&gt;</span>
-        <span class="kw">where</span>
-            <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span><span class="op">&gt;</span>,
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">struct </span>IterFilesystems&lt;<span class="lifetime">&#39;a</span>, S&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>S);
+        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, S&gt; Debug <span class="kw">for </span>IterFilesystems&lt;<span class="lifetime">&#39;a</span>, S&gt;
+        <span class="kw">where
+            </span>S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; FileSystems&lt;<span class="lifetime">&#39;b</span>&gt;,
         {
-            <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">debug_list</span>();
+            <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+                <span class="kw">let </span><span class="kw-2">mut </span>f = f.debug_list();
 
-                <span class="kw">for</span> <span class="ident">fs</span> <span class="kw">in</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">filesystems</span>() {
-                    <span class="ident">f</span>.<span class="ident">entry</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>);
+                <span class="kw">for </span>fs <span class="kw">in </span><span class="self">self</span>.<span class="number">0</span>.filesystems() {
+                    f.entry(<span class="kw-2">&amp;</span>fs);
                 }
 
-                <span class="ident">f</span>.<span class="ident">finish</span>()
+                f.finish()
             }
         }
 
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;OverlayFileSystem&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;primary&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">primary</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;secondaries&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">IterFilesystems</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">secondaries</span>))
-            .<span class="ident">finish</span>()
+        f.debug_struct(<span class="string">&quot;OverlayFileSystem&quot;</span>)
+            .field(<span class="string">&quot;primary&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.primary)
+            .field(<span class="string">&quot;secondaries&quot;</span>, <span class="kw-2">&amp;</span>IterFilesystems(<span class="kw-2">&amp;</span><span class="self">self</span>.secondaries))
+            .finish()
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::PathBuf</span>, <span class="ident">sync::Arc</span>};
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
-    <span class="kw">use</span> <span class="ident">tempfile::TempDir</span>;
-    <span class="kw">use</span> <span class="ident">tokio::io::AsyncWriteExt</span>;
+    <span class="kw">use </span>tempfile::TempDir;
+    <span class="kw">use </span>tokio::io::AsyncWriteExt;
 
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mem_fs::FileSystem</span> <span class="kw">as</span> <span class="ident">MemFS</span>, <span class="ident">webc_fs::WebcFileSystem</span>, <span class="ident">RootFileSystemBuilder</span>};
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use crate</span>::{mem_fs::FileSystem <span class="kw">as </span>MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">object_safe</span>() {
-        <span class="kw">fn</span> <span class="ident">_box_with_memfs</span>(
-            <span class="ident">fs</span>: <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">MemFS</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MemFS</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        ) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-            <span class="ident">Box::new</span>(<span class="ident">fs</span>)
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>object_safe() {
+        <span class="kw">fn </span>_box_with_memfs(
+            fs: OverlayFileSystem&lt;MemFS, Vec&lt;MemFS&gt;&gt;,
+        ) -&gt; Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+            Box::new(fs)
         }
 
-        <span class="kw">fn</span> <span class="ident">_arc</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">fs</span>: <span class="ident">OverlayFileSystem</span><span class="op">&lt;</span><span class="ident">A</span>, <span class="ident">S</span><span class="op">&gt;</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>
-        <span class="kw">where</span>
-            <span class="ident">A</span>: <span class="ident">FileSystem</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-            <span class="ident">S</span>: <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FileSystems</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+        <span class="kw">fn </span>_arc&lt;A, S&gt;(fs: OverlayFileSystem&lt;A, S&gt;) -&gt; Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + <span class="lifetime">&#39;static</span>&gt;
+        <span class="kw">where
+            </span>A: FileSystem + <span class="lifetime">&#39;static</span>,
+            S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + Debug + <span class="lifetime">&#39;static</span>,
         {
-            <span class="ident">Arc::new</span>(<span class="ident">fs</span>)
+            Arc::new(fs)
         }
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">remove_directory</span>() {
-        <span class="kw">let</span> <span class="ident">primary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="kw">let</span> <span class="ident">secondary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="string">&quot;/first&quot;</span>);
-        <span class="kw">let</span> <span class="ident">second</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="string">&quot;/second&quot;</span>);
-        <span class="kw">let</span> <span class="ident">file_txt</span> <span class="op">=</span> <span class="ident">second</span>.<span class="ident">join</span>(<span class="string">&quot;file.txt&quot;</span>);
-        <span class="kw">let</span> <span class="ident">third</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="string">&quot;/third&quot;</span>);
-        <span class="ident">primary</span>.<span class="ident">create_dir</span>(<span class="ident">first</span>).<span class="ident">unwrap</span>();
-        <span class="ident">primary</span>.<span class="ident">create_dir</span>(<span class="ident">second</span>).<span class="ident">unwrap</span>();
-        <span class="ident">primary</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">create</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">file_txt</span>)
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">write_all</span>(<span class="string">b&quot;Hello, World!&quot;</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">unwrap</span>();
-        <span class="ident">secondary</span>.<span class="ident">create_dir</span>(<span class="ident">third</span>).<span class="ident">unwrap</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>remove_directory() {
+        <span class="kw">let </span>primary = MemFS::default();
+        <span class="kw">let </span>secondary = MemFS::default();
+        <span class="kw">let </span>first = Path::new(<span class="string">&quot;/first&quot;</span>);
+        <span class="kw">let </span>second = Path::new(<span class="string">&quot;/second&quot;</span>);
+        <span class="kw">let </span>file_txt = second.join(<span class="string">&quot;file.txt&quot;</span>);
+        <span class="kw">let </span>third = Path::new(<span class="string">&quot;/third&quot;</span>);
+        primary.create_dir(first).unwrap();
+        primary.create_dir(second).unwrap();
+        primary
+            .new_open_options()
+            .create(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="kw-2">&amp;</span>file_txt)
+            .unwrap()
+            .write_all(<span class="string">b&quot;Hello, World!&quot;</span>)
+            .<span class="kw">await
+            </span>.unwrap();
+        secondary.create_dir(third).unwrap();
 
-        <span class="kw">let</span> <span class="ident">overlay</span> <span class="op">=</span> <span class="ident">OverlayFileSystem::new</span>(<span class="ident">primary</span>, [<span class="ident">secondary</span>]);
+        <span class="kw">let </span>overlay = OverlayFileSystem::new(primary, [secondary]);
 
-        <span class="comment">// Delete a folder on the primary filesystem</span>
-        <span class="ident">overlay</span>.<span class="ident">remove_dir</span>(<span class="ident">first</span>).<span class="ident">unwrap</span>();
+        <span class="comment">// Delete a folder on the primary filesystem
+        </span>overlay.remove_dir(first).unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">overlay</span>.<span class="ident">primary</span>().<span class="ident">metadata</span>(<span class="ident">first</span>).<span class="ident">unwrap_err</span>(),
-            <span class="ident">FsError::EntryNotFound</span>,
-            <span class="string">&quot;Deleted from primary&quot;</span>
-        );
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">ops::exists</span>(<span class="kw-2">&amp;</span><span class="ident">overlay</span>.<span class="ident">secondaries</span>[<span class="number">0</span>], <span class="kw-2">&amp;</span><span class="ident">second</span>));
+            overlay.primary().metadata(first).unwrap_err(),
+            FsError::EntryNotFound,
+            <span class="string">&quot;Deleted from primary&quot;
+        </span>);
+        <span class="macro">assert!</span>(!ops::exists(<span class="kw-2">&amp;</span>overlay.secondaries[<span class="number">0</span>], <span class="kw-2">&amp;</span>second));
 
-        <span class="comment">// Directory on the primary fs isn&#39;t empty</span>
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">overlay</span>.<span class="ident">remove_dir</span>(<span class="ident">second</span>).<span class="ident">unwrap_err</span>(),
-            <span class="ident">FsError::DirectoryNotEmpty</span>,
+        <span class="comment">// Directory on the primary fs isn&#39;t empty
+        </span><span class="macro">assert_eq!</span>(
+            overlay.remove_dir(second).unwrap_err(),
+            FsError::DirectoryNotEmpty,
         );
 
-        <span class="comment">// Try to remove something on one of the overlay filesystems</span>
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">overlay</span>.<span class="ident">remove_dir</span>(<span class="ident">third</span>).<span class="ident">unwrap_err</span>(),
-            <span class="ident">FsError::PermissionDenied</span>,
+        <span class="comment">// Try to remove something on one of the overlay filesystems
+        </span><span class="macro">assert_eq!</span>(
+            overlay.remove_dir(third).unwrap_err(),
+            FsError::PermissionDenied,
         );
-        <span class="macro">assert!</span>(<span class="ident">ops::exists</span>(<span class="kw-2">&amp;</span><span class="ident">overlay</span>.<span class="ident">secondaries</span>[<span class="number">0</span>], <span class="ident">third</span>));
+        <span class="macro">assert!</span>(ops::exists(<span class="kw-2">&amp;</span>overlay.secondaries[<span class="number">0</span>], third));
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">open_files</span>() {
-        <span class="kw">let</span> <span class="ident">primary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="kw">let</span> <span class="ident">secondary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/primary&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/primary/read.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/primary/write.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/secondary&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/secondary/read.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/secondary/write.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/primary&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::write</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/primary/read.txt&quot;</span>, <span class="string">&quot;This is shadowed&quot;</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">unwrap</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>open_files() {
+        <span class="kw">let </span>primary = MemFS::default();
+        <span class="kw">let </span>secondary = MemFS::default();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/read.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/write.txt&quot;</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/read.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/write.txt&quot;</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/primary&quot;</span>).unwrap();
+        ops::write(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/primary/read.txt&quot;</span>, <span class="string">&quot;This is shadowed&quot;</span>)
+            .<span class="kw">await
+            </span>.unwrap();
 
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">OverlayFileSystem::new</span>(<span class="ident">primary</span>, [<span class="ident">secondary</span>]);
+        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        <span class="comment">// Any new files will be created on the primary fs</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">create</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/new.txt&quot;</span>)
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">ops::exists</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">primary</span>, <span class="string">&quot;/new.txt&quot;</span>));
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">ops::exists</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">secondaries</span>[<span class="number">0</span>], <span class="string">&quot;/new.txt&quot;</span>));
+        <span class="comment">// Any new files will be created on the primary fs
+        </span><span class="kw">let _ </span>= fs
+            .new_open_options()
+            .create(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/new.txt&quot;</span>)
+            .unwrap();
+        <span class="macro">assert!</span>(ops::exists(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/new.txt&quot;</span>));
+        <span class="macro">assert!</span>(!ops::exists(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/new.txt&quot;</span>));
 
-        <span class="comment">// You can open a file for reading and writing on the primary fs</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">create</span>(<span class="bool-val">false</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="string">&quot;/primary/write.txt&quot;</span>)
-            .<span class="ident">unwrap</span>();
+        <span class="comment">// You can open a file for reading and writing on the primary fs
+        </span><span class="kw">let _ </span>= fs
+            .new_open_options()
+            .create(<span class="bool-val">false</span>)
+            .write(<span class="bool-val">true</span>)
+            .read(<span class="bool-val">true</span>)
+            .open(<span class="string">&quot;/primary/write.txt&quot;</span>)
+            .unwrap();
 
-        <span class="comment">// Files on the primary should always shadow the secondary</span>
-        <span class="kw">let</span> <span class="ident">content</span> <span class="op">=</span> <span class="ident">ops::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/primary/read.txt&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="macro">assert_ne!</span>(<span class="ident">content</span>, <span class="string">&quot;This is shadowed&quot;</span>);
+        <span class="comment">// Files on the primary should always shadow the secondary
+        </span><span class="kw">let </span>content = ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/primary/read.txt&quot;</span>).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_ne!</span>(content, <span class="string">&quot;This is shadowed&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder</span>() {
-        <span class="kw">let</span> <span class="ident">primary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="kw">let</span> <span class="ident">secondary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/path/to/&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/path/to/&quot;</span>));
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">OverlayFileSystem::new</span>(<span class="ident">primary</span>, [<span class="ident">secondary</span>]);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
+        <span class="kw">let </span>primary = MemFS::default();
+        <span class="kw">let </span>secondary = MemFS::default();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/path/to/&quot;</span>).unwrap();
+        <span class="macro">assert!</span>(!ops::is_dir(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/path/to/&quot;</span>));
+        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary]);
 
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/path/to/file.txt&quot;</span>).<span class="ident">unwrap</span>();
+        ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/path/to/file.txt&quot;</span>).unwrap();
 
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">primary</span>, <span class="string">&quot;/path/to/&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">primary</span>, <span class="string">&quot;/path/to/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">secondaries</span>[<span class="number">0</span>], <span class="string">&quot;/path/to/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/path/to/&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/path/to/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(!ops::is_file(<span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>], <span class="string">&quot;/path/to/file.txt&quot;</span>));
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">listed_files_appear_overlayed</span>() {
-        <span class="kw">let</span> <span class="ident">primary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="kw">let</span> <span class="ident">secondary</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="kw">let</span> <span class="ident">secondary_overlayed</span> <span class="op">=</span> <span class="ident">MemFS::default</span>();
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/primary&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/primary/read.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">primary</span>, <span class="string">&quot;/primary/write.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/secondary&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/secondary/read.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">secondary</span>, <span class="string">&quot;/secondary/write.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="comment">// This second &quot;secondary&quot; filesystem should share the same folders as</span>
-        <span class="comment">// the first one.</span>
-        <span class="ident">ops::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">secondary_overlayed</span>, <span class="string">&quot;/secondary&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">secondary_overlayed</span>, <span class="string">&quot;/secondary/overlayed.txt&quot;</span>).<span class="ident">unwrap</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>listed_files_appear_overlayed() {
+        <span class="kw">let </span>primary = MemFS::default();
+        <span class="kw">let </span>secondary = MemFS::default();
+        <span class="kw">let </span>secondary_overlayed = MemFS::default();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/read.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">&quot;/primary/write.txt&quot;</span>).unwrap();
+        ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/read.txt&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/secondary/write.txt&quot;</span>).unwrap();
+        <span class="comment">// This second &quot;secondary&quot; filesystem should share the same folders as
+        // the first one.
+        </span>ops::create_dir_all(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">&quot;/secondary&quot;</span>).unwrap();
+        ops::touch(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">&quot;/secondary/overlayed.txt&quot;</span>).unwrap();
 
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">OverlayFileSystem::new</span>(<span class="ident">primary</span>, [<span class="ident">secondary</span>, <span class="ident">secondary_overlayed</span>]);
+        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary, secondary_overlayed]);
 
-        <span class="kw">let</span> <span class="ident">paths</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ops::walk</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/&quot;</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> <span class="ident">entry</span>.<span class="ident">path</span>()).<span class="ident">collect</span>();
+        <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = ops::walk(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/&quot;</span>).map(|entry| entry.path()).collect();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">paths</span>,
+            paths,
             <span class="macro">vec!</span>[
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/secondary&quot;</span>),
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/secondary/write.txt&quot;</span>),
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/secondary/read.txt&quot;</span>),
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/secondary/overlayed.txt&quot;</span>),
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/primary&quot;</span>),
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/primary/write.txt&quot;</span>),
-                <span class="ident">PathBuf::from</span>(<span class="string">&quot;/primary/read.txt&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/secondary&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/secondary/write.txt&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/secondary/read.txt&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/secondary/overlayed.txt&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/primary&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/primary/write.txt&quot;</span>),
+                PathBuf::from(<span class="string">&quot;/primary/read.txt&quot;</span>),
             ]
         );
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">wasi_runner_use_case</span>() {
-        <span class="comment">// Set up some dummy files on the host</span>
-        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">first</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;first&quot;</span>);
-        <span class="kw">let</span> <span class="ident">file_txt</span> <span class="op">=</span> <span class="ident">first</span>.<span class="ident">join</span>(<span class="string">&quot;file.txt&quot;</span>);
-        <span class="kw">let</span> <span class="ident">second</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;second&quot;</span>);
-        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">first</span>).<span class="ident">unwrap</span>();
-        <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">file_txt</span>, <span class="string">b&quot;First!&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">second</span>).<span class="ident">unwrap</span>();
-        <span class="comment">// configure the union FS so things are saved in memory by default</span>
-        <span class="comment">// (initialized with a set of unix-like folders), but certain folders</span>
-        <span class="comment">// are first to the host.</span>
-        <span class="kw">let</span> <span class="ident">primary</span> <span class="op">=</span> <span class="ident">RootFileSystemBuilder::new</span>().<span class="ident">build</span>();
-        <span class="kw">let</span> <span class="ident">host_fs</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident"><span class="kw">crate</span>::host_fs::FileSystem</span>);
-        <span class="kw">let</span> <span class="ident">first_dirs</span> <span class="op">=</span> [(<span class="kw-2">&amp;</span><span class="ident">first</span>, <span class="string">&quot;/first&quot;</span>), (<span class="kw-2">&amp;</span><span class="ident">second</span>, <span class="string">&quot;/second&quot;</span>)];
-        <span class="kw">for</span> (<span class="ident">host</span>, <span class="ident">guest</span>) <span class="kw">in</span> <span class="ident">first_dirs</span> {
-            <span class="ident">primary</span>
-                .<span class="ident">mount</span>(<span class="ident">PathBuf::from</span>(<span class="ident">guest</span>), <span class="kw-2">&amp;</span><span class="ident">host_fs</span>, <span class="ident">host</span>.<span class="ident">clone</span>())
-                .<span class="ident">unwrap</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>wasi_runner_use_case() {
+        <span class="comment">// Set up some dummy files on the host
+        </span><span class="kw">let </span>temp = TempDir::new().unwrap();
+        <span class="kw">let </span>first = temp.path().join(<span class="string">&quot;first&quot;</span>);
+        <span class="kw">let </span>file_txt = first.join(<span class="string">&quot;file.txt&quot;</span>);
+        <span class="kw">let </span>second = temp.path().join(<span class="string">&quot;second&quot;</span>);
+        std::fs::create_dir_all(<span class="kw-2">&amp;</span>first).unwrap();
+        std::fs::write(<span class="kw-2">&amp;</span>file_txt, <span class="string">b&quot;First!&quot;</span>).unwrap();
+        std::fs::create_dir_all(<span class="kw-2">&amp;</span>second).unwrap();
+        <span class="comment">// configure the union FS so things are saved in memory by default
+        // (initialized with a set of unix-like folders), but certain folders
+        // are first to the host.
+        </span><span class="kw">let </span>primary = RootFileSystemBuilder::new().build();
+        <span class="kw">let </span>host_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; = Arc::new(<span class="kw">crate</span>::host_fs::FileSystem);
+        <span class="kw">let </span>first_dirs = [(<span class="kw-2">&amp;</span>first, <span class="string">&quot;/first&quot;</span>), (<span class="kw-2">&amp;</span>second, <span class="string">&quot;/second&quot;</span>)];
+        <span class="kw">for </span>(host, guest) <span class="kw">in </span>first_dirs {
+            primary
+                .mount(PathBuf::from(guest), <span class="kw-2">&amp;</span>host_fs, host.clone())
+                .unwrap();
         }
-        <span class="comment">// Set up the secondary file systems</span>
-        <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">webc::v1::WebCOwned::parse</span>(
-            <span class="macro">include_bytes!</span>(<span class="string">&quot;../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>).<span class="ident">to_vec</span>(),
-            <span class="kw-2">&amp;</span><span class="ident">webc::v1::ParseOptions::default</span>(),
+        <span class="comment">// Set up the secondary file systems
+        </span><span class="kw">let </span>webc = webc::v1::WebCOwned::parse(
+            <span class="macro">include_bytes!</span>(<span class="string">&quot;../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>).to_vec(),
+            <span class="kw-2">&amp;</span>webc::v1::ParseOptions::default(),
         )
-        .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">WebcFileSystem::init_all</span>(<span class="ident">Arc::new</span>(<span class="ident">webc</span>));
+        .unwrap();
+        <span class="kw">let </span>webc = WebcFileSystem::init_all(Arc::new(webc));
 
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">OverlayFileSystem::new</span>(<span class="ident">primary</span>, [<span class="ident">webc</span>]);
+        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [webc]);
 
-        <span class="comment">// We should get all the normal directories from rootfs (primary)</span>
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/lib&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/bin&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/dev/stdin&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/dev/stdout&quot;</span>));
-        <span class="comment">// We also want to see files from the WEBC volumes (secondary)</span>
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/lib/python3.6&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/lib/python3.6/collections/__init__.py&quot;</span>));
-        <span class="comment">// files on a secondary fs aren&#39;t writable</span>
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                .<span class="ident">append</span>(<span class="bool-val">true</span>)
-                .<span class="ident">open</span>(<span class="string">&quot;/lib/python3.6/collections/__init__.py&quot;</span>)
-                .<span class="ident">unwrap_err</span>(),
-            <span class="ident">FsError::PermissionDenied</span>,
+        <span class="comment">// We should get all the normal directories from rootfs (primary)
+        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/bin&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/dev/stdin&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/dev/stdout&quot;</span>));
+        <span class="comment">// We also want to see files from the WEBC volumes (secondary)
+        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6/collections/__init__.py&quot;</span>));
+        <span class="comment">// files on a secondary fs aren&#39;t writable
+        </span><span class="macro">assert_eq!</span>(
+            fs.new_open_options()
+                .append(<span class="bool-val">true</span>)
+                .open(<span class="string">&quot;/lib/python3.6/collections/__init__.py&quot;</span>)
+                .unwrap_err(),
+            FsError::PermissionDenied,
         );
-        <span class="comment">// you are allowed to create files that look like they are in a secondary</span>
-        <span class="comment">// folder, though</span>
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="comment">// But it&#39;ll be on the primary filesystem, not the secondary one</span>
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(
-            <span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">primary</span>,
-            <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;</span>
-        ));
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">ops::is_file</span>(
-            <span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">secondaries</span>[<span class="number">0</span>],
-            <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;</span>
-        ));
-        <span class="comment">// You can do the same thing with folders</span>
-        <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="string">&quot;/lib/python3.6/something-else&quot;</span>.<span class="ident">as_ref</span>())
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">primary</span>, <span class="string">&quot;/lib/python3.6/something-else&quot;</span>));
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">ops::is_dir</span>(
-            <span class="kw-2">&amp;</span><span class="ident">fs</span>.<span class="ident">secondaries</span>[<span class="number">0</span>],
-            <span class="string">&quot;/lib/python3.6/something-else&quot;</span>
-        ));
-        <span class="comment">// It only works when you are directly inside an existing directory</span>
-        <span class="comment">// on the secondary filesystem, though</span>
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/lib/python3.6/collections/this/doesnt/exist.txt&quot;</span>).<span class="ident">unwrap_err</span>(),
-            <span class="ident">FsError::EntryNotFound</span>
+        <span class="comment">// you are allowed to create files that look like they are in a secondary
+        // folder, though
+        </span>ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;</span>).unwrap();
+        <span class="comment">// But it&#39;ll be on the primary filesystem, not the secondary one
+        </span><span class="macro">assert!</span>(ops::is_file(
+            <span class="kw-2">&amp;</span>fs.primary,
+            <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;
+        </span>));
+        <span class="macro">assert!</span>(!ops::is_file(
+            <span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>],
+            <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;
+        </span>));
+        <span class="comment">// You can do the same thing with folders
+        </span>fs.create_dir(<span class="string">&quot;/lib/python3.6/something-else&quot;</span>.as_ref())
+            .unwrap();
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/lib/python3.6/something-else&quot;</span>));
+        <span class="macro">assert!</span>(!ops::is_dir(
+            <span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>],
+            <span class="string">&quot;/lib/python3.6/something-else&quot;
+        </span>));
+        <span class="comment">// It only works when you are directly inside an existing directory
+        // on the secondary filesystem, though
+        </span><span class="macro">assert_eq!</span>(
+            ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6/collections/this/doesnt/exist.txt&quot;</span>).unwrap_err(),
+            FsError::EntryNotFound
         );
-        <span class="comment">// you should also be able to read files mounted from the host</span>
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/first&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/first/file.txt&quot;</span>));
+        <span class="comment">// you should also be able to read files mounted from the host
+        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/file.txt&quot;</span>));
         <span class="macro">assert_eq!</span>(
-            <span class="ident">ops::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/first/file.txt&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>(),
-            <span class="string">&quot;First!&quot;</span>
-        );
-        <span class="comment">// Overwriting them is fine and we&#39;ll see the changes on the host</span>
-        <span class="ident">ops::write</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/first/file.txt&quot;</span>, <span class="string">&quot;Updated&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">file_txt</span>).<span class="ident">unwrap</span>(), <span class="string">&quot;Updated&quot;</span>);
-        <span class="comment">// The filesystem will see changes on the host that happened after it was</span>
-        <span class="comment">// set up</span>
-        <span class="kw">let</span> <span class="ident">another</span> <span class="op">=</span> <span class="ident">second</span>.<span class="ident">join</span>(<span class="string">&quot;another.txt&quot;</span>);
-        <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">another</span>, <span class="string">&quot;asdf&quot;</span>).<span class="ident">unwrap</span>();
+            ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/file.txt&quot;</span>).<span class="kw">await</span>.unwrap(),
+            <span class="string">&quot;First!&quot;
+        </span>);
+        <span class="comment">// Overwriting them is fine and we&#39;ll see the changes on the host
+        </span>ops::write(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/file.txt&quot;</span>, <span class="string">&quot;Updated&quot;</span>).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_eq!</span>(std::fs::read_to_string(<span class="kw-2">&amp;</span>file_txt).unwrap(), <span class="string">&quot;Updated&quot;</span>);
+        <span class="comment">// The filesystem will see changes on the host that happened after it was
+        // set up
+        </span><span class="kw">let </span>another = second.join(<span class="string">&quot;another.txt&quot;</span>);
+        std::fs::write(<span class="kw-2">&amp;</span>another, <span class="string">&quot;asdf&quot;</span>).unwrap();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">ops::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/second/another.txt&quot;</span>)
-                .<span class="kw">await</span>
-                .<span class="ident">unwrap</span>(),
-            <span class="string">&quot;asdf&quot;</span>
-        );
+            ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/second/another.txt&quot;</span>)
+                .<span class="kw">await
+                </span>.unwrap(),
+            <span class="string">&quot;asdf&quot;
+        </span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

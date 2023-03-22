@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/utils/owned_mutex_guard.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>owned_mutex_guard.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/utils/owned_mutex_guard.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>owned_mutex_guard.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -247,252 +247,252 @@
 <span id="245">245</span>
 <span id="246">246</span>
 <span id="247">247</span>
-</pre><pre class="rust"><code><span class="doccomment">/// Extends the standard library RwLock to include an owned version of the read</span>
-<span class="doccomment">/// and write locking functions.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This implementation contains unsafe code and has two levels of protection</span>
-<span class="doccomment">/// that prevent the lock from being released after the memory is freed.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// 1. The internals use a Option which is cleared before the Drop completes</span>
-<span class="doccomment">/// 2. The Arc reference is placed as the last field which should be dropped last</span>
-<span class="doccomment">///    (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)</span>
-<span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>};
-<span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">LockResult</span>, <span class="ident">PoisonError</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockReadGuard</span>, <span class="ident">RwLockWriteGuard</span>};
+</pre><pre class="rust"><code><span class="doccomment">/// Extends the standard library RwLock to include an owned version of the read
+/// and write locking functions.
+///
+/// This implementation contains unsafe code and has two levels of protection
+/// that prevent the lock from being released after the memory is freed.
+///
+/// 1. The internals use a Option which is cleared before the Drop completes
+/// 2. The Arc reference is placed as the last field which should be dropped last
+///    (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)
+</span><span class="kw">use </span>std::ops::{Deref, DerefMut};
+<span class="kw">use </span>std::sync::{Arc, LockResult, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-<span class="doccomment">/// Locks this rwlock with shared read access, blocking the current thread</span>
-<span class="doccomment">/// until it can be acquired.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The calling thread will be blocked until there are no more writers which</span>
-<span class="doccomment">/// hold the lock. There may be other readers currently inside the lock when</span>
-<span class="doccomment">/// this method returns. This method does not provide any guarantees with</span>
-<span class="doccomment">/// respect to the ordering of whether contentious readers or writers will</span>
-<span class="doccomment">/// acquire the lock first.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Returns an RAII guard which will release this thread&#39;s shared access</span>
-<span class="doccomment">/// once it is dropped.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function will return an error if the RwLock is poisoned. An RwLock</span>
-<span class="doccomment">/// is poisoned whenever a writer panics while holding an exclusive lock.</span>
-<span class="doccomment">/// The failure will occur immediately after the lock has been acquired.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Panics</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function might panic when called if the lock is already held by the current thread.</span>
-<span class="doccomment">///</span>
-<span class="comment">// # Examples</span>
-<span class="comment">//</span>
-<span class="comment">// ```</span>
-<span class="comment">// use std::sync::{Arc, RwLock};</span>
-<span class="comment">// use std::thread;</span>
-<span class="comment">// use crate::utils::owned_mutex_guard::read_owned;</span>
-<span class="comment">//</span>
-<span class="comment">// let lock = Arc::new(RwLock::new(1));</span>
-<span class="comment">// let c_lock = Arc::clone(&amp;lock);</span>
-<span class="comment">//</span>
-<span class="comment">// let n = read_owned(&amp;lock).unwrap();</span>
-<span class="comment">// assert_eq!(*n, 1);</span>
-<span class="comment">//</span>
-<span class="comment">// thread::spawn(move || {</span>
-<span class="comment">//     let r = read_owned(&amp;c_lock);</span>
-<span class="comment">//     assert!(r.is_ok());</span>
-<span class="comment">// }).join().unwrap();</span>
-<span class="comment">// ```</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">read_owned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">lock</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="ident">LockResult</span><span class="op">&lt;</span><span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">OwnedRwLockReadGuard::new</span>(<span class="ident">lock</span>)
+<span class="doccomment">/// Locks this rwlock with shared read access, blocking the current thread
+/// until it can be acquired.
+///
+/// The calling thread will be blocked until there are no more writers which
+/// hold the lock. There may be other readers currently inside the lock when
+/// this method returns. This method does not provide any guarantees with
+/// respect to the ordering of whether contentious readers or writers will
+/// acquire the lock first.
+///
+/// Returns an RAII guard which will release this thread&#39;s shared access
+/// once it is dropped.
+///
+/// # Errors
+///
+/// This function will return an error if the RwLock is poisoned. An RwLock
+/// is poisoned whenever a writer panics while holding an exclusive lock.
+/// The failure will occur immediately after the lock has been acquired.
+///
+/// # Panics
+///
+/// This function might panic when called if the lock is already held by the current thread.
+///
+</span><span class="comment">// # Examples
+//
+// ```
+// use std::sync::{Arc, RwLock};
+// use std::thread;
+// use crate::utils::owned_mutex_guard::read_owned;
+//
+// let lock = Arc::new(RwLock::new(1));
+// let c_lock = Arc::clone(&amp;lock);
+//
+// let n = read_owned(&amp;lock).unwrap();
+// assert_eq!(*n, 1);
+//
+// thread::spawn(move || {
+//     let r = read_owned(&amp;c_lock);
+//     assert!(r.is_ok());
+// }).join().unwrap();
+// ```
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>read_owned&lt;T&gt;(lock: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;T&gt;&gt;) -&gt; LockResult&lt;OwnedRwLockReadGuard&lt;T&gt;&gt; {
+    OwnedRwLockReadGuard::new(lock)
 }
 
-<span class="doccomment">/// Locks this rwlock with exclusive write access, blocking the current</span>
-<span class="doccomment">/// thread until it can be acquired.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function will not return while other writers or other readers</span>
-<span class="doccomment">/// currently have access to the lock.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Returns an RAII guard which will drop the write access of this rwlock</span>
-<span class="doccomment">/// when dropped.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function will return an error if the RwLock is poisoned. An RwLock</span>
-<span class="doccomment">/// is poisoned whenever a writer panics while holding an exclusive lock.</span>
-<span class="doccomment">/// An error will be returned when the lock is acquired.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Panics</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function might panic when called if the lock is already held by the current thread.</span>
-<span class="doccomment">///</span>
-<span class="comment">// # Examples</span>
-<span class="comment">//</span>
-<span class="comment">// ```</span>
-<span class="comment">// use std::sync::RwLock;</span>
-<span class="comment">// use crate::utils::owned_mutex_guard::write_owned;</span>
-<span class="comment">//</span>
-<span class="comment">// let lock = RwLock::new(1);</span>
-<span class="comment">//</span>
-<span class="comment">// let mut n = write_owned(&amp;lock).unwrap();</span>
-<span class="comment">// *n = 2;</span>
-<span class="comment">// ```</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">write_owned</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">lock</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="ident">LockResult</span><span class="op">&lt;</span><span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">OwnedRwLockWriteGuard::new</span>(<span class="ident">lock</span>)
+<span class="doccomment">/// Locks this rwlock with exclusive write access, blocking the current
+/// thread until it can be acquired.
+///
+/// This function will not return while other writers or other readers
+/// currently have access to the lock.
+///
+/// Returns an RAII guard which will drop the write access of this rwlock
+/// when dropped.
+///
+/// # Errors
+///
+/// This function will return an error if the RwLock is poisoned. An RwLock
+/// is poisoned whenever a writer panics while holding an exclusive lock.
+/// An error will be returned when the lock is acquired.
+///
+/// # Panics
+///
+/// This function might panic when called if the lock is already held by the current thread.
+///
+</span><span class="comment">// # Examples
+//
+// ```
+// use std::sync::RwLock;
+// use crate::utils::owned_mutex_guard::write_owned;
+//
+// let lock = RwLock::new(1);
+//
+// let mut n = write_owned(&amp;lock).unwrap();
+// *n = 2;
+// ```
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_owned&lt;T&gt;(lock: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;T&gt;&gt;) -&gt; LockResult&lt;OwnedRwLockWriteGuard&lt;T&gt;&gt; {
+    OwnedRwLockWriteGuard::new(lock)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-    <span class="comment">// This option is guaranteed to be `.is_some()` while in scope and cleared during the `Drop`</span>
-    <span class="ident">guard</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RwLockReadGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// as a precaution we keep the reference as the last field so that it is destructed after the guard</span>
-    <span class="comment">// (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
-    <span class="ident">ownership</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>OwnedRwLockReadGuard&lt;T: <span class="lifetime">&#39;static</span>&gt; {
+    <span class="comment">// This option is guaranteed to be `.is_some()` while in scope and cleared during the `Drop`
+    </span>guard: <span class="prelude-ty">Option</span>&lt;RwLockReadGuard&lt;<span class="lifetime">&#39;static</span>, T&gt;&gt;,
+    <span class="comment">// as a precaution we keep the reference as the last field so that it is destructed after the guard
+    // (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)
+    </span><span class="attribute">#[allow(unused)]
+    </span>ownership: Arc&lt;RwLock&lt;T&gt;&gt;,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">Sized</span>,
+<span class="kw">impl</span>&lt;T&gt; Drop <span class="kw">for </span>OwnedRwLockReadGuard&lt;T&gt;
+<span class="kw">where
+    </span>T: Sized,
 {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="comment">// we must close the lock before we release the arc reference</span>
-        <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">take</span>();
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="comment">// we must close the lock before we release the arc reference
+        </span><span class="self">self</span>.guard.take();
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">std::fmt::Debug</span>,
+<span class="kw">impl</span>&lt;T&gt; std::fmt::Debug <span class="kw">for </span>OwnedRwLockReadGuard&lt;T&gt;
+<span class="kw">where
+    </span>T: std::fmt::Debug,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">guard</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_ref</span>() {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">guard</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;none&quot;</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, guard)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;none&quot;</span>)
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::fmt::Display</span> <span class="kw">for</span> <span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">std::fmt::Display</span>,
+<span class="kw">impl</span>&lt;T&gt; std::fmt::Display <span class="kw">for </span>OwnedRwLockReadGuard&lt;T&gt;
+<span class="kw">where
+    </span>T: std::fmt::Display,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">guard</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_ref</span>() {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">guard</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;none&quot;</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, guard)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;none&quot;</span>)
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">lock</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="ident">LockResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">conv</span> <span class="op">=</span> <span class="op">|</span><span class="ident">guard</span>: <span class="ident">RwLockReadGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">guard</span>: <span class="ident">RwLockReadGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::mem::transmute</span>(<span class="ident">guard</span>) };
-            <span class="self">Self</span> {
-                <span class="ident">ownership</span>: <span class="ident">lock</span>.<span class="ident">clone</span>(),
-                <span class="ident">guard</span>: <span class="prelude-val">Some</span>(<span class="ident">guard</span>),
+<span class="kw">impl</span>&lt;T&gt; OwnedRwLockReadGuard&lt;T&gt; {
+    <span class="kw">fn </span>new(lock: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;T&gt;&gt;) -&gt; LockResult&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>conv = |guard: RwLockReadGuard&lt;<span class="lifetime">&#39;_</span>, T&gt;| {
+            <span class="kw">let </span>guard: RwLockReadGuard&lt;<span class="lifetime">&#39;static</span>, T&gt; = <span class="kw">unsafe </span>{ std::mem::transmute(guard) };
+            <span class="self">Self </span>{
+                ownership: lock.clone(),
+                guard: <span class="prelude-val">Some</span>(guard),
             }
         };
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">lock</span>.<span class="ident">read</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into_inner</span>();
-            <span class="ident">PoisonError::new</span>(<span class="ident">conv</span>(<span class="ident">guard</span>))
+        <span class="kw">let </span>guard = lock.read().map_err(|err| {
+            <span class="kw">let </span>guard = err.into_inner();
+            PoisonError::new(conv(guard))
         })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">conv</span>(<span class="ident">guard</span>))
+        <span class="prelude-val">Ok</span>(conv(guard))
     }
 
-    <span class="doccomment">/// Converts this guard into an owned reference of the underlying lockable object</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_inner</span>(<span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">ownership</span>.<span class="ident">clone</span>()
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">OwnedRwLockReadGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">T</span>;
-
-    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Target</span> {
-        <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>()
+    <span class="doccomment">/// Converts this guard into an owned reference of the underlying lockable object
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;T&gt;&gt; {
+        <span class="self">self</span>.ownership.clone()
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-    <span class="comment">// This option is guaranteed to be `.is_some()` while in scope and cleared during the `Drop`</span>
-    <span class="ident">guard</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RwLockWriteGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// as a precaution we keep the reference as the last field so that it is destructed after the guard</span>
-    <span class="comment">// (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
-    <span class="ident">ownership</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="kw">impl</span>&lt;T&gt; Deref <span class="kw">for </span>OwnedRwLockReadGuard&lt;T&gt; {
+    <span class="kw">type </span>Target = T;
+
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="self">self</span>.guard.as_ref().unwrap()
+    }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">Sized</span>,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>OwnedRwLockWriteGuard&lt;T: <span class="lifetime">&#39;static</span>&gt; {
+    <span class="comment">// This option is guaranteed to be `.is_some()` while in scope and cleared during the `Drop`
+    </span>guard: <span class="prelude-ty">Option</span>&lt;RwLockWriteGuard&lt;<span class="lifetime">&#39;static</span>, T&gt;&gt;,
+    <span class="comment">// as a precaution we keep the reference as the last field so that it is destructed after the guard
+    // (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)
+    </span><span class="attribute">#[allow(unused)]
+    </span>ownership: Arc&lt;RwLock&lt;T&gt;&gt;,
+}
+
+<span class="kw">impl</span>&lt;T&gt; Drop <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt;
+<span class="kw">where
+    </span>T: Sized,
 {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="comment">// we must close the lock before we release the arc reference</span>
-        <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">take</span>();
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="comment">// we must close the lock before we release the arc reference
+        </span><span class="self">self</span>.guard.take();
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">std::fmt::Debug</span>,
+<span class="kw">impl</span>&lt;T&gt; std::fmt::Debug <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt;
+<span class="kw">where
+    </span>T: std::fmt::Debug,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">guard</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_ref</span>() {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="ident">guard</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;none&quot;</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, guard)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;none&quot;</span>)
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">std::fmt::Display</span> <span class="kw">for</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">std::fmt::Display</span>,
+<span class="kw">impl</span>&lt;T&gt; std::fmt::Display <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt;
+<span class="kw">where
+    </span>T: std::fmt::Display,
 {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">guard</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_ref</span>() {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">guard</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;none&quot;</span>)
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) = <span class="self">self</span>.guard.as_ref() {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, guard)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;none&quot;</span>)
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">lock</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="ident">LockResult</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">conv</span> <span class="op">=</span> <span class="op">|</span><span class="ident">guard</span>: <span class="ident">RwLockWriteGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">T</span><span class="op">&gt;</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">guard</span>: <span class="ident">RwLockWriteGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::mem::transmute</span>(<span class="ident">guard</span>) };
-            <span class="self">Self</span> {
-                <span class="ident">ownership</span>: <span class="ident">lock</span>.<span class="ident">clone</span>(),
-                <span class="ident">guard</span>: <span class="prelude-val">Some</span>(<span class="ident">guard</span>),
+<span class="kw">impl</span>&lt;T&gt; OwnedRwLockWriteGuard&lt;T&gt; {
+    <span class="kw">fn </span>new(lock: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;T&gt;&gt;) -&gt; LockResult&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>conv = |guard: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, T&gt;| {
+            <span class="kw">let </span>guard: RwLockWriteGuard&lt;<span class="lifetime">&#39;static</span>, T&gt; = <span class="kw">unsafe </span>{ std::mem::transmute(guard) };
+            <span class="self">Self </span>{
+                ownership: lock.clone(),
+                guard: <span class="prelude-val">Some</span>(guard),
             }
         };
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">lock</span>.<span class="ident">write</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into_inner</span>();
-            <span class="ident">PoisonError::new</span>(<span class="ident">conv</span>(<span class="ident">guard</span>))
+        <span class="kw">let </span>guard = lock.write().map_err(|err| {
+            <span class="kw">let </span>guard = err.into_inner();
+            PoisonError::new(conv(guard))
         })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">conv</span>(<span class="ident">guard</span>))
+        <span class="prelude-val">Ok</span>(conv(guard))
     }
 
-    <span class="doccomment">/// Converts this guard into an owned reference of the underlying lockable object</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_inner</span>(<span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">ownership</span>.<span class="ident">clone</span>()
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Deref</span> <span class="kw">for</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Target</span> <span class="op">=</span> <span class="ident">T</span>;
-
-    <span class="kw">fn</span> <span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Target</span> {
-        <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>()
+    <span class="doccomment">/// Converts this guard into an owned reference of the underlying lockable object
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; Arc&lt;RwLock&lt;T&gt;&gt; {
+        <span class="self">self</span>.ownership.clone()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">DerefMut</span> <span class="kw">for</span> <span class="ident">OwnedRwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">deref_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident"><span class="self">Self</span>::Target</span> {
-        <span class="self">self</span>.<span class="ident">guard</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>()
+<span class="kw">impl</span>&lt;T&gt; Deref <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt; {
+    <span class="kw">type </span>Target = T;
+
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="self">self</span>.guard.as_ref().unwrap()
+    }
+}
+
+<span class="kw">impl</span>&lt;T&gt; DerefMut <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt; {
+    <span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
+        <span class="self">self</span>.guard.as_mut().unwrap()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

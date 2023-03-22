@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/init.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>init.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/init.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>init.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -529,534 +529,534 @@
 <span id="527">527</span>
 <span id="528">528</span>
 <span id="529">529</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-<span class="kw">use</span> <span class="ident">cargo_metadata</span>::{<span class="ident">CargoOpt</span>, <span class="ident">MetadataCommand</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">indexmap::IndexMap</span>;
-<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
-<span class="kw">use</span> <span class="ident">std::path::Path</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry::WasmerConfig</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>cargo_metadata::{CargoOpt, MetadataCommand};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>indexmap::IndexMap;
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::path::Path;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>wasmer_registry::WasmerConfig;
 
-<span class="kw">static</span> <span class="ident">NOTE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span>
+<span class="kw">static </span>NOTE: <span class="kw-2">&amp;</span>str =
     <span class="string">&quot;# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest&quot;</span>;
 
-<span class="kw">const</span> <span class="ident">NEWLINE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">windows</span>) { <span class="string">&quot;\r\n&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;\n&quot;</span> };
+<span class="kw">const </span>NEWLINE: <span class="kw-2">&amp;</span>str = <span class="kw">if </span><span class="macro">cfg!</span>(windows) { <span class="string">&quot;\r\n&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;\n&quot; </span>};
 
-<span class="doccomment">/// CLI args for the `wasmer init` command</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Init</span> {
-    <span class="doccomment">/// Initialize wasmer.toml for a library package</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">group</span> <span class="op">=</span> <span class="string">&quot;crate-type&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">lib</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Initialize wasmer.toml for a binary package</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">group</span> <span class="op">=</span> <span class="string">&quot;crate-type&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">bin</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Initialize an empty wasmer.toml</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">group</span> <span class="op">=</span> <span class="string">&quot;crate-type&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">empty</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Force overwriting the wasmer.toml, even if it already exists</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">overwrite</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Don&#39;t display debug output</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">quiet</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Namespace to init with, default = current logged in user or _</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">namespace</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Package name to init with, default = Cargo.toml name or current directory name</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">package_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Version of the initialized package</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">semver::Version</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// If the `manifest-path` is a Cargo.toml, use that file to initialize the wasmer.toml</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">manifest_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Add default dependencies for common packages</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">value_enum</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">template</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Template</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Include file paths into the target container filesystem</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">include</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Directory of the output file name. wasmer init will error if the target dir</span>
-    <span class="doccomment">/// already contains a wasmer.toml. Also sets the package name.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;PACKAGE_PATH&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">out</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
+<span class="doccomment">/// CLI args for the `wasmer init` command
+</span><span class="attribute">#[derive(Debug, Parser)]
+</span><span class="kw">pub struct </span>Init {
+    <span class="doccomment">/// Initialize wasmer.toml for a library package
+    </span><span class="attribute">#[clap(long, group = <span class="string">&quot;crate-type&quot;</span>)]
+    </span><span class="kw">pub </span>lib: bool,
+    <span class="doccomment">/// Initialize wasmer.toml for a binary package
+    </span><span class="attribute">#[clap(long, group = <span class="string">&quot;crate-type&quot;</span>)]
+    </span><span class="kw">pub </span>bin: bool,
+    <span class="doccomment">/// Initialize an empty wasmer.toml
+    </span><span class="attribute">#[clap(long, group = <span class="string">&quot;crate-type&quot;</span>)]
+    </span><span class="kw">pub </span>empty: bool,
+    <span class="doccomment">/// Force overwriting the wasmer.toml, even if it already exists
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>overwrite: bool,
+    <span class="doccomment">/// Don&#39;t display debug output
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>quiet: bool,
+    <span class="doccomment">/// Namespace to init with, default = current logged in user or _
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Package name to init with, default = Cargo.toml name or current directory name
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Version of the initialized package
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
+    <span class="doccomment">/// If the `manifest-path` is a Cargo.toml, use that file to initialize the wasmer.toml
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>manifest_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    <span class="doccomment">/// Add default dependencies for common packages
+    </span><span class="attribute">#[clap(long, value_enum)]
+    </span><span class="kw">pub </span>template: <span class="prelude-ty">Option</span>&lt;Template&gt;,
+    <span class="doccomment">/// Include file paths into the target container filesystem
+    </span><span class="attribute">#[clap(long)]
+    </span><span class="kw">pub </span>include: Vec&lt;String&gt;,
+    <span class="doccomment">/// Directory of the output file name. wasmer init will error if the target dir
+    /// already contains a wasmer.toml. Also sets the package name.
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;PACKAGE_PATH&quot;</span>)]
+    </span><span class="kw">pub </span>out: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
-<span class="doccomment">/// What template to use for the initialized wasmer.toml</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">clap::ValueEnum</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Template</span> {
-    <span class="doccomment">/// Add dependency on Python</span>
-    <span class="ident">Python</span>,
-    <span class="doccomment">/// Add dependency on JS</span>
-    <span class="ident">Js</span>,
+<span class="doccomment">/// What template to use for the initialized wasmer.toml
+</span><span class="attribute">#[derive(Debug, PartialEq, Eq, Copy, Clone, clap::ValueEnum)]
+</span><span class="kw">pub enum </span>Template {
+    <span class="doccomment">/// Add dependency on Python
+    </span>Python,
+    <span class="doccomment">/// Add dependency on JS
+    </span>Js,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">enum</span> <span class="ident">BinOrLib</span> {
-    <span class="ident">Bin</span>,
-    <span class="ident">Lib</span>,
-    <span class="ident">Empty</span>,
+<span class="attribute">#[derive(Debug, PartialEq, Copy, Clone)]
+</span><span class="kw">enum </span>BinOrLib {
+    Bin,
+    Lib,
+    Empty,
 }
 
-<span class="comment">// minimal version of the Cargo.toml [package] section</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">struct</span> <span class="ident">MiniCargoTomlPackage</span> {
-    <span class="ident">cargo_toml_path</span>: <span class="ident">PathBuf</span>,
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="ident">version</span>: <span class="ident">semver::Version</span>,
-    <span class="ident">description</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">homepage</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">repository</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">license</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">readme</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-    <span class="ident">license_file</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="ident">workspace_root</span>: <span class="ident">PathBuf</span>,
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="ident">build_dir</span>: <span class="ident">PathBuf</span>,
+<span class="comment">// minimal version of the Cargo.toml [package] section
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">struct </span>MiniCargoTomlPackage {
+    cargo_toml_path: PathBuf,
+    name: String,
+    version: semver::Version,
+    description: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    homepage: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    repository: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    license: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    readme: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    license_file: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    <span class="attribute">#[allow(dead_code)]
+    </span>workspace_root: PathBuf,
+    <span class="attribute">#[allow(dead_code)]
+    </span>build_dir: PathBuf,
 }
 
-<span class="kw">static</span> <span class="ident">WASMER_TOML_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.toml&quot;</span>;
+<span class="kw">static </span>WASMER_TOML_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.toml&quot;</span>;
 
-<span class="kw">impl</span> <span class="ident">Init</span> {
-    <span class="doccomment">/// `wasmer init` execution</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bin_or_lib</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_bin_or_lib</span>()<span class="question-mark">?</span>;
+<span class="kw">impl </span>Init {
+    <span class="doccomment">/// `wasmer init` execution
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>bin_or_lib = <span class="self">self</span>.get_bin_or_lib()<span class="question-mark">?</span>;
 
-        <span class="comment">// See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.</span>
-        <span class="kw">let</span> <span class="ident">manifest_path</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">manifest_path</span>.<span class="ident">as_ref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>.<span class="ident">clone</span>(),
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">cargo_toml_path</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">out</span>
-                    .<span class="ident">clone</span>()
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">std::env::current_dir</span>().<span class="ident">unwrap</span>())
-                    .<span class="ident">join</span>(<span class="string">&quot;Cargo.toml&quot;</span>);
-                <span class="ident">cargo_toml_path</span>
-                    .<span class="ident">canonicalize</span>()
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">cargo_toml_path</span>.<span class="ident">clone</span>())
+        <span class="comment">// See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
+        </span><span class="kw">let </span>manifest_path = <span class="kw">match </span><span class="self">self</span>.manifest_path.as_ref() {
+            <span class="prelude-val">Some</span>(s) =&gt; s.clone(),
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">let </span>cargo_toml_path = <span class="self">self
+                    </span>.out
+                    .clone()
+                    .unwrap_or_else(|| std::env::current_dir().unwrap())
+                    .join(<span class="string">&quot;Cargo.toml&quot;</span>);
+                cargo_toml_path
+                    .canonicalize()
+                    .unwrap_or_else(|<span class="kw">_</span>| cargo_toml_path.clone())
             }
         };
 
-        <span class="kw">let</span> <span class="ident">cargo_toml</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">manifest_path</span>.<span class="ident">exists</span>() {
-            <span class="ident">parse_cargo_toml</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_path</span>).<span class="ident">ok</span>()
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        };
+        <span class="kw">let </span>cargo_toml = <span class="kw">if </span>manifest_path.exists() {
+            parse_cargo_toml(<span class="kw-2">&amp;</span>manifest_path).ok()
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
 
-        <span class="kw">let</span> (<span class="ident">fallback_package_name</span>, <span class="ident">target_file</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">target_file</span>()<span class="question-mark">?</span>;
+        <span class="kw">let </span>(fallback_package_name, target_file) = <span class="self">self</span>.target_file()<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="ident">target_file</span>.<span class="ident">exists</span>() <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">overwrite</span> {
+        <span class="kw">if </span>target_file.exists() &amp;&amp; !<span class="self">self</span>.overwrite {
             <span class="macro">anyhow::bail!</span>(
                 <span class="string">&quot;wasmer project already initialized in {}&quot;</span>,
-                <span class="ident">target_file</span>.<span class="ident">display</span>(),
+                target_file.display(),
             );
         }
 
-        <span class="kw">let</span> <span class="ident">constructed_manifest</span> <span class="op">=</span> <span class="ident">construct_manifest</span>(
-            <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>(),
-            <span class="kw-2">&amp;</span><span class="ident">fallback_package_name</span>,
-            <span class="self">self</span>.<span class="ident">package_name</span>.<span class="ident">as_deref</span>(),
-            <span class="kw-2">&amp;</span><span class="ident">target_file</span>,
-            <span class="kw-2">&amp;</span><span class="ident">manifest_path</span>,
-            <span class="ident">bin_or_lib</span>,
-            <span class="self">self</span>.<span class="ident">namespace</span>.<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">version</span>.<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">template</span>.<span class="ident">as_ref</span>(),
-            <span class="self">self</span>.<span class="ident">include</span>.<span class="ident">as_slice</span>(),
-            <span class="self">self</span>.<span class="ident">quiet</span>,
+        <span class="kw">let </span>constructed_manifest = construct_manifest(
+            cargo_toml.as_ref(),
+            <span class="kw-2">&amp;</span>fallback_package_name,
+            <span class="self">self</span>.package_name.as_deref(),
+            <span class="kw-2">&amp;</span>target_file,
+            <span class="kw-2">&amp;</span>manifest_path,
+            bin_or_lib,
+            <span class="self">self</span>.namespace.clone(),
+            <span class="self">self</span>.version.clone(),
+            <span class="self">self</span>.template.as_ref(),
+            <span class="self">self</span>.include.as_slice(),
+            <span class="self">self</span>.quiet,
         )<span class="question-mark">?</span>;
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">target_file</span>.<span class="ident">parent</span>() {
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="ident">parent</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = target_file.parent() {
+            <span class="kw">let _ </span>= std::fs::create_dir_all(parent);
         }
 
-        <span class="comment">// generate the wasmer.toml and exit</span>
-        <span class="ident"><span class="self">Self</span>::write_wasmer_toml</span>(<span class="kw-2">&amp;</span><span class="ident">target_file</span>, <span class="kw-2">&amp;</span><span class="ident">constructed_manifest</span>)
+        <span class="comment">// generate the wasmer.toml and exit
+        </span><span class="self">Self</span>::write_wasmer_toml(<span class="kw-2">&amp;</span>target_file, <span class="kw-2">&amp;</span>constructed_manifest)
     }
 
-    <span class="doccomment">/// Writes the metadata to a wasmer.toml file</span>
-    <span class="kw">fn</span> <span class="ident">write_wasmer_toml</span>(
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>,
-        <span class="ident">toml</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_toml::Manifest</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">toml_string</span> <span class="op">=</span> <span class="ident">toml::to_string_pretty</span>(<span class="kw-2">&amp;</span><span class="ident">toml</span>)<span class="question-mark">?</span>
-            .<span class="ident">replace</span>(
+    <span class="doccomment">/// Writes the metadata to a wasmer.toml file
+    </span><span class="kw">fn </span>write_wasmer_toml(
+        path: <span class="kw-2">&amp;</span>PathBuf,
+        toml: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>toml_string = toml::to_string_pretty(<span class="kw-2">&amp;</span>toml)<span class="question-mark">?
+            </span>.replace(
                 <span class="string">&quot;[dependencies]&quot;</span>,
                 <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{NOTE}{NEWLINE}{NEWLINE}[dependencies]&quot;</span>),
             )
-            .<span class="ident">lines</span>()
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">join</span>(<span class="ident">NEWLINE</span>);
+            .lines()
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(NEWLINE);
 
-        <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">toml_string</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to write to \&quot;{}\&quot;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+        std::fs::write(path, <span class="kw-2">&amp;</span>toml_string)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to write to \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">target_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">out</span>.<span class="ident">as_ref</span>() {
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">std::env::current_dir</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">package_name</span>
-                    .<span class="ident">clone</span>()
-                    .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                        <span class="ident">current_dir</span>
-                            .<span class="ident">canonicalize</span>()
-                            .<span class="ident">ok</span>()<span class="question-mark">?</span>
-                            .<span class="ident">file_stem</span>()
-                            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_str</span>())
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
+    <span class="kw">fn </span>target_file(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(String, PathBuf), anyhow::Error&gt; {
+        <span class="kw">match </span><span class="self">self</span>.out.as_ref() {
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">let </span>current_dir = std::env::current_dir()<span class="question-mark">?</span>;
+                <span class="kw">let </span>package_name = <span class="self">self
+                    </span>.package_name
+                    .clone()
+                    .or_else(|| {
+                        current_dir
+                            .canonicalize()
+                            .ok()<span class="question-mark">?
+                            </span>.file_stem()
+                            .and_then(|s| s.to_str())
+                            .map(|s| s.to_string())
                     })
-                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no current dir name&quot;</span>))<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>((<span class="ident">package_name</span>, <span class="ident">current_dir</span>.<span class="ident">join</span>(<span class="ident">WASMER_TOML_NAME</span>)))
+                    .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no current dir name&quot;</span>))<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>((package_name, current_dir.join(WASMER_TOML_NAME)))
             }
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; {
-                <span class="ident">std::fs::create_dir_all</span>(<span class="ident">s</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">s</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="self">self</span>
-                    .<span class="ident">package_name</span>
-                    .<span class="ident">clone</span>()
-                    .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                        <span class="ident">s</span>.<span class="ident">canonicalize</span>()
-                            .<span class="ident">ok</span>()<span class="question-mark">?</span>
-                            .<span class="ident">file_stem</span>()
-                            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_str</span>())
-                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
+            <span class="prelude-val">Some</span>(s) =&gt; {
+                std::fs::create_dir_all(s)
+                    .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+                    .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, s.display()))<span class="question-mark">?</span>;
+                <span class="kw">let </span>package_name = <span class="self">self
+                    </span>.package_name
+                    .clone()
+                    .or_else(|| {
+                        s.canonicalize()
+                            .ok()<span class="question-mark">?
+                            </span>.file_stem()
+                            .and_then(|s| s.to_str())
+                            .map(|s| s.to_string())
                     })
-                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no dir name&quot;</span>))<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>((<span class="ident">package_name</span>, <span class="ident">s</span>.<span class="ident">join</span>(<span class="ident">WASMER_TOML_NAME</span>)))
+                    .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no dir name&quot;</span>))<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>((package_name, s.join(WASMER_TOML_NAME)))
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">get_filesystem_mapping</span>(<span class="ident">include</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>]) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">PathBuf</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">include</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+    <span class="kw">fn </span>get_filesystem_mapping(include: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Option</span>&lt;IndexMap&lt;String, PathBuf&gt;&gt; {
+        <span class="kw">if </span>include.is_empty() {
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
 
         <span class="prelude-val">Some</span>(
-            <span class="ident">include</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">path</span><span class="op">|</span> {
-                    <span class="kw">if</span> <span class="ident">path</span> <span class="op">==</span> <span class="string">&quot;.&quot;</span> <span class="op">|</span><span class="op">|</span> <span class="ident">path</span> <span class="op">==</span> <span class="string">&quot;/&quot;</span> {
-                        <span class="kw">return</span> (<span class="string">&quot;/&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>).<span class="ident">to_path_buf</span>());
+            include
+                .iter()
+                .map(|path| {
+                    <span class="kw">if </span>path == <span class="string">&quot;.&quot; </span>|| path == <span class="string">&quot;/&quot; </span>{
+                        <span class="kw">return </span>(<span class="string">&quot;/&quot;</span>.to_string(), Path::new(<span class="string">&quot;/&quot;</span>).to_path_buf());
                     }
 
-                    <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;./{path}&quot;</span>);
-                    <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="macro">format!</span>(<span class="string">&quot;/{path}&quot;</span>));
+                    <span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;./{path}&quot;</span>);
+                    <span class="kw">let </span>value = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;/{path}&quot;</span>));
 
-                    (<span class="ident">key</span>, <span class="ident">value</span>)
+                    (key, value)
                 })
-                .<span class="ident">collect</span>(),
+                .collect(),
         )
     }
 
-    <span class="kw">fn</span> <span class="ident">get_command</span>(
-        <span class="ident">modules</span>: <span class="kw-2">&amp;</span>[<span class="ident">wasmer_toml::Module</span>],
-        <span class="ident">bin_or_lib</span>: <span class="ident">BinOrLib</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">wasmer_toml::Command</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">bin_or_lib</span> {
-            <span class="ident">BinOrLib::Bin</span> =&gt; <span class="prelude-val">Some</span>(
-                <span class="ident">modules</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> {
-                        <span class="ident">wasmer_toml::Command::V1</span>(<span class="ident">wasmer_toml::CommandV1</span> {
-                            <span class="ident">name</span>: <span class="ident">m</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-                            <span class="ident">module</span>: <span class="ident">m</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-                            <span class="ident">main_args</span>: <span class="prelude-val">None</span>,
-                            <span class="ident">package</span>: <span class="prelude-val">None</span>,
+    <span class="kw">fn </span>get_command(
+        modules: <span class="kw-2">&amp;</span>[wasmer_toml::Module],
+        bin_or_lib: BinOrLib,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;wasmer_toml::Command&gt;&gt; {
+        <span class="kw">match </span>bin_or_lib {
+            BinOrLib::Bin =&gt; <span class="prelude-val">Some</span>(
+                modules
+                    .iter()
+                    .map(|m| {
+                        wasmer_toml::Command::V1(wasmer_toml::CommandV1 {
+                            name: m.name.clone(),
+                            module: m.name.clone(),
+                            main_args: <span class="prelude-val">None</span>,
+                            package: <span class="prelude-val">None</span>,
                         })
                     })
-                    .<span class="ident">collect</span>(),
+                    .collect(),
             ),
-            <span class="ident">BinOrLib::Lib</span> <span class="op">|</span> <span class="ident">BinOrLib::Empty</span> =&gt; <span class="prelude-val">None</span>,
+            BinOrLib::Lib | BinOrLib::Empty =&gt; <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="doccomment">/// Returns the dependencies based on the `--template` flag</span>
-    <span class="kw">fn</span> <span class="ident">get_dependencies</span>(<span class="ident">template</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Template</span><span class="op">&gt;</span>) -&gt; <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">HashMap::default</span>();
+    <span class="doccomment">/// Returns the dependencies based on the `--template` flag
+    </span><span class="kw">fn </span>get_dependencies(template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;) -&gt; HashMap&lt;String, String&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::default();
 
-        <span class="kw">match</span> <span class="ident">template</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">Template::Js</span>) =&gt; {
-                <span class="ident">map</span>.<span class="ident">insert</span>(<span class="string">&quot;quickjs&quot;</span>.<span class="ident">to_string</span>(), <span class="string">&quot;quickjs/quickjs@latest&quot;</span>.<span class="ident">to_string</span>());
+        <span class="kw">match </span>template {
+            <span class="prelude-val">Some</span>(Template::Js) =&gt; {
+                map.insert(<span class="string">&quot;quickjs&quot;</span>.to_string(), <span class="string">&quot;quickjs/quickjs@latest&quot;</span>.to_string());
             }
-            <span class="prelude-val">Some</span>(<span class="ident">Template::Python</span>) =&gt; {
-                <span class="ident">map</span>.<span class="ident">insert</span>(<span class="string">&quot;python&quot;</span>.<span class="ident">to_string</span>(), <span class="string">&quot;python/python@latest&quot;</span>.<span class="ident">to_string</span>());
+            <span class="prelude-val">Some</span>(Template::Python) =&gt; {
+                map.insert(<span class="string">&quot;python&quot;</span>.to_string(), <span class="string">&quot;python/python@latest&quot;</span>.to_string());
             }
-            <span class="kw">_</span> =&gt; {}
+            <span class="kw">_ </span>=&gt; {}
         }
 
-        <span class="ident">map</span>
+        map
     }
 
-    <span class="comment">// Returns whether the template for the wasmer.toml should be a binary, a library or an empty file</span>
-    <span class="kw">fn</span> <span class="ident">get_bin_or_lib</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BinOrLib</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">empty</span>, <span class="self">self</span>.<span class="ident">bin</span>, <span class="self">self</span>.<span class="ident">lib</span>) {
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">BinOrLib::Empty</span>),
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">BinOrLib::Bin</span>),
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">BinOrLib::Lib</span>),
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">BinOrLib::Bin</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Only one of --bin, --lib, or --empty can be provided&quot;</span>),
+    <span class="comment">// Returns whether the template for the wasmer.toml should be a binary, a library or an empty file
+    </span><span class="kw">fn </span>get_bin_or_lib(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BinOrLib, anyhow::Error&gt; {
+        <span class="kw">match </span>(<span class="self">self</span>.empty, <span class="self">self</span>.bin, <span class="self">self</span>.lib) {
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(BinOrLib::Empty),
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(BinOrLib::Bin),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(BinOrLib::Lib),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(BinOrLib::Bin),
+            <span class="kw">_ </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Only one of --bin, --lib, or --empty can be provided&quot;</span>),
         }
     }
 
-    <span class="doccomment">/// Get bindings returns the first .wai / .wit file found and</span>
-    <span class="doccomment">/// optionally takes a warning callback that is triggered when &gt; 1 .wai files are found</span>
-    <span class="kw">fn</span> <span class="ident">get_bindings</span>(<span class="ident">target_file</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">bin_or_lib</span>: <span class="ident">BinOrLib</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GetBindingsResult</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">bin_or_lib</span> {
-            <span class="ident">BinOrLib::Bin</span> <span class="op">|</span> <span class="ident">BinOrLib::Empty</span> =&gt; <span class="prelude-val">None</span>,
-            <span class="ident">BinOrLib::Lib</span> =&gt; <span class="ident">target_file</span>.<span class="ident">parent</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">all_bindings</span> <span class="op">=</span> <span class="ident">walkdir::WalkDir::new</span>(<span class="ident">parent</span>)
-                    .<span class="ident">min_depth</span>(<span class="number">1</span>)
-                    .<span class="ident">max_depth</span>(<span class="number">3</span>)
-                    .<span class="ident">follow_links</span>(<span class="bool-val">false</span>)
-                    .<span class="ident">into_iter</span>()
-                    .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">ok</span>())
-                    .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="ident">is_wit</span> <span class="op">=</span> <span class="ident">e</span>.<span class="ident">path</span>().<span class="ident">extension</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_str</span>()) <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;.wit&quot;</span>);
-                        <span class="kw">let</span> <span class="ident">is_wai</span> <span class="op">=</span> <span class="ident">e</span>.<span class="ident">path</span>().<span class="ident">extension</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_str</span>()) <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;.wai&quot;</span>);
-                        <span class="kw">if</span> <span class="ident">is_wit</span> {
-                            <span class="prelude-val">Some</span>(<span class="ident">wasmer_toml::Bindings::Wit</span>(<span class="ident">wasmer_toml::WitBindings</span> {
-                                <span class="ident">wit_exports</span>: <span class="ident">e</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>(),
-                                <span class="ident">wit_bindgen</span>: <span class="ident">semver::Version::parse</span>(<span class="string">&quot;0.1.0&quot;</span>).<span class="ident">unwrap</span>(),
+    <span class="doccomment">/// Get bindings returns the first .wai / .wit file found and
+    /// optionally takes a warning callback that is triggered when &gt; 1 .wai files are found
+    </span><span class="kw">fn </span>get_bindings(target_file: <span class="kw-2">&amp;</span>Path, bin_or_lib: BinOrLib) -&gt; <span class="prelude-ty">Option</span>&lt;GetBindingsResult&gt; {
+        <span class="kw">match </span>bin_or_lib {
+            BinOrLib::Bin | BinOrLib::Empty =&gt; <span class="prelude-val">None</span>,
+            BinOrLib::Lib =&gt; target_file.parent().and_then(|parent| {
+                <span class="kw">let </span>all_bindings = walkdir::WalkDir::new(parent)
+                    .min_depth(<span class="number">1</span>)
+                    .max_depth(<span class="number">3</span>)
+                    .follow_links(<span class="bool-val">false</span>)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .filter_map(|e| {
+                        <span class="kw">let </span>is_wit = e.path().extension().and_then(|s| s.to_str()) == <span class="prelude-val">Some</span>(<span class="string">&quot;.wit&quot;</span>);
+                        <span class="kw">let </span>is_wai = e.path().extension().and_then(|s| s.to_str()) == <span class="prelude-val">Some</span>(<span class="string">&quot;.wai&quot;</span>);
+                        <span class="kw">if </span>is_wit {
+                            <span class="prelude-val">Some</span>(wasmer_toml::Bindings::Wit(wasmer_toml::WitBindings {
+                                wit_exports: e.path().to_path_buf(),
+                                wit_bindgen: semver::Version::parse(<span class="string">&quot;0.1.0&quot;</span>).unwrap(),
                             }))
-                        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">is_wai</span> {
-                            <span class="prelude-val">Some</span>(<span class="ident">wasmer_toml::Bindings::Wai</span>(<span class="ident">wasmer_toml::WaiBindings</span> {
-                                <span class="ident">exports</span>: <span class="prelude-val">None</span>,
-                                <span class="ident">imports</span>: <span class="macro">vec!</span>[<span class="ident">e</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>()],
-                                <span class="ident">wai_version</span>: <span class="ident">semver::Version::parse</span>(<span class="string">&quot;0.2.0&quot;</span>).<span class="ident">unwrap</span>(),
+                        } <span class="kw">else if </span>is_wai {
+                            <span class="prelude-val">Some</span>(wasmer_toml::Bindings::Wai(wasmer_toml::WaiBindings {
+                                exports: <span class="prelude-val">None</span>,
+                                imports: <span class="macro">vec!</span>[e.path().to_path_buf()],
+                                wai_version: semver::Version::parse(<span class="string">&quot;0.2.0&quot;</span>).unwrap(),
                             }))
-                        } <span class="kw">else</span> {
-                            <span class="prelude-val">None</span>
-                        }
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>}
                     })
-                    .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-                <span class="kw">if</span> <span class="ident">all_bindings</span>.<span class="ident">is_empty</span>() {
-                    <span class="prelude-val">None</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">all_bindings</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">GetBindingsResult::OneBinding</span>(<span class="ident">all_bindings</span>[<span class="number">0</span>].<span class="ident">clone</span>()))
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">GetBindingsResult::MultiBindings</span>(<span class="ident">all_bindings</span>))
+                <span class="kw">if </span>all_bindings.is_empty() {
+                    <span class="prelude-val">None
+                </span>} <span class="kw">else if </span>all_bindings.len() == <span class="number">1 </span>{
+                    <span class="prelude-val">Some</span>(GetBindingsResult::OneBinding(all_bindings[<span class="number">0</span>].clone()))
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Some</span>(GetBindingsResult::MultiBindings(all_bindings))
                 }
             }),
         }
     }
 }
 
-<span class="kw">enum</span> <span class="ident">GetBindingsResult</span> {
-    <span class="ident">OneBinding</span>(<span class="ident">wasmer_toml::Bindings</span>),
-    <span class="ident">MultiBindings</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">wasmer_toml::Bindings</span><span class="op">&gt;</span>),
+<span class="kw">enum </span>GetBindingsResult {
+    OneBinding(wasmer_toml::Bindings),
+    MultiBindings(Vec&lt;wasmer_toml::Bindings&gt;),
 }
 
-<span class="kw">impl</span> <span class="ident">GetBindingsResult</span> {
-    <span class="kw">fn</span> <span class="ident">first_binding</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer_toml::Bindings</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::OneBinding</span>(<span class="ident">s</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">s</span>.<span class="ident">clone</span>()),
-            <span class="ident"><span class="self">Self</span>::MultiBindings</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">cloned</span>(),
+<span class="kw">impl </span>GetBindingsResult {
+    <span class="kw">fn </span>first_binding(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_toml::Bindings&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::OneBinding(s) =&gt; <span class="prelude-val">Some</span>(s.clone()),
+            <span class="self">Self</span>::MultiBindings(s) =&gt; s.get(<span class="number">0</span>).cloned(),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">fn</span> <span class="ident">construct_manifest</span>(
-    <span class="ident">cargo_toml</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">MiniCargoTomlPackage</span><span class="op">&gt;</span>,
-    <span class="ident">fallback_package_name</span>: <span class="kw-2">&amp;</span><span class="ident">String</span>,
-    <span class="ident">package_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-    <span class="ident">target_file</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">manifest_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">bin_or_lib</span>: <span class="ident">BinOrLib</span>,
-    <span class="ident">namespace</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">semver::Version</span><span class="op">&gt;</span>,
-    <span class="ident">template</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Template</span><span class="op">&gt;</span>,
-    <span class="ident">include_fs</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    <span class="ident">quiet</span>: <span class="ident">bool</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ct</span>) <span class="op">=</span> <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>() {
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">fn </span>construct_manifest(
+    cargo_toml: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MiniCargoTomlPackage&gt;,
+    fallback_package_name: <span class="kw-2">&amp;</span>String,
+    package_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    target_file: <span class="kw-2">&amp;</span>Path,
+    manifest_path: <span class="kw-2">&amp;</span>Path,
+    bin_or_lib: BinOrLib,
+    namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
+    template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;,
+    include_fs: <span class="kw-2">&amp;</span>[String],
+    quiet: bool,
+) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, anyhow::Error&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(ct) = cargo_toml.as_ref() {
+        <span class="kw">let </span>msg = <span class="macro">format!</span>(
             <span class="string">&quot;NOTE: Initializing wasmer.toml file with metadata from Cargo.toml{NEWLINE}  -&gt; {}&quot;</span>,
-            <span class="ident">ct</span>.<span class="ident">cargo_toml_path</span>.<span class="ident">display</span>()
+            ct.cargo_toml_path.display()
         );
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">quiet</span> {
+        <span class="kw">if </span>!quiet {
             <span class="macro">println!</span>(<span class="string">&quot;{msg}&quot;</span>);
         }
         <span class="macro">log::warn!</span>(<span class="string">&quot;{msg}&quot;</span>);
     }
 
-    <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="ident">package_name</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="ident">cargo_toml</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">p</span>.<span class="ident">name</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">fallback_package_name</span>)
+    <span class="kw">let </span>package_name = package_name.unwrap_or_else(|| {
+        cargo_toml
+            .as_ref()
+            .map(|p| <span class="kw-2">&amp;</span>p.name)
+            .unwrap_or(fallback_package_name)
     });
-    <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">namespace</span> <span class="op">=</span> <span class="ident">namespace</span>.<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="ident">wasmer_registry::whoami</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-            .<span class="ident">ok</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="ident">o</span>.<span class="number">1</span>)
+    <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>namespace = namespace.or_else(|| {
+        wasmer_registry::whoami(<span class="kw-2">&amp;</span>wasmer_dir, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+            .ok()
+            .map(|o| o.<span class="number">1</span>)
     });
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="ident">cargo_toml</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">version</span>.<span class="ident">clone</span>())
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">semver::Version::parse</span>(<span class="string">&quot;0.1.0&quot;</span>).<span class="ident">unwrap</span>())
+    <span class="kw">let </span>version = version.unwrap_or_else(|| {
+        cargo_toml
+            .as_ref()
+            .map(|t| t.version.clone())
+            .unwrap_or_else(|| semver::Version::parse(<span class="string">&quot;0.1.0&quot;</span>).unwrap())
     });
-    <span class="kw">let</span> <span class="ident">license</span> <span class="op">=</span> <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">license</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">license_file</span> <span class="op">=</span> <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">license_file</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">readme</span> <span class="op">=</span> <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">readme</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">repository</span> <span class="op">=</span> <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">repository</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">homepage</span> <span class="op">=</span> <span class="ident">cargo_toml</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">homepage</span>.<span class="ident">clone</span>());
-    <span class="kw">let</span> <span class="ident">description</span> <span class="op">=</span> <span class="ident">cargo_toml</span>
-        .<span class="ident">as_ref</span>()
-        .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">description</span>.<span class="ident">clone</span>())
-        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Description for package {package_name}&quot;</span>));
+    <span class="kw">let </span>license = cargo_toml.as_ref().and_then(|t| t.license.clone());
+    <span class="kw">let </span>license_file = cargo_toml.as_ref().and_then(|t| t.license_file.clone());
+    <span class="kw">let </span>readme = cargo_toml.as_ref().and_then(|t| t.readme.clone());
+    <span class="kw">let </span>repository = cargo_toml.as_ref().and_then(|t| t.repository.clone());
+    <span class="kw">let </span>homepage = cargo_toml.as_ref().and_then(|t| t.homepage.clone());
+    <span class="kw">let </span>description = cargo_toml
+        .as_ref()
+        .and_then(|t| t.description.clone())
+        .unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">&quot;Description for package {package_name}&quot;</span>));
 
-    <span class="kw">let</span> <span class="ident">default_abi</span> <span class="op">=</span> <span class="ident">wasmer_toml::Abi::Wasi</span>;
-    <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="ident">Init::get_bindings</span>(<span class="ident">target_file</span>, <span class="ident">bin_or_lib</span>);
+    <span class="kw">let </span>default_abi = wasmer_toml::Abi::Wasi;
+    <span class="kw">let </span>bindings = Init::get_bindings(target_file, bin_or_lib);
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">GetBindingsResult::MultiBindings</span>(<span class="ident">m</span>)) <span class="op">=</span> <span class="ident">bindings</span>.<span class="ident">as_ref</span>() {
-        <span class="kw">let</span> <span class="ident">found</span> <span class="op">=</span> <span class="ident">m</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">m</span> {
-                <span class="ident">wasmer_toml::Bindings::Wit</span>(<span class="ident">wb</span>) =&gt; {
-                    <span class="macro">format!</span>(<span class="string">&quot;found: {}&quot;</span>, <span class="ident">serde_json::to_string</span>(<span class="ident">wb</span>).<span class="ident">unwrap_or_default</span>())
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(GetBindingsResult::MultiBindings(m)) = bindings.as_ref() {
+        <span class="kw">let </span>found = m
+            .iter()
+            .map(|m| <span class="kw">match </span>m {
+                wasmer_toml::Bindings::Wit(wb) =&gt; {
+                    <span class="macro">format!</span>(<span class="string">&quot;found: {}&quot;</span>, serde_json::to_string(wb).unwrap_or_default())
                 }
-                <span class="ident">wasmer_toml::Bindings::Wai</span>(<span class="ident">wb</span>) =&gt; {
-                    <span class="macro">format!</span>(<span class="string">&quot;found: {}&quot;</span>, <span class="ident">serde_json::to_string</span>(<span class="ident">wb</span>).<span class="ident">unwrap_or_default</span>())
+                wasmer_toml::Bindings::Wai(wb) =&gt; {
+                    <span class="macro">format!</span>(<span class="string">&quot;found: {}&quot;</span>, serde_json::to_string(wb).unwrap_or_default())
                 }
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">join</span>(<span class="string">&quot;\r\n&quot;</span>);
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(<span class="string">&quot;\r\n&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">vec!</span>[
-            <span class="ident">String::new</span>(),
-            <span class="string">&quot;    It looks like your project contains multiple *.wai files.&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="string">&quot;    Make sure you update the [[module.bindings]] appropriately&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">String::new</span>(),
-            <span class="ident">found</span>,
+        <span class="kw">let </span>msg = <span class="macro">vec!</span>[
+            String::new(),
+            <span class="string">&quot;    It looks like your project contains multiple *.wai files.&quot;</span>.to_string(),
+            <span class="string">&quot;    Make sure you update the [[module.bindings]] appropriately&quot;</span>.to_string(),
+            String::new(),
+            found,
         ];
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">join</span>(<span class="string">&quot;\r\n&quot;</span>);
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">quiet</span> {
+        <span class="kw">let </span>msg = msg.join(<span class="string">&quot;\r\n&quot;</span>);
+        <span class="kw">if </span>!quiet {
             <span class="macro">println!</span>(<span class="string">&quot;{msg}&quot;</span>);
         }
         <span class="macro">log::warn!</span>(<span class="string">&quot;{msg}&quot;</span>);
     }
 
-    <span class="kw">let</span> <span class="ident">module_source</span> <span class="op">=</span> <span class="ident">cargo_toml</span>
-        .<span class="ident">as_ref</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
-            <span class="comment">// Normalize the path to /target/release to be relative to the parent of the Cargo.toml</span>
-            <span class="kw">let</span> <span class="ident">outpath</span> <span class="op">=</span> <span class="ident">p</span>
-                .<span class="ident">build_dir</span>
-                .<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>)
-                .<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>));
-            <span class="kw">let</span> <span class="ident">canonicalized_outpath</span> <span class="op">=</span> <span class="ident">outpath</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">outpath</span>);
-            <span class="kw">let</span> <span class="ident">outpath_str</span> <span class="op">=</span>
-                <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>(<span class="kw-2">&amp;</span><span class="ident">canonicalized_outpath</span>.<span class="ident">display</span>().<span class="ident">to_string</span>());
-            <span class="kw">let</span> <span class="ident">manifest_canonicalized</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>(
-                <span class="kw-2">&amp;</span><span class="ident">manifest_path</span>
-                    .<span class="ident">parent</span>()
-                    .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">canonicalize</span>().<span class="ident">ok</span>())
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">manifest_path</span>.<span class="ident">to_path_buf</span>())
-                    .<span class="ident">display</span>()
-                    .<span class="ident">to_string</span>(),
+    <span class="kw">let </span>module_source = cargo_toml
+        .as_ref()
+        .map(|p| {
+            <span class="comment">// Normalize the path to /target/release to be relative to the parent of the Cargo.toml
+            </span><span class="kw">let </span>outpath = p
+                .build_dir
+                .join(<span class="string">&quot;release&quot;</span>)
+                .join(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>));
+            <span class="kw">let </span>canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
+            <span class="kw">let </span>outpath_str =
+                <span class="kw">crate</span>::common::normalize_path(<span class="kw-2">&amp;</span>canonicalized_outpath.display().to_string());
+            <span class="kw">let </span>manifest_canonicalized = <span class="kw">crate</span>::common::normalize_path(
+                <span class="kw-2">&amp;</span>manifest_path
+                    .parent()
+                    .and_then(|p| p.canonicalize().ok())
+                    .unwrap_or_else(|| manifest_path.to_path_buf())
+                    .display()
+                    .to_string(),
             );
-            <span class="kw">let</span> <span class="ident">diff</span> <span class="op">=</span> <span class="ident">outpath_str</span>
-                .<span class="ident">strip_prefix</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_canonicalized</span>)
-                .<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">outpath_str</span>)
-                .<span class="ident">replace</span>(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
-            <span class="comment">// Format in UNIX fashion (forward slashes)</span>
-            <span class="kw">let</span> <span class="ident">relative_str</span> <span class="op">=</span> <span class="ident">diff</span>.<span class="ident">strip_prefix</span>(<span class="string">&#39;/&#39;</span>).<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">diff</span>);
-            <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">relative_str</span>).<span class="ident">to_path_buf</span>()
+            <span class="kw">let </span>diff = outpath_str
+                .strip_prefix(<span class="kw-2">&amp;</span>manifest_canonicalized)
+                .unwrap_or(<span class="kw-2">&amp;</span>outpath_str)
+                .replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
+            <span class="comment">// Format in UNIX fashion (forward slashes)
+            </span><span class="kw">let </span>relative_str = diff.strip_prefix(<span class="string">&#39;/&#39;</span>).unwrap_or(<span class="kw-2">&amp;</span>diff);
+            Path::new(<span class="kw-2">&amp;</span>relative_str).to_path_buf()
         })
-        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>)).<span class="ident">to_path_buf</span>());
+        .unwrap_or_else(|| Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>)).to_path_buf());
 
-    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">wasmer_toml::Module</span> {
-        <span class="ident">name</span>: <span class="ident">package_name</span>.<span class="ident">to_string</span>(),
-        <span class="ident">source</span>: <span class="ident">module_source</span>,
-        <span class="ident">kind</span>: <span class="prelude-val">None</span>,
-        <span class="ident">abi</span>: <span class="ident">default_abi</span>,
-        <span class="ident">bindings</span>: <span class="ident">bindings</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">first_binding</span>()),
-        <span class="ident">interfaces</span>: <span class="prelude-val">Some</span>({
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-            <span class="ident">map</span>.<span class="ident">insert</span>(<span class="string">&quot;wasi&quot;</span>.<span class="ident">to_string</span>(), <span class="string">&quot;0.1.0-unstable&quot;</span>.<span class="ident">to_string</span>());
-            <span class="ident">map</span>
+    <span class="kw">let </span>modules = <span class="macro">vec!</span>[wasmer_toml::Module {
+        name: package_name.to_string(),
+        source: module_source,
+        kind: <span class="prelude-val">None</span>,
+        abi: default_abi,
+        bindings: bindings.as_ref().and_then(|b| b.first_binding()),
+        interfaces: <span class="prelude-val">Some</span>({
+            <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::new();
+            map.insert(<span class="string">&quot;wasi&quot;</span>.to_string(), <span class="string">&quot;0.1.0-unstable&quot;</span>.to_string());
+            map
         }),
     }];
 
-    <span class="prelude-val">Ok</span>(<span class="ident">wasmer_toml::Manifest</span> {
-        <span class="ident">package</span>: <span class="ident">wasmer_toml::Package</span> {
-            <span class="ident">name</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">namespace</span> {
+    <span class="prelude-val">Ok</span>(wasmer_toml::Manifest {
+        package: wasmer_toml::Package {
+            name: <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = namespace {
                 <span class="macro">format!</span>(<span class="string">&quot;{s}/{package_name}&quot;</span>)
-            } <span class="kw">else</span> {
-                <span class="ident">package_name</span>.<span class="ident">to_string</span>()
+            } <span class="kw">else </span>{
+                package_name.to_string()
             },
-            <span class="ident">version</span>,
-            <span class="ident">description</span>,
-            <span class="ident">license</span>,
-            <span class="ident">license_file</span>,
-            <span class="ident">readme</span>,
-            <span class="ident">repository</span>,
-            <span class="ident">homepage</span>,
-            <span class="ident">wasmer_extra_flags</span>: <span class="prelude-val">None</span>,
-            <span class="ident">disable_command_rename</span>: <span class="bool-val">false</span>,
-            <span class="ident">rename_commands_to_raw_command_name</span>: <span class="bool-val">false</span>,
+            version,
+            description,
+            license,
+            license_file,
+            readme,
+            repository,
+            homepage,
+            wasmer_extra_flags: <span class="prelude-val">None</span>,
+            disable_command_rename: <span class="bool-val">false</span>,
+            rename_commands_to_raw_command_name: <span class="bool-val">false</span>,
         },
-        <span class="ident">dependencies</span>: <span class="prelude-val">Some</span>(<span class="ident">Init::get_dependencies</span>(<span class="ident">template</span>)),
-        <span class="ident">command</span>: <span class="ident">Init::get_command</span>(<span class="kw-2">&amp;</span><span class="ident">modules</span>, <span class="ident">bin_or_lib</span>),
-        <span class="ident">module</span>: <span class="kw">match</span> <span class="ident">bin_or_lib</span> {
-            <span class="ident">BinOrLib::Empty</span> =&gt; <span class="prelude-val">None</span>,
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">modules</span>),
+        dependencies: <span class="prelude-val">Some</span>(Init::get_dependencies(template)),
+        command: Init::get_command(<span class="kw-2">&amp;</span>modules, bin_or_lib),
+        module: <span class="kw">match </span>bin_or_lib {
+            BinOrLib::Empty =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(modules),
         },
-        <span class="ident">fs</span>: <span class="ident">Init::get_filesystem_mapping</span>(<span class="ident">include_fs</span>),
-        <span class="ident">base_directory_path</span>: <span class="ident">target_file</span>
-            .<span class="ident">parent</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="ident">o</span>.<span class="ident">to_path_buf</span>())
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">target_file</span>.<span class="ident">to_path_buf</span>()),
+        fs: Init::get_filesystem_mapping(include_fs),
+        base_directory_path: target_file
+            .parent()
+            .map(|o| o.to_path_buf())
+            .unwrap_or_else(|| target_file.to_path_buf()),
     })
 }
-<span class="kw">fn</span> <span class="ident">parse_cargo_toml</span>(<span class="ident">manifest_path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">MiniCargoTomlPackage</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">MetadataCommand::new</span>();
-    <span class="ident">metadata</span>.<span class="ident">manifest_path</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_path</span>);
-    <span class="ident">metadata</span>.<span class="ident">no_deps</span>();
-    <span class="ident">metadata</span>.<span class="ident">features</span>(<span class="ident">CargoOpt::AllFeatures</span>);
+<span class="kw">fn </span>parse_cargo_toml(manifest_path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;MiniCargoTomlPackage, anyhow::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>metadata = MetadataCommand::new();
+    metadata.manifest_path(manifest_path);
+    metadata.no_deps();
+    metadata.features(CargoOpt::AllFeatures);
 
-    <span class="kw">let</span> <span class="ident">metadata</span> <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">exec</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+    <span class="kw">let </span>metadata = metadata.exec().with_context(|| {
         <span class="macro">format!</span>(
             <span class="string">&quot;Unable to load metadata from \&quot;{}\&quot;&quot;</span>,
-            <span class="ident">manifest_path</span>.<span class="ident">display</span>()
+            manifest_path.display()
         )
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span> <span class="ident">metadata</span>
-        .<span class="ident">root_package</span>()
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no root package found in cargo metadata&quot;</span>))
-        .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">manifest_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+    <span class="kw">let </span>package = metadata
+        .root_package()
+        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no root package found in cargo metadata&quot;</span>))
+        .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, manifest_path.display()))<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">MiniCargoTomlPackage</span> {
-        <span class="ident">cargo_toml_path</span>: <span class="ident">manifest_path</span>.<span class="ident">clone</span>(),
-        <span class="ident">name</span>: <span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-        <span class="ident">version</span>: <span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">clone</span>(),
-        <span class="ident">description</span>: <span class="ident">package</span>.<span class="ident">description</span>.<span class="ident">clone</span>(),
-        <span class="ident">homepage</span>: <span class="ident">package</span>.<span class="ident">homepage</span>.<span class="ident">clone</span>(),
-        <span class="ident">repository</span>: <span class="ident">package</span>.<span class="ident">repository</span>.<span class="ident">clone</span>(),
-        <span class="ident">license</span>: <span class="ident">package</span>.<span class="ident">license</span>.<span class="ident">clone</span>(),
-        <span class="ident">readme</span>: <span class="ident">package</span>.<span class="ident">readme</span>.<span class="ident">clone</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">into_std_path_buf</span>()),
-        <span class="ident">license_file</span>: <span class="ident">package</span>.<span class="ident">license_file</span>.<span class="ident">clone</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">into_std_path_buf</span>()),
-        <span class="ident">workspace_root</span>: <span class="ident">metadata</span>.<span class="ident">workspace_root</span>.<span class="ident">into_std_path_buf</span>(),
-        <span class="ident">build_dir</span>: <span class="ident">metadata</span>
-            .<span class="ident">target_directory</span>
-            .<span class="ident">into_std_path_buf</span>()
-            .<span class="ident">join</span>(<span class="string">&quot;wasm32-wasi&quot;</span>),
+    <span class="prelude-val">Ok</span>(MiniCargoTomlPackage {
+        cargo_toml_path: manifest_path.clone(),
+        name: package.name.clone(),
+        version: package.version.clone(),
+        description: package.description.clone(),
+        homepage: package.homepage.clone(),
+        repository: package.repository.clone(),
+        license: package.license.clone(),
+        readme: package.readme.clone().map(|s| s.into_std_path_buf()),
+        license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
+        workspace_root: metadata.workspace_root.into_std_path_buf(),
+        build_dir: metadata
+            .target_directory
+            .into_std_path_buf()
+            .join(<span class="string">&quot;wasm32-wasi&quot;</span>),
     })
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

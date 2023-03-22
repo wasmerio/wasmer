@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -264,271 +264,271 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::path::{Path, PathBuf};
 
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GLOBAL_CONFIG_DATABASE_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.sqlite&quot;</span>;
+<span class="kw">pub static </span>GLOBAL_CONFIG_DATABASE_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.sqlite&quot;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Default</span>, <span class="ident">Serialize</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmerConfig</span> {
-    <span class="doccomment">/// Whether or not telemetry is enabled.</span>
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">default</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">telemetry_enabled</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>WasmerConfig {
+    <span class="doccomment">/// Whether or not telemetry is enabled.
+    </span><span class="attribute">#[serde(default)]
+    </span><span class="kw">pub </span>telemetry_enabled: bool,
 
-    <span class="doccomment">/// Whether or not updated notifications are enabled.</span>
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">default</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">update_notifications_enabled</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Whether or not updated notifications are enabled.
+    </span><span class="attribute">#[serde(default)]
+    </span><span class="kw">pub </span>update_notifications_enabled: bool,
 
-    <span class="doccomment">/// The registry that wapm will connect to.</span>
-    <span class="kw">pub</span> <span class="ident">registry</span>: <span class="ident">MultiRegistry</span>,
+    <span class="doccomment">/// The registry that wapm will connect to.
+    </span><span class="kw">pub </span>registry: MultiRegistry,
 
-    <span class="doccomment">/// The proxy to use when connecting to the Internet.</span>
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">default</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">proxy</span>: <span class="ident">Proxy</span>,
+    <span class="doccomment">/// The proxy to use when connecting to the Internet.
+    </span><span class="attribute">#[serde(default)]
+    </span><span class="kw">pub </span>proxy: Proxy,
 }
 
-<span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">wax_default_cooldown</span>() -&gt; <span class="ident">i32</span> {
-    <span class="number">5</span> <span class="op">*</span> <span class="number">60</span>
+<span class="kw">pub const fn </span>wax_default_cooldown() -&gt; i32 {
+    <span class="number">5 </span>* <span class="number">60
+</span>}
+
+<span class="attribute">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
+</span><span class="kw">pub struct </span>Proxy {
+    <span class="kw">pub </span>url: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Proxy</span> {
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Struct to store login tokens for multiple registry URLs
+/// inside of the wasmer.toml configuration file
+</span><span class="attribute">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+</span><span class="kw">pub struct </span>MultiRegistry {
+    <span class="doccomment">/// Currently active registry
+    </span><span class="kw">pub </span>active_registry: String,
+    <span class="doccomment">/// Map from &quot;RegistryUrl&quot; to &quot;LoginToken&quot;, in order to
+    /// be able to be able to easily switch between registries
+    </span><span class="kw">pub </span>tokens: Vec&lt;RegistryLogin&gt;,
 }
 
-<span class="doccomment">/// Struct to store login tokens for multiple registry URLs</span>
-<span class="doccomment">/// inside of the wasmer.toml configuration file</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MultiRegistry</span> {
-    <span class="doccomment">/// Currently active registry</span>
-    <span class="kw">pub</span> <span class="ident">active_registry</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// Map from &quot;RegistryUrl&quot; to &quot;LoginToken&quot;, in order to</span>
-    <span class="doccomment">/// be able to be able to easily switch between registries</span>
-    <span class="kw">pub</span> <span class="ident">tokens</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RegistryLogin</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+</span><span class="kw">pub struct </span>RegistryLogin {
+    <span class="doccomment">/// Registry URL to login to
+    </span><span class="kw">pub </span>registry: String,
+    <span class="doccomment">/// Login token for the registry
+    </span><span class="kw">pub </span>token: String,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RegistryLogin</span> {
-    <span class="doccomment">/// Registry URL to login to</span>
-    <span class="kw">pub</span> <span class="ident">registry</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// Login token for the registry</span>
-    <span class="kw">pub</span> <span class="ident">token</span>: <span class="ident">String</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">MultiRegistry</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident">MultiRegistry</span> {
-            <span class="ident">active_registry</span>: <span class="ident">format_graphql</span>(<span class="string">&quot;wapm.io&quot;</span>),
-            <span class="ident">tokens</span>: <span class="ident">Vec::new</span>(),
+<span class="kw">impl </span>Default <span class="kw">for </span>MultiRegistry {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        MultiRegistry {
+            active_registry: format_graphql(<span class="string">&quot;wapm.io&quot;</span>),
+            tokens: Vec::new(),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Registry</span> {
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+</span><span class="kw">pub struct </span>Registry {
+    <span class="kw">pub </span>url: String,
+    <span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">format_graphql</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">registry</span> <span class="op">=</span> <span class="ident">registry</span>.<span class="ident">to_string</span>();
-    <span class="kw">if</span> <span class="ident">registry</span>.<span class="ident">contains</span>(<span class="string">&quot;wapm.dev&quot;</span>) {
-        <span class="ident">registry</span> <span class="op">=</span> <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.<span class="ident">to_string</span>();
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">registry</span>.<span class="ident">contains</span>(<span class="string">&quot;wapm.io&quot;</span>) {
-        <span class="ident">registry</span> <span class="op">=</span> <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>.<span class="ident">to_string</span>();
+<span class="kw">pub fn </span>format_graphql(registry: <span class="kw-2">&amp;</span>str) -&gt; String {
+    <span class="kw">let </span><span class="kw-2">mut </span>registry = registry.to_string();
+    <span class="kw">if </span>registry.contains(<span class="string">&quot;wapm.dev&quot;</span>) {
+        registry = <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string();
+    } <span class="kw">else if </span>registry.contains(<span class="string">&quot;wapm.io&quot;</span>) {
+        registry = <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>.to_string();
     }
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">registry</span>.<span class="ident">starts_with</span>(<span class="string">&quot;https://&quot;</span>) {
-        <span class="ident">registry</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;https://{registry}&quot;</span>);
+    <span class="kw">if </span>!registry.starts_with(<span class="string">&quot;https://&quot;</span>) {
+        registry = <span class="macro">format!</span>(<span class="string">&quot;https://{registry}&quot;</span>);
     }
-    <span class="kw">if</span> <span class="ident">registry</span>.<span class="ident">ends_with</span>(<span class="string">&quot;/graphql&quot;</span>) {
-        <span class="ident">registry</span>
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">registry</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-        <span class="macro">format!</span>(<span class="string">&quot;{}graphql&quot;</span>, <span class="ident">registry</span>)
-    } <span class="kw">else</span> {
-        <span class="macro">format!</span>(<span class="string">&quot;{}/graphql&quot;</span>, <span class="ident">registry</span>)
+    <span class="kw">if </span>registry.ends_with(<span class="string">&quot;/graphql&quot;</span>) {
+        registry
+    } <span class="kw">else if </span>registry.ends_with(<span class="string">&#39;/&#39;</span>) {
+        <span class="macro">format!</span>(<span class="string">&quot;{}graphql&quot;</span>, registry)
+    } <span class="kw">else </span>{
+        <span class="macro">format!</span>(<span class="string">&quot;{}/graphql&quot;</span>, registry)
     }
 }
 
-<span class="kw">fn</span> <span class="ident">test_if_registry_present</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="ident"><span class="kw">crate</span>::utils::get_username_registry_token</span>(<span class="ident">registry</span>, <span class="string">&quot;&quot;</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> ())
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>))
+<span class="kw">fn </span>test_if_registry_present(registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+    <span class="kw">crate</span>::utils::get_username_registry_token(registry, <span class="string">&quot;&quot;</span>)
+        .map(|<span class="kw">_</span>| ())
+        .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>))
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">UpdateRegistry</span> {
-    <span class="ident">Update</span>,
-    <span class="ident">LeaveAsIs</span>,
+<span class="attribute">#[derive(PartialEq, Eq, Copy, Clone)]
+</span><span class="kw">pub enum </span>UpdateRegistry {
+    Update,
+    LeaveAsIs,
 }
 
-<span class="attribute">#[<span class="ident">test</span>]</span>
-<span class="kw">fn</span> <span class="ident">test_registries_switch_token</span>() {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">registries</span> <span class="op">=</span> <span class="ident">MultiRegistry::default</span>();
+<span class="attribute">#[test]
+</span><span class="kw">fn </span>test_registries_switch_token() {
+    <span class="kw">let </span><span class="kw-2">mut </span>registries = MultiRegistry::default();
 
-    <span class="ident">registries</span>.<span class="ident">set_current_registry</span>(<span class="string">&quot;https://registry.wapm.dev&quot;</span>);
+    registries.set_current_registry(<span class="string">&quot;https://registry.wapm.dev&quot;</span>);
     <span class="macro">assert_eq!</span>(
-        <span class="ident">registries</span>.<span class="ident">get_current_registry</span>(),
-        <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.<span class="ident">to_string</span>()
+        registries.get_current_registry(),
+        <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
     );
-    <span class="ident">registries</span>.<span class="ident">set_login_token_for_registry</span>(
+    registries.set_login_token_for_registry(
         <span class="string">&quot;https://registry.wapm.io&quot;</span>,
         <span class="string">&quot;token1&quot;</span>,
-        <span class="ident">UpdateRegistry::LeaveAsIs</span>,
+        UpdateRegistry::LeaveAsIs,
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">registries</span>.<span class="ident">get_current_registry</span>(),
-        <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.<span class="ident">to_string</span>()
+        registries.get_current_registry(),
+        <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">registries</span>.<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registries</span>.<span class="ident">get_current_registry</span>()),
-        <span class="prelude-val">None</span>
-    );
-    <span class="ident">registries</span>.<span class="ident">set_current_registry</span>(<span class="string">&quot;https://registry.wapm.io&quot;</span>);
+        registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
+        <span class="prelude-val">None
+    </span>);
+    registries.set_current_registry(<span class="string">&quot;https://registry.wapm.io&quot;</span>);
     <span class="macro">assert_eq!</span>(
-        <span class="ident">registries</span>.<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registries</span>.<span class="ident">get_current_registry</span>()),
-        <span class="prelude-val">Some</span>(<span class="string">&quot;token1&quot;</span>.<span class="ident">to_string</span>())
+        registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
+        <span class="prelude-val">Some</span>(<span class="string">&quot;token1&quot;</span>.to_string())
     );
-    <span class="ident">registries</span>.<span class="ident">clear_current_registry_token</span>();
+    registries.clear_current_registry_token();
     <span class="macro">assert_eq!</span>(
-        <span class="ident">registries</span>.<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registries</span>.<span class="ident">get_current_registry</span>()),
-        <span class="prelude-val">None</span>
-    );
+        registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
+        <span class="prelude-val">None
+    </span>);
 }
 
-<span class="kw">impl</span> <span class="ident">MultiRegistry</span> {
-    <span class="doccomment">/// Gets the current (active) registry URL</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clear_current_registry_token</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">tokens</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">registry</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">active_registry</span>);
-        <span class="self">self</span>.<span class="ident">tokens</span>
-            .<span class="ident">retain</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">registry</span> <span class="op">!</span><span class="op">=</span> <span class="ident">format_graphql</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">active_registry</span>));
+<span class="kw">impl </span>MultiRegistry {
+    <span class="doccomment">/// Gets the current (active) registry URL
+    </span><span class="kw">pub fn </span>clear_current_registry_token(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.tokens.retain(|i| i.registry != <span class="self">self</span>.active_registry);
+        <span class="self">self</span>.tokens
+            .retain(|i| i.registry != format_graphql(<span class="kw-2">&amp;</span><span class="self">self</span>.active_registry));
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_graphql_url</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_current_registry</span>();
-        <span class="ident">format_graphql</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)
+    <span class="kw">pub fn </span>get_graphql_url(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">let </span>registry = <span class="self">self</span>.get_current_registry();
+        format_graphql(<span class="kw-2">&amp;</span>registry)
     }
 
-    <span class="doccomment">/// Gets the current (active) registry URL</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_current_registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="ident">format_graphql</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">active_registry</span>)
+    <span class="doccomment">/// Gets the current (active) registry URL
+    </span><span class="kw">pub fn </span>get_current_registry(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        format_graphql(<span class="kw-2">&amp;</span><span class="self">self</span>.active_registry)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_login</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">RegistryLogin</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">tokens</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">find</span>(<span class="op">|</span><span class="ident">login</span><span class="op">|</span> <span class="ident">login</span>.<span class="ident">registry</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">active_registry</span>)
+    <span class="kw">pub fn </span>current_login(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RegistryLogin&gt; {
+        <span class="self">self</span>.tokens
+            .iter()
+            .find(|login| login.registry == <span class="self">self</span>.active_registry)
     }
 
-    <span class="doccomment">/// Sets the current (active) registry URL</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_current_registry</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="ident">format_graphql</span>(<span class="ident">registry</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">test_if_registry_present</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>) {
+    <span class="doccomment">/// Sets the current (active) registry URL
+    </span><span class="kw">pub fn </span>set_current_registry(<span class="kw-2">&amp;mut </span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">let </span>registry = format_graphql(registry);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = test_if_registry_present(<span class="kw-2">&amp;</span>registry) {
             <span class="macro">println!</span>(<span class="string">&quot;Error when trying to ping registry {registry:?}: {e}&quot;</span>);
             <span class="macro">println!</span>(<span class="string">&quot;WARNING: Registry {registry:?} will be used, but commands may not succeed.&quot;</span>);
         }
-        <span class="self">self</span>.<span class="ident">active_registry</span> <span class="op">=</span> <span class="ident">registry</span>;
+        <span class="self">self</span>.active_registry = registry;
     }
 
-    <span class="doccomment">/// Returns the login token for the registry</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">registry_formatted</span> <span class="op">=</span> <span class="ident">format_graphql</span>(<span class="ident">registry</span>);
-        <span class="self">self</span>.<span class="ident">tokens</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">login</span><span class="op">|</span> <span class="ident">login</span>.<span class="ident">registry</span> <span class="op">==</span> <span class="ident">registry</span> <span class="op">|</span><span class="op">|</span> <span class="ident">login</span>.<span class="ident">registry</span> <span class="op">==</span> <span class="ident">registry_formatted</span>)
-            .<span class="ident">last</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">login</span><span class="op">|</span> <span class="ident">login</span>.<span class="ident">token</span>.<span class="ident">clone</span>())
+    <span class="doccomment">/// Returns the login token for the registry
+    </span><span class="kw">pub fn </span>get_login_token_for_registry(<span class="kw-2">&amp;</span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+        <span class="kw">let </span>registry_formatted = format_graphql(registry);
+        <span class="self">self</span>.tokens
+            .iter()
+            .filter(|login| login.registry == registry || login.registry == registry_formatted)
+            .last()
+            .map(|login| login.token.clone())
     }
 
-    <span class="doccomment">/// Sets the login token for the registry URL</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_login_token_for_registry</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">token</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">update_current_registry</span>: <span class="ident">UpdateRegistry</span>,
+    <span class="doccomment">/// Sets the login token for the registry URL
+    </span><span class="kw">pub fn </span>set_login_token_for_registry(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        registry: <span class="kw-2">&amp;</span>str,
+        token: <span class="kw-2">&amp;</span>str,
+        update_current_registry: UpdateRegistry,
     ) {
-        <span class="kw">let</span> <span class="ident">registry_formatted</span> <span class="op">=</span> <span class="ident">format_graphql</span>(<span class="ident">registry</span>);
-        <span class="self">self</span>.<span class="ident">tokens</span>
-            .<span class="ident">retain</span>(<span class="op">|</span><span class="ident">login</span><span class="op">|</span> <span class="op">!</span>(<span class="ident">login</span>.<span class="ident">registry</span> <span class="op">==</span> <span class="ident">registry</span> <span class="op">|</span><span class="op">|</span> <span class="ident">login</span>.<span class="ident">registry</span> <span class="op">==</span> <span class="ident">registry_formatted</span>));
-        <span class="self">self</span>.<span class="ident">tokens</span>.<span class="ident">push</span>(<span class="ident">RegistryLogin</span> {
-            <span class="ident">registry</span>: <span class="ident">format_graphql</span>(<span class="ident">registry</span>),
-            <span class="ident">token</span>: <span class="ident">token</span>.<span class="ident">to_string</span>(),
+        <span class="kw">let </span>registry_formatted = format_graphql(registry);
+        <span class="self">self</span>.tokens
+            .retain(|login| !(login.registry == registry || login.registry == registry_formatted));
+        <span class="self">self</span>.tokens.push(RegistryLogin {
+            registry: format_graphql(registry),
+            token: token.to_string(),
         });
-        <span class="kw">if</span> <span class="ident">update_current_registry</span> <span class="op">==</span> <span class="ident">UpdateRegistry::Update</span> {
-            <span class="self">self</span>.<span class="ident">active_registry</span> <span class="op">=</span> <span class="ident">format_graphql</span>(<span class="ident">registry</span>);
+        <span class="kw">if </span>update_current_registry == UpdateRegistry::Update {
+            <span class="self">self</span>.active_registry = format_graphql(registry);
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">WasmerConfig</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const</span> <span class="ident">ENV_VAR_WASMER_REGISTRY_TOKEN</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;WASMER_TOKEN&quot;</span>;
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const</span> <span class="ident">ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;WAPM_REGISTRY_TOKEN&quot;</span>;
+<span class="kw">impl </span>WasmerConfig {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ENV_VAR_WASMER_REGISTRY_TOKEN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASMER_TOKEN&quot;</span>;
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WAPM_REGISTRY_TOKEN&quot;</span>;
 
-    <span class="doccomment">/// Save the config to a file</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">save</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">to</span>: <span class="ident">P</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs::File</span>, <span class="ident">io::Write</span>};
-        <span class="kw">let</span> <span class="ident">config_serialized</span> <span class="op">=</span> <span class="ident">toml::to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">File::create</span>(<span class="ident">to</span>)<span class="question-mark">?</span>;
-        <span class="ident">file</span>.<span class="ident">write_all</span>(<span class="ident">config_serialized</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
+    <span class="doccomment">/// Save the config to a file
+    </span><span class="kw">pub fn </span>save&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, to: P) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="kw">use </span>std::{fs::File, io::Write};
+        <span class="kw">let </span>config_serialized = toml::to_string(<span class="kw-2">&amp;</span><span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(to)<span class="question-mark">?</span>;
+        file.write_all(config_serialized.as_bytes())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_file_location</span>(<span class="ident">wasmer_dir</span>);
-        <span class="kw">match</span> <span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">config_toml</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">toml::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">config_toml</span>).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident"><span class="self">Self</span>::default</span>())),
-            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::default</span>()),
+    <span class="kw">pub fn </span>from_file(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">let </span>path = <span class="self">Self</span>::get_file_location(wasmer_dir);
+        <span class="kw">match </span>std::fs::read_to_string(<span class="kw-2">&amp;</span>path) {
+            <span class="prelude-val">Ok</span>(config_toml) =&gt; <span class="prelude-val">Ok</span>(toml::from_str(<span class="kw-2">&amp;</span>config_toml).unwrap_or_else(|<span class="kw">_</span>| <span class="self">Self</span>::default())),
+            <span class="prelude-val">Err</span>(_e) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::default()),
         }
     }
 
-    <span class="doccomment">/// Creates and returns the `WASMER_DIR` directory (or $HOME/.wasmer as a fallback)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_wasmer_dir</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Creates and returns the `WASMER_DIR` directory (or $HOME/.wasmer as a fallback)
+    </span><span class="kw">pub fn </span>get_wasmer_dir() -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, String&gt; {
         <span class="prelude-val">Ok</span>(
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">folder_str</span>) <span class="op">=</span> <span class="ident">std::env::var</span>(<span class="string">&quot;WASMER_DIR&quot;</span>).<span class="ident">ok</span>().<span class="ident">filter</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="op">!</span><span class="ident">s</span>.<span class="ident">is_empty</span>()) {
-                <span class="kw">let</span> <span class="ident">folder</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">folder_str</span>);
-                <span class="ident">std::fs::create_dir_all</span>(<span class="ident">folder</span>.<span class="ident">clone</span>())
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;cannot create config directory: {e}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="ident">folder</span>
-            } <span class="kw">else</span> {
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
-                <span class="kw">let</span> <span class="ident">default_dir</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_current_dir</span>()
-                    .<span class="ident">ok</span>()
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;/&quot;</span>.<span class="ident">to_string</span>()));
-                <span class="kw">let</span> <span class="ident">home_dir</span> <span class="op">=</span>
-                    <span class="ident">dirs::home_dir</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;cannot find home directory&quot;</span>.<span class="ident">to_string</span>())<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">folder</span> <span class="op">=</span> <span class="ident">home_dir</span>;
-                <span class="ident">folder</span>.<span class="ident">push</span>(<span class="string">&quot;.wasmer&quot;</span>);
-                <span class="ident">std::fs::create_dir_all</span>(<span class="ident">folder</span>.<span class="ident">clone</span>())
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;cannot create config directory: {e}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="ident">folder</span>
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(folder_str) = std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>).ok().filter(|s| !s.is_empty()) {
+                <span class="kw">let </span>folder = PathBuf::from(folder_str);
+                std::fs::create_dir_all(folder.clone())
+                    .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;cannot create config directory: {e}&quot;</span>))<span class="question-mark">?</span>;
+                folder
+            } <span class="kw">else </span>{
+                <span class="attribute">#[allow(unused_variables)]
+                </span><span class="kw">let </span>default_dir = <span class="self">Self</span>::get_current_dir()
+                    .ok()
+                    .unwrap_or_else(|| PathBuf::from(<span class="string">&quot;/&quot;</span>.to_string()));
+                <span class="kw">let </span>home_dir =
+                    dirs::home_dir().ok_or_else(|| <span class="string">&quot;cannot find home directory&quot;</span>.to_string())<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>folder = home_dir;
+                folder.push(<span class="string">&quot;.wasmer&quot;</span>);
+                std::fs::create_dir_all(folder.clone())
+                    .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;cannot create config directory: {e}&quot;</span>))<span class="question-mark">?</span>;
+                folder
             },
         )
     }
 
-    <span class="doccomment">/// Load the config based on environment variables and default config file locations.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_env</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_wasmer_dir</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not determine wasmer dir: {err}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">file_path</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_file_location</span>(<span class="kw-2">&amp;</span><span class="ident">dir</span>);
-        <span class="ident"><span class="self">Self</span>::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">file_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
+    <span class="doccomment">/// Load the config based on environment variables and default config file locations.
+    </span><span class="kw">pub fn </span>from_env() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
+        <span class="kw">let </span>dir = <span class="self">Self</span>::get_wasmer_dir()
+            .map_err(|err| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not determine wasmer dir: {err}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>file_path = <span class="self">Self</span>::get_file_location(<span class="kw-2">&amp;</span>dir);
+        <span class="self">Self</span>::from_file(<span class="kw-2">&amp;</span>file_path).map_err(|err| {
             <span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;Could not load config file at &#39;{}&#39;: {}&quot;</span>,
-                <span class="ident">file_path</span>.<span class="ident">display</span>(),
-                <span class="ident">err</span>
+                file_path.display(),
+                err
             )
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_current_dir</span>() -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-        <span class="ident">std::env::current_dir</span>()
+    <span class="kw">pub fn </span>get_current_dir() -&gt; std::io::Result&lt;PathBuf&gt; {
+        std::env::current_dir()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_file_location</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
-        <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="ident"><span class="kw">crate</span>::GLOBAL_CONFIG_FILE_NAME</span>)
+    <span class="kw">pub fn </span>get_file_location(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+        wasmer_dir.join(<span class="kw">crate</span>::GLOBAL_CONFIG_FILE_NAME)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_database_file_path</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
-        <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="ident">GLOBAL_CONFIG_DATABASE_FILE_NAME</span>)
+    <span class="kw">pub fn </span>get_database_file_path(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+        wasmer_dir.join(GLOBAL_CONFIG_DATABASE_FILE_NAME)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

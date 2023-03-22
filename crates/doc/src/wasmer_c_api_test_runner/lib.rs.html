@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/tests/wasmer-c-api-test-runner/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_c_api_test_runner/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_c_api_test_runner/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_c_api_test_runner/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/tests/wasmer-c-api-test-runner/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_c_api_test_runner/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_c_api_test_runner/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_c_api_test_runner/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -449,99 +449,99 @@
 <span id="449">449</span>
 <span id="450">450</span>
 <span id="451">451</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">use</span> <span class="ident">std::error::Error</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">use</span> <span class="ident">std::process::Stdio</span>;
+</pre><pre class="rust"><code><span class="attribute">#[cfg(test)]
+</span><span class="kw">use </span>std::error::Error;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">use </span>std::process::Stdio;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">static</span> <span class="ident">INCLUDE_REGEX</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;#include \&quot;(.*)\&quot;&quot;</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">static </span>INCLUDE_REGEX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;#include \&quot;(.*)\&quot;&quot;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Config</span> {
-    <span class="kw">pub</span> <span class="ident">wasmer_dir</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">root_dir</span>: <span class="ident">String</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>Config {
+    <span class="kw">pub </span>wasmer_dir: String,
+    <span class="kw">pub </span>root_dir: String,
 }
 
-<span class="kw">impl</span> <span class="ident">Config</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>() -&gt; <span class="ident">Config</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">Config</span> {
-            <span class="ident">wasmer_dir</span>: <span class="ident">std::env::var</span>(<span class="string">&quot;WASMER_DIR&quot;</span>).<span class="ident">unwrap_or_default</span>(),
-            <span class="ident">root_dir</span>: <span class="ident">std::env::var</span>(<span class="string">&quot;ROOT_DIR&quot;</span>).<span class="ident">unwrap_or_default</span>(),
+<span class="kw">impl </span>Config {
+    <span class="kw">pub fn </span>get() -&gt; Config {
+        <span class="kw">let </span><span class="kw-2">mut </span>config = Config {
+            wasmer_dir: std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>).unwrap_or_default(),
+            root_dir: std::env::var(<span class="string">&quot;ROOT_DIR&quot;</span>).unwrap_or_default(),
         };
 
-        <span class="kw">let</span> <span class="ident">wasmer_base_dir</span> <span class="op">=</span> <span class="ident">find_wasmer_base_dir</span>();
-        <span class="kw">let</span> <span class="ident">manifest_dir</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
+        <span class="kw">let </span>wasmer_base_dir = find_wasmer_base_dir();
+        <span class="kw">let </span>manifest_dir = <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
 
-        <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">wasmer_dir</span>.<span class="ident">is_empty</span>() {
+        <span class="kw">if </span>config.wasmer_dir.is_empty() {
             <span class="macro">println!</span>(<span class="string">&quot;manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}&quot;</span>);
-            <span class="ident">config</span>.<span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">wasmer_base_dir</span>.<span class="ident">clone</span>() <span class="op">+</span> <span class="string">&quot;/package&quot;</span>;
-            <span class="macro">assert!</span>(<span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>).<span class="ident">exists</span>());
+            config.wasmer_dir = wasmer_base_dir.clone() + <span class="string">&quot;/package&quot;</span>;
+            <span class="macro">assert!</span>(std::path::Path::new(<span class="kw-2">&amp;</span>config.wasmer_dir).exists());
         }
-        <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">root_dir</span>.<span class="ident">is_empty</span>() {
-            <span class="ident">config</span>.<span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">wasmer_base_dir</span> <span class="op">+</span> <span class="string">&quot;/lib/c-api/tests&quot;</span>;
+        <span class="kw">if </span>config.root_dir.is_empty() {
+            config.root_dir = wasmer_base_dir + <span class="string">&quot;/lib/c-api/tests&quot;</span>;
         }
 
-        <span class="ident">config</span>
+        config
     }
 }
 
-<span class="kw">fn</span> <span class="ident">find_wasmer_base_dir</span>() -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="ident">wasmer_base_dir</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path2</span> <span class="op">=</span> <span class="ident">wasmer_base_dir</span>.<span class="ident">split</span>(<span class="string">&quot;wasmer&quot;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-    <span class="ident">path2</span>.<span class="ident">pop</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasmer_base_dir</span> <span class="op">=</span> <span class="ident">path2</span>.<span class="ident">join</span>(<span class="string">&quot;wasmer&quot;</span>);
+<span class="kw">fn </span>find_wasmer_base_dir() -&gt; String {
+    <span class="kw">let </span>wasmer_base_dir = <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>path2 = wasmer_base_dir.split(<span class="string">&quot;wasmer&quot;</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    path2.pop();
+    <span class="kw">let </span><span class="kw-2">mut </span>wasmer_base_dir = path2.join(<span class="string">&quot;wasmer&quot;</span>);
 
-    <span class="kw">if</span> <span class="ident">wasmer_base_dir</span>.<span class="ident">contains</span>(<span class="string">&quot;wasmer/lib/c-api&quot;</span>) {
-        <span class="ident">wasmer_base_dir</span> <span class="op">=</span> <span class="ident">wasmer_base_dir</span>
-            .<span class="ident">split</span>(<span class="string">&quot;wasmer/lib/c-api&quot;</span>)
-            .<span class="ident">next</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">to_string</span>()
-            <span class="op">+</span> <span class="string">&quot;wasmer&quot;</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">wasmer_base_dir</span>.<span class="ident">contains</span>(<span class="string">&quot;wasmer\\lib\\c-api&quot;</span>) {
-        <span class="ident">wasmer_base_dir</span> <span class="op">=</span> <span class="ident">wasmer_base_dir</span>
-            .<span class="ident">split</span>(<span class="string">&quot;wasmer\\lib\\c-api&quot;</span>)
-            .<span class="ident">next</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">to_string</span>()
-            <span class="op">+</span> <span class="string">&quot;wasmer&quot;</span>;
+    <span class="kw">if </span>wasmer_base_dir.contains(<span class="string">&quot;wasmer/lib/c-api&quot;</span>) {
+        wasmer_base_dir = wasmer_base_dir
+            .split(<span class="string">&quot;wasmer/lib/c-api&quot;</span>)
+            .next()
+            .unwrap()
+            .to_string()
+            + <span class="string">&quot;wasmer&quot;</span>;
+    } <span class="kw">else if </span>wasmer_base_dir.contains(<span class="string">&quot;wasmer\\lib\\c-api&quot;</span>) {
+        wasmer_base_dir = wasmer_base_dir
+            .split(<span class="string">&quot;wasmer\\lib\\c-api&quot;</span>)
+            .next()
+            .unwrap()
+            .to_string()
+            + <span class="string">&quot;wasmer&quot;</span>;
     }
 
-    <span class="ident">wasmer_base_dir</span>
+    wasmer_base_dir
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RemoveTestsOnDrop</span> {}
+<span class="attribute">#[derive(Default)]
+</span><span class="kw">pub struct </span>RemoveTestsOnDrop {}
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">RemoveTestsOnDrop</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">let</span> <span class="ident">manifest_dir</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
-        <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">manifest_dir</span>).<span class="ident">unwrap</span>() {
-            <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">unwrap</span>();
-            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">path</span>();
-            <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">extension</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_str</span>());
-            <span class="kw">if</span> <span class="ident">extension</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;obj&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">extension</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;exe&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">extension</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;o&quot;</span>) {
-                <span class="macro">println!</span>(<span class="string">&quot;removing {}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
+<span class="kw">impl </span>Drop <span class="kw">for </span>RemoveTestsOnDrop {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">let </span>manifest_dir = <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
+        <span class="kw">for </span>entry <span class="kw">in </span>std::fs::read_dir(manifest_dir).unwrap() {
+            <span class="kw">let </span>entry = entry.unwrap();
+            <span class="kw">let </span>path = entry.path();
+            <span class="kw">let </span>extension = path.extension().and_then(|s| s.to_str());
+            <span class="kw">if </span>extension == <span class="prelude-val">Some</span>(<span class="string">&quot;obj&quot;</span>) || extension == <span class="prelude-val">Some</span>(<span class="string">&quot;exe&quot;</span>) || extension == <span class="prelude-val">Some</span>(<span class="string">&quot;o&quot;</span>) {
+                <span class="macro">println!</span>(<span class="string">&quot;removing {}&quot;</span>, path.display());
+                <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>path);
             }
         }
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_dir</span>).<span class="ident">parent</span>() {
-            <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">parent</span>).<span class="ident">unwrap</span>() {
-                <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">path</span>();
-                <span class="kw">let</span> <span class="ident">extension</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">extension</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_str</span>());
-                <span class="kw">if</span> <span class="ident">extension</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;obj&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">extension</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;exe&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">extension</span> <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;o&quot;</span>) {
-                    <span class="macro">println!</span>(<span class="string">&quot;removing {}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = std::path::Path::new(<span class="kw-2">&amp;</span>manifest_dir).parent() {
+            <span class="kw">for </span>entry <span class="kw">in </span>std::fs::read_dir(parent).unwrap() {
+                <span class="kw">let </span>entry = entry.unwrap();
+                <span class="kw">let </span>path = entry.path();
+                <span class="kw">let </span>extension = path.extension().and_then(|s| s.to_str());
+                <span class="kw">if </span>extension == <span class="prelude-val">Some</span>(<span class="string">&quot;obj&quot;</span>) || extension == <span class="prelude-val">Some</span>(<span class="string">&quot;exe&quot;</span>) || extension == <span class="prelude-val">Some</span>(<span class="string">&quot;o&quot;</span>) {
+                    <span class="macro">println!</span>(<span class="string">&quot;removing {}&quot;</span>, path.display());
+                    <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span>path);
                 }
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CAPI_BASE_TESTS</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">pub const </span>CAPI_BASE_TESTS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[
     <span class="string">&quot;wasm-c-api/example/callback&quot;</span>,
     <span class="string">&quot;wasm-c-api/example/memory&quot;</span>,
     <span class="string">&quot;wasm-c-api/example/start&quot;</span>,
@@ -553,352 +553,352 @@
     <span class="string">&quot;wasm-c-api/example/multi&quot;</span>,
 ];
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>, <span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CAPI_BASE_TESTS_NOT_WORKING</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+<span class="attribute">#[allow(unused_variables, dead_code)]
+</span><span class="kw">pub const </span>CAPI_BASE_TESTS_NOT_WORKING: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[
     <span class="string">&quot;wasm-c-api/example/finalize&quot;</span>,
     <span class="string">&quot;wasm-c-api/example/hostref&quot;</span>,
     <span class="string">&quot;wasm-c-api/example/threads&quot;</span>,
     <span class="string">&quot;wasm-c-api/example/table&quot;</span>,
 ];
 
-<span class="comment">// Runs all the tests that are working in the /c directory</span>
-<span class="attribute">#[<span class="ident">test</span>]</span>
-<span class="kw">fn</span> <span class="ident">test_ok</span>() {
-    <span class="kw">let</span> <span class="ident">_drop</span> <span class="op">=</span> <span class="ident">RemoveTestsOnDrop::default</span>();
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">Config::get</span>();
-    <span class="macro">println!</span>(<span class="string">&quot;config: {:#?}&quot;</span>, <span class="ident">config</span>);
+<span class="comment">// Runs all the tests that are working in the /c directory
+</span><span class="attribute">#[test]
+</span><span class="kw">fn </span>test_ok() {
+    <span class="kw">let </span>_drop = RemoveTestsOnDrop::default();
+    <span class="kw">let </span>config = Config::get();
+    <span class="macro">println!</span>(<span class="string">&quot;config: {:#?}&quot;</span>, config);
 
-    <span class="kw">let</span> <span class="ident">manifest_dir</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
-    <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="ident">target_lexicon::HOST</span>.<span class="ident">to_string</span>();
-    <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">host</span>;
+    <span class="kw">let </span>manifest_dir = <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
+    <span class="kw">let </span>host = target_lexicon::HOST.to_string();
+    <span class="kw">let </span>target = <span class="kw-2">&amp;</span>host;
 
-    <span class="kw">let</span> <span class="ident">wasmer_dll_dir</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}/lib&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>);
-    <span class="kw">let</span> <span class="ident">libwasmer_so_path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}/lib/libwasmer.so&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>);
-    <span class="kw">let</span> <span class="ident">exe_dir</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../wasm-c-api/example&quot;</span>);
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">std::env::var</span>(<span class="string">&quot;PATH&quot;</span>).<span class="ident">unwrap_or_default</span>();
-    <span class="kw">let</span> <span class="ident">newpath</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{};{path}&quot;</span>, <span class="ident">wasmer_dll_dir</span>.<span class="ident">replace</span>(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;\\&quot;</span>));
+    <span class="kw">let </span>wasmer_dll_dir = <span class="macro">format!</span>(<span class="string">&quot;{}/lib&quot;</span>, config.wasmer_dir);
+    <span class="kw">let </span>libwasmer_so_path = <span class="macro">format!</span>(<span class="string">&quot;{}/lib/libwasmer.so&quot;</span>, config.wasmer_dir);
+    <span class="kw">let </span>exe_dir = <span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../wasm-c-api/example&quot;</span>);
+    <span class="kw">let </span>path = std::env::var(<span class="string">&quot;PATH&quot;</span>).unwrap_or_default();
+    <span class="kw">let </span>newpath = <span class="macro">format!</span>(<span class="string">&quot;{};{path}&quot;</span>, wasmer_dll_dir.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;\\&quot;</span>));
 
-    <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">contains</span>(<span class="string">&quot;msvc&quot;</span>) {
-        <span class="kw">for</span> <span class="ident">test</span> <span class="kw">in</span> <span class="ident">CAPI_BASE_TESTS</span>.<span class="ident">iter</span>() {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">build</span> <span class="op">=</span> <span class="ident">cc::Build::new</span>();
-            <span class="kw">let</span> <span class="ident">build</span> <span class="op">=</span> <span class="ident">build</span>
-                .<span class="ident">cargo_metadata</span>(<span class="bool-val">false</span>)
-                .<span class="ident">warnings</span>(<span class="bool-val">true</span>)
-                .<span class="ident">static_crt</span>(<span class="bool-val">true</span>)
-                .<span class="ident">extra_warnings</span>(<span class="bool-val">true</span>)
-                .<span class="ident">warnings_into_errors</span>(<span class="bool-val">false</span>)
-                .<span class="ident">debug</span>(<span class="bool-val">true</span>)
-                .<span class="ident">host</span>(<span class="kw-2">&amp;</span><span class="ident">host</span>)
-                .<span class="ident">target</span>(<span class="ident">target</span>)
-                .<span class="ident">opt_level</span>(<span class="number">1</span>);
+    <span class="kw">if </span>target.contains(<span class="string">&quot;msvc&quot;</span>) {
+        <span class="kw">for </span>test <span class="kw">in </span>CAPI_BASE_TESTS.iter() {
+            <span class="kw">let </span><span class="kw-2">mut </span>build = cc::Build::new();
+            <span class="kw">let </span>build = build
+                .cargo_metadata(<span class="bool-val">false</span>)
+                .warnings(<span class="bool-val">true</span>)
+                .static_crt(<span class="bool-val">true</span>)
+                .extra_warnings(<span class="bool-val">true</span>)
+                .warnings_into_errors(<span class="bool-val">false</span>)
+                .debug(<span class="bool-val">true</span>)
+                .host(<span class="kw-2">&amp;</span>host)
+                .target(target)
+                .opt_level(<span class="number">1</span>);
 
-            <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">build</span>.<span class="ident">try_get_compiler</span>().<span class="ident">unwrap</span>();
+            <span class="kw">let </span>compiler = build.try_get_compiler().unwrap();
 
-            <span class="macro">println!</span>(<span class="string">&quot;compiler {:#?}&quot;</span>, <span class="ident">compiler</span>);
+            <span class="macro">println!</span>(<span class="string">&quot;compiler {:#?}&quot;</span>, compiler);
 
-            <span class="comment">// run vcvars</span>
-            <span class="kw">let</span> <span class="ident">vcvars_bat_path</span> <span class="op">=</span> <span class="ident">find_vcvars64</span>(<span class="kw-2">&amp;</span><span class="ident">compiler</span>).<span class="ident">expect</span>(<span class="string">&quot;no vcvars64.bat&quot;</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vcvars</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="string">&quot;cmd&quot;</span>);
-            <span class="ident">vcvars</span>.<span class="ident">arg</span>(<span class="string">&quot;/C&quot;</span>);
-            <span class="ident">vcvars</span>.<span class="ident">arg</span>(<span class="ident">vcvars_bat_path</span>);
+            <span class="comment">// run vcvars
+            </span><span class="kw">let </span>vcvars_bat_path = find_vcvars64(<span class="kw-2">&amp;</span>compiler).expect(<span class="string">&quot;no vcvars64.bat&quot;</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>vcvars = std::process::Command::new(<span class="string">&quot;cmd&quot;</span>);
+            vcvars.arg(<span class="string">&quot;/C&quot;</span>);
+            vcvars.arg(vcvars_bat_path);
             <span class="macro">println!</span>(<span class="string">&quot;running {vcvars:?}&quot;</span>);
 
-            <span class="comment">// cmd /C vcvars64.bat</span>
-            <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">vcvars</span>
-                .<span class="ident">output</span>()
-                .<span class="ident">expect</span>(<span class="string">&quot;could not invoke vcvars64.bat at {vcvars_bat_path}&quot;</span>);
+            <span class="comment">// cmd /C vcvars64.bat
+            </span><span class="kw">let </span>output = vcvars
+                .output()
+                .expect(<span class="string">&quot;could not invoke vcvars64.bat at {vcvars_bat_path}&quot;</span>);
 
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
+            <span class="kw">if </span>!output.status.success() {
                 <span class="macro">println!</span>();
-                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stderr</span>));
-                <span class="ident">print_wasmer_root_to_stdout</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>);
+                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
+                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
+                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
                 <span class="macro">panic!</span>(<span class="string">&quot;failed to invoke vcvars64.bat {test}&quot;</span>);
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">to_command</span>();
+            <span class="kw">let </span><span class="kw-2">mut </span>command = compiler.to_command();
 
-            <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.c&quot;</span>));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;/I&quot;</span>);
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">root_dir</span>));
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;/I&quot;</span>);
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>));
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">log</span> <span class="op">=</span> <span class="ident">String::new</span>();
-                <span class="ident">fixup_symlinks</span>(
+            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.c&quot;</span>));
+            <span class="kw">if </span>!config.wasmer_dir.is_empty() {
+                command.arg(<span class="string">&quot;/I&quot;</span>);
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, config.root_dir));
+                command.arg(<span class="string">&quot;/I&quot;</span>);
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, config.wasmer_dir));
+                <span class="kw">let </span><span class="kw-2">mut </span>log = String::new();
+                fixup_symlinks(
                     <span class="kw-2">&amp;</span>[
-                        <span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>),
-                        <span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">root_dir</span>),
-                        <span class="ident">config</span>.<span class="ident">root_dir</span>.<span class="ident">to_string</span>(),
+                        <span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, config.wasmer_dir),
+                        <span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, config.root_dir),
+                        config.root_dir.to_string(),
                     ],
-                    <span class="kw-2">&amp;mut</span> <span class="ident">log</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">root_dir</span>,
+                    <span class="kw-2">&amp;mut </span>log,
+                    <span class="kw-2">&amp;</span>config.root_dir,
                 )
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;failed to fix symlinks: {log}&quot;</span>));
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;failed to fix symlinks: {log}&quot;</span>));
                 <span class="macro">println!</span>(<span class="string">&quot;{log}&quot;</span>);
             }
-            <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;/link&quot;</span>);
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/LIBPATH:{}/lib&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>));
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/lib/wasmer.dll.lib&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>));
+            command.arg(<span class="string">&quot;/link&quot;</span>);
+            <span class="kw">if </span>!config.wasmer_dir.is_empty() {
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/LIBPATH:{}/lib&quot;</span>, config.wasmer_dir));
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/lib/wasmer.dll.lib&quot;</span>, config.wasmer_dir));
             }
-            <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/OUT:{manifest_dir}/../{test}.exe&quot;</span>));
+            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/OUT:{manifest_dir}/../{test}.exe&quot;</span>));
 
             <span class="macro">println!</span>(<span class="string">&quot;compiling {test}: {command:?}&quot;</span>);
 
-            <span class="comment">// compile</span>
-            <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">command</span>
-                .<span class="ident">output</span>()
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {command:#?}&quot;</span>));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
-                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stderr</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;output: {:#?}&quot;</span>, <span class="ident">output</span>);
-                <span class="ident">print_wasmer_root_to_stdout</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>);
+            <span class="comment">// compile
+            </span><span class="kw">let </span>output = command
+                .output()
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {command:#?}&quot;</span>));
+            <span class="kw">if </span>!output.status.success() {
+                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
+                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
+                <span class="macro">println!</span>(<span class="string">&quot;output: {:#?}&quot;</span>, output);
+                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
                 <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {test}&quot;</span>);
             }
 
-            <span class="kw">if</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>)).<span class="ident">exists</span>() {
+            <span class="kw">if </span>std::path::Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>)).exists() {
                 <span class="macro">println!</span>(<span class="string">&quot;exe does not exist&quot;</span>);
             }
 
-            <span class="comment">// execute</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>));
-            <span class="macro">println!</span>(<span class="string">&quot;newpath: {}&quot;</span>, <span class="ident">newpath</span>.<span class="ident">clone</span>());
-            <span class="ident">command</span>.<span class="ident">env</span>(<span class="string">&quot;PATH&quot;</span>, <span class="ident">newpath</span>.<span class="ident">clone</span>());
-            <span class="ident">command</span>.<span class="ident">current_dir</span>(<span class="ident">exe_dir</span>.<span class="ident">clone</span>());
+            <span class="comment">// execute
+            </span><span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>));
+            <span class="macro">println!</span>(<span class="string">&quot;newpath: {}&quot;</span>, newpath.clone());
+            command.env(<span class="string">&quot;PATH&quot;</span>, newpath.clone());
+            command.current_dir(exe_dir.clone());
             <span class="macro">println!</span>(<span class="string">&quot;executing {test}: {command:?}&quot;</span>);
             <span class="macro">println!</span>(<span class="string">&quot;setting current dir = {exe_dir}&quot;</span>);
-            <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">command</span>
-                .<span class="ident">output</span>()
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;failed to run {command:#?}&quot;</span>));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
-                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stderr</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;output: {:#?}&quot;</span>, <span class="ident">output</span>);
-                <span class="ident">print_wasmer_root_to_stdout</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>);
+            <span class="kw">let </span>output = command
+                .output()
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;failed to run {command:#?}&quot;</span>));
+            <span class="kw">if </span>!output.status.success() {
+                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
+                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
+                <span class="macro">println!</span>(<span class="string">&quot;output: {:#?}&quot;</span>, output);
+                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
                 <span class="macro">panic!</span>(<span class="string">&quot;failed to execute {test}&quot;</span>);
             }
 
-            <span class="comment">// cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/tests/</span>
-            <span class="comment">//          -IC:/Users/felix/Development/wasmer/package/include</span>
-            <span class="comment">//</span>
-            <span class="comment">//          -Wl,-rpath,C:/Users/felix/Development/wasmer/package/lib</span>
-            <span class="comment">//</span>
-            <span class="comment">//          wasm-c-api/example/callback.c</span>
-            <span class="comment">//</span>
-            <span class="comment">//          -LC:/Users/felix/Development/wasmer/package/lib -lwasmer</span>
-            <span class="comment">//</span>
-            <span class="comment">// -o wasm-c-api/example/callback</span>
-        }
-    } <span class="kw">else</span> {
-        <span class="kw">for</span> <span class="ident">test</span> <span class="kw">in</span> <span class="ident">CAPI_BASE_TESTS</span>.<span class="ident">iter</span>() {
-            <span class="kw">let</span> <span class="ident">compiler_cmd</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::process::Command::new</span>(<span class="string">&quot;cc&quot;</span>).<span class="ident">output</span>() {
+            <span class="comment">// cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/tests/
+            //          -IC:/Users/felix/Development/wasmer/package/include
+            //
+            //          -Wl,-rpath,C:/Users/felix/Development/wasmer/package/lib
+            //
+            //          wasm-c-api/example/callback.c
+            //
+            //          -LC:/Users/felix/Development/wasmer/package/lib -lwasmer
+            //
+            // -o wasm-c-api/example/callback
+        </span>}
+    } <span class="kw">else </span>{
+        <span class="kw">for </span>test <span class="kw">in </span>CAPI_BASE_TESTS.iter() {
+            <span class="kw">let </span>compiler_cmd = <span class="kw">match </span>std::process::Command::new(<span class="string">&quot;cc&quot;</span>).output() {
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;cc&quot;</span>,
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;gcc&quot;</span>,
             };
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="ident">compiler_cmd</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(compiler_cmd);
 
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-I&quot;</span>);
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">root_dir</span>));
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-I&quot;</span>);
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>));
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">log</span> <span class="op">=</span> <span class="ident">String::new</span>();
-                <span class="ident">fixup_symlinks</span>(
+            <span class="kw">if </span>!config.wasmer_dir.is_empty() {
+                command.arg(<span class="string">&quot;-I&quot;</span>);
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, config.root_dir));
+                command.arg(<span class="string">&quot;-I&quot;</span>);
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, config.wasmer_dir));
+                <span class="kw">let </span><span class="kw-2">mut </span>log = String::new();
+                fixup_symlinks(
                     <span class="kw-2">&amp;</span>[
-                        <span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>),
-                        <span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, <span class="ident">config</span>.<span class="ident">root_dir</span>),
-                        <span class="ident">config</span>.<span class="ident">root_dir</span>.<span class="ident">to_string</span>(),
+                        <span class="macro">format!</span>(<span class="string">&quot;{}/include/&quot;</span>, config.wasmer_dir),
+                        <span class="macro">format!</span>(<span class="string">&quot;{}/wasm-c-api/include/&quot;</span>, config.root_dir),
+                        config.root_dir.to_string(),
                     ],
-                    <span class="kw-2">&amp;mut</span> <span class="ident">log</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">root_dir</span>,
+                    <span class="kw-2">&amp;mut </span>log,
+                    <span class="kw-2">&amp;</span>config.root_dir,
                 )
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;failed to fix symlinks: {log}&quot;</span>));
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;failed to fix symlinks: {log}&quot;</span>));
             }
-            <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.c&quot;</span>));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-L&quot;</span>);
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/lib/&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>));
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-lwasmer&quot;</span>);
-                <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-Wl,-rpath,{}/lib/&quot;</span>, <span class="ident">config</span>.<span class="ident">wasmer_dir</span>));
+            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.c&quot;</span>));
+            <span class="kw">if </span>!config.wasmer_dir.is_empty() {
+                command.arg(<span class="string">&quot;-L&quot;</span>);
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/lib/&quot;</span>, config.wasmer_dir));
+                command.arg(<span class="string">&quot;-lwasmer&quot;</span>);
+                command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-Wl,-rpath,{}/lib/&quot;</span>, config.wasmer_dir));
             }
-            <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>);
-            <span class="ident">command</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
+            command.arg(<span class="string">&quot;-o&quot;</span>);
+            command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
 
-            <span class="ident">print_wasmer_root_to_stdout</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>);
+            print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
 
             <span class="macro">println!</span>(<span class="string">&quot;compile: {command:#?}&quot;</span>);
-            <span class="comment">// compile</span>
-            <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">command</span>
-                .<span class="ident">stdout</span>(<span class="ident">Stdio::inherit</span>())
-                .<span class="ident">stderr</span>(<span class="ident">Stdio::inherit</span>())
-                .<span class="ident">current_dir</span>(<span class="ident">find_wasmer_base_dir</span>())
-                .<span class="ident">output</span>()
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {command:#?}&quot;</span>));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
-                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stderr</span>));
-                <span class="ident">print_wasmer_root_to_stdout</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>);
+            <span class="comment">// compile
+            </span><span class="kw">let </span>output = command
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .current_dir(find_wasmer_base_dir())
+                .output()
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {command:#?}&quot;</span>));
+            <span class="kw">if </span>!output.status.success() {
+                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
+                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
+                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
                 <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {test}: {command:#?}&quot;</span>);
             }
 
-            <span class="comment">// execute</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
-            <span class="ident">command</span>.<span class="ident">env</span>(<span class="string">&quot;LD_PRELOAD&quot;</span>, <span class="ident">libwasmer_so_path</span>.<span class="ident">clone</span>());
-            <span class="ident">command</span>.<span class="ident">current_dir</span>(<span class="ident">exe_dir</span>.<span class="ident">clone</span>());
+            <span class="comment">// execute
+            </span><span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
+            command.env(<span class="string">&quot;LD_PRELOAD&quot;</span>, libwasmer_so_path.clone());
+            command.current_dir(exe_dir.clone());
             <span class="macro">println!</span>(<span class="string">&quot;execute: {command:#?}&quot;</span>);
-            <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">command</span>
-                .<span class="ident">output</span>()
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">panic!</span>(<span class="string">&quot;failed to run {command:#?}&quot;</span>));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
-                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>));
-                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stderr</span>));
-                <span class="ident">print_wasmer_root_to_stdout</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>);
+            <span class="kw">let </span>output = command
+                .output()
+                .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;failed to run {command:#?}&quot;</span>));
+            <span class="kw">if </span>!output.status.success() {
+                <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
+                <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
+                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
                 <span class="macro">panic!</span>(<span class="string">&quot;failed to execute {test}: {command:#?}&quot;</span>);
             }
         }
     }
 
-    <span class="kw">for</span> <span class="ident">test</span> <span class="kw">in</span> <span class="ident">CAPI_BASE_TESTS</span>.<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/{test}.obj&quot;</span>));
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>));
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
+    <span class="kw">for </span>test <span class="kw">in </span>CAPI_BASE_TESTS.iter() {
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/{test}.obj&quot;</span>));
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>));
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">fn</span> <span class="ident">print_wasmer_root_to_stdout</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="ident">Config</span>) {
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">fn </span>print_wasmer_root_to_stdout(config: <span class="kw-2">&amp;</span>Config) {
     <span class="macro">println!</span>(<span class="string">&quot;print_wasmer_root_to_stdout&quot;</span>);
 
-    <span class="kw">use</span> <span class="ident">walkdir::WalkDir</span>;
+    <span class="kw">use </span>walkdir::WalkDir;
 
     <span class="macro">println!</span>(
         <span class="string">&quot;wasmer dir: {}&quot;</span>,
-        <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>)
-            .<span class="ident">canonicalize</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">display</span>()
+        std::path::Path::new(<span class="kw-2">&amp;</span>config.wasmer_dir)
+            .canonicalize()
+            .unwrap()
+            .display()
     );
 
-    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">WalkDir::new</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">wasmer_dir</span>)
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">filter_map</span>(<span class="ident">Result::ok</span>)
+    <span class="kw">for </span>entry <span class="kw">in </span>WalkDir::new(<span class="kw-2">&amp;</span>config.wasmer_dir)
+        .into_iter()
+        .filter_map(Result::ok)
     {
-        <span class="kw">let</span> <span class="ident">f_name</span> <span class="op">=</span> <span class="ident">String::from</span>(<span class="ident">entry</span>.<span class="ident">path</span>().<span class="ident">canonicalize</span>().<span class="ident">unwrap</span>().<span class="ident">to_string_lossy</span>());
+        <span class="kw">let </span>f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
         <span class="macro">println!</span>(<span class="string">&quot;{f_name}&quot;</span>);
     }
 
     <span class="macro">println!</span>(
         <span class="string">&quot;root dir: {}&quot;</span>,
-        <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">root_dir</span>)
-            .<span class="ident">canonicalize</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">display</span>()
+        std::path::Path::new(<span class="kw-2">&amp;</span>config.root_dir)
+            .canonicalize()
+            .unwrap()
+            .display()
     );
 
-    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">WalkDir::new</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">root_dir</span>)
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">filter_map</span>(<span class="ident">Result::ok</span>)
+    <span class="kw">for </span>entry <span class="kw">in </span>WalkDir::new(<span class="kw-2">&amp;</span>config.root_dir)
+        .into_iter()
+        .filter_map(Result::ok)
     {
-        <span class="kw">let</span> <span class="ident">f_name</span> <span class="op">=</span> <span class="ident">String::from</span>(<span class="ident">entry</span>.<span class="ident">path</span>().<span class="ident">canonicalize</span>().<span class="ident">unwrap</span>().<span class="ident">to_string_lossy</span>());
+        <span class="kw">let </span>f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
         <span class="macro">println!</span>(<span class="string">&quot;{f_name}&quot;</span>);
     }
 
     <span class="macro">println!</span>(<span class="string">&quot;printed&quot;</span>);
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">fn</span> <span class="ident">fixup_symlinks</span>(
-    <span class="ident">include_paths</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-    <span class="ident">log</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>,
-    <span class="ident">root_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">source</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="ident">root_dir</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;lib&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;c-api&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;tests&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;wasm-c-api&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;wasm.h&quot;</span>);
-    <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="ident">root_dir</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;lib&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;c-api&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;tests&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;wasm.h&quot;</span>);
-    <span class="macro">println!</span>(<span class="string">&quot;copying {} -&gt; {}&quot;</span>, <span class="ident">source</span>.<span class="ident">display</span>(), <span class="ident">target</span>.<span class="ident">display</span>());
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::copy</span>(<span class="ident">source</span>, <span class="ident">target</span>);
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">fn </span>fixup_symlinks(
+    include_paths: <span class="kw-2">&amp;</span>[String],
+    log: <span class="kw-2">&amp;mut </span>String,
+    root_dir: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+    <span class="kw">let </span>source = std::path::Path::new(root_dir)
+        .join(<span class="string">&quot;lib&quot;</span>)
+        .join(<span class="string">&quot;c-api&quot;</span>)
+        .join(<span class="string">&quot;tests&quot;</span>)
+        .join(<span class="string">&quot;wasm-c-api&quot;</span>)
+        .join(<span class="string">&quot;include&quot;</span>)
+        .join(<span class="string">&quot;wasm.h&quot;</span>);
+    <span class="kw">let </span>target = std::path::Path::new(root_dir)
+        .join(<span class="string">&quot;lib&quot;</span>)
+        .join(<span class="string">&quot;c-api&quot;</span>)
+        .join(<span class="string">&quot;tests&quot;</span>)
+        .join(<span class="string">&quot;wasm.h&quot;</span>);
+    <span class="macro">println!</span>(<span class="string">&quot;copying {} -&gt; {}&quot;</span>, source.display(), target.display());
+    <span class="kw">let _ </span>= std::fs::copy(source, target);
 
-    <span class="ident">log</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;include paths: {include_paths:?}&quot;</span>));
-    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="ident">include_paths</span> {
-        <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">replacen</span>(<span class="string">&quot;-I&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">replacen</span>(<span class="string">&quot;/I&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">paths_headers</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="ident">readdir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::fs::read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">i</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
+    log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;include paths: {include_paths:?}&quot;</span>));
+    <span class="kw">for </span>i <span class="kw">in </span>include_paths {
+        <span class="kw">let </span>i = i.replacen(<span class="string">&quot;-I&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
+        <span class="kw">let </span>i = i.replacen(<span class="string">&quot;/I&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>paths_headers = Vec::new();
+        <span class="kw">let </span>readdir = <span class="kw">match </span>std::fs::read_dir(<span class="kw-2">&amp;</span>i) {
+            <span class="prelude-val">Ok</span>(o) =&gt; o,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
         };
-        <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">readdir</span> {
-            <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">path</span>();
-            <span class="kw">let</span> <span class="ident">path_display</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-            <span class="kw">if</span> <span class="ident">path_display</span>.<span class="ident">ends_with</span>(<span class="string">&#39;h&#39;</span>) {
-                <span class="ident">paths_headers</span>.<span class="ident">push</span>(<span class="ident">path_display</span>);
+        <span class="kw">for </span>entry <span class="kw">in </span>readdir {
+            <span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
+            <span class="kw">let </span>path = entry.path();
+            <span class="kw">let </span>path_display = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display());
+            <span class="kw">if </span>path_display.ends_with(<span class="string">&#39;h&#39;</span>) {
+                paths_headers.push(path_display);
             }
         }
-        <span class="ident">fixup_symlinks_inner</span>(<span class="kw-2">&amp;</span><span class="ident">paths_headers</span>, <span class="ident">log</span>)<span class="question-mark">?</span>;
+        fixup_symlinks_inner(<span class="kw-2">&amp;</span>paths_headers, log)<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">fn</span> <span class="ident">fixup_symlinks_inner</span>(<span class="ident">include_paths</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>], <span class="ident">log</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">log</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;fixup symlinks: {include_paths:#?}&quot;</span>));
-    <span class="kw">let</span> <span class="ident">regex</span> <span class="op">=</span> <span class="ident">regex::Regex::new</span>(<span class="ident">INCLUDE_REGEX</span>).<span class="ident">unwrap</span>();
-    <span class="kw">for</span> <span class="ident">path</span> <span class="kw">in</span> <span class="ident">include_paths</span>.<span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
-            <span class="kw">_</span> =&gt; <span class="kw">continue</span>,
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">fn </span>fixup_symlinks_inner(include_paths: <span class="kw-2">&amp;</span>[String], log: <span class="kw-2">&amp;mut </span>String) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
+    log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;fixup symlinks: {include_paths:#?}&quot;</span>));
+    <span class="kw">let </span>regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
+    <span class="kw">for </span>path <span class="kw">in </span>include_paths.iter() {
+        <span class="kw">let </span>file = <span class="kw">match </span>std::fs::read_to_string(<span class="kw-2">&amp;</span>path) {
+            <span class="prelude-val">Ok</span>(o) =&gt; o,
+            <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
         };
-        <span class="kw">let</span> <span class="ident">lines_3</span> <span class="op">=</span> <span class="ident">file</span>.<span class="ident">lines</span>().<span class="ident">take</span>(<span class="number">3</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">log</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;first 3 lines of {path:?}: {:#?}\n&quot;</span>, <span class="ident">lines_3</span>));
+        <span class="kw">let </span>lines_3 = file.lines().take(<span class="number">3</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;first 3 lines of {path:?}: {:#?}\n&quot;</span>, lines_3));
 
-        <span class="kw">let</span> <span class="ident">parent</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">parent</span>().<span class="ident">unwrap</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">symlink</span>) <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">parent</span>.<span class="ident">clone</span>().<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>)) {
-            <span class="ident">log</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;symlinking {path:?}\n&quot;</span>));
-            <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="ident">symlink</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>parent = std::path::Path::new(<span class="kw-2">&amp;</span>path).parent().unwrap();
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(symlink) = std::fs::read_to_string(parent.clone().join(<span class="kw-2">&amp;</span>file)) {
+            log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;symlinking {path:?}\n&quot;</span>));
+            std::fs::write(<span class="kw-2">&amp;</span>path, symlink)<span class="question-mark">?</span>;
         }
 
-        <span class="comment">// follow #include directives and recurse</span>
-        <span class="kw">let</span> <span class="ident">filepaths</span> <span class="op">=</span> <span class="ident">regex</span>
-            .<span class="ident">captures_iter</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>[<span class="number">1</span>].<span class="ident">to_string</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">log</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;regex captures: ({path:?}): {:#?}\n&quot;</span>, <span class="ident">filepaths</span>));
-        <span class="kw">let</span> <span class="ident">joined_filepaths</span> <span class="op">=</span> <span class="ident">filepaths</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">parent</span>.<span class="ident">clone</span>().<span class="ident">join</span>(<span class="ident">s</span>);
-                <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))
+        <span class="comment">// follow #include directives and recurse
+        </span><span class="kw">let </span>filepaths = regex
+            .captures_iter(<span class="kw-2">&amp;</span>file)
+            .map(|c| c[<span class="number">1</span>].to_string())
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        log.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;regex captures: ({path:?}): {:#?}\n&quot;</span>, filepaths));
+        <span class="kw">let </span>joined_filepaths = filepaths
+            .iter()
+            .filter_map(|s| {
+                <span class="kw">let </span>path = parent.clone().join(s);
+                <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display()))
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">fixup_symlinks_inner</span>(<span class="kw-2">&amp;</span><span class="ident">joined_filepaths</span>, <span class="ident">log</span>)<span class="question-mark">?</span>;
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        fixup_symlinks_inner(<span class="kw-2">&amp;</span>joined_filepaths, log)<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">fn</span> <span class="ident">find_vcvars64</span>(<span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">cc::Tool</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">compiler</span>.<span class="ident">is_like_msvc</span>() {
-        <span class="kw">return</span> <span class="prelude-val">None</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">fn </span>find_vcvars64(compiler: <span class="kw-2">&amp;</span>cc::Tool) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="kw">if </span>!compiler.is_like_msvc() {
+        <span class="kw">return </span><span class="prelude-val">None</span>;
     }
 
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">path</span>();
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-    <span class="kw">let</span> <span class="ident">split</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">split</span>(<span class="string">&quot;VC&quot;</span>).<span class="ident">next</span>()<span class="question-mark">?</span>;
+    <span class="kw">let </span>path = compiler.path();
+    <span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display());
+    <span class="kw">let </span>split = path.split(<span class="string">&quot;VC&quot;</span>).next()<span class="question-mark">?</span>;
 
     <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{split}VC\\Auxiliary\\Build\\vcvars64.bat&quot;</span>))
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_c_api_test_runner" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_c_api_test_runner" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

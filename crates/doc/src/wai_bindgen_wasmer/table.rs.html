@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/table.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/table.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -142,149 +142,149 @@
 <span id="142">142</span>
 <span id="143">143</span>
 <span id="144">144</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::convert::TryFrom;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::mem;
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Table</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="ident">elems</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Slot</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">next</span>: <span class="ident">usize</span>,
+<span class="kw">pub struct </span>Table&lt;T&gt; {
+    elems: Vec&lt;Slot&lt;T&gt;&gt;,
+    next: usize,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RemoveError</span> {
-    <span class="ident">NotAllocated</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>RemoveError {
+    NotAllocated,
 }
 
-<span class="kw">enum</span> <span class="ident">Slot</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="ident">Empty</span> { <span class="ident">next_empty</span>: <span class="ident">usize</span> },
-    <span class="ident">Full</span> { <span class="ident">item</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> },
+<span class="kw">enum </span>Slot&lt;T&gt; {
+    Empty { next_empty: usize },
+    Full { item: Box&lt;T&gt; },
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Table</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Creates a new empty table</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="ident">Table</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="ident">Table</span> {
-            <span class="ident">elems</span>: <span class="ident">Vec::new</span>(),
-            <span class="ident">next</span>: <span class="number">0</span>,
+<span class="kw">impl</span>&lt;T&gt; Table&lt;T&gt; {
+    <span class="doccomment">/// Creates a new empty table
+    </span><span class="kw">pub fn </span>new() -&gt; Table&lt;T&gt; {
+        Table {
+            elems: Vec::new(),
+            next: <span class="number">0</span>,
         }
     }
 
-    <span class="doccomment">/// Inserts an item into this table, returning the index that it was</span>
-    <span class="doccomment">/// inserted at.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">item</span>: <span class="ident">T</span>) -&gt; <span class="ident">u32</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">next</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">len</span>() {
-            <span class="kw">let</span> <span class="ident">next_empty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next</span> <span class="op">+</span> <span class="number">1</span>;
-            <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">push</span>(<span class="ident">Slot::Empty</span> { <span class="ident">next_empty</span> });
+    <span class="doccomment">/// Inserts an item into this table, returning the index that it was
+    /// inserted at.
+    </span><span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, item: T) -&gt; u32 {
+        <span class="kw">if </span><span class="self">self</span>.next == <span class="self">self</span>.elems.len() {
+            <span class="kw">let </span>next_empty = <span class="self">self</span>.next + <span class="number">1</span>;
+            <span class="self">self</span>.elems.push(Slot::Empty { next_empty });
         }
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next</span>;
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">u32::try_from</span>(<span class="ident">index</span>).<span class="ident">unwrap</span>();
-        <span class="self">self</span>.<span class="ident">next</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">elems</span>[<span class="ident">index</span>] {
-            <span class="ident">Slot::Empty</span> { <span class="ident">next_empty</span> } =&gt; <span class="kw-2">*</span><span class="ident">next_empty</span>,
-            <span class="ident">Slot::Full</span> { .. } =&gt; <span class="macro">unreachable!</span>(),
+        <span class="kw">let </span>index = <span class="self">self</span>.next;
+        <span class="kw">let </span>ret = u32::try_from(index).unwrap();
+        <span class="self">self</span>.next = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.elems[index] {
+            Slot::Empty { next_empty } =&gt; <span class="kw-2">*</span>next_empty,
+            Slot::Full { .. } =&gt; <span class="macro">unreachable!</span>(),
         };
-        <span class="self">self</span>.<span class="ident">elems</span>[<span class="ident">index</span>] <span class="op">=</span> <span class="ident">Slot::Full</span> {
-            <span class="ident">item</span>: <span class="ident">Box::new</span>(<span class="ident">item</span>),
+        <span class="self">self</span>.elems[index] = Slot::Full {
+            item: Box::new(item),
         };
-        <span class="ident">ret</span>
+        ret
     }
 
-    <span class="doccomment">/// Borrows an item from this table.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `None` if the index is not allocated at this time. Otherwise</span>
-    <span class="doccomment">/// returns `Some` with a borrow of the item from this table.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">item</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">item</span>).<span class="ident">unwrap</span>();
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span> {
-            <span class="ident">Slot::Empty</span> { .. } =&gt; <span class="prelude-val">None</span>,
-            <span class="ident">Slot::Full</span> { <span class="ident">item</span> } =&gt; <span class="prelude-val">Some</span>(<span class="ident">item</span>),
+    <span class="doccomment">/// Borrows an item from this table.
+    ///
+    /// Returns `None` if the index is not allocated at this time. Otherwise
+    /// returns `Some` with a borrow of the item from this table.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, item: u32) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
+        <span class="kw">let </span>index = usize::try_from(item).unwrap();
+        <span class="kw">match </span><span class="self">self</span>.elems.get(index)<span class="question-mark">? </span>{
+            Slot::Empty { .. } =&gt; <span class="prelude-val">None</span>,
+            Slot::Full { item } =&gt; <span class="prelude-val">Some</span>(item),
         }
     }
 
-    <span class="doccomment">/// Removes an item from this table.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// On success it returns back the original item.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">item</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">RemoveError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">item</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">new_empty</span> <span class="op">=</span> <span class="ident">Slot::Empty</span> {
-            <span class="ident">next_empty</span>: <span class="self">self</span>.<span class="ident">next</span>,
+    <span class="doccomment">/// Removes an item from this table.
+    ///
+    /// On success it returns back the original item.
+    </span><span class="kw">pub fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, item: u32) -&gt; <span class="prelude-ty">Result</span>&lt;T, RemoveError&gt; {
+        <span class="kw">let </span>index = usize::try_from(item).unwrap();
+        <span class="kw">let </span>new_empty = Slot::Empty {
+            next_empty: <span class="self">self</span>.next,
         };
-        <span class="kw">let</span> <span class="ident">slot</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">get_mut</span>(<span class="ident">index</span>).<span class="ident">ok_or</span>(<span class="ident">RemoveError::NotAllocated</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>slot = <span class="self">self</span>.elems.get_mut(index).ok_or(RemoveError::NotAllocated)<span class="question-mark">?</span>;
 
-        <span class="comment">// Assume that `item` is valid, and if it is, we can return quickly</span>
-        <span class="kw">match</span> <span class="ident">mem::replace</span>(<span class="ident">slot</span>, <span class="ident">new_empty</span>) {
-            <span class="ident">Slot::Full</span> { <span class="ident">item</span> } =&gt; {
-                <span class="self">self</span>.<span class="ident">next</span> <span class="op">=</span> <span class="ident">index</span>;
-                <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">item</span>)
+        <span class="comment">// Assume that `item` is valid, and if it is, we can return quickly
+        </span><span class="kw">match </span>mem::replace(slot, new_empty) {
+            Slot::Full { item } =&gt; {
+                <span class="self">self</span>.next = index;
+                <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>item)
             }
 
-            <span class="comment">// Oops `item` wasn&#39;t valid, put it back where we found it and then</span>
-            <span class="comment">// figure out why it was invalid</span>
-            <span class="ident">Slot::Empty</span> { <span class="ident">next_empty</span> } =&gt; {
-                <span class="kw-2">*</span><span class="ident">slot</span> <span class="op">=</span> <span class="ident">Slot::Empty</span> { <span class="ident">next_empty</span> };
-                <span class="prelude-val">Err</span>(<span class="ident">RemoveError::NotAllocated</span>)
+            <span class="comment">// Oops `item` wasn&#39;t valid, put it back where we found it and then
+            // figure out why it was invalid
+            </span>Slot::Empty { next_empty } =&gt; {
+                <span class="kw-2">*</span>slot = Slot::Empty { next_empty };
+                <span class="prelude-val">Err</span>(RemoveError::NotAllocated)
             }
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Table</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="ident">Table</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="ident">Table::new</span>()
+<span class="kw">impl</span>&lt;T&gt; Default <span class="kw">for </span>Table&lt;T&gt; {
+    <span class="kw">fn </span>default() -&gt; Table&lt;T&gt; {
+        Table::new()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Table</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Table&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;capacity&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">capacity</span>())
-            .<span class="ident">finish</span>()
+<span class="kw">impl</span>&lt;T&gt; fmt::Debug <span class="kw">for </span>Table&lt;T&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;Table&quot;</span>)
+            .field(<span class="string">&quot;capacity&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.elems.capacity())
+            .finish()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">RemoveError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">RemoveError::NotAllocated</span> =&gt; <span class="ident">f</span>.<span class="ident">write_str</span>(<span class="string">&quot;invalid handle index&quot;</span>),
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>RemoveError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            RemoveError::NotAllocated =&gt; f.write_str(<span class="string">&quot;invalid handle index&quot;</span>),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::error::Error</span> <span class="kw">for</span> <span class="ident">RemoveError</span> {}
+<span class="kw">impl </span>std::error::Error <span class="kw">for </span>RemoveError {}
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">simple</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">Table::new</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">0</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">100</span>), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">200</span>), <span class="number">2</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>simple() {
+        <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">0</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">100</span>), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">200</span>), <span class="number">2</span>);
 
-        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">table</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">unwrap</span>(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">table</span>.<span class="ident">get</span>(<span class="number">1</span>).<span class="ident">unwrap</span>(), <span class="number">100</span>);
-        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">table</span>.<span class="ident">get</span>(<span class="number">2</span>).<span class="ident">unwrap</span>(), <span class="number">200</span>);
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">get</span>(<span class="number">100</span>).<span class="ident">is_none</span>());
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>table.get(<span class="number">0</span>).unwrap(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>table.get(<span class="number">1</span>).unwrap(), <span class="number">100</span>);
+        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>table.get(<span class="number">2</span>).unwrap(), <span class="number">200</span>);
+        <span class="macro">assert!</span>(table.get(<span class="number">100</span>).is_none());
 
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">remove</span>(<span class="number">0</span>).<span class="ident">is_ok</span>());
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">is_none</span>());
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">is_some</span>());
+        <span class="macro">assert!</span>(table.remove(<span class="number">0</span>).is_ok());
+        <span class="macro">assert!</span>(table.get(<span class="number">0</span>).is_none());
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert!</span>(table.get(<span class="number">0</span>).is_some());
 
-        <span class="ident">table</span>.<span class="ident">get</span>(<span class="number">1</span>).<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">remove</span>(<span class="number">1</span>).<span class="ident">is_ok</span>());
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">remove</span>(<span class="number">1</span>).<span class="ident">is_err</span>());
+        table.get(<span class="number">1</span>).unwrap();
+        <span class="macro">assert!</span>(table.remove(<span class="number">1</span>).is_ok());
+        <span class="macro">assert!</span>(table.remove(<span class="number">1</span>).is_err());
 
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">remove</span>(<span class="number">2</span>).<span class="ident">is_ok</span>());
-        <span class="macro">assert!</span>(<span class="ident">table</span>.<span class="ident">remove</span>(<span class="number">0</span>).<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(table.remove(<span class="number">2</span>).is_ok());
+        <span class="macro">assert!</span>(table.remove(<span class="number">0</span>).is_ok());
 
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">100</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">100</span>), <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">100</span>), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">table</span>.<span class="ident">insert</span>(<span class="number">100</span>), <span class="number">3</span>);
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">100</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">100</span>), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">100</span>), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(table.insert(<span class="number">100</span>), <span class="number">3</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

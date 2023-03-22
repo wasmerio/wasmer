@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/tty/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/tty/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -456,461 +456,461 @@
 <span id="454">454</span>
 <span id="455">455</span>
 <span id="456">456</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">borrow::Cow</span>,
-    <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    borrow::Cow,
+    sync::{Arc, Mutex},
 };
 
-<span class="kw">use</span> <span class="ident">derivative</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">futures::future::BoxFuture</span>;
-<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">AsyncWriteExt</span>, <span class="ident">NullFile</span>, <span class="ident">VirtualFile</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi</span>::{<span class="ident">Signal</span>, <span class="ident">Snapshot0Clockid</span>};
+<span class="kw">use </span>derivative::<span class="kw-2">*</span>;
+<span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>virtual_fs::{AsyncWriteExt, NullFile, VirtualFile};
+<span class="kw">use </span>wasmer_wasix_types::wasi::{Signal, Snapshot0Clockid};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::platform_clock_time_get</span>;
+<span class="kw">use </span><span class="kw">crate</span>::syscalls::platform_clock_time_get;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::task::signal::SignalHandlerAbi</span>;
+<span class="kw">use </span><span class="kw">super</span>::task::signal::SignalHandlerAbi;
 
-<span class="kw">const</span> <span class="ident">TTY_MOBILE_PAUSE</span>: <span class="ident">u128</span> <span class="op">=</span> <span class="ident">std::time::Duration::from_millis</span>(<span class="number">200</span>).<span class="ident">as_nanos</span>();
+<span class="kw">const </span>TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(<span class="number">200</span>).as_nanos();
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">tty_sys</span>;
+<span class="kw">pub mod </span>tty_sys;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">InputEvent</span> {
-    <span class="ident">Key</span>,
-    <span class="ident">Data</span>(<span class="ident">String</span>),
-    <span class="ident">Raw</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>InputEvent {
+    Key,
+    Data(String),
+    Raw(Vec&lt;u8&gt;),
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ConsoleRect</span> {
-    <span class="kw">pub</span> <span class="ident">cols</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">rows</span>: <span class="ident">u32</span>,
+<span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>ConsoleRect {
+    <span class="kw">pub </span>cols: u32,
+    <span class="kw">pub </span>rows: u32,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ConsoleRect</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">cols</span>: <span class="number">80</span>, <span class="ident">rows</span>: <span class="number">25</span> }
+<span class="kw">impl </span>Default <span class="kw">for </span>ConsoleRect {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ cols: <span class="number">80</span>, rows: <span class="number">25 </span>}
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TtyOptionsInner</span> {
-    <span class="ident">echo</span>: <span class="ident">bool</span>,
-    <span class="ident">line_buffering</span>: <span class="ident">bool</span>,
-    <span class="ident">line_feeds</span>: <span class="ident">bool</span>,
-    <span class="ident">rect</span>: <span class="ident">ConsoleRect</span>,
+<span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>TtyOptionsInner {
+    echo: bool,
+    line_buffering: bool,
+    line_feeds: bool,
+    rect: ConsoleRect,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TtyOptions</span> {
-    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">TtyOptionsInner</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>TtyOptions {
+    inner: Arc&lt;Mutex&lt;TtyOptionsInner&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">TtyOptions</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">TtyOptionsInner</span> {
-                <span class="ident">echo</span>: <span class="bool-val">true</span>,
-                <span class="ident">line_buffering</span>: <span class="bool-val">true</span>,
-                <span class="ident">line_feeds</span>: <span class="bool-val">true</span>,
-                <span class="ident">rect</span>: <span class="ident">ConsoleRect</span> { <span class="ident">cols</span>: <span class="number">80</span>, <span class="ident">rows</span>: <span class="number">25</span> },
+<span class="kw">impl </span>Default <span class="kw">for </span>TtyOptions {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            inner: Arc::new(Mutex::new(TtyOptionsInner {
+                echo: <span class="bool-val">true</span>,
+                line_buffering: <span class="bool-val">true</span>,
+                line_feeds: <span class="bool-val">true</span>,
+                rect: ConsoleRect { cols: <span class="number">80</span>, rows: <span class="number">25 </span>},
             })),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TtyOptions</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cols</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">rect</span>.<span class="ident">cols</span>
+<span class="kw">impl </span>TtyOptions {
+    <span class="kw">pub fn </span>cols(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.rect.cols
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_cols</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cols</span>: <span class="ident">u32</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">rect</span>.<span class="ident">cols</span> <span class="op">=</span> <span class="ident">cols</span>;
+    <span class="kw">pub fn </span>set_cols(<span class="kw-2">&amp;</span><span class="self">self</span>, cols: u32) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.rect.cols = cols;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">rows</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">rect</span>.<span class="ident">rows</span>
+    <span class="kw">pub fn </span>rows(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.rect.rows
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_rows</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rows</span>: <span class="ident">u32</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">rect</span>.<span class="ident">rows</span> <span class="op">=</span> <span class="ident">rows</span>;
+    <span class="kw">pub fn </span>set_rows(<span class="kw-2">&amp;</span><span class="self">self</span>, rows: u32) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.rect.rows = rows;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">echo</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">echo</span>
+    <span class="kw">pub fn </span>echo(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.echo
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_echo</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">echo</span>: <span class="ident">bool</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">echo</span> <span class="op">=</span> <span class="ident">echo</span>;
+    <span class="kw">pub fn </span>set_echo(<span class="kw-2">&amp;</span><span class="self">self</span>, echo: bool) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.echo = echo;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">line_buffering</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">line_buffering</span>
+    <span class="kw">pub fn </span>line_buffering(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.line_buffering
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_line_buffering</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">line_buffering</span>: <span class="ident">bool</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">line_buffering</span> <span class="op">=</span> <span class="ident">line_buffering</span>;
+    <span class="kw">pub fn </span>set_line_buffering(<span class="kw-2">&amp;</span><span class="self">self</span>, line_buffering: bool) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.line_buffering = line_buffering;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">line_feeds</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">line_feeds</span>
+    <span class="kw">pub fn </span>line_feeds(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.line_feeds
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_line_feeds</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">line_feeds</span>: <span class="ident">bool</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">line_feeds</span> <span class="op">=</span> <span class="ident">line_feeds</span>;
+    <span class="kw">pub fn </span>set_line_feeds(<span class="kw-2">&amp;</span><span class="self">self</span>, line_feeds: bool) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.line_feeds = line_feeds;
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Derivative</span>)]</span>
-<span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Tty</span> {
-    <span class="ident">stdin</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-    <span class="ident">stdout</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-    <span class="ident">signaler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">SignalHandlerAbi</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">is_mobile</span>: <span class="ident">bool</span>,
-    <span class="ident">last</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">u128</span>)<span class="op">&gt;</span>,
-    <span class="ident">options</span>: <span class="ident">TtyOptions</span>,
-    <span class="ident">line</span>: <span class="ident">String</span>,
+<span class="attribute">#[derive(Derivative)]
+#[derivative(Debug)]
+</span><span class="kw">pub struct </span>Tty {
+    stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    signaler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>SignalHandlerAbi + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
+    is_mobile: bool,
+    last: <span class="prelude-ty">Option</span>&lt;(String, u128)&gt;,
+    options: TtyOptions,
+    line: String,
 }
 
-<span class="kw">impl</span> <span class="ident">Tty</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">stdin</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-        <span class="ident">stdout</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-        <span class="ident">is_mobile</span>: <span class="ident">bool</span>,
-        <span class="ident">options</span>: <span class="ident">TtyOptions</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">stdin</span>,
-            <span class="ident">stdout</span>,
-            <span class="ident">signaler</span>: <span class="prelude-val">None</span>,
-            <span class="ident">last</span>: <span class="prelude-val">None</span>,
-            <span class="ident">options</span>,
-            <span class="ident">is_mobile</span>,
-            <span class="ident">line</span>: <span class="ident">String::new</span>(),
+<span class="kw">impl </span>Tty {
+    <span class="kw">pub fn </span>new(
+        stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        is_mobile: bool,
+        options: TtyOptions,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stdin,
+            stdout,
+            signaler: <span class="prelude-val">None</span>,
+            last: <span class="prelude-val">None</span>,
+            options,
+            is_mobile,
+            line: String::new(),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>) {
-        <span class="self">self</span>.<span class="ident">stdin</span>.<span class="ident">as_ref</span>()
+    <span class="kw">pub fn </span>stdin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>) {
+        <span class="self">self</span>.stdin.as_ref()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> (<span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>) {
-        <span class="self">self</span>.<span class="ident">stdin</span>.<span class="ident">as_mut</span>()
+    <span class="kw">pub fn </span>stdin_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>(<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>) {
+        <span class="self">self</span>.stdin.as_mut()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin_replace</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="kw-2">mut</span> <span class="ident">stdin</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-        <span class="ident">std::mem::swap</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">stdin</span>, <span class="kw-2">&amp;mut</span> <span class="ident">stdin</span>);
-        <span class="ident">stdin</span>
+    <span class="kw">pub fn </span>stdin_replace(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="kw-2">mut </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+        std::mem::swap(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stdin, <span class="kw-2">&amp;mut </span>stdin);
+        stdin
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin_take</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdin</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">NullFile::default</span>());
-        <span class="ident">std::mem::swap</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">stdin</span>, <span class="kw-2">&amp;mut</span> <span class="ident">stdin</span>);
-        <span class="ident">stdin</span>
+    <span class="kw">pub fn </span>stdin_take(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; = Box::new(NullFile::default());
+        std::mem::swap(<span class="kw-2">&amp;mut </span><span class="self">self</span>.stdin, <span class="kw-2">&amp;mut </span>stdin);
+        stdin
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">options</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TtyOptions</span> {
-        <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">clone</span>()
+    <span class="kw">pub fn </span>options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TtyOptions {
+        <span class="self">self</span>.options.clone()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_signaler</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">signaler</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">SignalHandlerAbi</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">signaler</span>.<span class="ident">replace</span>(<span class="ident">signaler</span>);
+    <span class="kw">pub fn </span>set_signaler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, signaler: Box&lt;<span class="kw">dyn </span>SignalHandlerAbi + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) {
+        <span class="self">self</span>.signaler.replace(signaler);
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">on_event</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">InputEvent</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">match</span> <span class="ident">event</span> {
-                <span class="ident">InputEvent::Key</span> =&gt; {
-                    <span class="comment">// do nothing</span>
-                    <span class="self">self</span>
-                }
-                <span class="ident">InputEvent::Data</span>(<span class="ident">data</span>) =&gt; {
-                    <span class="comment">// Due to a nasty bug in xterm.js on Android mobile it sends the keys you press</span>
-                    <span class="comment">// twice in a row with a short interval between - this hack will avoid that bug</span>
-                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_mobile</span> {
-                        <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">Snapshot0Clockid::Monotonic</span>, <span class="number">1_000_000</span>)
-                            .<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">what</span>, <span class="ident">when</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">last</span>.<span class="ident">as_ref</span>() {
-                            <span class="kw">if</span> <span class="ident">what</span>.<span class="ident">as_str</span>() <span class="op">==</span> <span class="ident">data</span> <span class="op">&amp;&amp;</span> <span class="ident">now</span> <span class="op">-</span> <span class="kw-2">*</span><span class="ident">when</span> <span class="op">&lt;</span> <span class="ident">TTY_MOBILE_PAUSE</span> {
-                                <span class="self">self</span>.<span class="ident">last</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-                                <span class="kw">return</span> <span class="self">self</span>;
+    <span class="kw">pub fn </span>on_event(<span class="kw-2">mut </span><span class="self">self</span>, event: InputEvent) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">match </span>event {
+                InputEvent::Key =&gt; {
+                    <span class="comment">// do nothing
+                    </span><span class="self">self
+                </span>}
+                InputEvent::Data(data) =&gt; {
+                    <span class="comment">// Due to a nasty bug in xterm.js on Android mobile it sends the keys you press
+                    // twice in a row with a short interval between - this hack will avoid that bug
+                    </span><span class="kw">if </span><span class="self">self</span>.is_mobile {
+                        <span class="kw">let </span>now = platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>)
+                            .unwrap() <span class="kw">as </span>u128;
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>((what, when)) = <span class="self">self</span>.last.as_ref() {
+                            <span class="kw">if </span>what.as_str() == data &amp;&amp; now - <span class="kw-2">*</span>when &lt; TTY_MOBILE_PAUSE {
+                                <span class="self">self</span>.last = <span class="prelude-val">None</span>;
+                                <span class="kw">return </span><span class="self">self</span>;
                             }
                         }
-                        <span class="self">self</span>.<span class="ident">last</span> <span class="op">=</span> <span class="prelude-val">Some</span>((<span class="ident">data</span>.<span class="ident">clone</span>(), <span class="ident">now</span>))
+                        <span class="self">self</span>.last = <span class="prelude-val">Some</span>((data.clone(), now))
                     }
 
-                    <span class="self">self</span>.<span class="ident">on_data</span>(<span class="ident">data</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>().<span class="ident">into</span>()).<span class="kw">await</span>
-                }
-                <span class="ident">InputEvent::Raw</span>(<span class="ident">data</span>) =&gt; <span class="self">self</span>.<span class="ident">on_data</span>(<span class="ident">data</span>.<span class="ident">into</span>()).<span class="kw">await</span>,
+                    <span class="self">self</span>.on_data(data.as_bytes().to_vec().into()).<span class="kw">await
+                </span>}
+                InputEvent::Raw(data) =&gt; <span class="self">self</span>.on_data(data.into()).<span class="kw">await</span>,
             }
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">on_enter</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="comment">// Add a line feed on the end and take the line</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">line</span>.<span class="ident">clone</span>();
-            <span class="self">self</span>.<span class="ident">line</span>.<span class="ident">clear</span>();
-            <span class="ident">data</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+    <span class="kw">fn </span>on_enter(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{
+            <span class="comment">// Add a line feed on the end and take the line
+            </span><span class="kw">let </span><span class="kw-2">mut </span>data = <span class="self">self</span>.line.clone();
+            <span class="self">self</span>.line.clear();
+            data.push(<span class="string">&#39;\n&#39;</span>);
 
-            <span class="comment">// If echo is on then write a new line</span>
-            {
-                <span class="kw">let</span> <span class="ident">echo</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">options</span>.<span class="ident">echo</span>
+            <span class="comment">// If echo is on then write a new line
+            </span>{
+                <span class="kw">let </span>echo = {
+                    <span class="kw">let </span>options = <span class="self">self</span>.options.inner.lock().unwrap();
+                    options.echo
                 };
-                <span class="kw">if</span> <span class="ident">echo</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">&quot;\n&quot;</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span>;
+                <span class="kw">if </span>echo {
+                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">&quot;\n&quot;</span>.as_bytes()).<span class="kw">await</span>;
                 }
             }
 
-            <span class="comment">// Send the data to the process</span>
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdin</span>.<span class="ident">write</span>(<span class="ident">data</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span>;
-            <span class="self">self</span>
-        })
+            <span class="comment">// Send the data to the process
+            </span><span class="kw">let _ </span>= <span class="self">self</span>.stdin.write(data.as_bytes()).<span class="kw">await</span>;
+            <span class="self">self
+        </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_ctrl_c</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">signaler</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">signaler</span>.<span class="ident">as_ref</span>() {
-                <span class="ident">signaler</span>.<span class="ident">signal</span>(<span class="ident">Signal::Sigint</span> <span class="kw">as</span> <span class="ident">u8</span>).<span class="ident">ok</span>();
+    <span class="kw">fn </span>on_ctrl_c(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(signaler) = <span class="self">self</span>.signaler.as_ref() {
+                signaler.signal(Signal::Sigint <span class="kw">as </span>u8).ok();
 
-                <span class="kw">let</span> (<span class="ident">echo</span>, <span class="ident">_line_buffering</span>) <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-                    (<span class="ident">options</span>.<span class="ident">echo</span>, <span class="ident">options</span>.<span class="ident">line_buffering</span>)
+                <span class="kw">let </span>(echo, _line_buffering) = {
+                    <span class="kw">let </span>options = <span class="self">self</span>.options.inner.lock().unwrap();
+                    (options.echo, options.line_buffering)
                 };
 
-                <span class="self">self</span>.<span class="ident">line</span>.<span class="ident">clear</span>();
-                <span class="kw">if</span> <span class="ident">echo</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">&quot;\n&quot;</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span>;
+                <span class="self">self</span>.line.clear();
+                <span class="kw">if </span>echo {
+                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">&quot;\n&quot;</span>.as_bytes()).<span class="kw">await</span>;
                 }
             }
-            <span class="self">self</span>
-        })
+            <span class="self">self
+        </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_backspace</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="comment">// Remove a character (if there are none left we are done)</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">line</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> });
+    <span class="kw">fn </span>on_backspace(<span class="kw-2">mut </span><span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        <span class="comment">// Remove a character (if there are none left we are done)
+        </span><span class="kw">if </span><span class="self">self</span>.line.is_empty() {
+            <span class="kw">return </span>Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>});
         }
-        <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">line</span>.<span class="ident">len</span>();
-        <span class="self">self</span>.<span class="ident">line</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">line</span>[..<span class="ident">len</span> <span class="op">-</span> <span class="number">1</span>].<span class="ident">to_string</span>();
+        <span class="kw">let </span>len = <span class="self">self</span>.line.len();
+        <span class="self">self</span>.line = <span class="self">self</span>.line[..len - <span class="number">1</span>].to_string();
 
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="comment">// If echo is on then write the backspace</span>
-            {
-                <span class="kw">let</span> <span class="ident">echo</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">options</span>.<span class="ident">echo</span>
+        Box::pin(<span class="kw">async move </span>{
+            <span class="comment">// If echo is on then write the backspace
+            </span>{
+                <span class="kw">let </span>echo = {
+                    <span class="kw">let </span>options = <span class="self">self</span>.options.inner.lock().unwrap();
+                    options.echo
                 };
-                <span class="kw">if</span> <span class="ident">echo</span> {
-                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">&quot;\u{0008} \u{0008}&quot;</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span>;
+                <span class="kw">if </span>echo {
+                    <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(<span class="string">&quot;\u{0008} \u{0008}&quot;</span>.as_bytes()).<span class="kw">await</span>;
                 }
             }
-            <span class="self">self</span>
-        })
+            <span class="self">self
+        </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_tab</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_tab(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_cursor_left</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_cursor_left(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_cursor_right</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_cursor_right(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_cursor_up</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_cursor_up(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_cursor_down</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_cursor_down(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_home</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_home(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_end</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_end(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_ctrl_l</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_ctrl_l(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_page_up</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_page_up(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_page_down</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_page_down(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f1</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f1(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f2</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f2(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f3</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f3(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f4</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f4(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f5</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f5(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f6</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f6(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f7</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f7(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f8</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f8(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f9</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f9(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f10</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f10(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f11</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f11(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_f12</span>(<span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="self">self</span> })
+    <span class="kw">fn </span>on_f12(<span class="self">self</span>, _data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self </span>})
     }
 
-    <span class="kw">fn</span> <span class="ident">on_data</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="comment">// If we are line buffering then we need to check for some special cases</span>
-        <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> { <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>() };
-        <span class="kw">if</span> <span class="ident">options</span>.<span class="ident">line_buffering</span> {
-            <span class="kw">let</span> <span class="ident">echo</span> <span class="op">=</span> <span class="ident">options</span>.<span class="ident">echo</span>;
-            <span class="kw">return</span> <span class="kw">match</span> <span class="ident">String::from_utf8_lossy</span>(<span class="ident">data</span>.<span class="ident">as_ref</span>()).<span class="ident">as_ref</span>() {
-                <span class="string">&quot;\r&quot;</span> <span class="op">|</span> <span class="string">&quot;\u{000A}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_enter</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{0003}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_ctrl_c</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{007F}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_backspace</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{0009}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_tab</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0044}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_cursor_left</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0043}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_cursor_right</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{0001}&quot;</span> <span class="op">|</span> <span class="string">&quot;\u{001B}\u{005B}\u{0048}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_home</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0046}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_end</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0041}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_cursor_up</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0042}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_cursor_down</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{000C}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_ctrl_l</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0035}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_page_up</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0036}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_page_down</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0050}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f1</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0051}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f2</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0052}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f3</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{004F}\u{0053}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f4</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0035}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f5</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0037}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f6</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0038}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f7</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0039}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f8</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0030}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f9</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0031}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f10</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f11</span>(<span class="ident">data</span>),
-                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}&quot;</span> =&gt; <span class="self">self</span>.<span class="ident">on_f12</span>(<span class="ident">data</span>),
-                <span class="kw">_</span> =&gt; <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">if</span> <span class="ident">echo</span> {
-                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="ident">data</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span>;
+    <span class="kw">fn </span>on_data(<span class="kw-2">mut </span><span class="self">self</span>, data: Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt; {
+        <span class="comment">// If we are line buffering then we need to check for some special cases
+        </span><span class="kw">let </span>options = { <span class="self">self</span>.options.inner.lock().unwrap().clone() };
+        <span class="kw">if </span>options.line_buffering {
+            <span class="kw">let </span>echo = options.echo;
+            <span class="kw">return match </span>String::from_utf8_lossy(data.as_ref()).as_ref() {
+                <span class="string">&quot;\r&quot; </span>| <span class="string">&quot;\u{000A}&quot; </span>=&gt; <span class="self">self</span>.on_enter(data),
+                <span class="string">&quot;\u{0003}&quot; </span>=&gt; <span class="self">self</span>.on_ctrl_c(data),
+                <span class="string">&quot;\u{007F}&quot; </span>=&gt; <span class="self">self</span>.on_backspace(data),
+                <span class="string">&quot;\u{0009}&quot; </span>=&gt; <span class="self">self</span>.on_tab(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0044}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_left(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0043}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_right(data),
+                <span class="string">&quot;\u{0001}&quot; </span>| <span class="string">&quot;\u{001B}\u{005B}\u{0048}&quot; </span>=&gt; <span class="self">self</span>.on_home(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0046}&quot; </span>=&gt; <span class="self">self</span>.on_end(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0041}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_up(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0042}&quot; </span>=&gt; <span class="self">self</span>.on_cursor_down(data),
+                <span class="string">&quot;\u{000C}&quot; </span>=&gt; <span class="self">self</span>.on_ctrl_l(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0035}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_page_up(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0036}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_page_down(data),
+                <span class="string">&quot;\u{001B}\u{004F}\u{0050}&quot; </span>=&gt; <span class="self">self</span>.on_f1(data),
+                <span class="string">&quot;\u{001B}\u{004F}\u{0051}&quot; </span>=&gt; <span class="self">self</span>.on_f2(data),
+                <span class="string">&quot;\u{001B}\u{004F}\u{0052}&quot; </span>=&gt; <span class="self">self</span>.on_f3(data),
+                <span class="string">&quot;\u{001B}\u{004F}\u{0053}&quot; </span>=&gt; <span class="self">self</span>.on_f4(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0035}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f5(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0037}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f6(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0038}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f7(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0031}\u{0039}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f8(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0030}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f9(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0031}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f10(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f11(data),
+                <span class="string">&quot;\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}&quot; </span>=&gt; <span class="self">self</span>.on_f12(data),
+                <span class="kw">_ </span>=&gt; Box::pin(<span class="kw">async move </span>{
+                    <span class="kw">if </span>echo {
+                        <span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(data.as_ref()).<span class="kw">await</span>;
                     }
-                    <span class="self">self</span>.<span class="ident">line</span>
-                        .<span class="ident">push_str</span>(<span class="ident">String::from_utf8_lossy</span>(<span class="ident">data</span>.<span class="ident">as_ref</span>()).<span class="ident">as_ref</span>());
-                    <span class="self">self</span>
-                }),
+                    <span class="self">self</span>.line
+                        .push_str(String::from_utf8_lossy(data.as_ref()).as_ref());
+                    <span class="self">self
+                </span>}),
             };
         };
 
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="comment">// If the echo is enabled then write it to the terminal</span>
-            <span class="kw">if</span> <span class="ident">options</span>.<span class="ident">echo</span> {
-                <span class="comment">// TODO: log / propagate error?</span>
-                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="ident">data</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span>;
+        Box::pin(<span class="kw">async move </span>{
+            <span class="comment">// If the echo is enabled then write it to the terminal
+            </span><span class="kw">if </span>options.echo {
+                <span class="comment">// TODO: log / propagate error?
+                </span><span class="kw">let _ </span>= <span class="self">self</span>.stdout.write(data.as_ref()).<span class="kw">await</span>;
             }
 
-            <span class="comment">// Now send it to the process</span>
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stdin</span>.<span class="ident">write</span>(<span class="ident">data</span>.<span class="ident">as_ref</span>()).<span class="kw">await</span>;
-            <span class="self">self</span>
-        })
+            <span class="comment">// Now send it to the process
+            </span><span class="kw">let _ </span>= <span class="self">self</span>.stdin.write(data.as_ref()).<span class="kw">await</span>;
+            <span class="self">self
+        </span>})
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiTtyState</span> {
-    <span class="kw">pub</span> <span class="ident">cols</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">rows</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">width</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">height</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">stdin_tty</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">stdout_tty</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">stderr_tty</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">echo</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">line_buffered</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">line_feeds</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+</span><span class="kw">pub struct </span>WasiTtyState {
+    <span class="kw">pub </span>cols: u32,
+    <span class="kw">pub </span>rows: u32,
+    <span class="kw">pub </span>width: u32,
+    <span class="kw">pub </span>height: u32,
+    <span class="kw">pub </span>stdin_tty: bool,
+    <span class="kw">pub </span>stdout_tty: bool,
+    <span class="kw">pub </span>stderr_tty: bool,
+    <span class="kw">pub </span>echo: bool,
+    <span class="kw">pub </span>line_buffered: bool,
+    <span class="kw">pub </span>line_feeds: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WasiTtyState</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">rows</span>: <span class="number">80</span>,
-            <span class="ident">cols</span>: <span class="number">25</span>,
-            <span class="ident">width</span>: <span class="number">800</span>,
-            <span class="ident">height</span>: <span class="number">600</span>,
-            <span class="ident">stdin_tty</span>: <span class="bool-val">true</span>,
-            <span class="ident">stdout_tty</span>: <span class="bool-val">true</span>,
-            <span class="ident">stderr_tty</span>: <span class="bool-val">true</span>,
-            <span class="ident">echo</span>: <span class="bool-val">false</span>,
-            <span class="ident">line_buffered</span>: <span class="bool-val">false</span>,
-            <span class="ident">line_feeds</span>: <span class="bool-val">true</span>,
+<span class="kw">impl </span>Default <span class="kw">for </span>WasiTtyState {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            rows: <span class="number">80</span>,
+            cols: <span class="number">25</span>,
+            width: <span class="number">800</span>,
+            height: <span class="number">600</span>,
+            stdin_tty: <span class="bool-val">true</span>,
+            stdout_tty: <span class="bool-val">true</span>,
+            stderr_tty: <span class="bool-val">true</span>,
+            echo: <span class="bool-val">false</span>,
+            line_buffered: <span class="bool-val">false</span>,
+            line_feeds: <span class="bool-val">true</span>,
         }
     }
 }
 
-<span class="doccomment">/// Provides access to a TTY.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">TtyBridge</span> {
-    <span class="doccomment">/// Resets the values</span>
-    <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>);
+<span class="doccomment">/// Provides access to a TTY.
+</span><span class="kw">pub trait </span>TtyBridge {
+    <span class="doccomment">/// Resets the values
+    </span><span class="kw">fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>);
 
-    <span class="doccomment">/// Retrieve the current TTY state.</span>
-    <span class="kw">fn</span> <span class="ident">tty_get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiTtyState</span>;
+    <span class="doccomment">/// Retrieve the current TTY state.
+    </span><span class="kw">fn </span>tty_get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiTtyState;
 
-    <span class="doccomment">/// Set the TTY state.</span>
-    <span class="kw">fn</span> <span class="ident">tty_set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_tty_state</span>: <span class="ident">WasiTtyState</span>);
+    <span class="doccomment">/// Set the TTY state.
+    </span><span class="kw">fn </span>tty_set(<span class="kw-2">&amp;</span><span class="self">self</span>, _tty_state: WasiTtyState);
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

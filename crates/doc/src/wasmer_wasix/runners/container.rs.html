@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/runners/container.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>container.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/runners/container.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>container.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -204,209 +204,209 @@
 <span id="202">202</span>
 <span id="203">203</span>
 <span id="204">204</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::PathBuf</span>, <span class="ident">sync::Arc</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
-<span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
-<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">webc_fs::WebcFileSystem</span>, <span class="ident">FileSystem</span>};
-<span class="kw">use</span> <span class="ident">webc</span>::{
-    <span class="ident">metadata::Manifest</span>,
-    <span class="ident">v1</span>::{<span class="ident">ParseOptions</span>, <span class="ident">WebC</span>, <span class="ident">WebCMmap</span>, <span class="ident">WebCOwned</span>},
-    <span class="ident">Version</span>,
+<span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>virtual_fs::{webc_fs::WebcFileSystem, FileSystem};
+<span class="kw">use </span>webc::{
+    metadata::Manifest,
+    v1::{ParseOptions, WebC, WebCMmap, WebCOwned},
+    Version,
 };
 
-<span class="doccomment">/// A parsed WAPM package.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WapmContainer</span> {
-    <span class="ident">repr</span>: <span class="ident">Repr</span>,
+<span class="doccomment">/// A parsed WAPM package.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>WapmContainer {
+    repr: Repr,
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span> <span class="comment">// Some pub(crate) items are only used behind #[cfg] code</span>
-<span class="kw">impl</span> <span class="ident">WapmContainer</span> {
-    <span class="doccomment">/// Parses a .webc container file. Since .webc files</span>
-    <span class="doccomment">/// can be very large, only file paths are allowed.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_path</span>(<span class="ident">path</span>: <span class="ident">PathBuf</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">WebcParseError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">webc::v1::WebCMmap::parse</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">ParseOptions::default</span>())<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">repr</span>: <span class="ident">Repr::V1Mmap</span>(<span class="ident">Arc::new</span>(<span class="ident">webc</span>)),
+<span class="attribute">#[allow(dead_code)] </span><span class="comment">// Some pub(crate) items are only used behind #[cfg] code
+</span><span class="kw">impl </span>WapmContainer {
+    <span class="doccomment">/// Parses a .webc container file. Since .webc files
+    /// can be very large, only file paths are allowed.
+    </span><span class="kw">pub fn </span>from_path(path: PathBuf) -&gt; std::result::Result&lt;<span class="self">Self</span>, WebcParseError&gt; {
+        <span class="kw">let </span>webc = webc::v1::WebCMmap::parse(path, <span class="kw-2">&amp;</span>ParseOptions::default())<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            repr: Repr::V1Mmap(Arc::new(webc)),
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_bytes</span>(<span class="ident">bytes</span>: <span class="ident">Bytes</span>) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">WebcParseError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">webc::detect</span>(<span class="ident">bytes</span>.<span class="ident">as_ref</span>())<span class="question-mark">?</span> {
-            <span class="ident">Version::V1</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">WebCOwned::parse</span>(<span class="ident">bytes</span>.<span class="ident">into</span>(), <span class="kw-2">&amp;</span><span class="ident">ParseOptions::default</span>())<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">WapmContainer</span> {
-                    <span class="ident">repr</span>: <span class="ident">Repr::V1Owned</span>(<span class="ident">Arc::new</span>(<span class="ident">webc</span>)),
+    <span class="kw">pub fn </span>from_bytes(bytes: Bytes) -&gt; std::result::Result&lt;<span class="self">Self</span>, WebcParseError&gt; {
+        <span class="kw">match </span>webc::detect(bytes.as_ref())<span class="question-mark">? </span>{
+            Version::V1 =&gt; {
+                <span class="kw">let </span>webc = WebCOwned::parse(bytes.into(), <span class="kw-2">&amp;</span>ParseOptions::default())<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(WapmContainer {
+                    repr: Repr::V1Owned(Arc::new(webc)),
                 })
             }
-            <span class="ident">Version::V2</span> =&gt; <span class="macro">todo!</span>(),
-            <span class="ident">other</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">WebcParseError::UnsupportedVersion</span>(<span class="ident">other</span>)),
+            Version::V2 =&gt; <span class="macro">todo!</span>(),
+            other =&gt; <span class="prelude-val">Err</span>(WebcParseError::UnsupportedVersion(other)),
         }
     }
 
-    <span class="doccomment">/// Returns the bytes of a file or a stringified error</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_file</span><span class="op">&lt;</span><span class="lifetime">&#39;b</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> [<span class="ident">u8</span>], <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; <span class="ident">mapped</span>
-                .<span class="ident">get_file</span>(<span class="kw-2">&amp;</span><span class="ident">mapped</span>.<span class="ident">get_package_name</span>(), <span class="ident">path</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="number">0</span>),
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; <span class="ident">owned</span>
-                .<span class="ident">get_file</span>(<span class="kw-2">&amp;</span><span class="ident">owned</span>.<span class="ident">get_package_name</span>(), <span class="ident">path</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="number">0</span>),
+    <span class="doccomment">/// Returns the bytes of a file or a stringified error
+    </span><span class="kw">pub fn </span>get_file&lt;<span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8], String&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; mapped
+                .get_file(<span class="kw-2">&amp;</span>mapped.get_package_name(), path)
+                .map_err(|e| e.<span class="number">0</span>),
+            Repr::V1Owned(owned) =&gt; owned
+                .get_file(<span class="kw-2">&amp;</span>owned.get_package_name(), path)
+                .map_err(|e| e.<span class="number">0</span>),
         }
     }
 
-    <span class="doccomment">/// Returns a list of volumes in this container</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_volumes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; <span class="ident">mapped</span>.<span class="ident">volumes</span>.<span class="ident">keys</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>(),
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; <span class="ident">owned</span>.<span class="ident">volumes</span>.<span class="ident">keys</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>(),
+    <span class="doccomment">/// Returns a list of volumes in this container
+    </span><span class="kw">pub fn </span>get_volumes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; mapped.volumes.keys().cloned().collect(),
+            Repr::V1Owned(owned) =&gt; owned.volumes.keys().cloned().collect(),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_atom</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; <span class="ident">mapped</span>.<span class="ident">get_atom</span>(<span class="kw-2">&amp;</span><span class="ident">mapped</span>.<span class="ident">get_package_name</span>(), <span class="ident">name</span>).<span class="ident">ok</span>(),
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; <span class="ident">owned</span>.<span class="ident">get_atom</span>(<span class="kw-2">&amp;</span><span class="ident">owned</span>.<span class="ident">get_package_name</span>(), <span class="ident">name</span>).<span class="ident">ok</span>(),
+    <span class="kw">pub fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; mapped.get_atom(<span class="kw-2">&amp;</span>mapped.get_package_name(), name).ok(),
+            Repr::V1Owned(owned) =&gt; owned.get_atom(<span class="kw-2">&amp;</span>owned.get_package_name(), name).ok(),
         }
     }
 
-    <span class="doccomment">/// Lookup .wit bindings by name and parse them</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_bindings</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Bindings</span><span class="op">&gt;</span>(
+    <span class="doccomment">/// Lookup .wit bindings by name and parse them
+    </span><span class="kw">pub fn </span>get_bindings&lt;T: Bindings&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">bindings</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ParseBindingsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">manifest</span>()
-            .<span class="ident">bindings</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">find</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">name</span> <span class="op">==</span> <span class="ident">bindings</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">ParseBindingsError::NoBindings</span>(<span class="ident">bindings</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+        bindings: <span class="kw-2">&amp;</span>str,
+    ) -&gt; std::result::Result&lt;T, ParseBindingsError&gt; {
+        <span class="kw">let </span>bindings = <span class="self">self
+            </span>.manifest()
+            .bindings
+            .iter()
+            .find(|b| b.name == bindings)
+            .ok_or_else(|| ParseBindingsError::NoBindings(bindings.to_string()))<span class="question-mark">?</span>;
 
-        <span class="ident">T::parse_bindings</span>(<span class="self">self</span>, <span class="kw-2">&amp;</span><span class="ident">bindings</span>.<span class="ident">annotations</span>).<span class="ident">map_err</span>(<span class="ident">ParseBindingsError::ParseBindings</span>)
+        T::parse_bindings(<span class="self">self</span>, <span class="kw-2">&amp;</span>bindings.annotations).map_err(ParseBindingsError::ParseBindings)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">manifest</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Manifest</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">mapped</span>.<span class="ident">manifest</span>,
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; <span class="kw-2">&amp;</span><span class="ident">owned</span>.<span class="ident">manifest</span>,
+    <span class="kw">pub fn </span>manifest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Manifest {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; <span class="kw-2">&amp;</span>mapped.manifest,
+            Repr::V1Owned(owned) =&gt; <span class="kw-2">&amp;</span>owned.manifest,
         }
     }
 
-    <span class="comment">// HACK(Michael-F-Bryan): WapmContainer originally exposed its Arc&lt;WebCMmap&gt;</span>
-    <span class="comment">// field, so every man and his dog accessed it directly instead of going</span>
-    <span class="comment">// through the WapmContainer abstraction. This is an escape hatch to make</span>
-    <span class="comment">// that code keep working for the time being.</span>
-    <span class="comment">// #[deprecated]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">v1</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">WebC</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; <span class="ident">mapped</span>,
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; <span class="ident">owned</span>,
+    <span class="comment">// HACK(Michael-F-Bryan): WapmContainer originally exposed its Arc&lt;WebCMmap&gt;
+    // field, so every man and his dog accessed it directly instead of going
+    // through the WapmContainer abstraction. This is an escape hatch to make
+    // that code keep working for the time being.
+    // #[deprecated]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>v1(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>WebC&lt;<span class="lifetime">&#39;_</span>&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; mapped,
+            Repr::V1Owned(owned) =&gt; owned,
         }
     }
 
-    <span class="doccomment">/// Load a volume as a [`FileSystem`] node.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">volume_fs</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">package_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; {
-                <span class="ident">Box::new</span>(<span class="ident">WebcFileSystem::init</span>(<span class="ident">Arc::clone</span>(<span class="ident">mapped</span>), <span class="ident">package_name</span>))
+    <span class="doccomment">/// Load a volume as a [`FileSystem`] node.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>volume_fs(<span class="kw-2">&amp;</span><span class="self">self</span>, package_name: <span class="kw-2">&amp;</span>str) -&gt; Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; {
+                Box::new(WebcFileSystem::init(Arc::clone(mapped), package_name))
             }
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; <span class="ident">Box::new</span>(<span class="ident">WebcFileSystem::init</span>(<span class="ident">Arc::clone</span>(<span class="ident">owned</span>), <span class="ident">package_name</span>)),
+            Repr::V1Owned(owned) =&gt; Box::new(WebcFileSystem::init(Arc::clone(owned), package_name)),
         }
     }
 
-    <span class="doccomment">/// Get the entire container as a single filesystem and a list of suggested</span>
-    <span class="doccomment">/// directories to preopen.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">container_fs</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>) {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">repr</span> {
-            <span class="ident">Repr::V1Mmap</span>(<span class="ident">mapped</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">WebcFileSystem::init_all</span>(<span class="ident">Arc::clone</span>(<span class="ident">mapped</span>));
-                <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">top_level_dirs</span>().<span class="ident">clone</span>();
-                (<span class="ident">Box::new</span>(<span class="ident">fs</span>), <span class="ident">top_level_dirs</span>)
+    <span class="doccomment">/// Get the entire container as a single filesystem and a list of suggested
+    /// directories to preopen.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Vec&lt;String&gt;) {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
+            Repr::V1Mmap(mapped) =&gt; {
+                <span class="kw">let </span>fs = WebcFileSystem::init_all(Arc::clone(mapped));
+                <span class="kw">let </span>top_level_dirs = fs.top_level_dirs().clone();
+                (Box::new(fs), top_level_dirs)
             }
-            <span class="ident">Repr::V1Owned</span>(<span class="ident">owned</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">WebcFileSystem::init_all</span>(<span class="ident">Arc::clone</span>(<span class="ident">owned</span>));
-                <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">top_level_dirs</span>().<span class="ident">clone</span>();
-                (<span class="ident">Box::new</span>(<span class="ident">fs</span>), <span class="ident">top_level_dirs</span>)
+            Repr::V1Owned(owned) =&gt; {
+                <span class="kw">let </span>fs = WebcFileSystem::init_all(Arc::clone(owned));
+                <span class="kw">let </span>top_level_dirs = fs.top_level_dirs().clone();
+                (Box::new(fs), top_level_dirs)
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">enum</span> <span class="ident">Repr</span> {
-    <span class="ident">V1Mmap</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WebCMmap</span><span class="op">&gt;</span>),
-    <span class="ident">V1Owned</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WebCOwned</span><span class="op">&gt;</span>),
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">enum </span>Repr {
+    V1Mmap(Arc&lt;WebCMmap&gt;),
+    V1Owned(Arc&lt;WebCOwned&gt;),
 }
 
-<span class="doccomment">/// Error that happened while parsing .wit bindings</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ParseBindingsError</span> {
-    <span class="doccomment">/// No bindings are available for the given lookup key</span>
-    <span class="ident">NoBindings</span>(<span class="ident">String</span>),
-    <span class="doccomment">/// Error happened during parsing</span>
-    <span class="ident">ParseBindings</span>(<span class="ident">String</span>),
+<span class="doccomment">/// Error that happened while parsing .wit bindings
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+</span><span class="kw">pub enum </span>ParseBindingsError {
+    <span class="doccomment">/// No bindings are available for the given lookup key
+    </span>NoBindings(String),
+    <span class="doccomment">/// Error happened during parsing
+    </span>ParseBindings(String),
 }
 
-<span class="doccomment">/// Trait to parse bindings (any kind of bindings) for container .wasm files (usually .wit format)</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Bindings</span> {
-    <span class="doccomment">/// Function that takes annotations in a free-form `Value` struct and returns the parsed bindings or an error</span>
-    <span class="kw">fn</span> <span class="ident">parse_bindings</span>(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="ident">WapmContainer</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="ident">serde_cbor::Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="self">Self</span>: <span class="ident">Sized</span>;
+<span class="doccomment">/// Trait to parse bindings (any kind of bindings) for container .wasm files (usually .wit format)
+</span><span class="kw">pub trait </span>Bindings {
+    <span class="doccomment">/// Function that takes annotations in a free-form `Value` struct and returns the parsed bindings or an error
+    </span><span class="kw">fn </span>parse_bindings(<span class="kw">_</span>: <span class="kw-2">&amp;</span>WapmContainer, <span class="kw">_</span>: <span class="kw-2">&amp;</span>serde_cbor::Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt;
+    <span class="kw">where
+        </span><span class="self">Self</span>: Sized;
 }
 
-<span class="doccomment">/// WIT bindings</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WitBindings</span> {}
+<span class="doccomment">/// WIT bindings
+</span><span class="attribute">#[derive(Default, Debug, Copy, Clone)]
+</span><span class="kw">pub struct </span>WitBindings {}
 
-<span class="kw">impl</span> <span class="ident">WitBindings</span> {
-    <span class="doccomment">/// Unused: creates default wit bindings</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">_s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::default</span>())
+<span class="kw">impl </span>WitBindings {
+    <span class="doccomment">/// Unused: creates default wit bindings
+    </span><span class="kw">pub fn </span>parse(_s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::default())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Bindings</span> <span class="kw">for</span> <span class="ident">WitBindings</span> {
-    <span class="kw">fn</span> <span class="ident">parse_bindings</span>(
-        <span class="ident">container</span>: <span class="kw-2">&amp;</span><span class="ident">WapmContainer</span>,
-        <span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="ident">serde_cbor::Value</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">value</span>: <span class="ident">webc::metadata::BindingsExtended</span> <span class="op">=</span>
-            <span class="ident">serde_cbor::from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">serde_cbor::to_vec</span>(<span class="ident">value</span>).<span class="ident">unwrap</span>())
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;could not parse WitBindings annotations: {e}&quot;</span>))<span class="question-mark">?</span>;
+<span class="kw">impl </span>Bindings <span class="kw">for </span>WitBindings {
+    <span class="kw">fn </span>parse_bindings(
+        container: <span class="kw-2">&amp;</span>WapmContainer,
+        value: <span class="kw-2">&amp;</span>serde_cbor::Value,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">let </span>value: webc::metadata::BindingsExtended =
+            serde_cbor::from_slice(<span class="kw-2">&amp;</span>serde_cbor::to_vec(value).unwrap())
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;could not parse WitBindings annotations: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wit_bindgen_filepath</span> <span class="op">=</span> <span class="ident">value</span>.<span class="ident">exports</span>().<span class="ident">unwrap_or_default</span>().<span class="ident">to_string</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>wit_bindgen_filepath = value.exports().unwrap_or_default().to_string();
 
-        <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">container</span>.<span class="ident">get_volumes</span>() {
-            <span class="kw">let</span> <span class="ident">schema</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{v}://&quot;</span>);
-            <span class="kw">if</span> <span class="ident">wit_bindgen_filepath</span>.<span class="ident">starts_with</span>(<span class="kw-2">&amp;</span><span class="ident">schema</span>) {
-                <span class="ident">wit_bindgen_filepath</span> <span class="op">=</span> <span class="ident">wit_bindgen_filepath</span>.<span class="ident">replacen</span>(<span class="kw-2">&amp;</span><span class="ident">schema</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
+        <span class="kw">for </span>v <span class="kw">in </span>container.get_volumes() {
+            <span class="kw">let </span>schema = <span class="macro">format!</span>(<span class="string">&quot;{v}://&quot;</span>);
+            <span class="kw">if </span>wit_bindgen_filepath.starts_with(<span class="kw-2">&amp;</span>schema) {
+                wit_bindgen_filepath = wit_bindgen_filepath.replacen(<span class="kw-2">&amp;</span>schema, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
                 <span class="kw">break</span>;
             }
         }
 
-        <span class="kw">let</span> <span class="ident">wit_bindings</span> <span class="op">=</span> <span class="ident">container</span>
-            .<span class="ident">get_file</span>(<span class="kw-2">&amp;</span><span class="ident">wit_bindgen_filepath</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;could not get WitBindings file {wit_bindgen_filepath:?}: {e}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>wit_bindings = container
+            .get_file(<span class="kw-2">&amp;</span>wit_bindgen_filepath)
+            .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;could not get WitBindings file {wit_bindgen_filepath:?}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">wit_bindings_str</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="ident">wit_bindings</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;could not get WitBindings file {wit_bindgen_filepath:?}: {e}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>wit_bindings_str = std::str::from_utf8(wit_bindings)
+            .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;could not get WitBindings file {wit_bindgen_filepath:?}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="ident"><span class="self">Self</span>::parse</span>(<span class="ident">wit_bindings_str</span>)
+        <span class="self">Self</span>::parse(wit_bindings_str)
     }
 }
 
-<span class="doccomment">/// Error that ocurred while parsing the .webc file</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">thiserror::Error</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WebcParseError</span> {
-    <span class="doccomment">/// Parse error</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unable to parse the WEBC file&quot;</span>)]</span>
-    <span class="ident">Parse</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">webc::v1::Error</span>),
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unable to determine the WEBC version&quot;</span>)]</span>
-    <span class="ident">Detect</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">webc::DetectError</span>),
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Unsupported WEBC version, {_0}&quot;</span>)]</span>
-    <span class="ident">UnsupportedVersion</span>(<span class="ident">Version</span>),
+<span class="doccomment">/// Error that ocurred while parsing the .webc file
+</span><span class="attribute">#[derive(Debug, thiserror::Error)]
+</span><span class="kw">pub enum </span>WebcParseError {
+    <span class="doccomment">/// Parse error
+    </span><span class="attribute">#[error(<span class="string">&quot;Unable to parse the WEBC file&quot;</span>)]
+    </span>Parse(<span class="attribute">#[from] </span>webc::v1::Error),
+    <span class="attribute">#[error(<span class="string">&quot;Unable to determine the WEBC version&quot;</span>)]
+    </span>Detect(<span class="attribute">#[from] </span>webc::DetectError),
+    <span class="attribute">#[error(<span class="string">&quot;Unsupported WEBC version, {_0}&quot;</span>)]
+    </span>UnsupportedVersion(Version),
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

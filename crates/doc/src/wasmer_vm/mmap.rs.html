@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/mmap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mmap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/mmap.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mmap.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -339,346 +339,346 @@
 <span id="339">339</span>
 <span id="340">340</span>
 <span id="341">341</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Low-level abstraction for allocating and managing zero-filled pages</span>
-<span class="doccomment">//! of memory.</span>
+</span><span class="doccomment">//! Low-level abstraction for allocating and managing zero-filled pages
+//! of memory.
 
-<span class="kw">use</span> <span class="ident">more_asserts::assert_le</span>;
-<span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>;
-<span class="kw">use</span> <span class="ident">std::ptr</span>;
-<span class="kw">use</span> <span class="ident">std::slice</span>;
+</span><span class="kw">use </span>more_asserts::assert_le;
+<span class="kw">use </span>more_asserts::assert_lt;
+<span class="kw">use </span>std::io;
+<span class="kw">use </span>std::ptr;
+<span class="kw">use </span>std::slice;
 
-<span class="doccomment">/// Round `size` up to the nearest multiple of `page_size`.</span>
-<span class="kw">fn</span> <span class="ident">round_up_to_page_size</span>(<span class="ident">size</span>: <span class="ident">usize</span>, <span class="ident">page_size</span>: <span class="ident">usize</span>) -&gt; <span class="ident">usize</span> {
-    (<span class="ident">size</span> <span class="op">+</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>)) <span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>)
+<span class="doccomment">/// Round `size` up to the nearest multiple of `page_size`.
+</span><span class="kw">fn </span>round_up_to_page_size(size: usize, page_size: usize) -&gt; usize {
+    (size + (page_size - <span class="number">1</span>)) &amp; !(page_size - <span class="number">1</span>)
 }
 
-<span class="doccomment">/// A simple struct consisting of a page-aligned pointer to page-aligned</span>
-<span class="doccomment">/// and initially-zeroed memory and a length.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Mmap</span> {
-    <span class="comment">// Note that this is stored as a `usize` instead of a `*const` or `*mut`</span>
-    <span class="comment">// pointer to allow this structure to be natively `Send` and `Sync` without</span>
-    <span class="comment">// `unsafe impl`. This type is sendable across threads and shareable since</span>
-    <span class="comment">// the coordination all happens at the OS layer.</span>
-    <span class="ident">ptr</span>: <span class="ident">usize</span>,
-    <span class="ident">total_size</span>: <span class="ident">usize</span>,
-    <span class="ident">accessible_size</span>: <span class="ident">usize</span>,
+<span class="doccomment">/// A simple struct consisting of a page-aligned pointer to page-aligned
+/// and initially-zeroed memory and a length.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>Mmap {
+    <span class="comment">// Note that this is stored as a `usize` instead of a `*const` or `*mut`
+    // pointer to allow this structure to be natively `Send` and `Sync` without
+    // `unsafe impl`. This type is sendable across threads and shareable since
+    // the coordination all happens at the OS layer.
+    </span>ptr: usize,
+    total_size: usize,
+    accessible_size: usize,
 }
 
-<span class="kw">impl</span> <span class="ident">Mmap</span> {
-    <span class="doccomment">/// Construct a new empty instance of `Mmap`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="comment">// Rust&#39;s slices require non-null pointers, even when empty. `Vec`</span>
-        <span class="comment">// contains code to create a non-null dangling pointer value when</span>
-        <span class="comment">// constructed empty, so we reuse that here.</span>
-        <span class="kw">let</span> <span class="ident">empty</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>();
-        <span class="self">Self</span> {
-            <span class="ident">ptr</span>: <span class="ident">empty</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span>,
-            <span class="ident">total_size</span>: <span class="number">0</span>,
-            <span class="ident">accessible_size</span>: <span class="number">0</span>,
+<span class="kw">impl </span>Mmap {
+    <span class="doccomment">/// Construct a new empty instance of `Mmap`.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="comment">// Rust&#39;s slices require non-null pointers, even when empty. `Vec`
+        // contains code to create a non-null dangling pointer value when
+        // constructed empty, so we reuse that here.
+        </span><span class="kw">let </span>empty = Vec::&lt;u8&gt;::new();
+        <span class="self">Self </span>{
+            ptr: empty.as_ptr() <span class="kw">as </span>usize,
+            total_size: <span class="number">0</span>,
+            accessible_size: <span class="number">0</span>,
         }
     }
 
-    <span class="doccomment">/// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_at_least</span>(<span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="kw">let</span> <span class="ident">rounded_size</span> <span class="op">=</span> <span class="ident">round_up_to_page_size</span>(<span class="ident">size</span>, <span class="ident">page_size</span>);
-        <span class="ident"><span class="self">Self</span>::accessible_reserved</span>(<span class="ident">rounded_size</span>, <span class="ident">rounded_size</span>)
+    <span class="doccomment">/// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
+    </span><span class="kw">pub fn </span>with_at_least(size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="kw">let </span>rounded_size = round_up_to_page_size(size, page_size);
+        <span class="self">Self</span>::accessible_reserved(rounded_size, rounded_size)
     }
 
-    <span class="doccomment">/// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,</span>
-    <span class="doccomment">/// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`</span>
-    <span class="doccomment">/// must be native page-size multiples.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">accessible_reserved</span>(
-        <span class="ident">accessible_size</span>: <span class="ident">usize</span>,
-        <span class="ident">mapping_size</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="macro">assert_le!</span>(<span class="ident">accessible_size</span>, <span class="ident">mapping_size</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">mapping_size</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">accessible_size</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
+    <span class="doccomment">/// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
+    /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
+    /// must be native page-size multiples.
+    </span><span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+    </span><span class="kw">pub fn </span>accessible_reserved(
+        accessible_size: usize,
+        mapping_size: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="macro">assert_le!</span>(accessible_size, mapping_size);
+        <span class="macro">assert_eq!</span>(mapping_size &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(accessible_size &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
 
-        <span class="comment">// Mmap may return EINVAL if the size is zero, so just</span>
-        <span class="comment">// special-case that.</span>
-        <span class="kw">if</span> <span class="ident">mapping_size</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::new</span>());
+        <span class="comment">// Mmap may return EINVAL if the size is zero, so just
+        // special-case that.
+        </span><span class="kw">if </span>mapping_size == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::new());
         }
 
-        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">accessible_size</span> <span class="op">==</span> <span class="ident">mapping_size</span> {
-            <span class="comment">// Allocate a single read-write region at once.</span>
-            <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                <span class="ident">libc::mmap</span>(
-                    <span class="ident">ptr::null_mut</span>(),
-                    <span class="ident">mapping_size</span>,
-                    <span class="ident">libc::PROT_READ</span> <span class="op">|</span> <span class="ident">libc::PROT_WRITE</span>,
-                    <span class="ident">libc::MAP_PRIVATE</span> <span class="op">|</span> <span class="ident">libc::MAP_ANON</span>,
-                    <span class="op">-</span><span class="number">1</span>,
+        <span class="prelude-val">Ok</span>(<span class="kw">if </span>accessible_size == mapping_size {
+            <span class="comment">// Allocate a single read-write region at once.
+            </span><span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
+                libc::mmap(
+                    ptr::null_mut(),
+                    mapping_size,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                    libc::MAP_PRIVATE | libc::MAP_ANON,
+                    -<span class="number">1</span>,
                     <span class="number">0</span>,
                 )
             };
-            <span class="kw">if</span> <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">isize</span> <span class="op">==</span> <span class="op">-</span><span class="number">1_isize</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+            <span class="kw">if </span>ptr <span class="kw">as </span>isize == -<span class="number">1_isize </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
             }
 
-            <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">total_size</span>: <span class="ident">mapping_size</span>,
-                <span class="ident">accessible_size</span>,
+            <span class="self">Self </span>{
+                ptr: ptr <span class="kw">as </span>usize,
+                total_size: mapping_size,
+                accessible_size,
             }
-        } <span class="kw">else</span> {
-            <span class="comment">// Reserve the mapping size.</span>
-            <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                <span class="ident">libc::mmap</span>(
-                    <span class="ident">ptr::null_mut</span>(),
-                    <span class="ident">mapping_size</span>,
-                    <span class="ident">libc::PROT_NONE</span>,
-                    <span class="ident">libc::MAP_PRIVATE</span> <span class="op">|</span> <span class="ident">libc::MAP_ANON</span>,
-                    <span class="op">-</span><span class="number">1</span>,
+        } <span class="kw">else </span>{
+            <span class="comment">// Reserve the mapping size.
+            </span><span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
+                libc::mmap(
+                    ptr::null_mut(),
+                    mapping_size,
+                    libc::PROT_NONE,
+                    libc::MAP_PRIVATE | libc::MAP_ANON,
+                    -<span class="number">1</span>,
                     <span class="number">0</span>,
                 )
             };
-            <span class="kw">if</span> <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">isize</span> <span class="op">==</span> <span class="op">-</span><span class="number">1_isize</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+            <span class="kw">if </span>ptr <span class="kw">as </span>isize == -<span class="number">1_isize </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">total_size</span>: <span class="ident">mapping_size</span>,
-                <span class="ident">accessible_size</span>,
+            <span class="kw">let </span><span class="kw-2">mut </span>result = <span class="self">Self </span>{
+                ptr: ptr <span class="kw">as </span>usize,
+                total_size: mapping_size,
+                accessible_size,
             };
 
-            <span class="kw">if</span> <span class="ident">accessible_size</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                <span class="comment">// Commit the accessible size.</span>
-                <span class="ident">result</span>.<span class="ident">make_accessible</span>(<span class="number">0</span>, <span class="ident">accessible_size</span>)<span class="question-mark">?</span>;
+            <span class="kw">if </span>accessible_size != <span class="number">0 </span>{
+                <span class="comment">// Commit the accessible size.
+                </span>result.make_accessible(<span class="number">0</span>, accessible_size)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">result</span>
+            result
         })
     }
 
-    <span class="doccomment">/// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,</span>
-    <span class="doccomment">/// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`</span>
-    <span class="doccomment">/// must be native page-size multiples.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">accessible_reserved</span>(
-        <span class="ident">accessible_size</span>: <span class="ident">usize</span>,
-        <span class="ident">mapping_size</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">winapi::um::memoryapi::VirtualAlloc</span>;
-        <span class="kw">use</span> <span class="ident">winapi::um::winnt</span>::{<span class="ident">MEM_COMMIT</span>, <span class="ident">MEM_RESERVE</span>, <span class="ident">PAGE_NOACCESS</span>, <span class="ident">PAGE_READWRITE</span>};
+    <span class="doccomment">/// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
+    /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
+    /// must be native page-size multiples.
+    </span><span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">pub fn </span>accessible_reserved(
+        accessible_size: usize,
+        mapping_size: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">use </span>winapi::um::memoryapi::VirtualAlloc;
+        <span class="kw">use </span>winapi::um::winnt::{MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE};
 
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="macro">assert_le!</span>(<span class="ident">accessible_size</span>, <span class="ident">mapping_size</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">mapping_size</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">accessible_size</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="macro">assert_le!</span>(accessible_size, mapping_size);
+        <span class="macro">assert_eq!</span>(mapping_size &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(accessible_size &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
 
-        <span class="comment">// VirtualAlloc may return ERROR_INVALID_PARAMETER if the size is zero,</span>
-        <span class="comment">// so just special-case that.</span>
-        <span class="kw">if</span> <span class="ident">mapping_size</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::new</span>());
+        <span class="comment">// VirtualAlloc may return ERROR_INVALID_PARAMETER if the size is zero,
+        // so just special-case that.
+        </span><span class="kw">if </span>mapping_size == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::new());
         }
 
-        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">accessible_size</span> <span class="op">==</span> <span class="ident">mapping_size</span> {
-            <span class="comment">// Allocate a single read-write region at once.</span>
-            <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                <span class="ident">VirtualAlloc</span>(
-                    <span class="ident">ptr::null_mut</span>(),
-                    <span class="ident">mapping_size</span>,
-                    <span class="ident">MEM_RESERVE</span> <span class="op">|</span> <span class="ident">MEM_COMMIT</span>,
-                    <span class="ident">PAGE_READWRITE</span>,
+        <span class="prelude-val">Ok</span>(<span class="kw">if </span>accessible_size == mapping_size {
+            <span class="comment">// Allocate a single read-write region at once.
+            </span><span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
+                VirtualAlloc(
+                    ptr::null_mut(),
+                    mapping_size,
+                    MEM_RESERVE | MEM_COMMIT,
+                    PAGE_READWRITE,
                 )
             };
-            <span class="kw">if</span> <span class="ident">ptr</span>.<span class="ident">is_null</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+            <span class="kw">if </span>ptr.is_null() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
             }
 
-            <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">total_size</span>: <span class="ident">mapping_size</span>,
-                <span class="ident">accessible_size</span>,
+            <span class="self">Self </span>{
+                ptr: ptr <span class="kw">as </span>usize,
+                total_size: mapping_size,
+                accessible_size,
             }
-        } <span class="kw">else</span> {
-            <span class="comment">// Reserve the mapping size.</span>
-            <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span>
-                <span class="kw">unsafe</span> { <span class="ident">VirtualAlloc</span>(<span class="ident">ptr::null_mut</span>(), <span class="ident">mapping_size</span>, <span class="ident">MEM_RESERVE</span>, <span class="ident">PAGE_NOACCESS</span>) };
-            <span class="kw">if</span> <span class="ident">ptr</span>.<span class="ident">is_null</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+        } <span class="kw">else </span>{
+            <span class="comment">// Reserve the mapping size.
+            </span><span class="kw">let </span>ptr =
+                <span class="kw">unsafe </span>{ VirtualAlloc(ptr::null_mut(), mapping_size, MEM_RESERVE, PAGE_NOACCESS) };
+            <span class="kw">if </span>ptr.is_null() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">Self</span> {
-                <span class="ident">ptr</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">usize</span>,
-                <span class="ident">total_size</span>: <span class="ident">mapping_size</span>,
-                <span class="ident">accessible_size</span>,
+            <span class="kw">let </span><span class="kw-2">mut </span>result = <span class="self">Self </span>{
+                ptr: ptr <span class="kw">as </span>usize,
+                total_size: mapping_size,
+                accessible_size,
             };
 
-            <span class="kw">if</span> <span class="ident">accessible_size</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                <span class="comment">// Commit the accessible size.</span>
-                <span class="ident">result</span>.<span class="ident">make_accessible</span>(<span class="number">0</span>, <span class="ident">accessible_size</span>)<span class="question-mark">?</span>;
+            <span class="kw">if </span>accessible_size != <span class="number">0 </span>{
+                <span class="comment">// Commit the accessible size.
+                </span>result.make_accessible(<span class="number">0</span>, accessible_size)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">result</span>
+            result
         })
     }
 
-    <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.</span>
-    <span class="doccomment">/// `start` and `len` must be native page-size multiples and describe a range within</span>
-    <span class="doccomment">/// `self`&#39;s reserved memory.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_accessible</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">start</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">len</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_lt!</span>(<span class="ident">len</span>, <span class="self">self</span>.<span class="ident">total_size</span>);
-        <span class="macro">assert_lt!</span>(<span class="ident">start</span>, <span class="self">self</span>.<span class="ident">total_size</span> <span class="op">-</span> <span class="ident">len</span>);
+    <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.
+    /// `start` and `len` must be native page-size multiples and describe a range within
+    /// `self`&#39;s reserved memory.
+    </span><span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+    </span><span class="kw">pub fn </span>make_accessible(<span class="kw-2">&amp;mut </span><span class="self">self</span>, start: usize, len: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="macro">assert_eq!</span>(start &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(len &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_lt!</span>(len, <span class="self">self</span>.total_size);
+        <span class="macro">assert_lt!</span>(start, <span class="self">self</span>.total_size - len);
 
-        <span class="comment">// Commit the accessible size.</span>
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>;
-        <span class="kw">unsafe</span> { <span class="ident">region::protect</span>(<span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">start</span>), <span class="ident">len</span>, <span class="ident">region::Protection::READ_WRITE</span>) }
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">to_string</span>())
+        <span class="comment">// Commit the accessible size.
+        </span><span class="kw">let </span>ptr = <span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8;
+        <span class="kw">unsafe </span>{ region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
+            .map_err(|e| e.to_string())
     }
 
-    <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.</span>
-    <span class="doccomment">/// `start` and `len` must be native page-size multiples and describe a range within</span>
-    <span class="doccomment">/// `self`&#39;s reserved memory.</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_accessible</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">len</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">winapi::ctypes::c_void</span>;
-        <span class="kw">use</span> <span class="ident">winapi::um::memoryapi::VirtualAlloc</span>;
-        <span class="kw">use</span> <span class="ident">winapi::um::winnt</span>::{<span class="ident">MEM_COMMIT</span>, <span class="ident">PAGE_READWRITE</span>};
-        <span class="kw">let</span> <span class="ident">page_size</span> <span class="op">=</span> <span class="ident">region::page::size</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">start</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">len</span> <span class="op">&amp;</span> (<span class="ident">page_size</span> <span class="op">-</span> <span class="number">1</span>), <span class="number">0</span>);
-        <span class="macro">assert_lt!</span>(<span class="ident">len</span>, <span class="self">self</span>.<span class="ident">len</span>());
-        <span class="macro">assert_lt!</span>(<span class="ident">start</span>, <span class="self">self</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">len</span>);
+    <span class="doccomment">/// Make the memory starting at `start` and extending for `len` bytes accessible.
+    /// `start` and `len` must be native page-size multiples and describe a range within
+    /// `self`&#39;s reserved memory.
+    </span><span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">pub fn </span>make_accessible(<span class="kw-2">&amp;mut </span><span class="self">self</span>, start: usize, len: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+        <span class="kw">use </span>winapi::ctypes::c_void;
+        <span class="kw">use </span>winapi::um::memoryapi::VirtualAlloc;
+        <span class="kw">use </span>winapi::um::winnt::{MEM_COMMIT, PAGE_READWRITE};
+        <span class="kw">let </span>page_size = region::page::size();
+        <span class="macro">assert_eq!</span>(start &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(len &amp; (page_size - <span class="number">1</span>), <span class="number">0</span>);
+        <span class="macro">assert_lt!</span>(len, <span class="self">self</span>.len());
+        <span class="macro">assert_lt!</span>(start, <span class="self">self</span>.len() - len);
 
-        <span class="comment">// Commit the accessible size.</span>
-        <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>;
-        <span class="kw">if</span> <span class="kw">unsafe</span> {
-            <span class="ident">VirtualAlloc</span>(
-                <span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">start</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>,
-                <span class="ident">len</span>,
-                <span class="ident">MEM_COMMIT</span>,
-                <span class="ident">PAGE_READWRITE</span>,
+        <span class="comment">// Commit the accessible size.
+        </span><span class="kw">let </span>ptr = <span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8;
+        <span class="kw">if unsafe </span>{
+            VirtualAlloc(
+                ptr.add(start) <span class="kw">as </span><span class="kw-2">*mut </span>c_void,
+                len,
+                MEM_COMMIT,
+                PAGE_READWRITE,
             )
         }
-        .<span class="ident">is_null</span>()
+        .is_null()
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">io::Error::last_os_error</span>().<span class="ident">to_string</span>());
+            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::last_os_error().to_string());
         }
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Return the allocated memory as a slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">total_size</span>) }
+    <span class="doccomment">/// Return the allocated memory as a slice of u8.
+    </span><span class="kw">pub fn </span>as_slice(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+        <span class="kw">unsafe </span>{ slice::from_raw_parts(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8, <span class="self">self</span>.total_size) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_slice_accessible</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">accessible_size</span>) }
+    <span class="doccomment">/// Return the allocated memory as a slice of u8.
+    </span><span class="kw">pub fn </span>as_slice_accessible(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
+        <span class="kw">unsafe </span>{ slice::from_raw_parts(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8, <span class="self">self</span>.accessible_size) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_slice_arbitary</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
-        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">usize::min</span>(<span class="ident">size</span>, <span class="self">self</span>.<span class="ident">total_size</span>);
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="ident">size</span>) }
+    <span class="doccomment">/// Return the allocated memory as a slice of u8.
+    </span><span class="kw">pub fn </span>as_slice_arbitary(<span class="kw-2">&amp;</span><span class="self">self</span>, size: usize) -&gt; <span class="kw-2">&amp;</span>[u8] {
+        <span class="kw">let </span>size = usize::min(size, <span class="self">self</span>.total_size);
+        <span class="kw">unsafe </span>{ slice::from_raw_parts(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8, size) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_mut_slice</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">total_size</span>) }
+    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.
+    </span><span class="kw">pub fn </span>as_mut_slice(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
+        <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, <span class="self">self</span>.total_size) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_mut_slice_accessible</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">accessible_size</span>) }
+    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.
+    </span><span class="kw">pub fn </span>as_mut_slice_accessible(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
+        <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, <span class="self">self</span>.accessible_size) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_mut_slice_arbitary</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>] {
-        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">usize::min</span>(<span class="ident">size</span>, <span class="self">self</span>.<span class="ident">total_size</span>);
-        <span class="kw">unsafe</span> { <span class="ident">slice::from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="ident">size</span>) }
+    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.
+    </span><span class="kw">pub fn </span>as_mut_slice_arbitary(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
+        <span class="kw">let </span>size = usize::min(size, <span class="self">self</span>.total_size);
+        <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, size) }
     }
 
-    <span class="doccomment">/// Return the allocated memory as a pointer to u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const</span> <span class="ident">u8</span> {
-        <span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>
+    <span class="doccomment">/// Return the allocated memory as a pointer to u8.
+    </span><span class="kw">pub fn </span>as_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>u8 {
+        <span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8
     }
 
-    <span class="doccomment">/// Return the allocated memory as a mutable pointer to u8.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_mut_ptr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">*mut</span> <span class="ident">u8</span> {
-        <span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>
+    <span class="doccomment">/// Return the allocated memory as a mutable pointer to u8.
+    </span><span class="kw">pub fn </span>as_mut_ptr(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>u8 {
+        <span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8
     }
 
-    <span class="doccomment">/// Return the length of the allocated memory.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">total_size</span>
+    <span class="doccomment">/// Return the length of the allocated memory.
+    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.total_size
     }
 
-    <span class="doccomment">/// Return whether any memory has been allocated.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span>
-    }
+    <span class="doccomment">/// Return whether any memory has been allocated.
+    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.len() == <span class="number">0
+    </span>}
 
-    <span class="doccomment">/// Duplicate in a new memory mapping.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size_hint</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="comment">// NOTE: accessible_size != used size as the value is not</span>
-        <span class="comment">//       automatically updated when the pre-provisioned space is used</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">copy_size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">accessible_size</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">size_hint</span>) <span class="op">=</span> <span class="ident">size_hint</span> {
-            <span class="ident">copy_size</span> <span class="op">=</span> <span class="ident">usize::max</span>(<span class="ident">copy_size</span>, <span class="ident">size_hint</span>);
+    <span class="doccomment">/// Duplicate in a new memory mapping.
+    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size_hint: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="comment">// NOTE: accessible_size != used size as the value is not
+        //       automatically updated when the pre-provisioned space is used
+        </span><span class="kw">let </span><span class="kw-2">mut </span>copy_size = <span class="self">self</span>.accessible_size;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(size_hint) = size_hint {
+            copy_size = usize::max(copy_size, size_hint);
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::accessible_reserved</span>(<span class="ident">copy_size</span>, <span class="self">self</span>.<span class="ident">total_size</span>)<span class="question-mark">?</span>;
-        <span class="ident">new</span>.<span class="ident">as_mut_slice_arbitary</span>(<span class="ident">copy_size</span>)
-            .<span class="ident">copy_from_slice</span>(<span class="self">self</span>.<span class="ident">as_slice_arbitary</span>(<span class="ident">copy_size</span>));
-        <span class="prelude-val">Ok</span>(<span class="ident">new</span>)
+        <span class="kw">let </span><span class="kw-2">mut </span>new = <span class="self">Self</span>::accessible_reserved(copy_size, <span class="self">self</span>.total_size)<span class="question-mark">?</span>;
+        new.as_mut_slice_arbitary(copy_size)
+            .copy_from_slice(<span class="self">self</span>.as_slice_arbitary(copy_size));
+        <span class="prelude-val">Ok</span>(new)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Mmap</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">total_size</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">libc::munmap</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">libc::c_void</span>, <span class="self">self</span>.<span class="ident">total_size</span>) };
-            <span class="macro">assert_eq!</span>(<span class="ident">r</span>, <span class="number">0</span>, <span class="string">&quot;munmap failed: {}&quot;</span>, <span class="ident">io::Error::last_os_error</span>());
+<span class="kw">impl </span>Drop <span class="kw">for </span>Mmap {
+    <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+    </span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span><span class="self">self</span>.total_size != <span class="number">0 </span>{
+            <span class="kw">let </span>r = <span class="kw">unsafe </span>{ libc::munmap(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>libc::c_void, <span class="self">self</span>.total_size) };
+            <span class="macro">assert_eq!</span>(r, <span class="number">0</span>, <span class="string">&quot;munmap failed: {}&quot;</span>, io::Error::last_os_error());
         }
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="kw">use</span> <span class="ident">winapi::ctypes::c_void</span>;
-            <span class="kw">use</span> <span class="ident">winapi::um::memoryapi::VirtualFree</span>;
-            <span class="kw">use</span> <span class="ident">winapi::um::winnt::MEM_RELEASE</span>;
-            <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">VirtualFree</span>(<span class="self">self</span>.<span class="ident">ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>, <span class="number">0</span>, <span class="ident">MEM_RELEASE</span>) };
-            <span class="macro">assert_ne!</span>(<span class="ident">r</span>, <span class="number">0</span>);
+    <span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span><span class="self">self</span>.len() != <span class="number">0 </span>{
+            <span class="kw">use </span>winapi::ctypes::c_void;
+            <span class="kw">use </span>winapi::um::memoryapi::VirtualFree;
+            <span class="kw">use </span>winapi::um::winnt::MEM_RELEASE;
+            <span class="kw">let </span>r = <span class="kw">unsafe </span>{ VirtualFree(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>c_void, <span class="number">0</span>, MEM_RELEASE) };
+            <span class="macro">assert_ne!</span>(r, <span class="number">0</span>);
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">_assert</span>() {
-    <span class="kw">fn</span> <span class="ident">_assert_send_sync</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>() {}
-    <span class="ident">_assert_send_sync</span>::<span class="op">&lt;</span><span class="ident">Mmap</span><span class="op">&gt;</span>();
+<span class="kw">fn </span>_assert() {
+    <span class="kw">fn </span>_assert_send_sync&lt;T: Send + Sync&gt;() {}
+    _assert_send_sync::&lt;Mmap&gt;();
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_round_up_to_page_size</span>() {
-        <span class="macro">assert_eq!</span>(<span class="ident">round_up_to_page_size</span>(<span class="number">0</span>, <span class="number">4096</span>), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">round_up_to_page_size</span>(<span class="number">1</span>, <span class="number">4096</span>), <span class="number">4096</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">round_up_to_page_size</span>(<span class="number">4096</span>, <span class="number">4096</span>), <span class="number">4096</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">round_up_to_page_size</span>(<span class="number">4097</span>, <span class="number">4096</span>), <span class="number">8192</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_round_up_to_page_size() {
+        <span class="macro">assert_eq!</span>(round_up_to_page_size(<span class="number">0</span>, <span class="number">4096</span>), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(round_up_to_page_size(<span class="number">1</span>, <span class="number">4096</span>), <span class="number">4096</span>);
+        <span class="macro">assert_eq!</span>(round_up_to_page_size(<span class="number">4096</span>, <span class="number">4096</span>), <span class="number">4096</span>);
+        <span class="macro">assert_eq!</span>(round_up_to_page_size(<span class="number">4097</span>, <span class="number">4096</span>), <span class="number">8192</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

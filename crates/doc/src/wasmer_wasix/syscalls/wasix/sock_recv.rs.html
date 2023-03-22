@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/syscalls/wasix/sock_recv.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>sock_recv.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/syscalls/wasix/sock_recv.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>sock_recv.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -129,134 +129,134 @@
 <span id="127">127</span>
 <span id="128">128</span>
 <span id="129">129</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::mem::MaybeUninit;
 
-<span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// ### `sock_recv()`</span>
-<span class="doccomment">/// Receive a message from a socket.</span>
-<span class="doccomment">/// Note: This is similar to `recv` in POSIX, though it also supports reading</span>
-<span class="doccomment">/// the data into multiple buffers in the manner of `readv`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Parameters</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// * `ri_data` - List of scatter/gather vectors to which to store data.</span>
-<span class="doccomment">/// * `ri_flags` - Message flags.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Return</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Number of bytes stored in ri_data and message flags.</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">nread</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_recv</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
-    <span class="ident">ri_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">ri_data_len</span>: <span class="ident">M::Offset</span>,
-    <span class="ident">ri_flags</span>: <span class="ident">RiFlags</span>,
-    <span class="ident">ro_data_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">M::Offset</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">ro_flags</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">RoFlags</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">pid</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>();
-    <span class="kw">let</span> <span class="ident">tid</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>();
+<span class="doccomment">/// ### `sock_recv()`
+/// Receive a message from a socket.
+/// Note: This is similar to `recv` in POSIX, though it also supports reading
+/// the data into multiple buffers in the manner of `readv`.
+///
+/// ## Parameters
+///
+/// * `ri_data` - List of scatter/gather vectors to which to store data.
+/// * `ri_flags` - Message flags.
+///
+/// ## Return
+///
+/// Number of bytes stored in ri_data and message flags.
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(sock, nread = field::Empty), ret, err)]
+</span><span class="kw">pub fn </span>sock_recv&lt;M: MemorySize&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    sock: WasiFd,
+    ri_data: WasmPtr&lt;__wasi_iovec_t&lt;M&gt;, M&gt;,
+    ri_data_len: M::Offset,
+    ri_flags: RiFlags,
+    ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
+    ro_flags: WasmPtr&lt;RoFlags, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="kw">let </span>pid = ctx.data().pid();
+    <span class="kw">let </span>tid = ctx.data().tid();
 
-    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">sock_recv_internal</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>,
-        <span class="ident">sock</span>,
-        <span class="ident">ri_data</span>,
-        <span class="ident">ri_data_len</span>,
-        <span class="ident">ri_flags</span>,
-        <span class="ident">ro_data_len</span>,
-        <span class="ident">ro_flags</span>,
+    <span class="kw">let </span>res = sock_recv_internal::&lt;M&gt;(
+        <span class="kw-2">&amp;mut </span>ctx,
+        sock,
+        ri_data,
+        ri_data_len,
+        ri_flags,
+        ro_data_len,
+        ro_flags,
     )<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Errno::Success</span>;
-    <span class="kw">let</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">bytes_read</span>) =&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>ret = Errno::Success;
+    <span class="kw">let </span>bytes_read = <span class="kw">match </span>res {
+        <span class="prelude-val">Ok</span>(bytes_read) =&gt; {
             <span class="macro">trace!</span>(
-                <span class="op">%</span><span class="ident">bytes_read</span>,
+                %bytes_read,
             );
-            <span class="ident">bytes_read</span>
+            bytes_read
         }
-        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-            <span class="kw">let</span> <span class="ident">socket_err</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">name</span>();
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="kw">let </span>socket_err = err.name();
             <span class="macro">trace!</span>(
-                <span class="op">%</span><span class="ident">socket_err</span>,
+                %socket_err,
             );
-            <span class="ident">ret</span> <span class="op">=</span> <span class="ident">err</span>;
-            <span class="number">0</span>
-        }
+            ret = err;
+            <span class="number">0
+        </span>}
     };
-    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;nread&quot;</span>, <span class="ident">bytes_read</span>);
+    Span::current().record(<span class="string">&quot;nread&quot;</span>, bytes_read);
 
-    <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
 
-    <span class="kw">let</span> <span class="ident">bytes_read</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">bytes_read</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>));
-    <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">ro_flags</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>));
-    <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">ro_data_len</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">bytes_read</span>));
+    <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+    <span class="macro">wasi_try_mem_ok!</span>(ro_flags.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
+    <span class="macro">wasi_try_mem_ok!</span>(ro_data_len.write(<span class="kw-2">&amp;</span>memory, bytes_read));
 
-    <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+    <span class="prelude-val">Ok</span>(ret)
 }
 
-<span class="doccomment">/// ### `sock_recv()`</span>
-<span class="doccomment">/// Receive a message from a socket.</span>
-<span class="doccomment">/// Note: This is similar to `recv` in POSIX, though it also supports reading</span>
-<span class="doccomment">/// the data into multiple buffers in the manner of `readv`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Parameters</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// * `ri_data` - List of scatter/gather vectors to which to store data.</span>
-<span class="doccomment">/// * `ri_flags` - Message flags.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Return</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Number of bytes stored in ri_data and message flags.</span>
-<span class="kw">fn</span> <span class="ident">sock_recv_internal</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
-    <span class="ident">ri_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">ri_data_len</span>: <span class="ident">M::Offset</span>,
-    <span class="ident">ri_flags</span>: <span class="ident">RiFlags</span>,
-    <span class="ident">ro_data_len</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">M::Offset</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">ro_flags</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">RoFlags</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">Errno</span><span class="op">&gt;</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">wasi_try_ok_ok!</span>(<span class="ident">WasiEnv::process_signals_and_exit</span>(<span class="ident">ctx</span>)<span class="question-mark">?</span>);
+<span class="doccomment">/// ### `sock_recv()`
+/// Receive a message from a socket.
+/// Note: This is similar to `recv` in POSIX, though it also supports reading
+/// the data into multiple buffers in the manner of `readv`.
+///
+/// ## Parameters
+///
+/// * `ri_data` - List of scatter/gather vectors to which to store data.
+/// * `ri_flags` - Message flags.
+///
+/// ## Return
+///
+/// Number of bytes stored in ri_data and message flags.
+</span><span class="kw">fn </span>sock_recv_internal&lt;M: MemorySize&gt;(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    sock: WasiFd,
+    ri_data: WasmPtr&lt;__wasi_iovec_t&lt;M&gt;, M&gt;,
+    ri_data_len: M::Offset,
+    ri_flags: RiFlags,
+    ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
+    ro_flags: WasmPtr&lt;RoFlags, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;usize, Errno&gt;, WasiError&gt; {
+    <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="ident">ctx</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+    <span class="kw">let </span>memory = env.memory_view(ctx);
 
-    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">wasi_try_ok_ok!</span>(<span class="ident">__sock_asyncify</span>(
-        <span class="ident">env</span>,
-        <span class="ident">sock</span>,
-        <span class="ident">Rights::SOCK_RECV</span>,
-        <span class="op">|</span><span class="ident">socket</span>, <span class="ident">fd</span><span class="op">|</span> <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">let</span> <span class="ident">iovs_arr</span> <span class="op">=</span> <span class="ident">ri_data</span>
-                .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">ri_data_len</span>)
-                .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">iovs_arr</span> <span class="op">=</span> <span class="ident">iovs_arr</span>.<span class="ident">access</span>().<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
+        env,
+        sock,
+        Rights::SOCK_RECV,
+        |socket, fd| <span class="kw">async move </span>{
+            <span class="kw">let </span>iovs_arr = ri_data
+                .slice(<span class="kw-2">&amp;</span>memory, ri_data_len)
+                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+            <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_read</span> <span class="op">=</span> <span class="number">0</span>;
-            <span class="kw">for</span> <span class="ident">iovs</span> <span class="kw">in</span> <span class="ident">iovs_arr</span>.<span class="ident">iter</span>() {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">WasmPtr</span>::<span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">iovs</span>.<span class="ident">buf</span>)
-                    .<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">iovs</span>.<span class="ident">buf_len</span>)
-                    .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>
-                    .<span class="ident">access</span>()
-                    .<span class="ident">map_err</span>(<span class="ident">mem_error_to_wasi</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0</span>;
+            <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                <span class="kw">let </span><span class="kw-2">mut </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+                    .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+                    .map_err(mem_error_to_wasi)<span class="question-mark">?
+                    </span>.access()
+                    .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-                <span class="ident">total_read</span> <span class="op">+</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">socket</span>
-                    .<span class="ident">recv</span>(<span class="ident">env</span>.<span class="ident">tasks</span>().<span class="ident">deref</span>(), <span class="ident">buf</span>.<span class="ident">as_mut_uninit</span>(), <span class="ident">fd</span>.<span class="ident">flags</span>)
-                    .<span class="kw">await</span>
-                {
-                    <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if</span> <span class="ident">total_read</span> <span class="op">&gt;</span> <span class="number">0</span> =&gt; <span class="kw">break</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>),
+                total_read += <span class="kw">match </span>socket
+                    .recv(env.tasks().deref(), buf.as_mut_uninit(), fd.flags)
+                    .<span class="kw">await
+                </span>{
+                    <span class="prelude-val">Ok</span>(s) =&gt; s,
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>total_read &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
+                    <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
                 };
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">total_read</span>)
+            <span class="prelude-val">Ok</span>(total_read)
         },
     ));
-    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">data</span>))
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(data))
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

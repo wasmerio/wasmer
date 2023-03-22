@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/types.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -633,640 +633,640 @@
 <span id="633">633</span>
 <span id="634">634</span>
 <span id="635">635</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::indexes</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::borrow::ToOwned</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::format</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::units::Pages</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::indexes::{FunctionIndex, GlobalIndex};
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::borrow::ToOwned;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::format;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::string::{String, ToString};
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
+<span class="kw">use </span><span class="kw">crate</span>::units::Pages;
 
-<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="comment">// Type Representations</span>
+<span class="comment">// Type Representations
 
-<span class="comment">// Value Types</span>
+// Value Types
 
-<span class="doccomment">/// A list of all possible value types in WebAssembly.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Type</span> {
-    <span class="doccomment">/// Signed 32 bit integer.</span>
-    <span class="ident">I32</span>,
-    <span class="doccomment">/// Signed 64 bit integer.</span>
-    <span class="ident">I64</span>,
-    <span class="doccomment">/// Floating point 32 bit integer.</span>
-    <span class="ident">F32</span>,
-    <span class="doccomment">/// Floating point 64 bit integer.</span>
-    <span class="ident">F64</span>,
-    <span class="doccomment">/// A 128 bit number.</span>
-    <span class="ident">V128</span>,
-    <span class="doccomment">/// A reference to opaque data in the Wasm instance.</span>
-    <span class="ident">ExternRef</span>, <span class="comment">/* = 128 */</span>
-    <span class="doccomment">/// A reference to a Wasm function.</span>
-    <span class="ident">FuncRef</span>,
+</span><span class="doccomment">/// A list of all possible value types in WebAssembly.
+</span><span class="attribute">#[derive(Copy, Debug, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>Type {
+    <span class="doccomment">/// Signed 32 bit integer.
+    </span>I32,
+    <span class="doccomment">/// Signed 64 bit integer.
+    </span>I64,
+    <span class="doccomment">/// Floating point 32 bit integer.
+    </span>F32,
+    <span class="doccomment">/// Floating point 64 bit integer.
+    </span>F64,
+    <span class="doccomment">/// A 128 bit number.
+    </span>V128,
+    <span class="doccomment">/// A reference to opaque data in the Wasm instance.
+    </span>ExternRef, <span class="comment">/* = 128 */
+    </span><span class="doccomment">/// A reference to a Wasm function.
+    </span>FuncRef,
 }
 
-<span class="kw">impl</span> <span class="ident">Type</span> {
-    <span class="doccomment">/// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,</span>
-    <span class="doccomment">/// `I64`, `F32`, `F64`, `V128`).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_num</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+<span class="kw">impl </span>Type {
+    <span class="doccomment">/// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
+    /// `I64`, `F32`, `F64`, `V128`).
+    </span><span class="kw">pub fn </span>is_num(<span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(
             <span class="self">self</span>,
-            <span class="ident"><span class="self">Self</span>::I32</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I64</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::F32</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::F64</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::V128</span>
+            <span class="self">Self</span>::I32 | <span class="self">Self</span>::I64 | <span class="self">Self</span>::F32 | <span class="self">Self</span>::F64 | <span class="self">Self</span>::V128
         )
     }
 
-    <span class="doccomment">/// Returns true if `Type` matches either of the reference types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_ref</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::ExternRef</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::FuncRef</span>)
+    <span class="doccomment">/// Returns true if `Type` matches either of the reference types.
+    </span><span class="kw">pub fn </span>is_ref(<span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::ExternRef | <span class="self">Self</span>::FuncRef)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">Type</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>)
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>Type {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>)
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="doccomment">/// The WebAssembly V128 type</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">V128</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) [<span class="ident">u8</span>; <span class="number">16</span>]);
+<span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+</span><span class="doccomment">/// The WebAssembly V128 type
+</span><span class="attribute">#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>V128(<span class="kw">pub</span>(<span class="kw">crate</span>) [u8; <span class="number">16</span>]);
 
-<span class="kw">impl</span> <span class="ident">V128</span> {
-    <span class="doccomment">/// Get the bytes corresponding to the V128 value</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>; <span class="number">16</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>
-    }
-    <span class="doccomment">/// Iterate over the bytes in the constant.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">u8</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">iter</span>()
-    }
-
-    <span class="doccomment">/// Convert the immediate into a vector.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_vec</span>(<span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">to_vec</span>()
+<span class="kw">impl </span>V128 {
+    <span class="doccomment">/// Get the bytes corresponding to the V128 value
+    </span><span class="kw">pub fn </span>bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8; <span class="number">16</span>] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
+    </span>}
+    <span class="doccomment">/// Iterate over the bytes in the constant.
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span>u8&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.iter()
     }
 
-    <span class="doccomment">/// Convert the immediate into a slice.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] {
+    <span class="doccomment">/// Convert the immediate into a vector.
+    </span><span class="kw">pub fn </span>to_vec(<span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.to_vec()
+    }
+
+    <span class="doccomment">/// Convert the immediate into a slice.
+    </span><span class="kw">pub fn </span>as_slice(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..]
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="number">16</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">V128</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">array</span>: [<span class="ident">u8</span>; <span class="number">16</span>]) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">array</span>)
+<span class="kw">impl </span>From&lt;[u8; <span class="number">16</span>]&gt; <span class="kw">for </span>V128 {
+    <span class="kw">fn </span>from(array: [u8; <span class="number">16</span>]) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(array)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">V128</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="self">Self</span> {
-        <span class="macro">assert_eq!</span>(<span class="ident">slice</span>.<span class="ident">len</span>(), <span class="number">16</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">16</span>];
-        <span class="ident">buffer</span>.<span class="ident">copy_from_slice</span>(<span class="ident">slice</span>);
-        <span class="self">Self</span>(<span class="ident">buffer</span>)
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>[u8]&gt; <span class="kw">for </span>V128 {
+    <span class="kw">fn </span>from(slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self </span>{
+        <span class="macro">assert_eq!</span>(slice.len(), <span class="number">16</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">16</span>];
+        buffer.copy_from_slice(slice);
+        <span class="self">Self</span>(buffer)
     }
 }
 
-<span class="comment">// External Types</span>
+<span class="comment">// External Types
 
-<span class="doccomment">/// A list of all possible types which can be externally referenced from a</span>
-<span class="doccomment">/// WebAssembly module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This list can be found in [`ImportType`] or [`ExportType`], so these types</span>
-<span class="doccomment">/// can either be imported or exported.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExternType</span> {
-    <span class="doccomment">/// This external type is the type of a WebAssembly function.</span>
-    <span class="ident">Function</span>(<span class="ident">FunctionType</span>),
-    <span class="doccomment">/// This external type is the type of a WebAssembly global.</span>
-    <span class="ident">Global</span>(<span class="ident">GlobalType</span>),
-    <span class="doccomment">/// This external type is the type of a WebAssembly table.</span>
-    <span class="ident">Table</span>(<span class="ident">TableType</span>),
-    <span class="doccomment">/// This external type is the type of a WebAssembly memory.</span>
-    <span class="ident">Memory</span>(<span class="ident">MemoryType</span>),
+</span><span class="doccomment">/// A list of all possible types which can be externally referenced from a
+/// WebAssembly module.
+///
+/// This list can be found in [`ImportType`] or [`ExportType`], so these types
+/// can either be imported or exported.
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub enum </span>ExternType {
+    <span class="doccomment">/// This external type is the type of a WebAssembly function.
+    </span>Function(FunctionType),
+    <span class="doccomment">/// This external type is the type of a WebAssembly global.
+    </span>Global(GlobalType),
+    <span class="doccomment">/// This external type is the type of a WebAssembly table.
+    </span>Table(TableType),
+    <span class="doccomment">/// This external type is the type of a WebAssembly memory.
+    </span>Memory(MemoryType),
 }
 
-<span class="kw">fn</span> <span class="ident">is_global_compatible</span>(<span class="ident">exported</span>: <span class="ident">GlobalType</span>, <span class="ident">imported</span>: <span class="ident">GlobalType</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">GlobalType</span> {
-        <span class="ident">ty</span>: <span class="ident">exported_ty</span>,
-        <span class="ident">mutability</span>: <span class="ident">exported_mutability</span>,
-    } <span class="op">=</span> <span class="ident">exported</span>;
-    <span class="kw">let</span> <span class="ident">GlobalType</span> {
-        <span class="ident">ty</span>: <span class="ident">imported_ty</span>,
-        <span class="ident">mutability</span>: <span class="ident">imported_mutability</span>,
-    } <span class="op">=</span> <span class="ident">imported</span>;
+<span class="kw">fn </span>is_global_compatible(exported: GlobalType, imported: GlobalType) -&gt; bool {
+    <span class="kw">let </span>GlobalType {
+        ty: exported_ty,
+        mutability: exported_mutability,
+    } = exported;
+    <span class="kw">let </span>GlobalType {
+        ty: imported_ty,
+        mutability: imported_mutability,
+    } = imported;
 
-    <span class="ident">exported_ty</span> <span class="op">==</span> <span class="ident">imported_ty</span> <span class="op">&amp;&amp;</span> <span class="ident">imported_mutability</span> <span class="op">==</span> <span class="ident">exported_mutability</span>
+    exported_ty == imported_ty &amp;&amp; imported_mutability == exported_mutability
 }
 
-<span class="kw">fn</span> <span class="ident">is_table_element_type_compatible</span>(<span class="ident">exported_type</span>: <span class="ident">Type</span>, <span class="ident">imported_type</span>: <span class="ident">Type</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">match</span> <span class="ident">exported_type</span> {
-        <span class="ident">Type::FuncRef</span> =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="ident">imported_type</span> <span class="op">==</span> <span class="ident">exported_type</span>,
+<span class="kw">fn </span>is_table_element_type_compatible(exported_type: Type, imported_type: Type) -&gt; bool {
+    <span class="kw">match </span>exported_type {
+        Type::FuncRef =&gt; <span class="bool-val">true</span>,
+        <span class="kw">_ </span>=&gt; imported_type == exported_type,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">is_table_compatible</span>(
-    <span class="ident">exported</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-    <span class="ident">imported</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-    <span class="ident">imported_runtime_size</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">TableType</span> {
-        <span class="ident">ty</span>: <span class="ident">exported_ty</span>,
-        <span class="ident">minimum</span>: <span class="ident">exported_minimum</span>,
-        <span class="ident">maximum</span>: <span class="ident">exported_maximum</span>,
-    } <span class="op">=</span> <span class="ident">exported</span>;
-    <span class="kw">let</span> <span class="ident">TableType</span> {
-        <span class="ident">ty</span>: <span class="ident">imported_ty</span>,
-        <span class="ident">minimum</span>: <span class="ident">imported_minimum</span>,
-        <span class="ident">maximum</span>: <span class="ident">imported_maximum</span>,
-    } <span class="op">=</span> <span class="ident">imported</span>;
+<span class="kw">fn </span>is_table_compatible(
+    exported: <span class="kw-2">&amp;</span>TableType,
+    imported: <span class="kw-2">&amp;</span>TableType,
+    imported_runtime_size: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+) -&gt; bool {
+    <span class="kw">let </span>TableType {
+        ty: exported_ty,
+        minimum: exported_minimum,
+        maximum: exported_maximum,
+    } = exported;
+    <span class="kw">let </span>TableType {
+        ty: imported_ty,
+        minimum: imported_minimum,
+        maximum: imported_maximum,
+    } = imported;
 
-    <span class="ident">is_table_element_type_compatible</span>(<span class="kw-2">*</span><span class="ident">exported_ty</span>, <span class="kw-2">*</span><span class="ident">imported_ty</span>)
-        <span class="op">&amp;&amp;</span> <span class="kw-2">*</span><span class="ident">imported_minimum</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">imported_runtime_size</span>.<span class="ident">unwrap_or</span>(<span class="kw-2">*</span><span class="ident">exported_minimum</span>)
-        <span class="op">&amp;&amp;</span> (<span class="ident">imported_maximum</span>.<span class="ident">is_none</span>()
-            <span class="op">|</span><span class="op">|</span> (<span class="op">!</span><span class="ident">exported_maximum</span>.<span class="ident">is_none</span>()
-                <span class="op">&amp;&amp;</span> <span class="ident">imported_maximum</span>.<span class="ident">unwrap</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">exported_maximum</span>.<span class="ident">unwrap</span>()))
+    is_table_element_type_compatible(<span class="kw-2">*</span>exported_ty, <span class="kw-2">*</span>imported_ty)
+        &amp;&amp; <span class="kw-2">*</span>imported_minimum &lt;= imported_runtime_size.unwrap_or(<span class="kw-2">*</span>exported_minimum)
+        &amp;&amp; (imported_maximum.is_none()
+            || (!exported_maximum.is_none()
+                &amp;&amp; imported_maximum.unwrap() &gt;= exported_maximum.unwrap()))
 }
 
-<span class="kw">fn</span> <span class="ident">is_memory_compatible</span>(
-    <span class="ident">exported</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-    <span class="ident">imported</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-    <span class="ident">imported_runtime_size</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">MemoryType</span> {
-        <span class="ident">minimum</span>: <span class="ident">exported_minimum</span>,
-        <span class="ident">maximum</span>: <span class="ident">exported_maximum</span>,
-        <span class="ident">shared</span>: <span class="ident">exported_shared</span>,
-    } <span class="op">=</span> <span class="ident">exported</span>;
-    <span class="kw">let</span> <span class="ident">MemoryType</span> {
-        <span class="ident">minimum</span>: <span class="ident">imported_minimum</span>,
-        <span class="ident">maximum</span>: <span class="ident">imported_maximum</span>,
-        <span class="ident">shared</span>: <span class="ident">imported_shared</span>,
-    } <span class="op">=</span> <span class="ident">imported</span>;
+<span class="kw">fn </span>is_memory_compatible(
+    exported: <span class="kw-2">&amp;</span>MemoryType,
+    imported: <span class="kw-2">&amp;</span>MemoryType,
+    imported_runtime_size: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+) -&gt; bool {
+    <span class="kw">let </span>MemoryType {
+        minimum: exported_minimum,
+        maximum: exported_maximum,
+        shared: exported_shared,
+    } = exported;
+    <span class="kw">let </span>MemoryType {
+        minimum: imported_minimum,
+        maximum: imported_maximum,
+        shared: imported_shared,
+    } = imported;
 
-    <span class="ident">imported_minimum</span>.<span class="number">0</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">imported_runtime_size</span>.<span class="ident">unwrap_or</span>(<span class="ident">exported_minimum</span>.<span class="number">0</span>)
-        <span class="op">&amp;&amp;</span> (<span class="ident">imported_maximum</span>.<span class="ident">is_none</span>()
-            <span class="op">|</span><span class="op">|</span> (<span class="op">!</span><span class="ident">exported_maximum</span>.<span class="ident">is_none</span>()
-                <span class="op">&amp;&amp;</span> <span class="ident">imported_maximum</span>.<span class="ident">unwrap</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">exported_maximum</span>.<span class="ident">unwrap</span>()))
-        <span class="op">&amp;&amp;</span> <span class="ident">exported_shared</span> <span class="op">==</span> <span class="ident">imported_shared</span>
+    imported_minimum.<span class="number">0 </span>&lt;= imported_runtime_size.unwrap_or(exported_minimum.<span class="number">0</span>)
+        &amp;&amp; (imported_maximum.is_none()
+            || (!exported_maximum.is_none()
+                &amp;&amp; imported_maximum.unwrap() &gt;= exported_maximum.unwrap()))
+        &amp;&amp; exported_shared == imported_shared
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">accessors</span> {
-    ($((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>:<span class="ident">ident</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ty</span>) <span class="macro-nonterminal">$</span><span class="macro-nonterminal">get</span>:<span class="ident">ident</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">unwrap</span>:<span class="ident">ident</span>))<span class="kw-2">*</span>) =&gt; ($(
-        <span class="doccomment">/// Attempt to return the underlying type of this external type,</span>
-        <span class="doccomment">/// returning `None` if it is a different type.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span><span class="op">&gt;</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="self">Self</span>::<span class="macro-nonterminal">$</span><span class="macro-nonterminal">variant</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">e</span>)
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            }
+<span class="macro">macro_rules! </span>accessors {
+    ($((<span class="macro-nonterminal">$variant</span>:ident(<span class="macro-nonterminal">$ty</span>:ty) <span class="macro-nonterminal">$get</span>:ident <span class="macro-nonterminal">$unwrap</span>:ident))<span class="kw-2">*</span>) =&gt; ($(
+        <span class="doccomment">/// Attempt to return the underlying type of this external type,
+        /// returning `None` if it is a different type.
+        </span><span class="kw">pub fn </span><span class="macro-nonterminal">$get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="macro-nonterminal">$ty</span>&gt; {
+            <span class="kw">if let </span><span class="self">Self</span>::<span class="macro-nonterminal">$variant</span>(e) = <span class="self">self </span>{
+                <span class="prelude-val">Some</span>(e)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
         }
 
-        <span class="doccomment">/// Returns the underlying descriptor of this [`ExternType`], panicking</span>
-        <span class="doccomment">/// if it is a different type.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Panics</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// Panics if `self` is not of the right type.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">unwrap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
-            <span class="self">self</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">get</span>().<span class="ident">expect</span>(<span class="macro">concat!</span>(<span class="string">&quot;expected &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>)))
+        <span class="doccomment">/// Returns the underlying descriptor of this [`ExternType`], panicking
+        /// if it is a different type.
+        ///
+        /// # Panics
+        ///
+        /// Panics if `self` is not of the right type.
+        </span><span class="kw">pub fn </span><span class="macro-nonterminal">$unwrap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="macro-nonterminal">$ty </span>{
+            <span class="self">self</span>.<span class="macro-nonterminal">$get</span>().expect(<span class="macro">concat!</span>(<span class="string">&quot;expected &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$ty</span>)))
         }
     )<span class="kw-2">*</span>)
 }
 
-<span class="kw">impl</span> <span class="ident">ExternType</span> {
-    <span class="macro">accessors!</span> {
-        (<span class="ident">Function</span>(<span class="ident">FunctionType</span>) <span class="ident">func</span> <span class="ident">unwrap_func</span>)
-        (<span class="ident">Global</span>(<span class="ident">GlobalType</span>) <span class="ident">global</span> <span class="ident">unwrap_global</span>)
-        (<span class="ident">Table</span>(<span class="ident">TableType</span>) <span class="ident">table</span> <span class="ident">unwrap_table</span>)
-        (<span class="ident">Memory</span>(<span class="ident">MemoryType</span>) <span class="ident">memory</span> <span class="ident">unwrap_memory</span>)
+<span class="kw">impl </span>ExternType {
+    <span class="macro">accessors! </span>{
+        (Function(FunctionType) func unwrap_func)
+        (Global(GlobalType) global unwrap_global)
+        (Table(TableType) table unwrap_table)
+        (Memory(MemoryType) memory unwrap_memory)
     }
-    <span class="doccomment">/// Check if two externs are compatible</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_compatible_with</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>, <span class="ident">runtime_size</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">match</span> (<span class="self">self</span>, <span class="ident">other</span>) {
-            (<span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Function</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            (<span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Global</span>(<span class="ident">b</span>)) =&gt; <span class="ident">is_global_compatible</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="kw-2">*</span><span class="ident">b</span>),
-            (<span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Table</span>(<span class="ident">b</span>)) =&gt; <span class="ident">is_table_compatible</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">runtime_size</span>),
-            (<span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">a</span>), <span class="ident"><span class="self">Self</span>::Memory</span>(<span class="ident">b</span>)) =&gt; <span class="ident">is_memory_compatible</span>(<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">runtime_size</span>),
-            <span class="comment">// The rest of possibilities, are not compatible</span>
-            <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
+    <span class="doccomment">/// Check if two externs are compatible
+    </span><span class="kw">pub fn </span>is_compatible_with(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>, runtime_size: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; bool {
+        <span class="kw">match </span>(<span class="self">self</span>, other) {
+            (<span class="self">Self</span>::Function(a), <span class="self">Self</span>::Function(b)) =&gt; a == b,
+            (<span class="self">Self</span>::Global(a), <span class="self">Self</span>::Global(b)) =&gt; is_global_compatible(<span class="kw-2">*</span>a, <span class="kw-2">*</span>b),
+            (<span class="self">Self</span>::Table(a), <span class="self">Self</span>::Table(b)) =&gt; is_table_compatible(a, b, runtime_size),
+            (<span class="self">Self</span>::Memory(a), <span class="self">Self</span>::Memory(b)) =&gt; is_memory_compatible(a, b, runtime_size),
+            <span class="comment">// The rest of possibilities, are not compatible
+            </span><span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
         }
     }
 }
 
-<span class="comment">// TODO: `shrink_to_fit` these or change it to `Box&lt;[Type]&gt;` if not using</span>
-<span class="comment">// Cow or something else</span>
-<span class="doccomment">/// The signature of a function that is either implemented</span>
-<span class="doccomment">/// in a Wasm module or exposed to Wasm by the host.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// WebAssembly functions can have 0 or more parameters and results.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionType</span> {
-    <span class="doccomment">/// The parameters of the function</span>
-    <span class="ident">params</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span>,
-    <span class="doccomment">/// The return values of the function</span>
-    <span class="ident">results</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span>,
+<span class="comment">// TODO: `shrink_to_fit` these or change it to `Box&lt;[Type]&gt;` if not using
+// Cow or something else
+</span><span class="doccomment">/// The signature of a function that is either implemented
+/// in a Wasm module or exposed to Wasm by the host.
+///
+/// WebAssembly functions can have 0 or more parameters and results.
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+</span><span class="kw">pub struct </span>FunctionType {
+    <span class="doccomment">/// The parameters of the function
+    </span>params: Box&lt;[Type]&gt;,
+    <span class="doccomment">/// The return values of the function
+    </span>results: Box&lt;[Type]&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">FunctionType</span> {
-    <span class="doccomment">/// Creates a new Function Type with the given parameter and return types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">Params</span>, <span class="ident">Returns</span><span class="op">&gt;</span>(<span class="ident">params</span>: <span class="ident">Params</span>, <span class="ident">returns</span>: <span class="ident">Returns</span>) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">Params</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">Returns</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="kw">impl </span>FunctionType {
+    <span class="doccomment">/// Creates a new Function Type with the given parameter and return types.
+    </span><span class="kw">pub fn </span>new&lt;Params, Returns&gt;(params: Params, returns: Returns) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>Params: Into&lt;Box&lt;[Type]&gt;&gt;,
+        Returns: Into&lt;Box&lt;[Type]&gt;&gt;,
     {
-        <span class="self">Self</span> {
-            <span class="ident">params</span>: <span class="ident">params</span>.<span class="ident">into</span>(),
-            <span class="ident">results</span>: <span class="ident">returns</span>.<span class="ident">into</span>(),
+        <span class="self">Self </span>{
+            params: params.into(),
+            results: returns.into(),
         }
     }
 
-    <span class="doccomment">/// Parameter types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">params</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">Type</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">params</span>
+    <span class="doccomment">/// Parameter types.
+    </span><span class="kw">pub fn </span>params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Type] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.params
     }
 
-    <span class="doccomment">/// Return types.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">results</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">Type</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">results</span>
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">FunctionType</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">params</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">p</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>);
-        <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">results</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">p</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>);
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;[{}] -&gt; [{}]&quot;</span>, <span class="ident">params</span>, <span class="ident">results</span>)
+    <span class="doccomment">/// Return types.
+    </span><span class="kw">pub fn </span>results(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Type] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.results
     }
 }
 
-<span class="comment">// Macro needed until https://rust-lang.github.io/rfcs/2000-const-generics.html is stable.</span>
-<span class="comment">// See https://users.rust-lang.org/t/how-to-implement-trait-for-fixed-size-array-of-any-size/31494</span>
-<span class="macro">macro_rules!</span> <span class="ident">implement_from_pair_to_functiontype</span> {
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">N</span>:<span class="ident">literal</span>,<span class="macro-nonterminal">$</span><span class="macro-nonterminal">M</span>:<span class="ident">literal</span>)<span class="op">+</span>) =&gt; {
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>FunctionType {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">let </span>params = <span class="self">self
+            </span>.params
+            .iter()
+            .map(|p| <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, p))
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(<span class="string">&quot;, &quot;</span>);
+        <span class="kw">let </span>results = <span class="self">self
+            </span>.results
+            .iter()
+            .map(|p| <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, p))
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(<span class="string">&quot;, &quot;</span>);
+        <span class="macro">write!</span>(f, <span class="string">&quot;[{}] -&gt; [{}]&quot;</span>, params, results)
+    }
+}
+
+<span class="comment">// Macro needed until https://rust-lang.github.io/rfcs/2000-const-generics.html is stable.
+// See https://users.rust-lang.org/t/how-to-implement-trait-for-fixed-size-array-of-any-size/31494
+</span><span class="macro">macro_rules! </span>implement_from_pair_to_functiontype {
+    ($(<span class="macro-nonterminal">$N</span>:literal,<span class="macro-nonterminal">$M</span>:literal)+) =&gt; {
         $(
-            <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span>([<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">N</span>], [<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">M</span>])<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FunctionType</span> {
-                <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">pair</span>: ([<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">N</span>], [<span class="ident">Type</span>; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">M</span>])) -&gt; <span class="self">Self</span> {
-                    <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">pair</span>.<span class="number">0</span>, <span class="ident">pair</span>.<span class="number">1</span>)
+            <span class="kw">impl </span>From&lt;([Type; <span class="macro-nonterminal">$N</span>], [Type; <span class="macro-nonterminal">$M</span>])&gt; <span class="kw">for </span>FunctionType {
+                <span class="kw">fn </span>from(pair: ([Type; <span class="macro-nonterminal">$N</span>], [Type; <span class="macro-nonterminal">$M</span>])) -&gt; <span class="self">Self </span>{
+                    <span class="self">Self</span>::new(pair.<span class="number">0</span>, pair.<span class="number">1</span>)
                 }
             }
-        )<span class="op">+</span>
+        )+
     }
 }
 
-<span class="macro">implement_from_pair_to_functiontype!</span> {
-    <span class="number">0</span>,<span class="number">0</span> <span class="number">0</span>,<span class="number">1</span> <span class="number">0</span>,<span class="number">2</span> <span class="number">0</span>,<span class="number">3</span> <span class="number">0</span>,<span class="number">4</span> <span class="number">0</span>,<span class="number">5</span> <span class="number">0</span>,<span class="number">6</span> <span class="number">0</span>,<span class="number">7</span> <span class="number">0</span>,<span class="number">8</span> <span class="number">0</span>,<span class="number">9</span>
-    <span class="number">1</span>,<span class="number">0</span> <span class="number">1</span>,<span class="number">1</span> <span class="number">1</span>,<span class="number">2</span> <span class="number">1</span>,<span class="number">3</span> <span class="number">1</span>,<span class="number">4</span> <span class="number">1</span>,<span class="number">5</span> <span class="number">1</span>,<span class="number">6</span> <span class="number">1</span>,<span class="number">7</span> <span class="number">1</span>,<span class="number">8</span> <span class="number">1</span>,<span class="number">9</span>
-    <span class="number">2</span>,<span class="number">0</span> <span class="number">2</span>,<span class="number">1</span> <span class="number">2</span>,<span class="number">2</span> <span class="number">2</span>,<span class="number">3</span> <span class="number">2</span>,<span class="number">4</span> <span class="number">2</span>,<span class="number">5</span> <span class="number">2</span>,<span class="number">6</span> <span class="number">2</span>,<span class="number">7</span> <span class="number">2</span>,<span class="number">8</span> <span class="number">2</span>,<span class="number">9</span>
-    <span class="number">3</span>,<span class="number">0</span> <span class="number">3</span>,<span class="number">1</span> <span class="number">3</span>,<span class="number">2</span> <span class="number">3</span>,<span class="number">3</span> <span class="number">3</span>,<span class="number">4</span> <span class="number">3</span>,<span class="number">5</span> <span class="number">3</span>,<span class="number">6</span> <span class="number">3</span>,<span class="number">7</span> <span class="number">3</span>,<span class="number">8</span> <span class="number">3</span>,<span class="number">9</span>
-    <span class="number">4</span>,<span class="number">0</span> <span class="number">4</span>,<span class="number">1</span> <span class="number">4</span>,<span class="number">2</span> <span class="number">4</span>,<span class="number">3</span> <span class="number">4</span>,<span class="number">4</span> <span class="number">4</span>,<span class="number">5</span> <span class="number">4</span>,<span class="number">6</span> <span class="number">4</span>,<span class="number">7</span> <span class="number">4</span>,<span class="number">8</span> <span class="number">4</span>,<span class="number">9</span>
-    <span class="number">5</span>,<span class="number">0</span> <span class="number">5</span>,<span class="number">1</span> <span class="number">5</span>,<span class="number">2</span> <span class="number">5</span>,<span class="number">3</span> <span class="number">5</span>,<span class="number">4</span> <span class="number">5</span>,<span class="number">5</span> <span class="number">5</span>,<span class="number">6</span> <span class="number">5</span>,<span class="number">7</span> <span class="number">5</span>,<span class="number">8</span> <span class="number">5</span>,<span class="number">9</span>
-    <span class="number">6</span>,<span class="number">0</span> <span class="number">6</span>,<span class="number">1</span> <span class="number">6</span>,<span class="number">2</span> <span class="number">6</span>,<span class="number">3</span> <span class="number">6</span>,<span class="number">4</span> <span class="number">6</span>,<span class="number">5</span> <span class="number">6</span>,<span class="number">6</span> <span class="number">6</span>,<span class="number">7</span> <span class="number">6</span>,<span class="number">8</span> <span class="number">6</span>,<span class="number">9</span>
-    <span class="number">7</span>,<span class="number">0</span> <span class="number">7</span>,<span class="number">1</span> <span class="number">7</span>,<span class="number">2</span> <span class="number">7</span>,<span class="number">3</span> <span class="number">7</span>,<span class="number">4</span> <span class="number">7</span>,<span class="number">5</span> <span class="number">7</span>,<span class="number">6</span> <span class="number">7</span>,<span class="number">7</span> <span class="number">7</span>,<span class="number">8</span> <span class="number">7</span>,<span class="number">9</span>
-    <span class="number">8</span>,<span class="number">0</span> <span class="number">8</span>,<span class="number">1</span> <span class="number">8</span>,<span class="number">2</span> <span class="number">8</span>,<span class="number">3</span> <span class="number">8</span>,<span class="number">4</span> <span class="number">8</span>,<span class="number">5</span> <span class="number">8</span>,<span class="number">6</span> <span class="number">8</span>,<span class="number">7</span> <span class="number">8</span>,<span class="number">8</span> <span class="number">8</span>,<span class="number">9</span>
-    <span class="number">9</span>,<span class="number">0</span> <span class="number">9</span>,<span class="number">1</span> <span class="number">9</span>,<span class="number">2</span> <span class="number">9</span>,<span class="number">3</span> <span class="number">9</span>,<span class="number">4</span> <span class="number">9</span>,<span class="number">5</span> <span class="number">9</span>,<span class="number">6</span> <span class="number">9</span>,<span class="number">7</span> <span class="number">9</span>,<span class="number">8</span> <span class="number">9</span>,<span class="number">9</span>
-}
+<span class="macro">implement_from_pair_to_functiontype! </span>{
+    <span class="number">0</span>,<span class="number">0 0</span>,<span class="number">1 0</span>,<span class="number">2 0</span>,<span class="number">3 0</span>,<span class="number">4 0</span>,<span class="number">5 0</span>,<span class="number">6 0</span>,<span class="number">7 0</span>,<span class="number">8 0</span>,<span class="number">9
+    1</span>,<span class="number">0 1</span>,<span class="number">1 1</span>,<span class="number">2 1</span>,<span class="number">3 1</span>,<span class="number">4 1</span>,<span class="number">5 1</span>,<span class="number">6 1</span>,<span class="number">7 1</span>,<span class="number">8 1</span>,<span class="number">9
+    2</span>,<span class="number">0 2</span>,<span class="number">1 2</span>,<span class="number">2 2</span>,<span class="number">3 2</span>,<span class="number">4 2</span>,<span class="number">5 2</span>,<span class="number">6 2</span>,<span class="number">7 2</span>,<span class="number">8 2</span>,<span class="number">9
+    3</span>,<span class="number">0 3</span>,<span class="number">1 3</span>,<span class="number">2 3</span>,<span class="number">3 3</span>,<span class="number">4 3</span>,<span class="number">5 3</span>,<span class="number">6 3</span>,<span class="number">7 3</span>,<span class="number">8 3</span>,<span class="number">9
+    4</span>,<span class="number">0 4</span>,<span class="number">1 4</span>,<span class="number">2 4</span>,<span class="number">3 4</span>,<span class="number">4 4</span>,<span class="number">5 4</span>,<span class="number">6 4</span>,<span class="number">7 4</span>,<span class="number">8 4</span>,<span class="number">9
+    5</span>,<span class="number">0 5</span>,<span class="number">1 5</span>,<span class="number">2 5</span>,<span class="number">3 5</span>,<span class="number">4 5</span>,<span class="number">5 5</span>,<span class="number">6 5</span>,<span class="number">7 5</span>,<span class="number">8 5</span>,<span class="number">9
+    6</span>,<span class="number">0 6</span>,<span class="number">1 6</span>,<span class="number">2 6</span>,<span class="number">3 6</span>,<span class="number">4 6</span>,<span class="number">5 6</span>,<span class="number">6 6</span>,<span class="number">7 6</span>,<span class="number">8 6</span>,<span class="number">9
+    7</span>,<span class="number">0 7</span>,<span class="number">1 7</span>,<span class="number">2 7</span>,<span class="number">3 7</span>,<span class="number">4 7</span>,<span class="number">5 7</span>,<span class="number">6 7</span>,<span class="number">7 7</span>,<span class="number">8 7</span>,<span class="number">9
+    8</span>,<span class="number">0 8</span>,<span class="number">1 8</span>,<span class="number">2 8</span>,<span class="number">3 8</span>,<span class="number">4 8</span>,<span class="number">5 8</span>,<span class="number">6 8</span>,<span class="number">7 8</span>,<span class="number">8 8</span>,<span class="number">9
+    9</span>,<span class="number">0 9</span>,<span class="number">1 9</span>,<span class="number">2 9</span>,<span class="number">3 9</span>,<span class="number">4 9</span>,<span class="number">5 9</span>,<span class="number">6 9</span>,<span class="number">7 9</span>,<span class="number">8 9</span>,<span class="number">9
+</span>}
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="self">Self</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FunctionType</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">as_ref</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">as_ref</span>.<span class="ident">clone</span>()
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt; <span class="kw">for </span>FunctionType {
+    <span class="kw">fn </span>from(as_ref: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="self">Self </span>{
+        as_ref.clone()
     }
 }
 
-<span class="doccomment">/// Indicator of whether a global is mutable or not</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Mutability</span> {
-    <span class="doccomment">/// The global is constant and its value does not change</span>
-    <span class="ident">Const</span>,
-    <span class="doccomment">/// The value of the global can change over time</span>
-    <span class="ident">Var</span>,
+<span class="doccomment">/// Indicator of whether a global is mutable or not
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>Mutability {
+    <span class="doccomment">/// The global is constant and its value does not change
+    </span>Const,
+    <span class="doccomment">/// The value of the global can change over time
+    </span>Var,
 }
 
-<span class="kw">impl</span> <span class="ident">Mutability</span> {
-    <span class="doccomment">/// Returns a boolean indicating if the enum is set to mutable.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mutable</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">into</span>()
+<span class="kw">impl </span>Mutability {
+    <span class="doccomment">/// Returns a boolean indicating if the enum is set to mutable.
+    </span><span class="kw">pub fn </span>is_mutable(<span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.into()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Mutability</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">bool</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">if</span> <span class="ident">value</span> {
-            <span class="ident"><span class="self">Self</span>::Var</span>
-        } <span class="kw">else</span> {
-            <span class="ident"><span class="self">Self</span>::Const</span>
+<span class="kw">impl </span>From&lt;bool&gt; <span class="kw">for </span>Mutability {
+    <span class="kw">fn </span>from(value: bool) -&gt; <span class="self">Self </span>{
+        <span class="kw">if </span>value {
+            <span class="self">Self</span>::Var
+        } <span class="kw">else </span>{
+            <span class="self">Self</span>::Const
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Mutability</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">bool</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">Mutability</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">match</span> <span class="ident">value</span> {
-            <span class="ident">Mutability::Var</span> =&gt; <span class="bool-val">true</span>,
-            <span class="ident">Mutability::Const</span> =&gt; <span class="bool-val">false</span>,
+<span class="kw">impl </span>From&lt;Mutability&gt; <span class="kw">for </span>bool {
+    <span class="kw">fn </span>from(value: Mutability) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            Mutability::Var =&gt; <span class="bool-val">true</span>,
+            Mutability::Const =&gt; <span class="bool-val">false</span>,
         }
     }
 }
 
-<span class="doccomment">/// WebAssembly global.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GlobalType</span> {
-    <span class="doccomment">/// The type of the value stored in the global.</span>
-    <span class="kw">pub</span> <span class="ident">ty</span>: <span class="ident">Type</span>,
-    <span class="doccomment">/// A flag indicating whether the value may change at runtime.</span>
-    <span class="kw">pub</span> <span class="ident">mutability</span>: <span class="ident">Mutability</span>,
+<span class="doccomment">/// WebAssembly global.
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>GlobalType {
+    <span class="doccomment">/// The type of the value stored in the global.
+    </span><span class="kw">pub </span>ty: Type,
+    <span class="doccomment">/// A flag indicating whether the value may change at runtime.
+    </span><span class="kw">pub </span>mutability: Mutability,
 }
 
-<span class="comment">// Global Types</span>
+<span class="comment">// Global Types
 
-<span class="doccomment">/// A WebAssembly global descriptor.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This type describes an instance of a global in a WebAssembly</span>
-<span class="doccomment">/// module. Globals are local to an `Instance` and are either</span>
-<span class="doccomment">/// immutable or mutable.</span>
-<span class="kw">impl</span> <span class="ident">GlobalType</span> {
-    <span class="doccomment">/// Create a new Global variable</span>
-    <span class="doccomment">/// # Usage:</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// use wasmer_types::{GlobalType, Type, Mutability};</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// // An I32 constant global</span>
-    <span class="doccomment">/// let global = GlobalType::new(Type::I32, Mutability::Const);</span>
-    <span class="doccomment">/// // An I64 mutable global</span>
-    <span class="doccomment">/// let global = GlobalType::new(Type::I64, Mutability::Var);</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">mutability</span>: <span class="ident">Mutability</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">ty</span>, <span class="ident">mutability</span> }
+</span><span class="doccomment">/// A WebAssembly global descriptor.
+///
+/// This type describes an instance of a global in a WebAssembly
+/// module. Globals are local to an `Instance` and are either
+/// immutable or mutable.
+</span><span class="kw">impl </span>GlobalType {
+    <span class="doccomment">/// Create a new Global variable
+    /// # Usage:
+    /// ```
+    /// use wasmer_types::{GlobalType, Type, Mutability};
+    ///
+    /// // An I32 constant global
+    /// let global = GlobalType::new(Type::I32, Mutability::Const);
+    /// // An I64 mutable global
+    /// let global = GlobalType::new(Type::I64, Mutability::Var);
+    /// ```
+    </span><span class="kw">pub fn </span>new(ty: Type, mutability: Mutability) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ ty, mutability }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">GlobalType</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">let</span> <span class="ident">mutability</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">mutability</span> {
-            <span class="ident">Mutability::Const</span> =&gt; <span class="string">&quot;constant&quot;</span>,
-            <span class="ident">Mutability::Var</span> =&gt; <span class="string">&quot;mutable&quot;</span>,
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>GlobalType {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">let </span>mutability = <span class="kw">match </span><span class="self">self</span>.mutability {
+            Mutability::Const =&gt; <span class="string">&quot;constant&quot;</span>,
+            Mutability::Var =&gt; <span class="string">&quot;mutable&quot;</span>,
         };
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{} ({})&quot;</span>, <span class="self">self</span>.<span class="ident">ty</span>, <span class="ident">mutability</span>)
+        <span class="macro">write!</span>(f, <span class="string">&quot;{} ({})&quot;</span>, <span class="self">self</span>.ty, mutability)
     }
 }
 
-<span class="doccomment">/// Globals are initialized via the `const` operators or by referring to another import.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GlobalInit</span> {
-    <span class="doccomment">/// An `i32.const`.</span>
-    <span class="ident">I32Const</span>(<span class="ident">i32</span>),
-    <span class="doccomment">/// An `i64.const`.</span>
-    <span class="ident">I64Const</span>(<span class="ident">i64</span>),
-    <span class="doccomment">/// An `f32.const`.</span>
-    <span class="ident">F32Const</span>(<span class="ident">f32</span>),
-    <span class="doccomment">/// An `f64.const`.</span>
-    <span class="ident">F64Const</span>(<span class="ident">f64</span>),
-    <span class="doccomment">/// A `v128.const`.</span>
-    <span class="ident">V128Const</span>(<span class="ident">V128</span>),
-    <span class="doccomment">/// A `global.get` of another global.</span>
-    <span class="ident">GetGlobal</span>(<span class="ident">GlobalIndex</span>),
-    <span class="comment">// TODO(reftypes): `ref.null func` and `ref.null extern` seem to be 2 different</span>
-    <span class="comment">// things: we need to handle both. Perhaps this handled in context by the</span>
-    <span class="comment">// global knowing its own type?</span>
-    <span class="doccomment">/// A `ref.null`.</span>
-    <span class="ident">RefNullConst</span>,
-    <span class="doccomment">/// A `ref.func &lt;index&gt;`.</span>
-    <span class="ident">RefFunc</span>(<span class="ident">FunctionIndex</span>),
+<span class="doccomment">/// Globals are initialized via the `const` operators or by referring to another import.
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>GlobalInit {
+    <span class="doccomment">/// An `i32.const`.
+    </span>I32Const(i32),
+    <span class="doccomment">/// An `i64.const`.
+    </span>I64Const(i64),
+    <span class="doccomment">/// An `f32.const`.
+    </span>F32Const(f32),
+    <span class="doccomment">/// An `f64.const`.
+    </span>F64Const(f64),
+    <span class="doccomment">/// A `v128.const`.
+    </span>V128Const(V128),
+    <span class="doccomment">/// A `global.get` of another global.
+    </span>GetGlobal(GlobalIndex),
+    <span class="comment">// TODO(reftypes): `ref.null func` and `ref.null extern` seem to be 2 different
+    // things: we need to handle both. Perhaps this handled in context by the
+    // global knowing its own type?
+    </span><span class="doccomment">/// A `ref.null`.
+    </span>RefNullConst,
+    <span class="doccomment">/// A `ref.func &lt;index&gt;`.
+    </span>RefFunc(FunctionIndex),
 }
 
-<span class="comment">// Table Types</span>
+<span class="comment">// Table Types
 
-<span class="doccomment">/// A descriptor for a table in a WebAssembly module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Tables are contiguous chunks of a specific element, typically a `funcref` or</span>
-<span class="doccomment">/// an `externref`. The most common use for tables is a function table through</span>
-<span class="doccomment">/// which `call_indirect` can invoke other functions.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TableType</span> {
-    <span class="doccomment">/// The type of data stored in elements of the table.</span>
-    <span class="kw">pub</span> <span class="ident">ty</span>: <span class="ident">Type</span>,
-    <span class="doccomment">/// The minimum number of elements in the table.</span>
-    <span class="kw">pub</span> <span class="ident">minimum</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The maximum number of elements in the table.</span>
-    <span class="kw">pub</span> <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
+</span><span class="doccomment">/// A descriptor for a table in a WebAssembly module.
+///
+/// Tables are contiguous chunks of a specific element, typically a `funcref` or
+/// an `externref`. The most common use for tables is a function table through
+/// which `call_indirect` can invoke other functions.
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+</span><span class="kw">pub struct </span>TableType {
+    <span class="doccomment">/// The type of data stored in elements of the table.
+    </span><span class="kw">pub </span>ty: Type,
+    <span class="doccomment">/// The minimum number of elements in the table.
+    </span><span class="kw">pub </span>minimum: u32,
+    <span class="doccomment">/// The maximum number of elements in the table.
+    </span><span class="kw">pub </span>maximum: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">TableType</span> {
-    <span class="doccomment">/// Creates a new table descriptor which will contain the specified</span>
-    <span class="doccomment">/// `element` and have the `limits` applied to its length.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">minimum</span>: <span class="ident">u32</span>, <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">ty</span>,
-            <span class="ident">minimum</span>,
-            <span class="ident">maximum</span>,
+<span class="kw">impl </span>TableType {
+    <span class="doccomment">/// Creates a new table descriptor which will contain the specified
+    /// `element` and have the `limits` applied to its length.
+    </span><span class="kw">pub fn </span>new(ty: Type, minimum: u32, maximum: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            ty,
+            minimum,
+            maximum,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">TableType</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">maximum</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">maximum</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{} ({}..{})&quot;</span>, <span class="self">self</span>.<span class="ident">ty</span>, <span class="self">self</span>.<span class="ident">minimum</span>, <span class="ident">maximum</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{} ({}..)&quot;</span>, <span class="self">self</span>.<span class="ident">ty</span>, <span class="self">self</span>.<span class="ident">minimum</span>)
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>TableType {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(maximum) = <span class="self">self</span>.maximum {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{} ({}..{})&quot;</span>, <span class="self">self</span>.ty, <span class="self">self</span>.minimum, maximum)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;{} ({}..)&quot;</span>, <span class="self">self</span>.ty, <span class="self">self</span>.minimum)
         }
     }
 }
 
-<span class="comment">// Memory Types</span>
+<span class="comment">// Memory Types
 
-<span class="doccomment">/// A descriptor for a WebAssembly memory type.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Memories are described in units of pages (64KB) and represent contiguous</span>
-<span class="doccomment">/// chunks of addressable memory.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MemoryType</span> {
-    <span class="doccomment">/// The minimum number of pages in the memory.</span>
-    <span class="kw">pub</span> <span class="ident">minimum</span>: <span class="ident">Pages</span>,
-    <span class="doccomment">/// The maximum number of pages in the memory.</span>
-    <span class="kw">pub</span> <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Whether the memory may be shared between multiple threads.</span>
-    <span class="kw">pub</span> <span class="ident">shared</span>: <span class="ident">bool</span>,
+</span><span class="doccomment">/// A descriptor for a WebAssembly memory type.
+///
+/// Memories are described in units of pages (64KB) and represent contiguous
+/// chunks of addressable memory.
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+</span><span class="kw">pub struct </span>MemoryType {
+    <span class="doccomment">/// The minimum number of pages in the memory.
+    </span><span class="kw">pub </span>minimum: Pages,
+    <span class="doccomment">/// The maximum number of pages in the memory.
+    </span><span class="kw">pub </span>maximum: <span class="prelude-ty">Option</span>&lt;Pages&gt;,
+    <span class="doccomment">/// Whether the memory may be shared between multiple threads.
+    </span><span class="kw">pub </span>shared: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">MemoryType</span> {
-    <span class="doccomment">/// Creates a new descriptor for a WebAssembly memory given the specified</span>
-    <span class="doccomment">/// limits of the memory.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">IntoPages</span><span class="op">&gt;</span>(<span class="ident">minimum</span>: <span class="ident">IntoPages</span>, <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IntoPages</span><span class="op">&gt;</span>, <span class="ident">shared</span>: <span class="ident">bool</span>) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">IntoPages</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>,
+<span class="kw">impl </span>MemoryType {
+    <span class="doccomment">/// Creates a new descriptor for a WebAssembly memory given the specified
+    /// limits of the memory.
+    </span><span class="kw">pub fn </span>new&lt;IntoPages&gt;(minimum: IntoPages, maximum: <span class="prelude-ty">Option</span>&lt;IntoPages&gt;, shared: bool) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>IntoPages: Into&lt;Pages&gt;,
     {
-        <span class="self">Self</span> {
-            <span class="ident">minimum</span>: <span class="ident">minimum</span>.<span class="ident">into</span>(),
-            <span class="ident">maximum</span>: <span class="ident">maximum</span>.<span class="ident">map</span>(<span class="ident">Into::into</span>),
-            <span class="ident">shared</span>,
+        <span class="self">Self </span>{
+            minimum: minimum.into(),
+            maximum: maximum.map(Into::into),
+            shared,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">MemoryType</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">let</span> <span class="ident">shared</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">shared</span> { <span class="string">&quot;shared&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;not shared&quot;</span> };
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">maximum</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">maximum</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{} ({:?}..{:?})&quot;</span>, <span class="ident">shared</span>, <span class="self">self</span>.<span class="ident">minimum</span>, <span class="ident">maximum</span>)
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{} ({:?}..)&quot;</span>, <span class="ident">shared</span>, <span class="self">self</span>.<span class="ident">minimum</span>)
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>MemoryType {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">let </span>shared = <span class="kw">if </span><span class="self">self</span>.shared { <span class="string">&quot;shared&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;not shared&quot; </span>};
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(maximum) = <span class="self">self</span>.maximum {
+            <span class="macro">write!</span>(f, <span class="string">&quot;{} ({:?}..{:?})&quot;</span>, shared, <span class="self">self</span>.minimum, maximum)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;{} ({:?}..)&quot;</span>, shared, <span class="self">self</span>.minimum)
         }
     }
 }
 
-<span class="comment">// Import Types</span>
+<span class="comment">// Import Types
 
-<span class="doccomment">/// A descriptor for an imported value into a wasm module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This type is primarily accessed from the `Module::imports`</span>
-<span class="doccomment">/// API. Each `ImportType` describes an import into the wasm module</span>
-<span class="doccomment">/// with the module/name that it&#39;s imported from as well as the type</span>
-<span class="doccomment">/// of item that&#39;s being imported.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ImportType</span><span class="op">&lt;</span><span class="ident">T</span> <span class="op">=</span> <span class="ident">ExternType</span><span class="op">&gt;</span> {
-    <span class="ident">module</span>: <span class="ident">String</span>,
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="ident">ty</span>: <span class="ident">T</span>,
+</span><span class="doccomment">/// A descriptor for an imported value into a wasm module.
+///
+/// This type is primarily accessed from the `Module::imports`
+/// API. Each `ImportType` describes an import into the wasm module
+/// with the module/name that it&#39;s imported from as well as the type
+/// of item that&#39;s being imported.
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>ImportType&lt;T = ExternType&gt; {
+    module: String,
+    name: String,
+    ty: T,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">ImportType</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Creates a new import descriptor which comes from `module` and `name` and</span>
-    <span class="doccomment">/// is of type `ty`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">ty</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">module</span>: <span class="ident">module</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">ty</span>,
+<span class="kw">impl</span>&lt;T&gt; ImportType&lt;T&gt; {
+    <span class="doccomment">/// Creates a new import descriptor which comes from `module` and `name` and
+    /// is of type `ty`.
+    </span><span class="kw">pub fn </span>new(module: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str, ty: T) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            module: module.to_owned(),
+            name: name.to_owned(),
+            ty,
         }
     }
 
-    <span class="doccomment">/// Returns the module name that this import is expected to come from.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module</span>
+    <span class="doccomment">/// Returns the module name that this import is expected to come from.
+    </span><span class="kw">pub fn </span>module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.module
     }
 
-    <span class="doccomment">/// Returns the field name of the module that this import is expected to</span>
-    <span class="doccomment">/// come from.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>
+    <span class="doccomment">/// Returns the field name of the module that this import is expected to
+    /// come from.
+    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.name
     }
 
-    <span class="doccomment">/// Returns the expected type of this import.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">T</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ty</span>
+    <span class="doccomment">/// Returns the expected type of this import.
+    </span><span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.ty
     }
 }
 
-<span class="comment">// Export Types</span>
+<span class="comment">// Export Types
 
-<span class="doccomment">/// A descriptor for an exported WebAssembly value.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This type is primarily accessed from the `Module::exports`</span>
-<span class="doccomment">/// accessor and describes what names are exported from a wasm module</span>
-<span class="doccomment">/// and the type of the item that is exported.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The `&lt;T&gt;` refefers to `ExternType`, however it can also refer to use</span>
-<span class="doccomment">/// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of</span>
-<span class="doccomment">/// use.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportType</span><span class="op">&lt;</span><span class="ident">T</span> <span class="op">=</span> <span class="ident">ExternType</span><span class="op">&gt;</span> {
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="ident">ty</span>: <span class="ident">T</span>,
+</span><span class="doccomment">/// A descriptor for an exported WebAssembly value.
+///
+/// This type is primarily accessed from the `Module::exports`
+/// accessor and describes what names are exported from a wasm module
+/// and the type of the item that is exported.
+///
+/// The `&lt;T&gt;` refefers to `ExternType`, however it can also refer to use
+/// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
+/// use.
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>ExportType&lt;T = ExternType&gt; {
+    name: String,
+    ty: T,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">ExportType</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Creates a new export which is exported with the given `name` and has the</span>
-    <span class="doccomment">/// given `ty`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">ty</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            <span class="ident">ty</span>,
+<span class="kw">impl</span>&lt;T&gt; ExportType&lt;T&gt; {
+    <span class="doccomment">/// Creates a new export which is exported with the given `name` and has the
+    /// given `ty`.
+    </span><span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str, ty: T) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            name: name.to_string(),
+            ty,
         }
     }
 
-    <span class="doccomment">/// Returns the name by which this export is known by.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>
+    <span class="doccomment">/// Returns the name by which this export is known by.
+    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.name
     }
 
-    <span class="doccomment">/// Returns the type of this export.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">T</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ty</span>
+    <span class="doccomment">/// Returns the type of this export.
+    </span><span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.ty
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="kw">const</span> <span class="ident">VOID_TO_VOID</span>: ([<span class="ident">Type</span>; <span class="number">0</span>], [<span class="ident">Type</span>; <span class="number">0</span>]) <span class="op">=</span> ([], []);
-    <span class="kw">const</span> <span class="ident">I32_I32_TO_VOID</span>: ([<span class="ident">Type</span>; <span class="number">2</span>], [<span class="ident">Type</span>; <span class="number">0</span>]) <span class="op">=</span> ([<span class="ident">Type::I32</span>, <span class="ident">Type::I32</span>], []);
-    <span class="kw">const</span> <span class="ident">V128_I64_TO_I32</span>: ([<span class="ident">Type</span>; <span class="number">2</span>], [<span class="ident">Type</span>; <span class="number">1</span>]) <span class="op">=</span> ([<span class="ident">Type::V128</span>, <span class="ident">Type::I64</span>], [<span class="ident">Type::I32</span>]);
-    <span class="kw">const</span> <span class="ident">NINE_V128_TO_NINE_I32</span>: ([<span class="ident">Type</span>; <span class="number">9</span>], [<span class="ident">Type</span>; <span class="number">9</span>]) <span class="op">=</span> ([<span class="ident">Type::V128</span>; <span class="number">9</span>], [<span class="ident">Type::I32</span>; <span class="number">9</span>]);
+    <span class="kw">const </span>VOID_TO_VOID: ([Type; <span class="number">0</span>], [Type; <span class="number">0</span>]) = ([], []);
+    <span class="kw">const </span>I32_I32_TO_VOID: ([Type; <span class="number">2</span>], [Type; <span class="number">0</span>]) = ([Type::I32, Type::I32], []);
+    <span class="kw">const </span>V128_I64_TO_I32: ([Type; <span class="number">2</span>], [Type; <span class="number">1</span>]) = ([Type::V128, Type::I64], [Type::I32]);
+    <span class="kw">const </span>NINE_V128_TO_NINE_I32: ([Type; <span class="number">9</span>], [Type; <span class="number">9</span>]) = ([Type::V128; <span class="number">9</span>], [Type::I32; <span class="number">9</span>]);
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">convert_tuple_to_functiontype</span>() {
-        <span class="kw">let</span> <span class="ident">ty</span>: <span class="ident">FunctionType</span> <span class="op">=</span> <span class="ident">VOID_TO_VOID</span>.<span class="ident">into</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">results</span>().<span class="ident">len</span>(), <span class="number">0</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>convert_tuple_to_functiontype() {
+        <span class="kw">let </span>ty: FunctionType = VOID_TO_VOID.into();
+        <span class="macro">assert_eq!</span>(ty.params().len(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(ty.results().len(), <span class="number">0</span>);
 
-        <span class="kw">let</span> <span class="ident">ty</span>: <span class="ident">FunctionType</span> <span class="op">=</span> <span class="ident">I32_I32_TO_VOID</span>.<span class="ident">into</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>()[<span class="number">0</span>], <span class="ident">Type::I32</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>()[<span class="number">1</span>], <span class="ident">Type::I32</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">results</span>().<span class="ident">len</span>(), <span class="number">0</span>);
+        <span class="kw">let </span>ty: FunctionType = I32_I32_TO_VOID.into();
+        <span class="macro">assert_eq!</span>(ty.params().len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(ty.params()[<span class="number">0</span>], Type::I32);
+        <span class="macro">assert_eq!</span>(ty.params()[<span class="number">1</span>], Type::I32);
+        <span class="macro">assert_eq!</span>(ty.results().len(), <span class="number">0</span>);
 
-        <span class="kw">let</span> <span class="ident">ty</span>: <span class="ident">FunctionType</span> <span class="op">=</span> <span class="ident">V128_I64_TO_I32</span>.<span class="ident">into</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>()[<span class="number">0</span>], <span class="ident">Type::V128</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>()[<span class="number">1</span>], <span class="ident">Type::I64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">results</span>().<span class="ident">len</span>(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">results</span>()[<span class="number">0</span>], <span class="ident">Type::I32</span>);
+        <span class="kw">let </span>ty: FunctionType = V128_I64_TO_I32.into();
+        <span class="macro">assert_eq!</span>(ty.params().len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(ty.params()[<span class="number">0</span>], Type::V128);
+        <span class="macro">assert_eq!</span>(ty.params()[<span class="number">1</span>], Type::I64);
+        <span class="macro">assert_eq!</span>(ty.results().len(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(ty.results()[<span class="number">0</span>], Type::I32);
 
-        <span class="kw">let</span> <span class="ident">ty</span>: <span class="ident">FunctionType</span> <span class="op">=</span> <span class="ident">NINE_V128_TO_NINE_I32</span>.<span class="ident">into</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="number">9</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">ty</span>.<span class="ident">results</span>().<span class="ident">len</span>(), <span class="number">9</span>);
+        <span class="kw">let </span>ty: FunctionType = NINE_V128_TO_NINE_I32.into();
+        <span class="macro">assert_eq!</span>(ty.params().len(), <span class="number">9</span>);
+        <span class="macro">assert_eq!</span>(ty.results().len(), <span class="number">9</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

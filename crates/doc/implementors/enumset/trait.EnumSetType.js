@@ -1,3 +1,3 @@
-(function() {var implementors = {};
-implementors["wasmer_types"] = [{"text":"impl EnumSetType for <a class=\"enum\" href=\"wasmer_types/compilation/target/enum.CpuFeature.html\" title=\"enum wasmer_types::compilation::target::CpuFeature\">CpuFeature</a>","synthetic":false,"types":["wasmer_types::compilation::target::CpuFeature"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
+(function() {var implementors = {
+"wasmer_types":[["impl EnumSetType for <a class=\"enum\" href=\"wasmer_types/compilation/target/enum.CpuFeature.html\" title=\"enum wasmer_types::compilation::target::CpuFeature\">CpuFeature</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

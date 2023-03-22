@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/object_file.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>object_file.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_llvm/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_llvm/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/object_file.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>object_file.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_llvm/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_llvm/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_llvm/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -389,394 +389,450 @@
 <span id="387">387</span>
 <span id="388">388</span>
 <span id="389">389</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>, <span class="ident">ObjectSymbol</span>};
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+</pre><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 
-<span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
-<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::num::TryFromIntError</span>;
+<span class="kw">use </span>std::collections::{HashMap, HashSet};
+<span class="kw">use </span>std::convert::TryInto;
+<span class="kw">use </span>std::num::TryFromIntError;
 
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CompileError</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>,
-    <span class="ident">CustomSections</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">FunctionBody</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">Relocation</span>,
-    <span class="ident">RelocationKind</span>, <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">SectionIndex</span>, <span class="ident">SourceLoc</span>,
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::{
+    CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
+    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm::libcalls::LibCall</span>;
+<span class="kw">use </span>wasmer_vm::libcalls::LibCall;
 
-<span class="kw">fn</span> <span class="ident">map_tryfromint_err</span>(<span class="ident">error</span>: <span class="ident">TryFromIntError</span>) -&gt; <span class="ident">CompileError</span> {
-    <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;int doesn&#39;t fit: {}&quot;</span>, <span class="ident">error</span>))
+<span class="kw">fn </span>map_tryfromint_err(error: TryFromIntError) -&gt; CompileError {
+    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;int doesn&#39;t fit: {}&quot;</span>, error))
 }
 
-<span class="kw">fn</span> <span class="ident">map_object_err</span>(<span class="ident">error</span>: <span class="ident">object::read::Error</span>) -&gt; <span class="ident">CompileError</span> {
-    <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;error parsing object file: {}&quot;</span>, <span class="ident">error</span>))
+<span class="kw">fn </span>map_object_err(error: object::read::Error) -&gt; CompileError {
+    CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;error parsing object file: {}&quot;</span>, error))
 }
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompiledFunction</span> {
-    <span class="kw">pub</span> <span class="ident">compiled_function</span>: <span class="ident">wasmer_types::CompiledFunction</span>,
-    <span class="kw">pub</span> <span class="ident">custom_sections</span>: <span class="ident">CustomSections</span>,
-    <span class="kw">pub</span> <span class="ident">eh_frame_section_indices</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">SectionIndex</span><span class="op">&gt;</span>,
+<span class="kw">pub struct </span>CompiledFunction {
+    <span class="kw">pub </span>compiled_function: wasmer_types::CompiledFunction,
+    <span class="kw">pub </span>custom_sections: CustomSections,
+    <span class="kw">pub </span>eh_frame_section_indices: Vec&lt;SectionIndex&gt;,
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">load_object_file</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(
-    <span class="ident">contents</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    <span class="ident">root_section</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">root_section_reloc_target</span>: <span class="ident">RelocationTarget</span>,
-    <span class="kw-2">mut</span> <span class="ident">symbol_name_to_relocation_target</span>: <span class="ident">F</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CompiledFunction</span>, <span class="ident">CompileError</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">F</span>: <span class="ident">FnMut</span>(<span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RelocationTarget</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span>,
+<span class="kw">pub fn </span>load_object_file&lt;F&gt;(
+    contents: <span class="kw-2">&amp;</span>[u8],
+    root_section: <span class="kw-2">&amp;</span>str,
+    root_section_reloc_target: RelocationTarget,
+    <span class="kw-2">mut </span>symbol_name_to_relocation_target: F,
+) -&gt; <span class="prelude-ty">Result</span>&lt;CompiledFunction, CompileError&gt;
+<span class="kw">where
+    </span>F: FnMut(<span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RelocationTarget&gt;, CompileError&gt;,
 {
-    <span class="comment">// TODO: use perfect hash function?</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libcalls</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceilf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floorf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyintf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyint&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;truncf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::CeilF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FloorF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::NearestF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TruncF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Size</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedMemory32Size</span>,
+    <span class="comment">// TODO: use perfect hash function?
+    </span><span class="kw">let </span><span class="kw-2">mut </span>libcalls = HashMap::new();
+    libcalls.insert(<span class="string">&quot;ceilf&quot;</span>.to_string(), LibCall::CeilF32);
+    libcalls.insert(<span class="string">&quot;ceil&quot;</span>.to_string(), LibCall::CeilF64);
+    libcalls.insert(<span class="string">&quot;floorf&quot;</span>.to_string(), LibCall::FloorF32);
+    libcalls.insert(<span class="string">&quot;floor&quot;</span>.to_string(), LibCall::FloorF64);
+    libcalls.insert(<span class="string">&quot;nearbyintf&quot;</span>.to_string(), LibCall::NearestF32);
+    libcalls.insert(<span class="string">&quot;nearbyint&quot;</span>.to_string(), LibCall::NearestF64);
+    libcalls.insert(<span class="string">&quot;truncf&quot;</span>.to_string(), LibCall::TruncF32);
+    libcalls.insert(<span class="string">&quot;trunc&quot;</span>.to_string(), LibCall::TruncF64);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>.to_string(), LibCall::CeilF32);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>.to_string(), LibCall::CeilF64);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_floor&quot;</span>.to_string(), LibCall::FloorF32);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_floor&quot;</span>.to_string(), LibCall::FloorF64);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>.to_string(), LibCall::NearestF32);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>.to_string(), LibCall::NearestF64);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>.to_string(), LibCall::TruncF32);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>.to_string(), LibCall::TruncF64);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_size&quot;</span>.to_string(), LibCall::Memory32Size);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>.to_string(),
+        LibCall::ImportedMemory32Size,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableCopy</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableInit</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableFill</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableSize</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedTableSize</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_copy&quot;</span>.to_string(), LibCall::TableCopy);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_init&quot;</span>.to_string(), LibCall::TableInit);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_fill&quot;</span>.to_string(), LibCall::TableFill);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_size&quot;</span>.to_string(), LibCall::TableSize);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>.to_string(),
+        LibCall::ImportedTableSize,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_get&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableGet</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedTableGet</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_get&quot;</span>.to_string(), LibCall::TableGet);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>.to_string(),
+        LibCall::ImportedTableGet,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_set&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableSet</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedTableSet</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_set&quot;</span>.to_string(), LibCall::TableSet);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>.to_string(),
+        LibCall::ImportedTableSet,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_grow&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::TableGrow</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedTableGrow</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_table_grow&quot;</span>.to_string(), LibCall::TableGrow);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>.to_string(),
+        LibCall::ImportedTableGrow,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_func_ref&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::FuncRef</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_elem_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::ElemDrop</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Copy</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedMemory32Copy</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_func_ref&quot;</span>.to_string(), LibCall::FuncRef);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_elem_drop&quot;</span>.to_string(), LibCall::ElemDrop);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>.to_string(), LibCall::Memory32Copy);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>.to_string(),
+        LibCall::ImportedMemory32Copy,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Fill</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedMemory32Fill</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>.to_string(), LibCall::Memory32Fill);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>.to_string(),
+        LibCall::ImportedMemory32Fill,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Init</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::DataDrop</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::RaiseTrap</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_memory32_atomic_wait32&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::Memory32AtomicWait32</span>,
+    libcalls.insert(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.to_string(), LibCall::Memory32Init);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.to_string(), LibCall::DataDrop);
+    libcalls.insert(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.to_string(), LibCall::RaiseTrap);
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_memory32_atomic_wait32&quot;</span>.to_string(),
+        LibCall::Memory32AtomicWait32,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedMemory32AtomicWait32</span>,
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>.to_string(),
+        LibCall::ImportedMemory32AtomicWait32,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_memory32_atomic_wait64&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::Memory32AtomicWait64</span>,
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_memory32_atomic_wait64&quot;</span>.to_string(),
+        LibCall::Memory32AtomicWait64,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedMemory32AtomicWait64</span>,
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>.to_string(),
+        LibCall::ImportedMemory32AtomicWait64,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::Memory32AtomicNotify</span>,
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>.to_string(),
+        LibCall::Memory32AtomicNotify,
     );
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
-        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">LibCall::ImportedMemory32AtomicNotify</span>,
+    libcalls.insert(
+        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>.to_string(),
+        LibCall::ImportedMemory32AtomicNotify,
     );
 
-    <span class="kw">let</span> <span class="ident">elf</span> <span class="op">=</span> <span class="ident">object::File::parse</span>(<span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>elf = object::File::parse(contents).map_err(map_object_err)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">visited</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashSet::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">worklist</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">section_targets</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span>, <span class="ident">RelocationTarget</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>visited: HashSet&lt;object::read::SectionIndex&gt; = HashSet::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>worklist: Vec&lt;object::read::SectionIndex&gt; = Vec::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>section_targets: HashMap&lt;object::read::SectionIndex, RelocationTarget&gt; = HashMap::new();
 
-    <span class="kw">let</span> <span class="ident">root_section_index</span> <span class="op">=</span> <span class="ident">elf</span>
-        .<span class="ident">section_by_name</span>(<span class="ident">root_section</span>)
-        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;no section named {}&quot;</span>, <span class="ident">root_section</span>)))<span class="question-mark">?</span>
-        .<span class="ident">index</span>();
+    <span class="kw">let </span>root_section_index = elf
+        .section_by_name(root_section)
+        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;no section named {}&quot;</span>, root_section)))<span class="question-mark">?
+        </span>.index();
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">section_to_custom_section</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
+    <span class="kw">let </span><span class="kw-2">mut </span>section_to_custom_section = HashMap::new();
 
-    <span class="ident">section_targets</span>.<span class="ident">insert</span>(<span class="ident">root_section_index</span>, <span class="ident">root_section_reloc_target</span>);
+    section_targets.insert(root_section_index, root_section_reloc_target);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_custom_section</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">elf_section_to_target</span> <span class="op">=</span> <span class="op">|</span><span class="ident">elf_section_index</span>: <span class="ident">object::read::SectionIndex</span><span class="op">|</span> {
-        <span class="kw-2">*</span><span class="ident">section_targets</span>.<span class="ident">entry</span>(<span class="ident">elf_section_index</span>).<span class="ident">or_insert_with</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">SectionIndex::from_u32</span>(<span class="ident">next_custom_section</span>);
-            <span class="ident">section_to_custom_section</span>.<span class="ident">insert</span>(<span class="ident">elf_section_index</span>, <span class="ident">next</span>);
-            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">RelocationTarget::CustomSection</span>(<span class="ident">next</span>);
-            <span class="ident">next_custom_section</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="ident">target</span>
+    <span class="kw">let </span><span class="kw-2">mut </span>next_custom_section: u32 = <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>elf_section_to_target = |elf_section_index: object::read::SectionIndex| {
+        <span class="kw-2">*</span>section_targets.entry(elf_section_index).or_insert_with(|| {
+            <span class="kw">let </span>next = SectionIndex::from_u32(next_custom_section);
+            section_to_custom_section.insert(elf_section_index, next);
+            <span class="kw">let </span>target = RelocationTarget::CustomSection(next);
+            next_custom_section += <span class="number">1</span>;
+            target
         })
     };
 
-    <span class="comment">// From elf section index to list of Relocations. Although we use a Vec,</span>
-    <span class="comment">// the order of relocations is not important.</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relocations</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">object::read::SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
+    <span class="comment">// From elf section index to list of Relocations. Although we use a Vec,
+    // the order of relocations is not important.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>relocations: HashMap&lt;object::read::SectionIndex, Vec&lt;Relocation&gt;&gt; = HashMap::new();
 
-    <span class="comment">// Each iteration of this loop pulls a section and the relocations</span>
-    <span class="comment">// relocations that apply to it. We begin with the &quot;.root_section&quot;</span>
-    <span class="comment">// section, and then parse all relocation sections that apply to that</span>
-    <span class="comment">// section. Those relocations may refer to additional sections which we</span>
-    <span class="comment">// then add to the worklist until we&#39;ve visited the closure of</span>
-    <span class="comment">// everything needed to run the code in &quot;.root_section&quot;.</span>
-    <span class="comment">//</span>
-    <span class="comment">// `worklist` is the list of sections we have yet to visit. It never</span>
-    <span class="comment">// contains any duplicates or sections we&#39;ve already visited. `visited`</span>
-    <span class="comment">// contains all the sections we&#39;ve ever added to the worklist in a set</span>
-    <span class="comment">// so that we can quickly check whether a section is new before adding</span>
-    <span class="comment">// it to worklist. `section_to_custom_section` is filled in with all</span>
-    <span class="comment">// the sections we want to include.</span>
-    <span class="ident">worklist</span>.<span class="ident">push</span>(<span class="ident">root_section_index</span>);
-    <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">root_section_index</span>);
+    <span class="comment">// Each iteration of this loop pulls a section and the relocations
+    // relocations that apply to it. We begin with the &quot;.root_section&quot;
+    // section, and then parse all relocation sections that apply to that
+    // section. Those relocations may refer to additional sections which we
+    // then add to the worklist until we&#39;ve visited the closure of
+    // everything needed to run the code in &quot;.root_section&quot;.
+    //
+    // `worklist` is the list of sections we have yet to visit. It never
+    // contains any duplicates or sections we&#39;ve already visited. `visited`
+    // contains all the sections we&#39;ve ever added to the worklist in a set
+    // so that we can quickly check whether a section is new before adding
+    // it to worklist. `section_to_custom_section` is filled in with all
+    // the sections we want to include.
+    </span>worklist.push(root_section_index);
+    visited.insert(root_section_index);
 
-    <span class="comment">// Also add any .eh_frame sections.</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">eh_frame_section_indices</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">for</span> <span class="ident">section</span> <span class="kw">in</span> <span class="ident">elf</span>.<span class="ident">sections</span>() {
-        <span class="kw">if</span> <span class="ident">section</span>.<span class="ident">kind</span>() <span class="op">==</span> <span class="ident">object::SectionKind::Elf</span>(<span class="ident">object::elf::SHT_X86_64_UNWIND</span>) {
-            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">section</span>.<span class="ident">index</span>();
-            <span class="ident">worklist</span>.<span class="ident">push</span>(<span class="ident">index</span>);
-            <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">index</span>);
-            <span class="ident">eh_frame_section_indices</span>.<span class="ident">push</span>(<span class="ident">index</span>);
-            <span class="comment">// This allocates a custom section index for the ELF section.</span>
-            <span class="ident">elf_section_to_target</span>(<span class="ident">index</span>);
+    <span class="comment">// Also add any .eh_frame sections.
+    </span><span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_indices = <span class="macro">vec!</span>[];
+    <span class="kw">for </span>section <span class="kw">in </span>elf.sections() {
+        <span class="kw">if </span>section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND) {
+            <span class="kw">let </span>index = section.index();
+            worklist.push(index);
+            visited.insert(index);
+            eh_frame_section_indices.push(index);
+            <span class="comment">// This allocates a custom section index for the ELF section.
+            </span>elf_section_to_target(index);
         }
     }
 
-    <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">section_index</span>) <span class="op">=</span> <span class="ident">worklist</span>.<span class="ident">pop</span>() {
-        <span class="kw">for</span> (<span class="ident">offset</span>, <span class="ident">reloc</span>) <span class="kw">in</span> <span class="ident">elf</span>
-            .<span class="ident">section_by_index</span>(<span class="ident">section_index</span>)
-            .<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>
-            .<span class="ident">relocations</span>()
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(section_index) = worklist.pop() {
+        <span class="kw">for </span>(offset, reloc) <span class="kw">in </span>elf
+            .section_by_index(section_index)
+            .map_err(map_object_err)<span class="question-mark">?
+            </span>.relocations()
         {
-            <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">elf</span>.<span class="ident">architecture</span>(), <span class="ident">reloc</span>.<span class="ident">kind</span>(), <span class="ident">reloc</span>.<span class="ident">size</span>()) {
-                (<span class="kw">_</span>, <span class="ident">object::RelocationKind::Absolute</span>, <span class="number">64</span>) =&gt; <span class="ident">RelocationKind::Abs8</span>,
+            <span class="kw">let </span>kind = <span class="kw">match </span>(elf.architecture(), reloc.kind(), reloc.size()) {
+                (<span class="kw">_</span>, object::RelocationKind::Absolute, <span class="number">64</span>) =&gt; RelocationKind::Abs8,
                 (
-                    <span class="ident">object::Architecture::X86_64</span>,
-                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_X86_64_PC64</span>),
+                    object::Architecture::X86_64,
+                    object::RelocationKind::Elf(object::elf::R_X86_64_PC64),
                     <span class="number">0</span>,
-                ) =&gt; <span class="ident">RelocationKind::X86PCRel8</span>,
-                (<span class="ident">object::Architecture::Aarch64</span>, <span class="ident">object::RelocationKind::PltRelative</span>, <span class="number">26</span>) =&gt; {
-                    <span class="ident">RelocationKind::Arm64Call</span>
+                ) =&gt; RelocationKind::X86PCRel8,
+                (object::Architecture::Aarch64, object::RelocationKind::PltRelative, <span class="number">26</span>) =&gt; {
+                    RelocationKind::Arm64Call
                 }
                 (
-                    <span class="ident">object::Architecture::Aarch64</span>,
-                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G0_NC</span>),
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G0_NC),
                     <span class="number">0</span>,
-                ) =&gt; <span class="ident">RelocationKind::Arm64Movw0</span>,
+                ) =&gt; RelocationKind::Arm64Movw0,
                 (
-                    <span class="ident">object::Architecture::Aarch64</span>,
-                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G1_NC</span>),
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G1_NC),
                     <span class="number">0</span>,
-                ) =&gt; <span class="ident">RelocationKind::Arm64Movw1</span>,
+                ) =&gt; RelocationKind::Arm64Movw1,
                 (
-                    <span class="ident">object::Architecture::Aarch64</span>,
-                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G2_NC</span>),
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G2_NC),
                     <span class="number">0</span>,
-                ) =&gt; <span class="ident">RelocationKind::Arm64Movw2</span>,
+                ) =&gt; RelocationKind::Arm64Movw2,
                 (
-                    <span class="ident">object::Architecture::Aarch64</span>,
-                    <span class="ident">object::RelocationKind::Elf</span>(<span class="ident">object::elf::R_AARCH64_MOVW_UABS_G3</span>),
+                    object::Architecture::Aarch64,
+                    object::RelocationKind::Elf(object::elf::R_AARCH64_MOVW_UABS_G3),
                     <span class="number">0</span>,
-                ) =&gt; <span class="ident">RelocationKind::Arm64Movw3</span>,
-                <span class="kw">_</span> =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                ) =&gt; RelocationKind::Arm64Movw3,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationKind::Elf(object::elf::R_RISCV_CALL_PLT),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::RiscvCall,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationKind::Elf(object::elf::R_RISCV_PCREL_HI20),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::RiscvPCRelHi20,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationKind::Elf(object::elf::R_RISCV_PCREL_LO12_I),
+                    <span class="number">0</span>,
+                ) =&gt; RelocationKind::RiscvPCRelLo12I,
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
                         <span class="string">&quot;unknown relocation {:?}&quot;</span>,
-                        <span class="ident">reloc</span>
+                        reloc
                     )));
                 }
             };
-            <span class="kw">let</span> <span class="ident">addend</span> <span class="op">=</span> <span class="ident">reloc</span>.<span class="ident">addend</span>();
-            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">reloc</span>.<span class="ident">target</span>() {
-                <span class="ident">object::read::RelocationTarget::Symbol</span>(<span class="ident">index</span>) =&gt; {
-                    <span class="kw">let</span> <span class="ident">symbol</span> <span class="op">=</span> <span class="ident">elf</span>.<span class="ident">symbol_by_index</span>(<span class="ident">index</span>).<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
-                    <span class="kw">let</span> <span class="ident">symbol_name</span> <span class="op">=</span> <span class="ident">symbol</span>.<span class="ident">name</span>().<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
-                    <span class="kw">if</span> <span class="ident">symbol</span>.<span class="ident">kind</span>() <span class="op">==</span> <span class="ident">object::SymbolKind::Section</span> {
-                        <span class="kw">match</span> <span class="ident">symbol</span>.<span class="ident">section</span>() {
-                            <span class="ident">object::SymbolSection::Section</span>(<span class="ident">section_index</span>) =&gt; {
-                                <span class="kw">if</span> <span class="ident">section_index</span> <span class="op">==</span> <span class="ident">root_section_index</span> {
-                                    <span class="ident">root_section_reloc_target</span>
-                                } <span class="kw">else</span> {
-                                    <span class="kw">if</span> <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">section_index</span>) {
-                                        <span class="ident">worklist</span>.<span class="ident">push</span>(<span class="ident">section_index</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>addend = reloc.addend();
+            <span class="kw">let </span>target = <span class="kw">match </span>reloc.target() {
+                object::read::RelocationTarget::Symbol(index) =&gt; {
+                    <span class="kw">let </span>symbol = elf.symbol_by_index(index).map_err(map_object_err)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>symbol_name = symbol.name().map_err(map_object_err)<span class="question-mark">?</span>;
+                    <span class="kw">if </span>symbol.kind() == object::SymbolKind::Section {
+                        <span class="kw">match </span>symbol.section() {
+                            object::SymbolSection::Section(section_index) =&gt; {
+                                <span class="kw">if </span>section_index == root_section_index {
+                                    root_section_reloc_target
+                                } <span class="kw">else </span>{
+                                    <span class="kw">if </span>visited.insert(section_index) {
+                                        worklist.push(section_index);
                                     }
-                                    <span class="ident">elf_section_to_target</span>(<span class="ident">section_index</span>)
+                                    elf_section_to_target(section_index)
                                 }
                             }
-                            <span class="kw">_</span> =&gt; {
-                                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                            <span class="kw">_ </span>=&gt; {
+                                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
                                     <span class="string">&quot;relocation targets unknown section {:?}&quot;</span>,
-                                    <span class="ident">reloc</span>
+                                    reloc
                                 )));
                             }
                         }
-                        <span class="comment">// Maybe a libcall then?</span>
-                    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">libcall</span>) <span class="op">=</span> <span class="ident">libcalls</span>.<span class="ident">get</span>(<span class="ident">symbol_name</span>) {
-                        <span class="ident">RelocationTarget::LibCall</span>(<span class="kw-2">*</span><span class="ident">libcall</span>)
-                    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">reloc_target</span>) <span class="op">=</span>
-                        <span class="ident">symbol_name_to_relocation_target</span>(<span class="ident">symbol_name</span>)<span class="question-mark">?</span>
-                    {
-                        <span class="ident">reloc_target</span>
-                    } <span class="kw">else</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                        <span class="comment">// Maybe a libcall then?
+                    </span>} <span class="kw">else if let </span><span class="prelude-val">Some</span>(libcall) = libcalls.get(symbol_name) {
+                        RelocationTarget::LibCall(<span class="kw-2">*</span>libcall)
+                    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(reloc_target) =
+                        symbol_name_to_relocation_target(symbol_name)<span class="question-mark">?
+                    </span>{
+                        reloc_target
+                    } <span class="kw">else if let </span>object::SymbolSection::Section(section_index) = symbol.section() {
+                        <span class="comment">// TODO: Encode symbol address into addend, I think this is a bit hacky.
+                        </span>addend = addend.wrapping_add(symbol.address() <span class="kw">as </span>i64);
+
+                        <span class="kw">if </span>section_index == root_section_index {
+                            root_section_reloc_target
+                        } <span class="kw">else </span>{
+                            <span class="kw">if </span>visited.insert(section_index) {
+                                worklist.push(section_index);
+                            }
+
+                            elf_section_to_target(section_index)
+                        }
+                    } <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
                             <span class="string">&quot;relocation targets unknown symbol {:?}&quot;</span>,
-                            <span class="ident">reloc</span>
+                            reloc
                         )));
                     }
                 }
 
-                <span class="ident">object::read::RelocationTarget::Section</span>(<span class="ident">index</span>) =&gt; {
-                    <span class="kw">if</span> <span class="ident">index</span> <span class="op">==</span> <span class="ident">root_section_index</span> {
-                        <span class="ident">root_section_reloc_target</span>
-                    } <span class="kw">else</span> {
-                        <span class="kw">if</span> <span class="ident">visited</span>.<span class="ident">insert</span>(<span class="ident">index</span>) {
-                            <span class="ident">worklist</span>.<span class="ident">push</span>(<span class="ident">index</span>);
+                object::read::RelocationTarget::Section(index) =&gt; {
+                    <span class="kw">if </span>index == root_section_index {
+                        root_section_reloc_target
+                    } <span class="kw">else </span>{
+                        <span class="kw">if </span>visited.insert(index) {
+                            worklist.push(index);
                         }
-                        <span class="ident">elf_section_to_target</span>(<span class="ident">index</span>)
+                        elf_section_to_target(index)
                     }
                 }
 
-                <span class="ident">object::read::RelocationTarget::Absolute</span> =&gt; {
-                    <span class="comment">// Wasm-produced object files should never have absolute</span>
-                    <span class="comment">// addresses in them because none of the parts of the Wasm</span>
-                    <span class="comment">// VM, nor the generated code are loaded at fixed addresses.</span>
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                object::read::RelocationTarget::Absolute =&gt; {
+                    <span class="comment">// Wasm-produced object files should never have absolute
+                    // addresses in them because none of the parts of the Wasm
+                    // VM, nor the generated code are loaded at fixed addresses.
+                    </span><span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
                         <span class="string">&quot;relocation targets absolute address {:?}&quot;</span>,
-                        <span class="ident">reloc</span>
+                        reloc
                     )));
                 }
 
-                <span class="comment">// `object::read::RelocationTarget` is a</span>
-                <span class="comment">// non-exhaustive enum (`#[non_exhaustive]`), so it</span>
-                <span class="comment">// could have additional variants added in the</span>
-                <span class="comment">// future. Therefore, when matching against variants</span>
-                <span class="comment">// of non-exhaustive enums, an extra wildcard arm must</span>
-                <span class="comment">// be added to account for any future variants.</span>
-                <span class="ident">t</span> =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                <span class="comment">// `object::read::RelocationTarget` is a
+                // non-exhaustive enum (`#[non_exhaustive]`), so it
+                // could have additional variants added in the
+                // future. Therefore, when matching against variants
+                // of non-exhaustive enums, an extra wildcard arm must
+                // be added to account for any future variants.
+                </span>t =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
                         <span class="string">&quot;relocation target is unknown `{:?}`&quot;</span>,
-                        <span class="ident">t</span>
+                        t
                     )));
                 }
             };
-            <span class="ident">relocations</span>
-                .<span class="ident">entry</span>(<span class="ident">section_index</span>)
-                .<span class="ident">or_default</span>()
-                .<span class="ident">push</span>(<span class="ident">Relocation</span> {
-                    <span class="ident">kind</span>,
-                    <span class="ident">reloc_target</span>: <span class="ident">target</span>,
-                    <span class="ident">offset</span>: <span class="ident">offset</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="ident">map_tryfromint_err</span>)<span class="question-mark">?</span>,
-                    <span class="ident">addend</span>,
+            relocations
+                .entry(section_index)
+                .or_default()
+                .push(Relocation {
+                    kind,
+                    reloc_target: target,
+                    offset: offset.try_into().map_err(map_tryfromint_err)<span class="question-mark">?</span>,
+                    addend,
                 });
         }
     }
 
-    <span class="kw">let</span> <span class="ident">eh_frame_section_indices</span> <span class="op">=</span> <span class="ident">eh_frame_section_indices</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">index</span><span class="op">|</span> {
-            <span class="ident">section_to_custom_section</span>.<span class="ident">get</span>(<span class="ident">index</span>).<span class="ident">map_or_else</span>(
-                <span class="op">|</span><span class="op">|</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+    <span class="kw">let </span>eh_frame_section_indices = eh_frame_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
                         <span class="string">&quot;.eh_frame section with index={:?} was never loaded&quot;</span>,
-                        <span class="ident">index</span>
+                        index
                     )))
                 },
-                <span class="op">|</span><span class="ident">idx</span><span class="op">|</span> <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">idx</span>),
+                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
             )
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">SectionIndex</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">section_to_custom_section</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">elf_section_index</span>, <span class="ident">custom_section_index</span>)<span class="op">|</span> {
+    <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = section_to_custom_section
+        .iter()
+        .map(|(elf_section_index, custom_section_index)| {
             (
-                <span class="ident">custom_section_index</span>,
-                <span class="ident">CustomSection</span> {
-                    <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::Read</span>,
-                    <span class="ident">bytes</span>: <span class="ident">SectionBody::new_with_vec</span>(
-                        <span class="ident">elf</span>.<span class="ident">section_by_index</span>(<span class="kw-2">*</span><span class="ident">elf_section_index</span>)
-                            .<span class="ident">unwrap</span>()
-                            .<span class="ident">data</span>()
-                            .<span class="ident">unwrap</span>()
-                            .<span class="ident">to_vec</span>(),
+                custom_section_index,
+                CustomSection {
+                    protection: CustomSectionProtection::Read,
+                    bytes: SectionBody::new_with_vec(
+                        elf.section_by_index(<span class="kw-2">*</span>elf_section_index)
+                            .unwrap()
+                            .data()
+                            .unwrap()
+                            .to_vec(),
                     ),
-                    <span class="ident">relocations</span>: <span class="ident">relocations</span>
-                        .<span class="ident">remove_entry</span>(<span class="ident">elf_section_index</span>)
-                        .<span class="ident">map_or</span>(<span class="macro">vec!</span>[], <span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>),
+                    relocations: relocations
+                        .remove_entry(elf_section_index)
+                        .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),
                 },
             )
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-    <span class="ident">custom_sections</span>.<span class="ident">sort_unstable_by_key</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">custom_sections</span>
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>)
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    custom_sections.sort_unstable_by_key(|a| a.<span class="number">0</span>);
+    <span class="kw">let </span>custom_sections = custom_sections
+        .into_iter()
+        .map(|(<span class="kw">_</span>, v)| v)
+        .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">let</span> <span class="ident">function_body</span> <span class="op">=</span> <span class="ident">FunctionBody</span> {
-        <span class="ident">body</span>: <span class="ident">elf</span>
-            .<span class="ident">section_by_index</span>(<span class="ident">root_section_index</span>)
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">data</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">to_vec</span>(),
-        <span class="ident">unwind_info</span>: <span class="prelude-val">None</span>,
+    <span class="kw">let </span>function_body = FunctionBody {
+        body: elf
+            .section_by_index(root_section_index)
+            .unwrap()
+            .data()
+            .unwrap()
+            .to_vec(),
+        unwind_info: <span class="prelude-val">None</span>,
     };
 
-    <span class="kw">let</span> <span class="ident">address_map</span> <span class="op">=</span> <span class="ident">FunctionAddressMap</span> {
-        <span class="ident">instructions</span>: <span class="macro">vec!</span>[<span class="ident">InstructionAddressMap</span> {
-            <span class="ident">srcloc</span>: <span class="ident">SourceLoc::default</span>(),
-            <span class="ident">code_offset</span>: <span class="number">0</span>,
-            <span class="ident">code_len</span>: <span class="ident">function_body</span>.<span class="ident">body</span>.<span class="ident">len</span>(),
+    <span class="kw">let </span>address_map = FunctionAddressMap {
+        instructions: <span class="macro">vec!</span>[InstructionAddressMap {
+            srcloc: SourceLoc::default(),
+            code_offset: <span class="number">0</span>,
+            code_len: function_body.body.len(),
         }],
-        <span class="ident">start_srcloc</span>: <span class="ident">SourceLoc::default</span>(),
-        <span class="ident">end_srcloc</span>: <span class="ident">SourceLoc::default</span>(),
-        <span class="ident">body_offset</span>: <span class="number">0</span>,
-        <span class="ident">body_len</span>: <span class="ident">function_body</span>.<span class="ident">body</span>.<span class="ident">len</span>(),
+        start_srcloc: SourceLoc::default(),
+        end_srcloc: SourceLoc::default(),
+        body_offset: <span class="number">0</span>,
+        body_len: function_body.body.len(),
     };
 
-    <span class="prelude-val">Ok</span>(<span class="ident">CompiledFunction</span> {
-        <span class="ident">compiled_function</span>: <span class="ident">wasmer_types::CompiledFunction</span> {
-            <span class="ident">body</span>: <span class="ident">function_body</span>,
-            <span class="ident">relocations</span>: <span class="ident">relocations</span>
-                .<span class="ident">remove_entry</span>(<span class="kw-2">&amp;</span><span class="ident">root_section_index</span>)
-                .<span class="ident">map_or</span>(<span class="macro">vec!</span>[], <span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>),
-            <span class="ident">frame_info</span>: <span class="ident">CompiledFunctionFrameInfo</span> {
-                <span class="ident">address_map</span>,
-                <span class="ident">traps</span>: <span class="macro">vec!</span>[],
+    <span class="prelude-val">Ok</span>(CompiledFunction {
+        compiled_function: wasmer_types::CompiledFunction {
+            body: function_body,
+            relocations: relocations
+                .remove_entry(<span class="kw-2">&amp;</span>root_section_index)
+                .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),
+            frame_info: CompiledFunctionFrameInfo {
+                address_map,
+                traps: <span class="macro">vec!</span>[],
             },
         },
-        <span class="ident">custom_sections</span>,
-        <span class="ident">eh_frame_section_indices</span>,
+        custom_sections,
+        eh_frame_section_indices,
     })
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_llvm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_llvm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

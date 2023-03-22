@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/features.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>features.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/features.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>features.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -341,348 +341,348 @@
 <span id="341">341</span>
 <span id="342">342</span>
 <span id="343">343</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="doccomment">/// Controls which experimental features will be enabled.</span>
-<span class="doccomment">/// Features usually have a corresponding [WebAssembly proposal].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [WebAssembly proposal]: https://github.com/WebAssembly/proposals</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Features</span> {
-    <span class="doccomment">/// Threads proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Reference Types proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">reference_types</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// SIMD proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">simd</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Bulk Memory proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">bulk_memory</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Multi Value proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">multi_value</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Tail call proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">tail_call</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Module Linking proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">module_linking</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Multi Memory proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">multi_memory</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// 64-bit Memory proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">memory64</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Wasm exceptions proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">exceptions</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Relaxed SIMD proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">relaxed_simd</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// Extended constant expressions proposal should be enabled</span>
-    <span class="kw">pub</span> <span class="ident">extended_const</span>: <span class="ident">bool</span>,
+<span class="doccomment">/// Controls which experimental features will be enabled.
+/// Features usually have a corresponding [WebAssembly proposal].
+///
+/// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
+</span><span class="attribute">#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>Features {
+    <span class="doccomment">/// Threads proposal should be enabled
+    </span><span class="kw">pub </span>threads: bool,
+    <span class="doccomment">/// Reference Types proposal should be enabled
+    </span><span class="kw">pub </span>reference_types: bool,
+    <span class="doccomment">/// SIMD proposal should be enabled
+    </span><span class="kw">pub </span>simd: bool,
+    <span class="doccomment">/// Bulk Memory proposal should be enabled
+    </span><span class="kw">pub </span>bulk_memory: bool,
+    <span class="doccomment">/// Multi Value proposal should be enabled
+    </span><span class="kw">pub </span>multi_value: bool,
+    <span class="doccomment">/// Tail call proposal should be enabled
+    </span><span class="kw">pub </span>tail_call: bool,
+    <span class="doccomment">/// Module Linking proposal should be enabled
+    </span><span class="kw">pub </span>module_linking: bool,
+    <span class="doccomment">/// Multi Memory proposal should be enabled
+    </span><span class="kw">pub </span>multi_memory: bool,
+    <span class="doccomment">/// 64-bit Memory proposal should be enabled
+    </span><span class="kw">pub </span>memory64: bool,
+    <span class="doccomment">/// Wasm exceptions proposal should be enabled
+    </span><span class="kw">pub </span>exceptions: bool,
+    <span class="doccomment">/// Relaxed SIMD proposal should be enabled
+    </span><span class="kw">pub </span>relaxed_simd: bool,
+    <span class="doccomment">/// Extended constant expressions proposal should be enabled
+    </span><span class="kw">pub </span>extended_const: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">Features</span> {
-    <span class="doccomment">/// Create a new feature</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">threads</span>: <span class="bool-val">true</span>,
-            <span class="comment">// Reference types should be on by default</span>
-            <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
-            <span class="comment">// SIMD should be on by default</span>
-            <span class="ident">simd</span>: <span class="bool-val">true</span>,
-            <span class="comment">// Bulk Memory should be on by default</span>
-            <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,
-            <span class="comment">// Multivalue should be on by default</span>
-            <span class="ident">multi_value</span>: <span class="bool-val">true</span>,
-            <span class="ident">tail_call</span>: <span class="bool-val">false</span>,
-            <span class="ident">module_linking</span>: <span class="bool-val">false</span>,
-            <span class="ident">multi_memory</span>: <span class="bool-val">false</span>,
-            <span class="ident">memory64</span>: <span class="bool-val">false</span>,
-            <span class="ident">exceptions</span>: <span class="bool-val">false</span>,
-            <span class="ident">relaxed_simd</span>: <span class="bool-val">false</span>,
-            <span class="ident">extended_const</span>: <span class="bool-val">false</span>,
+<span class="kw">impl </span>Features {
+    <span class="doccomment">/// Create a new feature
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            threads: <span class="bool-val">true</span>,
+            <span class="comment">// Reference types should be on by default
+            </span>reference_types: <span class="bool-val">true</span>,
+            <span class="comment">// SIMD should be on by default
+            </span>simd: <span class="bool-val">true</span>,
+            <span class="comment">// Bulk Memory should be on by default
+            </span>bulk_memory: <span class="bool-val">true</span>,
+            <span class="comment">// Multivalue should be on by default
+            </span>multi_value: <span class="bool-val">true</span>,
+            tail_call: <span class="bool-val">false</span>,
+            module_linking: <span class="bool-val">false</span>,
+            multi_memory: <span class="bool-val">false</span>,
+            memory64: <span class="bool-val">false</span>,
+            exceptions: <span class="bool-val">false</span>,
+            relaxed_simd: <span class="bool-val">false</span>,
+            extended_const: <span class="bool-val">false</span>,
         }
     }
 
-    <span class="doccomment">/// Configures whether the WebAssembly threads proposal will be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly threads proposal][threads] is not currently fully</span>
-    <span class="doccomment">/// standardized and is undergoing development. Support for this feature can</span>
-    <span class="doccomment">/// be enabled through this method for appropriate WebAssembly modules.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates items such as shared memories and atomic</span>
-    <span class="doccomment">/// instructions.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [threads]: https://github.com/webassembly/threads</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">threads</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">threads</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Configures whether the WebAssembly threads proposal will be enabled.
+    ///
+    /// The [WebAssembly threads proposal][threads] is not currently fully
+    /// standardized and is undergoing development. Support for this feature can
+    /// be enabled through this method for appropriate WebAssembly modules.
+    ///
+    /// This feature gates items such as shared memories and atomic
+    /// instructions.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [threads]: https://github.com/webassembly/threads
+    </span><span class="kw">pub fn </span>threads(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.threads = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly reference types proposal will be</span>
-    <span class="doccomment">/// enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly reference types proposal][proposal] is now</span>
-    <span class="doccomment">/// fully standardized and enabled by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates items such as the `externref` type and multiple tables</span>
-    <span class="doccomment">/// being in a module. Note that enabling the reference types feature will</span>
-    <span class="doccomment">/// also enable the bulk memory feature.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `true` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/webassembly/reference-types</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reference_types</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">reference_types</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="comment">// The reference types proposal depends on the bulk memory proposal</span>
-        <span class="kw">if</span> <span class="ident">enable</span> {
-            <span class="self">self</span>.<span class="ident">bulk_memory</span>(<span class="bool-val">true</span>);
+    <span class="doccomment">/// Configures whether the WebAssembly reference types proposal will be
+    /// enabled.
+    ///
+    /// The [WebAssembly reference types proposal][proposal] is now
+    /// fully standardized and enabled by default.
+    ///
+    /// This feature gates items such as the `externref` type and multiple tables
+    /// being in a module. Note that enabling the reference types feature will
+    /// also enable the bulk memory feature.
+    ///
+    /// This is `true` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/reference-types
+    </span><span class="kw">pub fn </span>reference_types(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.reference_types = enable;
+        <span class="comment">// The reference types proposal depends on the bulk memory proposal
+        </span><span class="kw">if </span>enable {
+            <span class="self">self</span>.bulk_memory(<span class="bool-val">true</span>);
         }
-        <span class="self">self</span>
-    }
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly SIMD proposal will be</span>
-    <span class="doccomment">/// enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly SIMD proposal][proposal] is not currently</span>
-    <span class="doccomment">/// fully standardized and is undergoing development. Support for this</span>
-    <span class="doccomment">/// feature can be enabled through this method for appropriate WebAssembly</span>
-    <span class="doccomment">/// modules.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates items such as the `v128` type and all of its</span>
-    <span class="doccomment">/// operators being in a module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/webassembly/simd</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">simd</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">simd</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Configures whether the WebAssembly SIMD proposal will be
+    /// enabled.
+    ///
+    /// The [WebAssembly SIMD proposal][proposal] is not currently
+    /// fully standardized and is undergoing development. Support for this
+    /// feature can be enabled through this method for appropriate WebAssembly
+    /// modules.
+    ///
+    /// This feature gates items such as the `v128` type and all of its
+    /// operators being in a module.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/simd
+    </span><span class="kw">pub fn </span>simd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.simd = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly bulk memory operations proposal will</span>
-    <span class="doccomment">/// be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly bulk memory operations proposal][proposal] is now</span>
-    <span class="doccomment">/// fully standardized and enabled by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates items such as the `memory.copy` instruction, passive</span>
-    <span class="doccomment">/// data/table segments, etc, being in a module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `true` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/webassembly/bulk-memory-operations</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bulk_memory</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">bulk_memory</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="comment">// In case is false, we disable both threads and reference types</span>
-        <span class="comment">// since they both depend on bulk memory</span>
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">enable</span> {
-            <span class="self">self</span>.<span class="ident">reference_types</span>(<span class="bool-val">false</span>);
+    <span class="doccomment">/// Configures whether the WebAssembly bulk memory operations proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly bulk memory operations proposal][proposal] is now
+    /// fully standardized and enabled by default.
+    ///
+    /// This feature gates items such as the `memory.copy` instruction, passive
+    /// data/table segments, etc, being in a module.
+    ///
+    /// This is `true` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/bulk-memory-operations
+    </span><span class="kw">pub fn </span>bulk_memory(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.bulk_memory = enable;
+        <span class="comment">// In case is false, we disable both threads and reference types
+        // since they both depend on bulk memory
+        </span><span class="kw">if </span>!enable {
+            <span class="self">self</span>.reference_types(<span class="bool-val">false</span>);
         }
-        <span class="self">self</span>
-    }
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly multi-value proposal will</span>
-    <span class="doccomment">/// be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly multi-value proposal][proposal] is now fully</span>
-    <span class="doccomment">/// standardized and enabled by default, except with the singlepass</span>
-    <span class="doccomment">/// compiler which does not support it.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates functions and blocks returning multiple values in a</span>
-    <span class="doccomment">/// module, for example.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `true` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/webassembly/multi-value</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">multi_value</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">multi_value</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Configures whether the WebAssembly multi-value proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly multi-value proposal][proposal] is now fully
+    /// standardized and enabled by default, except with the singlepass
+    /// compiler which does not support it.
+    ///
+    /// This feature gates functions and blocks returning multiple values in a
+    /// module, for example.
+    ///
+    /// This is `true` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/multi-value
+    </span><span class="kw">pub fn </span>multi_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.multi_value = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly tail-call proposal will</span>
-    <span class="doccomment">/// be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly tail-call proposal][proposal] is not</span>
-    <span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-    <span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-    <span class="doccomment">/// appropriate WebAssembly modules.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates tail-call functions in WebAssembly.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/webassembly/tail-call</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tail_call</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">tail_call</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Configures whether the WebAssembly tail-call proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly tail-call proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature gates tail-call functions in WebAssembly.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/tail-call
+    </span><span class="kw">pub fn </span>tail_call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.tail_call = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly module linking proposal will</span>
-    <span class="doccomment">/// be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly module linking proposal][proposal] is not</span>
-    <span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-    <span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-    <span class="doccomment">/// appropriate WebAssembly modules.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature allows WebAssembly modules to define, import and</span>
-    <span class="doccomment">/// export modules and instances.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/webassembly/module-linking</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_linking</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">module_linking</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Configures whether the WebAssembly module linking proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly module linking proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature allows WebAssembly modules to define, import and
+    /// export modules and instances.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/module-linking
+    </span><span class="kw">pub fn </span>module_linking(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.module_linking = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly multi-memory proposal will</span>
-    <span class="doccomment">/// be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly multi-memory proposal][proposal] is not</span>
-    <span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-    <span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-    <span class="doccomment">/// appropriate WebAssembly modules.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature adds the ability to use multiple memories within a</span>
-    <span class="doccomment">/// single Wasm module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/WebAssembly/multi-memory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">multi_memory</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">multi_memory</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Configures whether the WebAssembly multi-memory proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly multi-memory proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature adds the ability to use multiple memories within a
+    /// single Wasm module.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/WebAssembly/multi-memory
+    </span><span class="kw">pub fn </span>multi_memory(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.multi_memory = enable;
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Configures whether the WebAssembly 64-bit memory proposal will</span>
-    <span class="doccomment">/// be enabled.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly 64-bit memory proposal][proposal] is not</span>
-    <span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-    <span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-    <span class="doccomment">/// appropriate WebAssembly modules.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This feature gates support for linear memory of sizes larger than</span>
-    <span class="doccomment">/// 2^32 bits.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [proposal]: https://github.com/WebAssembly/memory64</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory64</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">memory64</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
+    <span class="doccomment">/// Configures whether the WebAssembly 64-bit memory proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly 64-bit memory proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature gates support for linear memory of sizes larger than
+    /// 2^32 bits.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/WebAssembly/memory64
+    </span><span class="kw">pub fn </span>memory64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.memory64 = enable;
+        <span class="self">self
+    </span>}
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>Features {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Features</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_features</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">default_features</span>() {
-        <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">Features::default</span>();
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_features {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>default_features() {
+        <span class="kw">let </span>default = Features::default();
         <span class="macro">assert_eq!</span>(
-            <span class="ident">default</span>,
-            <span class="ident">Features</span> {
-                <span class="ident">threads</span>: <span class="bool-val">true</span>,
-                <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
-                <span class="ident">simd</span>: <span class="bool-val">true</span>,
-                <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,
-                <span class="ident">multi_value</span>: <span class="bool-val">true</span>,
-                <span class="ident">tail_call</span>: <span class="bool-val">false</span>,
-                <span class="ident">module_linking</span>: <span class="bool-val">false</span>,
-                <span class="ident">multi_memory</span>: <span class="bool-val">false</span>,
-                <span class="ident">memory64</span>: <span class="bool-val">false</span>,
-                <span class="ident">exceptions</span>: <span class="bool-val">false</span>,
-                <span class="ident">relaxed_simd</span>: <span class="bool-val">false</span>,
-                <span class="ident">extended_const</span>: <span class="bool-val">false</span>,
+            default,
+            Features {
+                threads: <span class="bool-val">true</span>,
+                reference_types: <span class="bool-val">true</span>,
+                simd: <span class="bool-val">true</span>,
+                bulk_memory: <span class="bool-val">true</span>,
+                multi_value: <span class="bool-val">true</span>,
+                tail_call: <span class="bool-val">false</span>,
+                module_linking: <span class="bool-val">false</span>,
+                multi_memory: <span class="bool-val">false</span>,
+                memory64: <span class="bool-val">false</span>,
+                exceptions: <span class="bool-val">false</span>,
+                relaxed_simd: <span class="bool-val">false</span>,
+                extended_const: <span class="bool-val">false</span>,
             }
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_threads</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">bulk_memory</span>(<span class="bool-val">false</span>).<span class="ident">threads</span>(<span class="bool-val">true</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_threads() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.bulk_memory(<span class="bool-val">false</span>).threads(<span class="bool-val">true</span>);
 
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">threads</span>);
+        <span class="macro">assert!</span>(features.threads);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_reference_types</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">bulk_memory</span>(<span class="bool-val">false</span>).<span class="ident">reference_types</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">reference_types</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">bulk_memory</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_reference_types() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.bulk_memory(<span class="bool-val">false</span>).reference_types(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.reference_types);
+        <span class="macro">assert!</span>(features.bulk_memory);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_simd</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">simd</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">simd</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_simd() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.simd(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.simd);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_multi_value</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">multi_value</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">multi_value</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_multi_value() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.multi_value(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.multi_value);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_bulk_memory</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">bulk_memory</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">bulk_memory</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_bulk_memory() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.bulk_memory(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.bulk_memory);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">disable_bulk_memory</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>
-            .<span class="ident">threads</span>(<span class="bool-val">true</span>)
-            .<span class="ident">reference_types</span>(<span class="bool-val">true</span>)
-            .<span class="ident">bulk_memory</span>(<span class="bool-val">false</span>);
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">features</span>.<span class="ident">bulk_memory</span>);
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">features</span>.<span class="ident">reference_types</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>disable_bulk_memory() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features
+            .threads(<span class="bool-val">true</span>)
+            .reference_types(<span class="bool-val">true</span>)
+            .bulk_memory(<span class="bool-val">false</span>);
+        <span class="macro">assert!</span>(!features.bulk_memory);
+        <span class="macro">assert!</span>(!features.reference_types);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_tail_call</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">tail_call</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">tail_call</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_tail_call() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.tail_call(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.tail_call);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_module_linking</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">module_linking</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">module_linking</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_module_linking() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.module_linking(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.module_linking);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_multi_memory</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">multi_memory</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">multi_memory</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_multi_memory() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.multi_memory(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.multi_memory);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">enable_memory64</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::new</span>();
-        <span class="ident">features</span>.<span class="ident">memory64</span>(<span class="bool-val">true</span>);
-        <span class="macro">assert!</span>(<span class="ident">features</span>.<span class="ident">memory64</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>enable_memory64() {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::new();
+        features.memory64(<span class="bool-val">true</span>);
+        <span class="macro">assert!</span>(features.memory64);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

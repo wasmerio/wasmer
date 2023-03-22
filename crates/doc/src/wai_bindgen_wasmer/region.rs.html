@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/region.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>region.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/region.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>region.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -323,330 +323,330 @@
 <span id="323">323</span>
 <span id="324">324</span>
 <span id="325">325</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::rt::RawMem</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Endian</span>, <span class="ident">GuestError</span>, <span class="ident">Le</span>};
-<span class="kw">use</span> <span class="ident">std::collections::HashSet</span>;
-<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::marker</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">wasmer::RuntimeError</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::rt::RawMem;
+<span class="kw">use crate</span>::{Endian, GuestError, Le};
+<span class="kw">use </span>std::collections::HashSet;
+<span class="kw">use </span>std::convert::TryInto;
+<span class="kw">use </span>std::marker;
+<span class="kw">use </span>std::mem;
+<span class="kw">use </span>wasmer::RuntimeError;
 
-<span class="comment">// This is a pretty naive way to account for borrows. This datastructure</span>
-<span class="comment">// could be made a lot more efficient with some effort.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BorrowChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Maps from handle to region borrowed. A HashMap is probably not ideal</span>
-    <span class="doccomment">/// for this but it works. It would be more efficient if we could</span>
-    <span class="doccomment">/// check `is_borrowed` without an O(n) iteration, by organizing borrows</span>
-    <span class="doccomment">/// by an ordering of Region.</span>
-    <span class="ident">shared_borrows</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Region</span><span class="op">&gt;</span>,
-    <span class="ident">mut_borrows</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Region</span><span class="op">&gt;</span>,
-    <span class="ident">_marker</span>: <span class="ident">marker::PhantomData</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">u8</span>]<span class="op">&gt;</span>,
-    <span class="ident">ptr</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
-    <span class="ident">len</span>: <span class="ident">usize</span>,
+<span class="comment">// This is a pretty naive way to account for borrows. This datastructure
+// could be made a lot more efficient with some effort.
+</span><span class="kw">pub struct </span>BorrowChecker&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Maps from handle to region borrowed. A HashMap is probably not ideal
+    /// for this but it works. It would be more efficient if we could
+    /// check `is_borrowed` without an O(n) iteration, by organizing borrows
+    /// by an ordering of Region.
+    </span>shared_borrows: HashSet&lt;Region&gt;,
+    mut_borrows: HashSet&lt;Region&gt;,
+    _marker: marker::PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8]&gt;,
+    ptr: <span class="kw-2">*mut </span>u8,
+    len: usize,
 }
 
-<span class="comment">// These are not automatically implemented with our storage of `*mut u8`, so we</span>
-<span class="comment">// need to manually declare that this type is threadsafe.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">BorrowChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">BorrowChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {}
+<span class="comment">// These are not automatically implemented with our storage of `*mut u8`, so we
+// need to manually declare that this type is threadsafe.
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>BorrowChecker&lt;<span class="lifetime">&#39;_</span>&gt; {}
+<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>BorrowChecker&lt;<span class="lifetime">&#39;_</span>&gt; {}
 
-<span class="kw">fn</span> <span class="ident">to_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">std::fmt::Display</span>) -&gt; <span class="ident">RuntimeError</span> {
-    <span class="ident">RuntimeError::new</span>(<span class="ident">err</span>.<span class="ident">to_string</span>())
+<span class="kw">fn </span>to_error(err: <span class="kw">impl </span>std::fmt::Display) -&gt; RuntimeError {
+    RuntimeError::new(err.to_string())
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">BorrowChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">BorrowChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-        <span class="ident">BorrowChecker</span> {
-            <span class="ident">ptr</span>: <span class="ident">data</span>.<span class="ident">as_mut_ptr</span>(),
-            <span class="ident">len</span>: <span class="ident">data</span>.<span class="ident">len</span>(),
-            <span class="ident">shared_borrows</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">mut_borrows</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">_marker</span>: <span class="ident">marker::PhantomData</span>,
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BorrowChecker&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub fn </span>new(data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8]) -&gt; BorrowChecker&lt;<span class="lifetime">&#39;a</span>&gt; {
+        BorrowChecker {
+            ptr: data.as_mut_ptr(),
+            len: data.len(),
+            shared_borrows: Default::default(),
+            mut_borrows: Default::default(),
+            _marker: marker::PhantomData,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">slice</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AllBytesValid</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ptr</span>: <span class="ident">i32</span>, <span class="ident">len</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">T</span>], <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">ret</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_slice</span>(<span class="ident">ptr</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
-        <span class="comment">// SAFETY: We&#39;re promoting the valid lifetime of `ret` from a temporary</span>
-        <span class="comment">// borrow on `self` to `&#39;a` on this `BorrowChecker`. At the same time</span>
-        <span class="comment">// we&#39;re recording that this is a persistent shared borrow (until this</span>
-        <span class="comment">// borrow checker is deleted), which disallows future mutable borrows</span>
-        <span class="comment">// of the same data.</span>
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">ret</span> <span class="kw">as</span> <span class="kw-2">*const</span> [<span class="ident">T</span>]) };
-        <span class="self">self</span>.<span class="ident">shared_borrows</span>.<span class="ident">insert</span>(<span class="ident">r</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+    <span class="kw">pub fn </span>slice&lt;T: AllBytesValid&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ptr: i32, len: i32) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[T], RuntimeError&gt; {
+        <span class="kw">let </span>(ret, r) = <span class="self">self</span>.get_slice(ptr, len)<span class="question-mark">?</span>;
+        <span class="comment">// SAFETY: We&#39;re promoting the valid lifetime of `ret` from a temporary
+        // borrow on `self` to `&#39;a` on this `BorrowChecker`. At the same time
+        // we&#39;re recording that this is a persistent shared borrow (until this
+        // borrow checker is deleted), which disallows future mutable borrows
+        // of the same data.
+        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span>(ret <span class="kw">as </span><span class="kw-2">*const </span>[T]) };
+        <span class="self">self</span>.shared_borrows.insert(r);
+        <span class="prelude-val">Ok</span>(ret)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">slice_mut</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AllBytesValid</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">ptr</span>: <span class="ident">i32</span>,
-        <span class="ident">len</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">T</span>], <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">ret</span>, <span class="ident">r</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_slice_mut</span>(<span class="ident">ptr</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
-        <span class="comment">// SAFETY: see `slice` for how we&#39;re extending the lifetime by</span>
-        <span class="comment">// recording the borrow here. Note that the `mut_borrows` list is</span>
-        <span class="comment">// checked on both shared and mutable borrows in the future since a</span>
-        <span class="comment">// mutable borrow can&#39;t alias with anything.</span>
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span>(<span class="ident">ret</span> <span class="kw">as</span> <span class="kw-2">*mut</span> [<span class="ident">T</span>]) };
-        <span class="self">self</span>.<span class="ident">mut_borrows</span>.<span class="ident">insert</span>(<span class="ident">r</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+    <span class="kw">pub fn </span>slice_mut&lt;T: AllBytesValid&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        ptr: i32,
+        len: i32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[T], RuntimeError&gt; {
+        <span class="kw">let </span>(ret, r) = <span class="self">self</span>.get_slice_mut(ptr, len)<span class="question-mark">?</span>;
+        <span class="comment">// SAFETY: see `slice` for how we&#39;re extending the lifetime by
+        // recording the borrow here. Note that the `mut_borrows` list is
+        // checked on both shared and mutable borrows in the future since a
+        // mutable borrow can&#39;t alias with anything.
+        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ <span class="kw-2">&amp;mut *</span>(ret <span class="kw">as </span><span class="kw-2">*mut </span>[T]) };
+        <span class="self">self</span>.mut_borrows.insert(r);
+        <span class="prelude-val">Ok</span>(ret)
     }
 
-    <span class="kw">fn</span> <span class="ident">get_slice</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AllBytesValid</span><span class="op">&gt;</span>(
+    <span class="kw">fn </span>get_slice&lt;T: AllBytesValid&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ptr</span>: <span class="ident">i32</span>,
-        <span class="ident">len</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="kw-2">&amp;</span>[<span class="ident">T</span>], <span class="ident">Region</span>), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">region</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">ptr</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_mut_borrowed</span>(<span class="ident">r</span>) {
-            <span class="prelude-val">Err</span>(<span class="ident">to_error</span>(<span class="ident">GuestError::PtrBorrowed</span>(<span class="ident">r</span>)))
-        } <span class="kw">else</span> {
+        ptr: i32,
+        len: i32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="kw-2">&amp;</span>[T], Region), RuntimeError&gt; {
+        <span class="kw">let </span>r = <span class="self">self</span>.region::&lt;T&gt;(ptr, len)<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="self">self</span>.is_mut_borrowed(r) {
+            <span class="prelude-val">Err</span>(to_error(GuestError::PtrBorrowed(r)))
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>((
-                <span class="comment">// SAFETY: invariants to uphold:</span>
-                <span class="comment">//</span>
-                <span class="comment">// * The lifetime of the input is valid for the lifetime of the</span>
-                <span class="comment">//   output. In this case we&#39;re threading through the lifetime</span>
-                <span class="comment">//   of `&amp;self` to the output.</span>
-                <span class="comment">// * The actual output is valid, which is guaranteed with the</span>
-                <span class="comment">//   `AllBytesValid` bound.</span>
-                <span class="comment">// * We uphold Rust&#39;s borrowing guarantees, namely that this</span>
-                <span class="comment">//   borrow we&#39;re returning isn&#39;t overlapping with any mutable</span>
-                <span class="comment">//   borrows.</span>
-                <span class="comment">// * The region `r` we&#39;re returning accurately describes the</span>
-                <span class="comment">//   slice we&#39;re returning in wasm linear memory.</span>
-                <span class="kw">unsafe</span> {
-                    <span class="ident">std::slice::from_raw_parts</span>(
-                        <span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">r</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">T</span>,
-                        <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>,
+                <span class="comment">// SAFETY: invariants to uphold:
+                //
+                // * The lifetime of the input is valid for the lifetime of the
+                //   output. In this case we&#39;re threading through the lifetime
+                //   of `&amp;self` to the output.
+                // * The actual output is valid, which is guaranteed with the
+                //   `AllBytesValid` bound.
+                // * We uphold Rust&#39;s borrowing guarantees, namely that this
+                //   borrow we&#39;re returning isn&#39;t overlapping with any mutable
+                //   borrows.
+                // * The region `r` we&#39;re returning accurately describes the
+                //   slice we&#39;re returning in wasm linear memory.
+                </span><span class="kw">unsafe </span>{
+                    std::slice::from_raw_parts(
+                        <span class="self">self</span>.ptr.add(r.start <span class="kw">as </span>usize) <span class="kw">as </span><span class="kw-2">*const </span>T,
+                        len <span class="kw">as </span>usize,
                     )
                 },
-                <span class="ident">r</span>,
+                r,
             ))
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">get_slice_mut</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ptr</span>: <span class="ident">i32</span>, <span class="ident">len</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="kw-2">&amp;mut</span> [<span class="ident">T</span>], <span class="ident">Region</span>), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">region</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">ptr</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_mut_borrowed</span>(<span class="ident">r</span>) <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">is_shared_borrowed</span>(<span class="ident">r</span>) {
-            <span class="prelude-val">Err</span>(<span class="ident">to_error</span>(<span class="ident">GuestError::PtrBorrowed</span>(<span class="ident">r</span>)))
-        } <span class="kw">else</span> {
+    <span class="kw">fn </span>get_slice_mut&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ptr: i32, len: i32) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="kw-2">&amp;mut </span>[T], Region), RuntimeError&gt; {
+        <span class="kw">let </span>r = <span class="self">self</span>.region::&lt;T&gt;(ptr, len)<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="self">self</span>.is_mut_borrowed(r) || <span class="self">self</span>.is_shared_borrowed(r) {
+            <span class="prelude-val">Err</span>(to_error(GuestError::PtrBorrowed(r)))
+        } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>((
-                <span class="comment">// SAFETY: same as `get_slice`, except for that we&#39;re threading</span>
-                <span class="comment">// through `&amp;mut` properties as well.</span>
-                <span class="kw">unsafe</span> {
-                    <span class="ident">std::slice::from_raw_parts_mut</span>(
-                        <span class="self">self</span>.<span class="ident">ptr</span>.<span class="ident">add</span>(<span class="ident">r</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">T</span>,
-                        <span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>,
+                <span class="comment">// SAFETY: same as `get_slice`, except for that we&#39;re threading
+                // through `&amp;mut` properties as well.
+                </span><span class="kw">unsafe </span>{
+                    std::slice::from_raw_parts_mut(
+                        <span class="self">self</span>.ptr.add(r.start <span class="kw">as </span>usize) <span class="kw">as </span><span class="kw-2">*mut </span>T,
+                        len <span class="kw">as </span>usize,
                     )
                 },
-                <span class="ident">r</span>,
+                r,
             ))
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">region</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ptr</span>: <span class="ident">i32</span>, <span class="ident">len</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Region</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="macro">assert_eq!</span>(<span class="ident">std::mem::align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(), <span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">Region</span> {
-            <span class="ident">start</span>: <span class="ident">ptr</span> <span class="kw">as</span> <span class="ident">u32</span>,
-            <span class="ident">len</span>: (<span class="ident">len</span> <span class="kw">as</span> <span class="ident">u32</span>)
-                .<span class="ident">checked_mul</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u32</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">to_error</span>(<span class="ident">GuestError::PtrOverflow</span>))<span class="question-mark">?</span>,
+    <span class="kw">fn </span>region&lt;T&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: i32, len: i32) -&gt; <span class="prelude-ty">Result</span>&lt;Region, RuntimeError&gt; {
+        <span class="macro">assert_eq!</span>(std::mem::align_of::&lt;T&gt;(), <span class="number">1</span>);
+        <span class="kw">let </span>r = Region {
+            start: ptr <span class="kw">as </span>u32,
+            len: (len <span class="kw">as </span>u32)
+                .checked_mul(mem::size_of::&lt;T&gt;() <span class="kw">as </span>u32)
+                .ok_or_else(|| to_error(GuestError::PtrOverflow))<span class="question-mark">?</span>,
         };
-        <span class="self">self</span>.<span class="ident">validate_contains</span>(<span class="kw-2">&amp;</span><span class="ident">r</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">r</span>)
+        <span class="self">self</span>.validate_contains(<span class="kw-2">&amp;</span>r)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(r)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">slice_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ptr</span>: <span class="ident">i32</span>, <span class="ident">len</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slice</span>(<span class="ident">ptr</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
-        <span class="ident">std::str::from_utf8</span>(<span class="ident">bytes</span>).<span class="ident">map_err</span>(<span class="ident">to_error</span>)
+    <span class="kw">pub fn </span>slice_str(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ptr: i32, len: i32) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, RuntimeError&gt; {
+        <span class="kw">let </span>bytes = <span class="self">self</span>.slice(ptr, len)<span class="question-mark">?</span>;
+        std::str::from_utf8(bytes).map_err(to_error)
     }
 
-    <span class="kw">fn</span> <span class="ident">validate_contains</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">region</span>: <span class="kw-2">&amp;</span><span class="ident">Region</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">region</span>
-            .<span class="ident">start</span>
-            .<span class="ident">checked_add</span>(<span class="ident">region</span>.<span class="ident">len</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">to_error</span>(<span class="ident">GuestError::PtrOverflow</span>))<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="kw">if</span> <span class="ident">end</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span> {
+    <span class="kw">fn </span>validate_contains(<span class="kw-2">&amp;</span><span class="self">self</span>, region: <span class="kw-2">&amp;</span>Region) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">let </span>end = region
+            .start
+            .checked_add(region.len)
+            .ok_or_else(|| to_error(GuestError::PtrOverflow))<span class="question-mark">? </span><span class="kw">as </span>usize;
+        <span class="kw">if </span>end &lt;= <span class="self">self</span>.len {
             <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">to_error</span>(<span class="ident">GuestError::PtrOutOfBounds</span>(<span class="kw-2">*</span><span class="ident">region</span>)))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(to_error(GuestError::PtrOutOfBounds(<span class="kw-2">*</span>region)))
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">is_shared_borrowed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">r</span>: <span class="ident">Region</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">shared_borrows</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">overlaps</span>(<span class="ident">r</span>))
+    <span class="kw">fn </span>is_shared_borrowed(<span class="kw-2">&amp;</span><span class="self">self</span>, r: Region) -&gt; bool {
+        <span class="self">self</span>.shared_borrows.iter().any(|b| b.overlaps(r))
     }
 
-    <span class="kw">fn</span> <span class="ident">is_mut_borrowed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">r</span>: <span class="ident">Region</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">mut_borrows</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">overlaps</span>(<span class="ident">r</span>))
+    <span class="kw">fn </span>is_mut_borrowed(<span class="kw-2">&amp;</span><span class="self">self</span>, r: Region) -&gt; bool {
+        <span class="self">self</span>.mut_borrows.iter().any(|b| b.overlaps(r))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut</span> [<span class="ident">u8</span>] {
-        <span class="ident">std::ptr::slice_from_raw_parts_mut</span>(<span class="self">self</span>.<span class="ident">ptr</span>, <span class="self">self</span>.<span class="ident">len</span>)
+    <span class="kw">pub fn </span>raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>[u8] {
+        std::ptr::slice_from_raw_parts_mut(<span class="self">self</span>.ptr, <span class="self">self</span>.len)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">RawMem</span> <span class="kw">for</span> <span class="ident">BorrowChecker</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">store</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">val</span>: <span class="ident">T</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">slice</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_slice_mut</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">offset</span>, <span class="number">1</span>)<span class="question-mark">?</span>;
-        <span class="ident">slice</span>[<span class="number">0</span>].<span class="ident">set</span>(<span class="ident">val</span>);
+<span class="kw">impl </span>RawMem <span class="kw">for </span>BorrowChecker&lt;<span class="lifetime">&#39;_</span>&gt; {
+    <span class="kw">fn </span>store&lt;T: Endian&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: i32, val: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">let </span>(slice, <span class="kw">_</span>) = <span class="self">self</span>.get_slice_mut::&lt;Le&lt;T&gt;&gt;(offset, <span class="number">1</span>)<span class="question-mark">?</span>;
+        slice[<span class="number">0</span>].set(val);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">store_many</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">val</span>: <span class="kw-2">&amp;</span>[<span class="ident">T</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">slice</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_slice_mut</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(
-            <span class="ident">offset</span>,
-            <span class="ident">val</span>.<span class="ident">len</span>()
-                .<span class="ident">try_into</span>()
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">to_error</span>(<span class="ident">GuestError::PtrOverflow</span>))<span class="question-mark">?</span>,
+    <span class="kw">fn </span>store_many&lt;T: Endian&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: i32, val: <span class="kw-2">&amp;</span>[T]) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">let </span>(slice, <span class="kw">_</span>) = <span class="self">self</span>.get_slice_mut::&lt;Le&lt;T&gt;&gt;(
+            offset,
+            val.len()
+                .try_into()
+                .map_err(|<span class="kw">_</span>| to_error(GuestError::PtrOverflow))<span class="question-mark">?</span>,
         )<span class="question-mark">?</span>;
-        <span class="kw">for</span> (<span class="ident">slot</span>, <span class="ident">val</span>) <span class="kw">in</span> <span class="ident">slice</span>.<span class="ident">iter_mut</span>().<span class="ident">zip</span>(<span class="ident">val</span>) {
-            <span class="ident">slot</span>.<span class="ident">set</span>(<span class="kw-2">*</span><span class="ident">val</span>);
+        <span class="kw">for </span>(slot, val) <span class="kw">in </span>slice.iter_mut().zip(val) {
+            slot.set(<span class="kw-2">*</span>val);
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">load</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">slice</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_slice</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">offset</span>, <span class="number">1</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">slice</span>[<span class="number">0</span>].<span class="ident">get</span>())
+    <span class="kw">fn </span>load&lt;T: Endian&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, offset: i32) -&gt; <span class="prelude-ty">Result</span>&lt;T, RuntimeError&gt; {
+        <span class="kw">let </span>(slice, <span class="kw">_</span>) = <span class="self">self</span>.get_slice::&lt;Le&lt;T&gt;&gt;(offset, <span class="number">1</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(slice[<span class="number">0</span>].get())
     }
 }
 
-<span class="doccomment">/// Unsafe trait representing types where every byte pattern is valid for their</span>
-<span class="doccomment">/// representation.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is the set of types which wasmer can have a raw pointer to for</span>
-<span class="doccomment">/// values which reside in wasm linear memory.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// TODO: add safety docs.</span>
-<span class="doccomment">///</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">AllBytesValid</span> {}
+<span class="doccomment">/// Unsafe trait representing types where every byte pattern is valid for their
+/// representation.
+///
+/// This is the set of types which wasmer can have a raw pointer to for
+/// values which reside in wasm linear memory.
+///
+/// # Safety
+///
+/// TODO: add safety docs.
+///
+</span><span class="kw">pub unsafe trait </span>AllBytesValid {}
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">u8</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">u16</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">u32</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">u64</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">i8</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">i16</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">i32</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">i64</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">f32</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">f64</span> {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>u8 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>u16 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>u32 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>u64 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>i8 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>i16 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>i32 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>i64 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>f32 {}
+<span class="kw">unsafe impl </span>AllBytesValid <span class="kw">for </span>f64 {}
 
-<span class="macro">macro_rules!</span> <span class="ident">tuples</span> {
-    ($(($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ident</span>)<span class="kw-2">*</span>))<span class="kw-2">*</span>) =&gt; ($(
-        <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="op">&lt;</span>$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">AllBytesValid</span>,)<span class="kw-2">*</span><span class="op">&gt;</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>,)<span class="kw-2">*</span>) {}
+<span class="macro">macro_rules! </span>tuples {
+    ($(($(<span class="macro-nonterminal">$t</span>:ident)<span class="kw-2">*</span>))<span class="kw-2">*</span>) =&gt; ($(
+        <span class="kw">unsafe impl </span>&lt;$(<span class="macro-nonterminal">$t</span>:AllBytesValid,)<span class="kw-2">*</span>&gt; AllBytesValid <span class="kw">for </span>($(<span class="macro-nonterminal">$t</span>,)<span class="kw-2">*</span>) {}
     )<span class="kw-2">*</span>)
 }
 
-<span class="macro">tuples!</span> {
+<span class="macro">tuples! </span>{
     ()
-    (<span class="ident">T1</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span> <span class="ident">T8</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span> <span class="ident">T8</span> <span class="ident">T9</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span> <span class="ident">T8</span> <span class="ident">T9</span> <span class="ident">T10</span>)
+    (T1)
+    (T1 T2)
+    (T1 T2 T3)
+    (T1 T2 T3 T4)
+    (T1 T2 T3 T4 T5)
+    (T1 T2 T3 T4 T5 T6)
+    (T1 T2 T3 T4 T5 T6 T7)
+    (T1 T2 T3 T4 T5 T6 T7 T8)
+    (T1 T2 T3 T4 T5 T6 T7 T8 T9)
+    (T1 T2 T3 T4 T5 T6 T7 T8 T9 T10)
 }
 
-<span class="doccomment">/// Represents a contiguous region in memory.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Region</span> {
-    <span class="kw">pub</span> <span class="ident">start</span>: <span class="ident">u32</span>,
-    <span class="kw">pub</span> <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Represents a contiguous region in memory.
+</span><span class="attribute">#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+</span><span class="kw">pub struct </span>Region {
+    <span class="kw">pub </span>start: u32,
+    <span class="kw">pub </span>len: u32,
 }
 
-<span class="kw">impl</span> <span class="ident">Region</span> {
-    <span class="doccomment">/// Checks if this `Region` overlaps with `rhs` `Region`.</span>
-    <span class="kw">fn</span> <span class="ident">overlaps</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">rhs</span>: <span class="ident">Region</span>) -&gt; <span class="ident">bool</span> {
-        <span class="comment">// Zero-length regions can never overlap!</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">len</span> <span class="op">==</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">rhs</span>.<span class="ident">len</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="bool-val">false</span>;
+<span class="kw">impl </span>Region {
+    <span class="doccomment">/// Checks if this `Region` overlaps with `rhs` `Region`.
+    </span><span class="kw">fn </span>overlaps(<span class="kw-2">&amp;</span><span class="self">self</span>, rhs: Region) -&gt; bool {
+        <span class="comment">// Zero-length regions can never overlap!
+        </span><span class="kw">if </span><span class="self">self</span>.len == <span class="number">0 </span>|| rhs.len == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
-        <span class="kw">let</span> <span class="ident">self_start</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">u64</span>;
-        <span class="kw">let</span> <span class="ident">self_end</span> <span class="op">=</span> <span class="ident">self_start</span> <span class="op">+</span> (<span class="self">self</span>.<span class="ident">len</span> <span class="op">-</span> <span class="number">1</span>) <span class="kw">as</span> <span class="ident">u64</span>;
+        <span class="kw">let </span>self_start = <span class="self">self</span>.start <span class="kw">as </span>u64;
+        <span class="kw">let </span>self_end = self_start + (<span class="self">self</span>.len - <span class="number">1</span>) <span class="kw">as </span>u64;
 
-        <span class="kw">let</span> <span class="ident">rhs_start</span> <span class="op">=</span> <span class="ident">rhs</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">u64</span>;
-        <span class="kw">let</span> <span class="ident">rhs_end</span> <span class="op">=</span> <span class="ident">rhs_start</span> <span class="op">+</span> (<span class="ident">rhs</span>.<span class="ident">len</span> <span class="op">-</span> <span class="number">1</span>) <span class="kw">as</span> <span class="ident">u64</span>;
+        <span class="kw">let </span>rhs_start = rhs.start <span class="kw">as </span>u64;
+        <span class="kw">let </span>rhs_end = rhs_start + (rhs.len - <span class="number">1</span>) <span class="kw">as </span>u64;
 
-        <span class="kw">if</span> <span class="ident">self_start</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">rhs_start</span> {
-            <span class="ident">self_end</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">rhs_start</span>
-        } <span class="kw">else</span> {
-            <span class="ident">rhs_end</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">self_start</span>
+        <span class="kw">if </span>self_start &lt;= rhs_start {
+            self_end &gt;= rhs_start
+        } <span class="kw">else </span>{
+            rhs_end &gt;= self_start
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">nonoverlapping</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">100</span>];
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">10</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>nonoverlapping() {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; <span class="number">100</span>];
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
+        bc.slice::&lt;u8&gt;(<span class="number">10</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">10</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">10</span>, <span class="number">10</span>).unwrap();
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">10</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">10</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">10</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice_mut::&lt;u8&gt;(<span class="number">10</span>, <span class="number">10</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">overlapping</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">100</span>];
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">9</span>, <span class="number">10</span>).<span class="ident">unwrap_err</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">9</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>overlapping() {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; <span class="number">100</span>];
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">9</span>, <span class="number">10</span>).unwrap_err();
+        bc.slice::&lt;u8&gt;(<span class="number">9</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">2</span>, <span class="number">5</span>).<span class="ident">unwrap_err</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">2</span>, <span class="number">5</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">2</span>, <span class="number">5</span>).unwrap_err();
+        bc.slice::&lt;u8&gt;(<span class="number">2</span>, <span class="number">5</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">9</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap_err</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">9</span>, <span class="number">10</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap_err();
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">2</span>, <span class="number">5</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap_err</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">2</span>, <span class="number">5</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap_err();
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">2</span>, <span class="number">5</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">10</span>, <span class="number">5</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">15</span>, <span class="number">5</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap_err</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">10</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice::&lt;u8&gt;(<span class="number">2</span>, <span class="number">5</span>).unwrap();
+        bc.slice::&lt;u8&gt;(<span class="number">10</span>, <span class="number">5</span>).unwrap();
+        bc.slice::&lt;u8&gt;(<span class="number">15</span>, <span class="number">5</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap_err();
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">10</span>).unwrap();
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">zero_length</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">100</span>];
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bc</span> <span class="op">=</span> <span class="ident">BorrowChecker::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bytes</span>);
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">0</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice_mut</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">0</span>).<span class="ident">unwrap</span>();
-        <span class="ident">bc</span>.<span class="ident">slice</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="number">0</span>, <span class="number">1</span>).<span class="ident">unwrap</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>zero_length() {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; <span class="number">100</span>];
+        <span class="kw">let </span><span class="kw-2">mut </span>bc = BorrowChecker::new(<span class="kw-2">&amp;mut </span>bytes);
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">0</span>).unwrap();
+        bc.slice_mut::&lt;u8&gt;(<span class="number">0</span>, <span class="number">0</span>).unwrap();
+        bc.slice::&lt;u8&gt;(<span class="number">0</span>, <span class="number">1</span>).unwrap();
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

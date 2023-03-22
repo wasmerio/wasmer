@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/translator/state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_llvm/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_llvm/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-llvm/src/translator/state.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_llvm/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_llvm/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_llvm/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -439,444 +439,444 @@
 <span id="437">437</span>
 <span id="438">438</span>
 <span id="439">439</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">inkwell</span>::{
-    <span class="ident">basic_block::BasicBlock</span>,
-    <span class="ident">values</span>::{<span class="ident">BasicValue</span>, <span class="ident">BasicValueEnum</span>, <span class="ident">PhiValue</span>},
+</pre><pre class="rust"><code><span class="kw">use </span>inkwell::{
+    basic_block::BasicBlock,
+    values::{BasicValue, BasicValueEnum, PhiValue},
 };
-<span class="kw">use</span> <span class="ident">smallvec::SmallVec</span>;
-<span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">BitAnd</span>, <span class="ident">BitOr</span>, <span class="ident">BitOrAssign</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::CompileError</span>;
+<span class="kw">use </span>smallvec::SmallVec;
+<span class="kw">use </span>std::ops::{BitAnd, BitOr, BitOrAssign};
+<span class="kw">use </span>wasmer_types::CompileError;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-    <span class="ident">Block</span> {
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">stack_size_snapshot</span>: <span class="ident">usize</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    Block {
+        next: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        stack_size_snapshot: usize,
     },
-    <span class="ident">Loop</span> {
-        <span class="ident">body</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">loop_body_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">stack_size_snapshot</span>: <span class="ident">usize</span>,
+    Loop {
+        body: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        next: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        loop_body_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        stack_size_snapshot: usize,
     },
-    <span class="ident">IfElse</span> {
-        <span class="ident">if_then</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">if_else</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">then_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">else_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">next_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">stack_size_snapshot</span>: <span class="ident">usize</span>,
-        <span class="ident">if_else_state</span>: <span class="ident">IfElseState</span>,
+    IfElse {
+        if_then: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        if_else: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        next: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        then_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        else_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        next_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        stack_size_snapshot: usize,
+        if_else_state: IfElseState,
     },
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IfElseState</span> {
-    <span class="ident">If</span>,
-    <span class="ident">Else</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>IfElseState {
+    If,
+    Else,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">code_after</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ControlFrame::Block</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. }
-            <span class="op">|</span> <span class="ident">ControlFrame::Loop</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. }
-            <span class="op">|</span> <span class="ident">ControlFrame::IfElse</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. } =&gt; <span class="ident">next</span>,
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;ctx</span>&gt; ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    <span class="kw">pub fn </span>code_after(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ControlFrame::Block { <span class="kw-2">ref </span>next, .. }
+            | ControlFrame::Loop { <span class="kw-2">ref </span>next, .. }
+            | ControlFrame::IfElse { <span class="kw-2">ref </span>next, .. } =&gt; next,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">br_dest</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ControlFrame::Block</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. } <span class="op">|</span> <span class="ident">ControlFrame::IfElse</span> { <span class="kw-2">ref</span> <span class="ident">next</span>, .. } =&gt; <span class="ident">next</span>,
-            <span class="ident">ControlFrame::Loop</span> { <span class="kw-2">ref</span> <span class="ident">body</span>, .. } =&gt; <span class="ident">body</span>,
+    <span class="kw">pub fn </span>br_dest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            ControlFrame::Block { <span class="kw-2">ref </span>next, .. } | ControlFrame::IfElse { <span class="kw-2">ref </span>next, .. } =&gt; next,
+            ControlFrame::Loop { <span class="kw-2">ref </span>body, .. } =&gt; body,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">phis</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>] {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ControlFrame::Block</span> { <span class="kw-2">ref</span> <span class="ident">phis</span>, .. } <span class="op">|</span> <span class="ident">ControlFrame::Loop</span> { <span class="kw-2">ref</span> <span class="ident">phis</span>, .. } =&gt; {
-                <span class="ident">phis</span>.<span class="ident">as_slice</span>()
+    <span class="kw">pub fn </span>phis(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;] {
+        <span class="kw">match </span><span class="self">self </span>{
+            ControlFrame::Block { <span class="kw-2">ref </span>phis, .. } | ControlFrame::Loop { <span class="kw-2">ref </span>phis, .. } =&gt; {
+                phis.as_slice()
             }
-            <span class="ident">ControlFrame::IfElse</span> { <span class="kw-2">ref</span> <span class="ident">next_phis</span>, .. } =&gt; <span class="ident">next_phis</span>.<span class="ident">as_slice</span>(),
+            ControlFrame::IfElse { <span class="kw-2">ref </span>next_phis, .. } =&gt; next_phis.as_slice(),
         }
     }
 
-    <span class="doccomment">/// PHI nodes for stack values in the loop body.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">loop_body_phis</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>] {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ControlFrame::Block</span> { .. } <span class="op">|</span> <span class="ident">ControlFrame::IfElse</span> { .. } =&gt; <span class="kw-2">&amp;</span>[],
-            <span class="ident">ControlFrame::Loop</span> {
-                <span class="kw-2">ref</span> <span class="ident">loop_body_phis</span>, ..
-            } =&gt; <span class="ident">loop_body_phis</span>.<span class="ident">as_slice</span>(),
+    <span class="doccomment">/// PHI nodes for stack values in the loop body.
+    </span><span class="kw">pub fn </span>loop_body_phis(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;] {
+        <span class="kw">match </span><span class="self">self </span>{
+            ControlFrame::Block { .. } | ControlFrame::IfElse { .. } =&gt; <span class="kw-2">&amp;</span>[],
+            ControlFrame::Loop {
+                <span class="kw-2">ref </span>loop_body_phis, ..
+            } =&gt; loop_body_phis.as_slice(),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_loop</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident">ControlFrame::Loop</span> { .. })
+    <span class="kw">pub fn </span>is_loop(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, ControlFrame::Loop { .. })
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExtraInfo</span> {
-    <span class="ident">state</span>: <span class="ident">u8</span>,
+<span class="attribute">#[derive(Debug, Default, Eq, PartialEq, Copy, Clone, Hash)]
+</span><span class="kw">pub struct </span>ExtraInfo {
+    state: u8,
 }
-<span class="kw">impl</span> <span class="ident">ExtraInfo</span> {
-    <span class="comment">// This value is required to be arithmetic 32-bit NaN (or 32x4) by the WAsm</span>
-    <span class="comment">// machine, but which might not be in the LLVM value. The conversion to</span>
-    <span class="comment">// arithmetic NaN is pending. It is required for correctness.</span>
-    <span class="comment">//</span>
-    <span class="comment">// When applied to a 64-bit value, this flag has no meaning and must be</span>
-    <span class="comment">// ignored. It may be set in such cases to allow for common handling of</span>
-    <span class="comment">// 32 and 64-bit operations.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">pending_f32_nan</span>() -&gt; <span class="ident">ExtraInfo</span> {
-        <span class="ident">ExtraInfo</span> { <span class="ident">state</span>: <span class="number">1</span> }
+<span class="kw">impl </span>ExtraInfo {
+    <span class="comment">// This value is required to be arithmetic 32-bit NaN (or 32x4) by the WAsm
+    // machine, but which might not be in the LLVM value. The conversion to
+    // arithmetic NaN is pending. It is required for correctness.
+    //
+    // When applied to a 64-bit value, this flag has no meaning and must be
+    // ignored. It may be set in such cases to allow for common handling of
+    // 32 and 64-bit operations.
+    </span><span class="kw">pub const fn </span>pending_f32_nan() -&gt; ExtraInfo {
+        ExtraInfo { state: <span class="number">1 </span>}
     }
 
-    <span class="comment">// This value is required to be arithmetic 64-bit NaN (or 64x2) by the WAsm</span>
-    <span class="comment">// machine, but which might not be in the LLVM value. The conversion to</span>
-    <span class="comment">// arithmetic NaN is pending. It is required for correctness.</span>
-    <span class="comment">//</span>
-    <span class="comment">// When applied to a 32-bit value, this flag has no meaning and must be</span>
-    <span class="comment">// ignored. It may be set in such cases to allow for common handling of</span>
-    <span class="comment">// 32 and 64-bit operations.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">pending_f64_nan</span>() -&gt; <span class="ident">ExtraInfo</span> {
-        <span class="ident">ExtraInfo</span> { <span class="ident">state</span>: <span class="number">2</span> }
+    <span class="comment">// This value is required to be arithmetic 64-bit NaN (or 64x2) by the WAsm
+    // machine, but which might not be in the LLVM value. The conversion to
+    // arithmetic NaN is pending. It is required for correctness.
+    //
+    // When applied to a 32-bit value, this flag has no meaning and must be
+    // ignored. It may be set in such cases to allow for common handling of
+    // 32 and 64-bit operations.
+    </span><span class="kw">pub const fn </span>pending_f64_nan() -&gt; ExtraInfo {
+        ExtraInfo { state: <span class="number">2 </span>}
     }
 
-    <span class="comment">// This value either does not contain a 32-bit NaN, or it contains an</span>
-    <span class="comment">// arithmetic NaN. In SIMD, applies to all 4 lanes.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">arithmetic_f32</span>() -&gt; <span class="ident">ExtraInfo</span> {
-        <span class="ident">ExtraInfo</span> { <span class="ident">state</span>: <span class="number">4</span> }
+    <span class="comment">// This value either does not contain a 32-bit NaN, or it contains an
+    // arithmetic NaN. In SIMD, applies to all 4 lanes.
+    </span><span class="kw">pub const fn </span>arithmetic_f32() -&gt; ExtraInfo {
+        ExtraInfo { state: <span class="number">4 </span>}
     }
 
-    <span class="comment">// This value either does not contain a 64-bit NaN, or it contains an</span>
-    <span class="comment">// arithmetic NaN. In SIMD, applies to both lanes.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">arithmetic_f64</span>() -&gt; <span class="ident">ExtraInfo</span> {
-        <span class="ident">ExtraInfo</span> { <span class="ident">state</span>: <span class="number">8</span> }
+    <span class="comment">// This value either does not contain a 64-bit NaN, or it contains an
+    // arithmetic NaN. In SIMD, applies to both lanes.
+    </span><span class="kw">pub const fn </span>arithmetic_f64() -&gt; ExtraInfo {
+        ExtraInfo { state: <span class="number">8 </span>}
     }
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">has_pending_f32_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">state</span> <span class="op">&amp;</span> <span class="ident">ExtraInfo::pending_f32_nan</span>().<span class="ident">state</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-    }
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">has_pending_f64_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">state</span> <span class="op">&amp;</span> <span class="ident">ExtraInfo::pending_f64_nan</span>().<span class="ident">state</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-    }
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">is_arithmetic_f32</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">state</span> <span class="op">&amp;</span> <span class="ident">ExtraInfo::arithmetic_f32</span>().<span class="ident">state</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-    }
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">is_arithmetic_f64</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">state</span> <span class="op">&amp;</span> <span class="ident">ExtraInfo::arithmetic_f64</span>().<span class="ident">state</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-    }
+    <span class="kw">pub const fn </span>has_pending_f32_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.state &amp; ExtraInfo::pending_f32_nan().state != <span class="number">0
+    </span>}
+    <span class="kw">pub const fn </span>has_pending_f64_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.state &amp; ExtraInfo::pending_f64_nan().state != <span class="number">0
+    </span>}
+    <span class="kw">pub const fn </span>is_arithmetic_f32(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.state &amp; ExtraInfo::arithmetic_f32().state != <span class="number">0
+    </span>}
+    <span class="kw">pub const fn </span>is_arithmetic_f64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.state &amp; ExtraInfo::arithmetic_f64().state != <span class="number">0
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">strip_pending</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ExtraInfo</span> {
-        <span class="ident">ExtraInfo</span> {
-            <span class="ident">state</span>: <span class="self">self</span>.<span class="ident">state</span>
-                <span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">ExtraInfo::pending_f32_nan</span>().<span class="ident">state</span> <span class="op">|</span> <span class="ident">ExtraInfo::pending_f64_nan</span>().<span class="ident">state</span>),
+    <span class="kw">pub const fn </span>strip_pending(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExtraInfo {
+        ExtraInfo {
+            state: <span class="self">self</span>.state
+                &amp; !(ExtraInfo::pending_f32_nan().state | ExtraInfo::pending_f64_nan().state),
         }
     }
 }
 
-<span class="comment">// Union two ExtraInfos.</span>
-<span class="kw">impl</span> <span class="ident">BitOr</span> <span class="kw">for</span> <span class="ident">ExtraInfo</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="self">Self</span>;
+<span class="comment">// Union two ExtraInfos.
+</span><span class="kw">impl </span>BitOr <span class="kw">for </span>ExtraInfo {
+    <span class="kw">type </span>Output = <span class="self">Self</span>;
 
-    <span class="kw">fn</span> <span class="ident">bitor</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) -&gt; <span class="self">Self</span> {
-        <span class="macro">debug_assert!</span>(<span class="op">!</span>(<span class="self">self</span>.<span class="ident">has_pending_f32_nan</span>() <span class="op">&amp;&amp;</span> <span class="ident">other</span>.<span class="ident">has_pending_f64_nan</span>()));
-        <span class="macro">debug_assert!</span>(<span class="op">!</span>(<span class="self">self</span>.<span class="ident">has_pending_f64_nan</span>() <span class="op">&amp;&amp;</span> <span class="ident">other</span>.<span class="ident">has_pending_f32_nan</span>()));
-        <span class="ident">ExtraInfo</span> {
-            <span class="ident">state</span>: <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_arithmetic_f32</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">other</span>.<span class="ident">is_arithmetic_f32</span>() {
-                <span class="ident">ExtraInfo::arithmetic_f32</span>().<span class="ident">state</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">has_pending_f32_nan</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">other</span>.<span class="ident">has_pending_f32_nan</span>() {
-                <span class="ident">ExtraInfo::pending_f32_nan</span>().<span class="ident">state</span>
-            } <span class="kw">else</span> {
-                <span class="number">0</span>
-            } <span class="op">+</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_arithmetic_f64</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">other</span>.<span class="ident">is_arithmetic_f64</span>() {
-                <span class="ident">ExtraInfo::arithmetic_f64</span>().<span class="ident">state</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">has_pending_f64_nan</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">other</span>.<span class="ident">has_pending_f64_nan</span>() {
-                <span class="ident">ExtraInfo::pending_f64_nan</span>().<span class="ident">state</span>
-            } <span class="kw">else</span> {
-                <span class="number">0</span>
-            },
+    <span class="kw">fn </span>bitor(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
+        <span class="macro">debug_assert!</span>(!(<span class="self">self</span>.has_pending_f32_nan() &amp;&amp; other.has_pending_f64_nan()));
+        <span class="macro">debug_assert!</span>(!(<span class="self">self</span>.has_pending_f64_nan() &amp;&amp; other.has_pending_f32_nan()));
+        ExtraInfo {
+            state: <span class="kw">if </span><span class="self">self</span>.is_arithmetic_f32() || other.is_arithmetic_f32() {
+                ExtraInfo::arithmetic_f32().state
+            } <span class="kw">else if </span><span class="self">self</span>.has_pending_f32_nan() || other.has_pending_f32_nan() {
+                ExtraInfo::pending_f32_nan().state
+            } <span class="kw">else </span>{
+                <span class="number">0
+            </span>} + <span class="kw">if </span><span class="self">self</span>.is_arithmetic_f64() || other.is_arithmetic_f64() {
+                ExtraInfo::arithmetic_f64().state
+            } <span class="kw">else if </span><span class="self">self</span>.has_pending_f64_nan() || other.has_pending_f64_nan() {
+                ExtraInfo::pending_f64_nan().state
+            } <span class="kw">else </span>{
+                <span class="number">0
+            </span>},
         }
     }
 }
-<span class="kw">impl</span> <span class="ident">BitOrAssign</span> <span class="kw">for</span> <span class="ident">ExtraInfo</span> {
-    <span class="kw">fn</span> <span class="ident">bitor_assign</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) {
-        <span class="kw-2">*</span><span class="self">self</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span> <span class="op">|</span> <span class="ident">other</span>;
+<span class="kw">impl </span>BitOrAssign <span class="kw">for </span>ExtraInfo {
+    <span class="kw">fn </span>bitor_assign(<span class="kw-2">&amp;mut </span><span class="self">self</span>, other: <span class="self">Self</span>) {
+        <span class="kw-2">*</span><span class="self">self </span>= <span class="kw-2">*</span><span class="self">self </span>| other;
     }
 }
 
-<span class="comment">// Intersection for ExtraInfo.</span>
-<span class="kw">impl</span> <span class="ident">BitAnd</span> <span class="kw">for</span> <span class="ident">ExtraInfo</span> {
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="self">Self</span>;
-    <span class="kw">fn</span> <span class="ident">bitand</span>(<span class="self">self</span>, <span class="ident">other</span>: <span class="self">Self</span>) -&gt; <span class="self">Self</span> {
-        <span class="comment">// Pending canonicalizations are not safe to discard, or even reorder.</span>
-        <span class="macro">debug_assert!</span>(
-            <span class="self">self</span>.<span class="ident">has_pending_f32_nan</span>() <span class="op">==</span> <span class="ident">other</span>.<span class="ident">has_pending_f32_nan</span>()
-                <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">is_arithmetic_f32</span>()
-                <span class="op">|</span><span class="op">|</span> <span class="ident">other</span>.<span class="ident">is_arithmetic_f32</span>()
+<span class="comment">// Intersection for ExtraInfo.
+</span><span class="kw">impl </span>BitAnd <span class="kw">for </span>ExtraInfo {
+    <span class="kw">type </span>Output = <span class="self">Self</span>;
+    <span class="kw">fn </span>bitand(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
+        <span class="comment">// Pending canonicalizations are not safe to discard, or even reorder.
+        </span><span class="macro">debug_assert!</span>(
+            <span class="self">self</span>.has_pending_f32_nan() == other.has_pending_f32_nan()
+                || <span class="self">self</span>.is_arithmetic_f32()
+                || other.is_arithmetic_f32()
         );
         <span class="macro">debug_assert!</span>(
-            <span class="self">self</span>.<span class="ident">has_pending_f64_nan</span>() <span class="op">==</span> <span class="ident">other</span>.<span class="ident">has_pending_f64_nan</span>()
-                <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">is_arithmetic_f64</span>()
-                <span class="op">|</span><span class="op">|</span> <span class="ident">other</span>.<span class="ident">is_arithmetic_f64</span>()
+            <span class="self">self</span>.has_pending_f64_nan() == other.has_pending_f64_nan()
+                || <span class="self">self</span>.is_arithmetic_f64()
+                || other.is_arithmetic_f64()
         );
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw">match</span> (
-            <span class="self">self</span>.<span class="ident">is_arithmetic_f32</span>() <span class="op">&amp;&amp;</span> <span class="ident">other</span>.<span class="ident">is_arithmetic_f32</span>(),
-            <span class="self">self</span>.<span class="ident">is_arithmetic_f64</span>() <span class="op">&amp;&amp;</span> <span class="ident">other</span>.<span class="ident">is_arithmetic_f64</span>(),
+        <span class="kw">let </span>info = <span class="kw">match </span>(
+            <span class="self">self</span>.is_arithmetic_f32() &amp;&amp; other.is_arithmetic_f32(),
+            <span class="self">self</span>.is_arithmetic_f64() &amp;&amp; other.is_arithmetic_f64(),
         ) {
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">Default::default</span>(),
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">ExtraInfo::arithmetic_f32</span>(),
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="ident">ExtraInfo::arithmetic_f64</span>(),
-            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="ident">ExtraInfo::arithmetic_f32</span>() <span class="op">|</span> <span class="ident">ExtraInfo::arithmetic_f64</span>(),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; Default::default(),
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; ExtraInfo::arithmetic_f32(),
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; ExtraInfo::arithmetic_f64(),
+            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
         };
-        <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">has_pending_f32_nan</span>(), <span class="self">self</span>.<span class="ident">has_pending_f64_nan</span>()) {
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">info</span>,
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">info</span> <span class="op">|</span> <span class="ident">ExtraInfo::pending_f32_nan</span>(),
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="ident">info</span> <span class="op">|</span> <span class="ident">ExtraInfo::pending_f64_nan</span>(),
+        <span class="kw">match </span>(<span class="self">self</span>.has_pending_f32_nan(), <span class="self">self</span>.has_pending_f64_nan()) {
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; info,
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; info | ExtraInfo::pending_f32_nan(),
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; info | ExtraInfo::pending_f64_nan(),
             (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Can&#39;t form ExtraInfo with two pending canonicalizations&quot;</span>),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">State</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>)<span class="op">&gt;</span>,
-    <span class="ident">control_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>State&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    <span class="kw">pub </span>stack: Vec&lt;(BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo)&gt;,
+    control_stack: Vec&lt;ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;,
 
-    <span class="kw">pub</span> <span class="ident">reachable</span>: <span class="ident">bool</span>,
+    <span class="kw">pub </span>reachable: bool,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> <span class="ident">State</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">stack</span>: <span class="macro">vec!</span>[],
-            <span class="ident">control_stack</span>: <span class="macro">vec!</span>[],
-            <span class="ident">reachable</span>: <span class="bool-val">true</span>,
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;ctx</span>&gt; State&lt;<span class="lifetime">&#39;ctx</span>&gt; {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stack: <span class="macro">vec!</span>[],
+            control_stack: <span class="macro">vec!</span>[],
+            reachable: <span class="bool-val">true</span>,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">has_control_frames</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="op">!</span><span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">is_empty</span>()
+    <span class="kw">pub fn </span>has_control_frames(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        !<span class="self">self</span>.control_stack.is_empty()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset_stack</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">frame</span>: <span class="kw-2">&amp;</span><span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">stack_size_snapshot</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">frame</span> {
-            <span class="ident">ControlFrame::Block</span> {
-                <span class="ident">stack_size_snapshot</span>,
+    <span class="kw">pub fn </span>reset_stack(<span class="kw-2">&amp;mut </span><span class="self">self</span>, frame: <span class="kw-2">&amp;</span>ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt;) {
+        <span class="kw">let </span>stack_size_snapshot = <span class="kw">match </span>frame {
+            ControlFrame::Block {
+                stack_size_snapshot,
                 ..
             }
-            <span class="op">|</span> <span class="ident">ControlFrame::Loop</span> {
-                <span class="ident">stack_size_snapshot</span>,
+            | ControlFrame::Loop {
+                stack_size_snapshot,
                 ..
             }
-            <span class="op">|</span> <span class="ident">ControlFrame::IfElse</span> {
-                <span class="ident">stack_size_snapshot</span>,
+            | ControlFrame::IfElse {
+                stack_size_snapshot,
                 ..
-            } =&gt; <span class="kw-2">*</span><span class="ident">stack_size_snapshot</span>,
+            } =&gt; <span class="kw-2">*</span>stack_size_snapshot,
         };
-        <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">truncate</span>(<span class="ident">stack_size_snapshot</span>);
+        <span class="self">self</span>.stack.truncate(stack_size_snapshot);
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">outermost_frame</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">get</span>(<span class="number">0</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;outermost_frame: invalid control stack depth&quot;</span>.<span class="ident">to_string</span>())
+    <span class="kw">pub fn </span>outermost_frame(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        <span class="self">self</span>.control_stack.get(<span class="number">0</span>).ok_or_else(|| {
+            CompileError::Codegen(<span class="string">&quot;outermost_frame: invalid control stack depth&quot;</span>.to_string())
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">frame_at_depth</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">depth</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">control_stack</span>
-            .<span class="ident">len</span>()
-            .<span class="ident">checked_sub</span>(<span class="number">1</span> <span class="op">+</span> (<span class="ident">depth</span> <span class="kw">as</span> <span class="ident">usize</span>))
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;frame_at_depth: invalid control stack depth&quot;</span>.<span class="ident">to_string</span>())
+    <span class="kw">pub fn </span>frame_at_depth(<span class="kw-2">&amp;</span><span class="self">self</span>, depth: u32) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        <span class="kw">let </span>index = <span class="self">self
+            </span>.control_stack
+            .len()
+            .checked_sub(<span class="number">1 </span>+ (depth <span class="kw">as </span>usize))
+            .ok_or_else(|| {
+                CompileError::Codegen(<span class="string">&quot;frame_at_depth: invalid control stack depth&quot;</span>.to_string())
             })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="ident">index</span>])
+        <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.control_stack[index])
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">frame_at_depth_mut</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">depth</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">control_stack</span>
-            .<span class="ident">len</span>()
-            .<span class="ident">checked_sub</span>(<span class="number">1</span> <span class="op">+</span> (<span class="ident">depth</span> <span class="kw">as</span> <span class="ident">usize</span>))
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;frame_at_depth_mut: invalid control stack depth&quot;</span>.<span class="ident">to_string</span>())
+    <span class="kw">pub fn </span>frame_at_depth_mut(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        depth: u32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        <span class="kw">let </span>index = <span class="self">self
+            </span>.control_stack
+            .len()
+            .checked_sub(<span class="number">1 </span>+ (depth <span class="kw">as </span>usize))
+            .ok_or_else(|| {
+                CompileError::Codegen(<span class="string">&quot;frame_at_depth_mut: invalid control stack depth&quot;</span>.to_string())
             })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">control_stack</span>[<span class="ident">index</span>])
+        <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.control_stack[index])
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop_frame</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ControlFrame</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">pop</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;pop_frame: cannot pop from control stack&quot;</span>.<span class="ident">to_string</span>())
+    <span class="kw">pub fn </span>pop_frame(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ControlFrame&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        <span class="self">self</span>.control_stack.pop().ok_or_else(|| {
+            CompileError::Codegen(<span class="string">&quot;pop_frame: cannot pop from control stack&quot;</span>.to_string())
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push1</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">BasicValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">value</span>: <span class="ident">T</span>) {
-        <span class="self">self</span>.<span class="ident">push1_extra</span>(<span class="ident">value</span>, <span class="ident">Default::default</span>());
+    <span class="kw">pub fn </span>push1&lt;T: BasicValue&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: T) {
+        <span class="self">self</span>.push1_extra(value, Default::default());
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push1_extra</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">BasicValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">value</span>: <span class="ident">T</span>, <span class="ident">info</span>: <span class="ident">ExtraInfo</span>) {
-        <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">push</span>((<span class="ident">value</span>.<span class="ident">as_basic_value_enum</span>(), <span class="ident">info</span>));
+    <span class="kw">pub fn </span>push1_extra&lt;T: BasicValue&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, value: T, info: ExtraInfo) {
+        <span class="self">self</span>.stack.push((value.as_basic_value_enum(), info));
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop1</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>.<span class="number">0</span>)
+    <span class="kw">pub fn </span>pop1(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, CompileError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.pop1_extra()<span class="question-mark">?</span>.<span class="number">0</span>)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop1_extra</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">stack</span>
-            .<span class="ident">pop</span>()
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;pop1_extra: invalid value stack&quot;</span>.<span class="ident">to_string</span>()))
+    <span class="kw">pub fn </span>pop1_extra(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo), CompileError&gt; {
+        <span class="self">self</span>.stack
+            .pop()
+            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;pop1_extra: invalid value stack&quot;</span>.to_string()))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((<span class="ident">v1</span>, <span class="ident">v2</span>))
+    <span class="kw">pub fn </span>pop2(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;), CompileError&gt; {
+        <span class="kw">let </span>v2 = <span class="self">self</span>.pop1()<span class="question-mark">?</span>;
+        <span class="kw">let </span>v1 = <span class="self">self</span>.pop1()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((v1, v2))
     }
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop2_extra</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="attribute">#[allow(clippy::type_complexity)]
+    </span><span class="kw">pub fn </span>pop2_extra(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            (<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>),
-            (<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>),
+            (BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo),
+            (BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo),
         ),
-        <span class="ident">CompileError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((<span class="ident">v1</span>, <span class="ident">v2</span>))
+        CompileError,
+    &gt; {
+        <span class="kw">let </span>v2 = <span class="self">self</span>.pop1_extra()<span class="question-mark">?</span>;
+        <span class="kw">let </span>v1 = <span class="self">self</span>.pop1_extra()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((v1, v2))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop3</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="kw">pub fn </span>pop3(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-            <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-            <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+            BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+            BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+            BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         ),
-        <span class="ident">CompileError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">v3</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="ident">v3</span>))
+        CompileError,
+    &gt; {
+        <span class="kw">let </span>v3 = <span class="self">self</span>.pop1()<span class="question-mark">?</span>;
+        <span class="kw">let </span>v2 = <span class="self">self</span>.pop1()<span class="question-mark">?</span>;
+        <span class="kw">let </span>v1 = <span class="self">self</span>.pop1()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((v1, v2, v3))
     }
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop3_extra</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="attribute">#[allow(clippy::type_complexity)]
+    </span><span class="kw">pub fn </span>pop3_extra(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            (<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>),
-            (<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>),
-            (<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>),
+            (BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo),
+            (BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo),
+            (BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo),
         ),
-        <span class="ident">CompileError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">v3</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="ident">v3</span>))
+        CompileError,
+    &gt; {
+        <span class="kw">let </span>v3 = <span class="self">self</span>.pop1_extra()<span class="question-mark">?</span>;
+        <span class="kw">let </span>v2 = <span class="self">self</span>.pop1_extra()<span class="question-mark">?</span>;
+        <span class="kw">let </span>v1 = <span class="self">self</span>.pop1_extra()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((v1, v2, v3))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">peek1_extra</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">len</span>().<span class="ident">checked_sub</span>(<span class="number">1</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;peek1_extra: invalid value stack&quot;</span>.<span class="ident">to_string</span>())
+    <span class="kw">pub fn </span>peek1_extra(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo), CompileError&gt; {
+        <span class="kw">let </span>index =
+            <span class="self">self</span>.stack.len().checked_sub(<span class="number">1</span>).ok_or_else(|| {
+                CompileError::Codegen(<span class="string">&quot;peek1_extra: invalid value stack&quot;</span>.to_string())
             })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">stack</span>[<span class="ident">index</span>])
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.stack[index])
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">peekn</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">peekn_extra</span>(<span class="ident">n</span>)<span class="question-mark">?</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>).<span class="ident">collect</span>())
+    <span class="kw">pub fn </span>peekn(<span class="kw-2">&amp;</span><span class="self">self</span>, n: usize) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;, CompileError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.peekn_extra(n)<span class="question-mark">?</span>.iter().map(|x| x.<span class="number">0</span>).collect())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">peekn_extra</span>(
+    <span class="kw">pub fn </span>peekn_extra(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">n</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[(<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>)], <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">len</span>().<span class="ident">checked_sub</span>(<span class="ident">n</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;peekn_extra: invalid value stack&quot;</span>.<span class="ident">to_string</span>())
+        n: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>[(BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo)], CompileError&gt; {
+        <span class="kw">let </span>index =
+            <span class="self">self</span>.stack.len().checked_sub(n).ok_or_else(|| {
+                CompileError::Codegen(<span class="string">&quot;peekn_extra: invalid value stack&quot;</span>.to_string())
             })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stack</span>[<span class="ident">index</span>..])
+        <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.stack[index..])
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">popn_save_extra</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">n</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">ExtraInfo</span>)<span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">peekn_extra</span>(<span class="ident">n</span>)<span class="question-mark">?</span>.<span class="ident">to_vec</span>();
-        <span class="self">self</span>.<span class="ident">popn</span>(<span class="ident">n</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">v</span>)
+    <span class="kw">pub fn </span>popn_save_extra(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        n: usize,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;, ExtraInfo)&gt;, CompileError&gt; {
+        <span class="kw">let </span>v = <span class="self">self</span>.peekn_extra(n)<span class="question-mark">?</span>.to_vec();
+        <span class="self">self</span>.popn(n)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(v)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">popn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">stack</span>
-            .<span class="ident">len</span>()
-            .<span class="ident">checked_sub</span>(<span class="ident">n</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;popn: invalid value stack&quot;</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+    <span class="kw">pub fn </span>popn(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="kw">let </span>index = <span class="self">self
+            </span>.stack
+            .len()
+            .checked_sub(n)
+            .ok_or_else(|| CompileError::Codegen(<span class="string">&quot;popn: invalid value stack&quot;</span>.to_string()))<span class="question-mark">?</span>;
 
-        <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">truncate</span>(<span class="ident">index</span>);
+        <span class="self">self</span>.stack.truncate(index);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_block</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">ControlFrame::Block</span> {
-            <span class="ident">next</span>,
-            <span class="ident">phis</span>,
-            <span class="ident">stack_size_snapshot</span>: <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">len</span>(),
+    <span class="kw">pub fn </span>push_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, next: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;, phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;) {
+        <span class="self">self</span>.control_stack.push(ControlFrame::Block {
+            next,
+            phis,
+            stack_size_snapshot: <span class="self">self</span>.stack.len(),
         });
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_loop</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">body</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">loop_body_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
+    <span class="kw">pub fn </span>push_loop(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        body: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        next: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        loop_body_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
     ) {
-        <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">ControlFrame::Loop</span> {
-            <span class="ident">body</span>,
-            <span class="ident">next</span>,
-            <span class="ident">loop_body_phis</span>,
-            <span class="ident">phis</span>,
-            <span class="ident">stack_size_snapshot</span>: <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">len</span>(),
+        <span class="self">self</span>.control_stack.push(ControlFrame::Loop {
+            body,
+            next,
+            loop_body_phis,
+            phis,
+            stack_size_snapshot: <span class="self">self</span>.stack.len(),
         });
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_if</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">if_then</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">if_else</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">next</span>: <span class="ident">BasicBlock</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
-        <span class="ident">then_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">else_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
-        <span class="ident">next_phis</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">PhiValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>,
+    <span class="kw">pub fn </span>push_if(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        if_then: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        if_else: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        next: BasicBlock&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        then_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        else_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        next_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt;,
     ) {
-        <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">ControlFrame::IfElse</span> {
-            <span class="ident">if_then</span>,
-            <span class="ident">if_else</span>,
-            <span class="ident">next</span>,
-            <span class="ident">then_phis</span>,
-            <span class="ident">else_phis</span>,
-            <span class="ident">next_phis</span>,
-            <span class="ident">stack_size_snapshot</span>: <span class="self">self</span>.<span class="ident">stack</span>.<span class="ident">len</span>(),
-            <span class="ident">if_else_state</span>: <span class="ident">IfElseState::If</span>,
+        <span class="self">self</span>.control_stack.push(ControlFrame::IfElse {
+            if_then,
+            if_else,
+            next,
+            then_phis,
+            else_phis,
+            next_phis,
+            stack_size_snapshot: <span class="self">self</span>.stack.len(),
+            if_else_state: IfElseState::If,
         });
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_llvm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_llvm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

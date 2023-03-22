@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/features.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>features.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/features.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>features.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -364,369 +364,369 @@
 <span id="362">362</span>
 <span id="363">363</span>
 <span id="364">364</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains a Features</span>
-<span class="doccomment">//! API for the engine and the compiler.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! # Example</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">//! # fn main() {</span>
-<span class="doccomment">//! #    (assert_c! {</span>
-<span class="doccomment">//! # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">//! #</span>
-<span class="doccomment">//! int main() {</span>
-<span class="doccomment">//!     // Declare features.</span>
-<span class="doccomment">//!     wasmer_features_t* features = wasmer_features_new();</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Now, let&#39;s enable de SIMD feature.</span>
-<span class="doccomment">//!     wasmer_features_simd(features, true);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // And also the memory64 feature.     </span>
-<span class="doccomment">//!     wasmer_features_memory64(features, true);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     wasmer_features_delete(features);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     return 0;</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! #    })</span>
-<span class="doccomment">//! #    .success();</span>
-<span class="doccomment">//! # }</span>
-<span class="doccomment">//! ```</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! To go further, see</span>
-<span class="doccomment">//! [`wasm_config_set_features`](super::engine::wasm_config_set_features).</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains a Features
+//! API for the engine and the compiler.
+//!
+//!
+//! # Example
+//!
+//! ```rust
+//! # use wasmer_inline_c::assert_c;
+//! # fn main() {
+//! #    (assert_c! {
+//! # #include &quot;tests/wasmer.h&quot;
+//! #
+//! int main() {
+//!     // Declare features.
+//!     wasmer_features_t* features = wasmer_features_new();
+//!
+//!     // Now, let&#39;s enable de SIMD feature.
+//!     wasmer_features_simd(features, true);
+//!
+//!     // And also the memory64 feature.     
+//!     wasmer_features_memory64(features, true);
+//!
+//!     wasmer_features_delete(features);
+//!
+//!     return 0;
+//! }
+//! #    })
+//! #    .success();
+//! # }
+//! ```
+//!
+//! To go further, see
+//! [`wasm_config_set_features`](super::engine::wasm_config_set_features).
 
-<span class="kw">use</span> <span class="ident">wasmer_types::Features</span>;
+</span><span class="kw">use </span>wasmer_types::Features;
 
-<span class="doccomment">/// Controls which experimental features will be enabled.</span>
-<span class="doccomment">/// Features usually have a corresponding [WebAssembly proposal].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [WebAssembly proposal]: https://github.com/WebAssembly/proposals</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_features_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Features</span>,
+<span class="doccomment">/// Controls which experimental features will be enabled.
+/// Features usually have a corresponding [WebAssembly proposal].
+///
+/// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[derive(Debug)]
+#[allow(non_camel_case_types)]
+</span><span class="kw">pub struct </span>wasmer_features_t {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Features,
 }
 
-<span class="doccomment">/// Creates a new [`wasmer_features_t`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span> {
-    <span class="ident">Box::new</span>(<span class="ident">wasmer_features_t</span> {
-        <span class="ident">inner</span>: <span class="ident">Features::new</span>(),
+<span class="doccomment">/// Creates a new [`wasmer_features_t`].
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_new() -&gt; Box&lt;wasmer_features_t&gt; {
+    Box::new(wasmer_features_t {
+        inner: Features::new(),
     })
 }
 
-<span class="doccomment">/// Delete a [`wasmer_features_t`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_delete</span>(<span class="ident">_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="doccomment">/// Delete a [`wasmer_features_t`].
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_delete(_features: <span class="prelude-ty">Option</span>&lt;Box&lt;wasmer_features_t&gt;&gt;) {}
 
-<span class="doccomment">/// Configures whether the WebAssembly threads proposal will be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly threads proposal][threads] is not currently fully</span>
-<span class="doccomment">/// standardized and is undergoing development. Support for this feature can</span>
-<span class="doccomment">/// be disabled through this method for appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates items such as shared memories and atomic</span>
-<span class="doccomment">/// instructions.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `true` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [threads]: https://github.com/webassembly/threads</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_threads</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly threads proposal will be enabled.
+///
+/// The [WebAssembly threads proposal][threads] is not currently fully
+/// standardized and is undergoing development. Support for this feature can
+/// be disabled through this method for appropriate WebAssembly modules.
+///
+/// This feature gates items such as shared memories and atomic
+/// instructions.
+///
+/// This is `true` by default.
+///
+/// [threads]: https://github.com/webassembly/threads
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_threads(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">threads</span>(<span class="ident">enable</span>);
+    features.inner.threads(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly reference types proposal will be</span>
-<span class="doccomment">/// enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly reference types proposal][proposal] is not currently</span>
-<span class="doccomment">/// fully standardized and is undergoing development. Support for this</span>
-<span class="doccomment">/// feature can be enabled through this method for appropriate WebAssembly</span>
-<span class="doccomment">/// modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates items such as the `externref` type and multiple tables</span>
-<span class="doccomment">/// being in a module. Note that enabling the reference types feature will</span>
-<span class="doccomment">/// also enable the bulk memory feature.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/webassembly/reference-types</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_reference_types</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly reference types proposal will be
+/// enabled.
+///
+/// The [WebAssembly reference types proposal][proposal] is not currently
+/// fully standardized and is undergoing development. Support for this
+/// feature can be enabled through this method for appropriate WebAssembly
+/// modules.
+///
+/// This feature gates items such as the `externref` type and multiple tables
+/// being in a module. Note that enabling the reference types feature will
+/// also enable the bulk memory feature.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/webassembly/reference-types
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_reference_types(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">reference_types</span>(<span class="ident">enable</span>);
+    features.inner.reference_types(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly SIMD proposal will be</span>
-<span class="doccomment">/// enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly SIMD proposal][proposal] is not currently</span>
-<span class="doccomment">/// fully standardized and is undergoing development. Support for this</span>
-<span class="doccomment">/// feature can be enabled through this method for appropriate WebAssembly</span>
-<span class="doccomment">/// modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates items such as the `v128` type and all of its</span>
-<span class="doccomment">/// operators being in a module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/webassembly/simd</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_simd</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly SIMD proposal will be
+/// enabled.
+///
+/// The [WebAssembly SIMD proposal][proposal] is not currently
+/// fully standardized and is undergoing development. Support for this
+/// feature can be enabled through this method for appropriate WebAssembly
+/// modules.
+///
+/// This feature gates items such as the `v128` type and all of its
+/// operators being in a module.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/webassembly/simd
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_simd(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">simd</span>(<span class="ident">enable</span>);
+    features.inner.simd(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly bulk memory operations proposal will</span>
-<span class="doccomment">/// be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly bulk memory operations proposal][proposal] is not</span>
-<span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-<span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-<span class="doccomment">/// appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates items such as the `memory.copy` instruction, passive</span>
-<span class="doccomment">/// data/table segments, etc, being in a module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/webassembly/bulk-memory-operations</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_bulk_memory</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly bulk memory operations proposal will
+/// be enabled.
+///
+/// The [WebAssembly bulk memory operations proposal][proposal] is not
+/// currently fully standardized and is undergoing development.
+/// Support for this feature can be enabled through this method for
+/// appropriate WebAssembly modules.
+///
+/// This feature gates items such as the `memory.copy` instruction, passive
+/// data/table segments, etc, being in a module.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/webassembly/bulk-memory-operations
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_bulk_memory(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">bulk_memory</span>(<span class="ident">enable</span>);
+    features.inner.bulk_memory(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly multi-value proposal will</span>
-<span class="doccomment">/// be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly multi-value proposal][proposal] is not</span>
-<span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-<span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-<span class="doccomment">/// appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates functions and blocks returning multiple values in a</span>
-<span class="doccomment">/// module, for example.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/webassembly/multi-value</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_multi_value</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly multi-value proposal will
+/// be enabled.
+///
+/// The [WebAssembly multi-value proposal][proposal] is not
+/// currently fully standardized and is undergoing development.
+/// Support for this feature can be enabled through this method for
+/// appropriate WebAssembly modules.
+///
+/// This feature gates functions and blocks returning multiple values in a
+/// module, for example.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/webassembly/multi-value
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_multi_value(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">multi_value</span>(<span class="ident">enable</span>);
+    features.inner.multi_value(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly tail-call proposal will</span>
-<span class="doccomment">/// be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly tail-call proposal][proposal] is not</span>
-<span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-<span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-<span class="doccomment">/// appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates tail-call functions in WebAssembly.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/webassembly/tail-call</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_tail_call</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly tail-call proposal will
+/// be enabled.
+///
+/// The [WebAssembly tail-call proposal][proposal] is not
+/// currently fully standardized and is undergoing development.
+/// Support for this feature can be enabled through this method for
+/// appropriate WebAssembly modules.
+///
+/// This feature gates tail-call functions in WebAssembly.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/webassembly/tail-call
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_tail_call(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">tail_call</span>(<span class="ident">enable</span>);
+    features.inner.tail_call(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly tail-call proposal will</span>
-<span class="doccomment">/// be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly tail-call proposal][proposal] is not</span>
-<span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-<span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-<span class="doccomment">/// appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature allows WebAssembly modules to define, import and</span>
-<span class="doccomment">/// export modules and instances.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/webassembly/module-linking</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_module_linking</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly tail-call proposal will
+/// be enabled.
+///
+/// The [WebAssembly tail-call proposal][proposal] is not
+/// currently fully standardized and is undergoing development.
+/// Support for this feature can be enabled through this method for
+/// appropriate WebAssembly modules.
+///
+/// This feature allows WebAssembly modules to define, import and
+/// export modules and instances.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/webassembly/module-linking
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_module_linking(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">module_linking</span>(<span class="ident">enable</span>);
+    features.inner.module_linking(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly multi-memory proposal will</span>
-<span class="doccomment">/// be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly multi-memory proposal][proposal] is not</span>
-<span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-<span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-<span class="doccomment">/// appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature adds the ability to use multiple memories within a</span>
-<span class="doccomment">/// single Wasm module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/WebAssembly/multi-memory</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_multi_memory</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly multi-memory proposal will
+/// be enabled.
+///
+/// The [WebAssembly multi-memory proposal][proposal] is not
+/// currently fully standardized and is undergoing development.
+/// Support for this feature can be enabled through this method for
+/// appropriate WebAssembly modules.
+///
+/// This feature adds the ability to use multiple memories within a
+/// single Wasm module.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/WebAssembly/multi-memory
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_multi_memory(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">multi_memory</span>(<span class="ident">enable</span>);
+    features.inner.multi_memory(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 
-<span class="doccomment">/// Configures whether the WebAssembly 64-bit memory proposal will</span>
-<span class="doccomment">/// be enabled.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The [WebAssembly 64-bit memory proposal][proposal] is not</span>
-<span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-<span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-<span class="doccomment">/// appropriate WebAssembly modules.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This feature gates support for linear memory of sizes larger than</span>
-<span class="doccomment">/// 2^32 bits.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is `false` by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [proposal]: https://github.com/WebAssembly/memory64</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See the module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_features_memory64</span>(
-    <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
-    <span class="ident">enable</span>: <span class="ident">bool</span>,
-) -&gt; <span class="ident">bool</span> {
-    <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">features</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">features</span>) =&gt; <span class="ident">features</span>,
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="bool-val">false</span>,
+<span class="doccomment">/// Configures whether the WebAssembly 64-bit memory proposal will
+/// be enabled.
+///
+/// The [WebAssembly 64-bit memory proposal][proposal] is not
+/// currently fully standardized and is undergoing development.
+/// Support for this feature can be enabled through this method for
+/// appropriate WebAssembly modules.
+///
+/// This feature gates support for linear memory of sizes larger than
+/// 2^32 bits.
+///
+/// This is `false` by default.
+///
+/// [proposal]: https://github.com/WebAssembly/memory64
+///
+/// # Example
+///
+/// See the module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_features_memory64(
+    features: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasmer_features_t&gt;,
+    enable: bool,
+) -&gt; bool {
+    <span class="kw">let </span>features = <span class="kw">match </span>features {
+        <span class="prelude-val">Some</span>(features) =&gt; features,
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
     };
 
-    <span class="ident">features</span>.<span class="ident">inner</span>.<span class="ident">memory64</span>(<span class="ident">enable</span>);
+    features.inner.memory64(enable);
 
-    <span class="bool-val">true</span>
-}
+    <span class="bool-val">true
+</span>}
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/native_type.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>native_type.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/native_type.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>native_type.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -922,688 +922,688 @@
 <span id="920">920</span>
 <span id="921">921</span>
 <span id="922">922</span>
-</pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions</span>
-<span class="doccomment">//! easily in Rust, thanks to its advanced typing system.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions
+//! easily in Rust, thanks to its advanced typing system.
 
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">RawValue</span>, <span class="ident">Type</span>};
+</span><span class="kw">use </span>wasmer_types::{NativeWasmType, RawValue, Type};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::AsStoreRef</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vm</span>::{<span class="ident">VMExternRef</span>, <span class="ident">VMFuncRef</span>};
+<span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
+<span class="kw">use </span><span class="kw">crate</span>::vm::{VMExternRef, VMFuncRef};
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ExternRef</span>, <span class="ident">Function</span>, <span class="ident">TypedFunction</span>};
-<span class="kw">use</span> <span class="ident">std::array::TryFromSliceError</span>;
-<span class="kw">use</span> <span class="ident">std::convert::Infallible</span>;
-<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::error::Error</span>;
+<span class="kw">use crate</span>::{ExternRef, Function, TypedFunction};
+<span class="kw">use </span>std::array::TryFromSliceError;
+<span class="kw">use </span>std::convert::Infallible;
+<span class="kw">use </span>std::convert::TryInto;
+<span class="kw">use </span>std::error::Error;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::AsStoreMut</span>;
+<span class="kw">use </span><span class="kw">crate</span>::store::AsStoreMut;
 
-<span class="doccomment">/// `NativeWasmTypeInto` performs conversions from and into `NativeWasmType`</span>
-<span class="doccomment">/// types with a context.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NativeWasmTypeInto</span>: <span class="ident">NativeWasmType</span> <span class="op">+</span> <span class="ident">Sized</span> {
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span>;
+<span class="doccomment">/// `NativeWasmTypeInto` performs conversions from and into `NativeWasmType`
+/// types with a context.
+</span><span class="kw">pub trait </span>NativeWasmTypeInto: NativeWasmType + Sized {
+    <span class="attribute">#[doc(hidden)]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi;
 
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span>;
+    <span class="attribute">#[doc(hidden)]
+    </span><span class="kw">unsafe fn </span>from_abi(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Convert self to raw value representation.</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span>;
+    <span class="doccomment">/// Convert self to raw value representation.
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue;
 
-    <span class="doccomment">/// Convert to self from raw value representation.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Convert to self from raw value representation.
+    ///
+    /// # Safety
+    ///
+    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self</span>;
 }
 
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">i32</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">abi</span>
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>i32 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { i32: <span class="self">self </span>}
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="ident">RawValue</span> { <span class="ident">i32</span>: <span class="self">self</span> }
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">raw</span>.<span class="ident">i32</span>
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">i64</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">abi</span>
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="ident">RawValue</span> { <span class="ident">i64</span>: <span class="self">self</span> }
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">raw</span>.<span class="ident">i64</span>
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.i32
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">f32</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">abi</span>
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>i64 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { i64: <span class="self">self </span>}
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="ident">RawValue</span> { <span class="ident">f32</span>: <span class="self">self</span> }
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">raw</span>.<span class="ident">f32</span>
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">f64</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">abi</span>
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="ident">RawValue</span> { <span class="ident">f64</span>: <span class="self">self</span> }
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">raw</span>.<span class="ident">f64</span>
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.i64
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="ident">u128</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">abi</span>
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>f32 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { f32: <span class="self">self </span>}
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="ident">RawValue</span> { <span class="ident">u128</span>: <span class="self">self</span> }
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">raw</span>.<span class="ident">u128</span>
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">ExternRef</span> {
-    <span class="kw">const</span> <span class="ident">WASM_TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type::ExternRef</span>;
-    <span class="kw">type</span> <span class="ident">Abi</span> <span class="op">=</span> <span class="ident">usize</span>;
-}
-
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMExternRef::from_raw</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="ident">abi</span> })
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>))
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">e</span>.<span class="ident">vm_externref</span>().<span class="ident">into_raw</span>().<span class="ident">externref</span> })
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="number">0</span> }, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">vm_externref</span>().<span class="ident">into_raw</span>())
-    }
-
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMExternRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>))
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.f32
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span>
-<span class="kw">where</span>
-    <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-    <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>f64 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { f64: <span class="self">self </span>}
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.f64
+    }
+}
+
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>u128 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { u128: <span class="self">self </span>}
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.u128
+    }
+}
+
+<span class="kw">impl </span>NativeWasmType <span class="kw">for </span>ExternRef {
+    <span class="kw">const </span>WASM_TYPE: Type = Type::ExternRef;
+    <span class="kw">type </span>Abi = usize;
+}
+
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ExternRef&gt; {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        VMExternRef::from_raw(RawValue { externref: abi })
+            .map(|e| ExternRef::from_vm_externref(store, e))
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self</span>.map_or(<span class="number">0</span>, |e| <span class="kw">unsafe </span>{ e.vm_externref().into_raw().externref })
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        <span class="self">self</span>.map_or(RawValue { externref: <span class="number">0 </span>}, |e| e.vm_externref().into_raw())
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e))
+    }
+}
+
+<span class="kw">impl</span>&lt;Args, Rets&gt; From&lt;TypedFunction&lt;Args, Rets&gt;&gt; <span class="kw">for </span>Function
+<span class="kw">where
+    </span>Args: WasmTypeList,
+    Rets: WasmTypeList,
 {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">other</span>.<span class="ident">into_function</span>()
+    <span class="kw">fn </span>from(other: TypedFunction&lt;Args, Rets&gt;) -&gt; <span class="self">Self </span>{
+        other.into_function()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NativeWasmType</span> <span class="kw">for</span> <span class="ident">Function</span> {
-    <span class="kw">const</span> <span class="ident">WASM_TYPE</span>: <span class="ident">Type</span> <span class="op">=</span> <span class="ident">Type::FuncRef</span>;
-    <span class="kw">type</span> <span class="ident">Abi</span> <span class="op">=</span> <span class="ident">usize</span>;
+<span class="kw">impl </span>NativeWasmType <span class="kw">for </span>Function {
+    <span class="kw">const </span>WASM_TYPE: Type = Type::FuncRef;
+    <span class="kw">type </span>Abi = usize;
 }
 
-<span class="kw">impl</span> <span class="ident">NativeWasmTypeInto</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_abi</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">abi</span>: <span class="ident"><span class="self">Self</span>::Abi</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMFuncRef::from_raw</span>(<span class="ident">RawValue</span> { <span class="ident">funcref</span>: <span class="ident">abi</span> }).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>))
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        VMFuncRef::from_raw(RawValue { funcref: abi }).map(|f| Function::from_vm_funcref(store, f))
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_abi</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Abi</span> {
-        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>).<span class="ident">into_raw</span>().<span class="ident">externref</span> })
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self</span>.map_or(<span class="number">0</span>, |f| <span class="kw">unsafe </span>{ f.vm_funcref(store).into_raw().externref })
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident">RawValue</span> {
-        <span class="self">self</span>.<span class="ident">map_or</span>(<span class="ident">RawValue</span> { <span class="ident">externref</span>: <span class="number">0</span> }, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="ident">e</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>).<span class="ident">into_raw</span>()
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        <span class="self">self</span>.map_or(RawValue { externref: <span class="number">0 </span>}, |e| {
+            e.vm_funcref(store).into_raw()
         })
     }
 
-    <span class="attribute">#[<span class="ident">inline</span>]</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">raw</span>: <span class="ident">RawValue</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">VMFuncRef::from_raw</span>(<span class="ident">raw</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>))
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f))
     }
 }
 
-<span class="doccomment">/// A trait to convert a Rust value to a `WasmNativeType` value,</span>
-<span class="doccomment">/// or to convert `WasmNativeType` value to a Rust value.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This trait should ideally be split into two traits:</span>
-<span class="doccomment">/// `FromNativeWasmType` and `ToNativeWasmType` but it creates a</span>
-<span class="doccomment">/// non-negligible complexity in the `WasmTypeList`</span>
-<span class="doccomment">/// implementation.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">/// This trait is unsafe given the nature of how values are written and read from the native</span>
-<span class="doccomment">/// stack</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">FromToNativeWasmType</span>
-<span class="kw">where</span>
-    <span class="self">Self</span>: <span class="ident">Sized</span>,
+<span class="doccomment">/// A trait to convert a Rust value to a `WasmNativeType` value,
+/// or to convert `WasmNativeType` value to a Rust value.
+///
+/// This trait should ideally be split into two traits:
+/// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
+/// non-negligible complexity in the `WasmTypeList`
+/// implementation.
+///
+/// # Safety
+/// This trait is unsafe given the nature of how values are written and read from the native
+/// stack
+</span><span class="kw">pub unsafe trait </span>FromToNativeWasmType
+<span class="kw">where
+    </span><span class="self">Self</span>: Sized,
 {
-    <span class="doccomment">/// Native Wasm type.</span>
-    <span class="kw">type</span> <span class="ident">Native</span>: <span class="ident">NativeWasmTypeInto</span>;
+    <span class="doccomment">/// Native Wasm type.
+    </span><span class="kw">type </span>Native: NativeWasmTypeInto;
 
-    <span class="doccomment">/// Convert a value of kind `Self::Native` to `Self`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method panics if `native` cannot fit in the `Self`</span>
-    <span class="doccomment">/// type`.</span>
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Convert a value of kind `Self::Native` to `Self`.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if `native` cannot fit in the `Self`
+    /// type`.
+    </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Convert self to `Self::Native`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method panics if `self` cannot fit in the</span>
-    <span class="doccomment">/// `Self::Native` type.</span>
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span>;
+    <span class="doccomment">/// Convert self to `Self::Native`.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if `self` cannot fit in the
+    /// `Self::Native` type.
+    </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native;
 
-    <span class="doccomment">/// Returns whether the given value is from the given store.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This always returns true for primitive types that can be used with</span>
-    <span class="doccomment">/// any context.</span>
-    <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">true</span>
-    }
+    <span class="doccomment">/// Returns whether the given value is from the given store.
+    ///
+    /// This always returns true for primitive types that can be used with
+    /// any context.
+    </span><span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, _store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">from_to_native_wasm_type</span> {
-    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span> =&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">native_type</span>:<span class="ident">ty</span> ),<span class="op">*</span> ) =&gt; {
+<span class="macro">macro_rules! </span>from_to_native_wasm_type {
+    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>=&gt; <span class="macro-nonterminal">$native_type</span>:ty ),* ) =&gt; {
         $(
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::use_self</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="kw">type</span> {
-                <span class="kw">type</span> <span class="macro-nonterminal">Native</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">native_type</span>;
+            <span class="attribute">#[allow(clippy::use_self)]
+            </span><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
+                <span class="kw">type </span><span class="macro-nonterminal">Native </span>= <span class="macro-nonterminal">$native_type</span>;
 
-                <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
-                    <span class="ident">native</span> <span class="kw">as</span> <span class="self">Self</span>
-                }
+                <span class="attribute">#[inline]
+                </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+                    native <span class="kw">as </span><span class="self">Self
+                </span>}
 
-                <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-                    <span class="self">self</span> <span class="kw">as</span> <span class="ident"><span class="self">Self</span>::Native</span>
+                <span class="attribute">#[inline]
+                </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+                    <span class="self">self </span><span class="kw">as </span><span class="self">Self</span>::Native
                 }
             }
-        )<span class="op">*</span>
+        )*
     };
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">from_to_native_wasm_type_same_size</span> {
-    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span> =&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">native_type</span>:<span class="ident">ty</span> ),<span class="op">*</span> ) =&gt; {
+<span class="macro">macro_rules! </span>from_to_native_wasm_type_same_size {
+    ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty </span>=&gt; <span class="macro-nonterminal">$native_type</span>:ty ),* ) =&gt; {
         $(
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::use_self</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="kw">type</span> {
-                <span class="kw">type</span> <span class="macro-nonterminal">Native</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">native_type</span>;
+            <span class="attribute">#[allow(clippy::use_self)]
+            </span><span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
+                <span class="kw">type </span><span class="macro-nonterminal">Native </span>= <span class="macro-nonterminal">$native_type</span>;
 
-                <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">native</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
-                    <span class="ident"><span class="self">Self</span>::from_ne_bytes</span>(<span class="ident"><span class="self">Self</span>::Native::to_ne_bytes</span>(<span class="ident">native</span>))
+                <span class="attribute">#[inline]
+                </span><span class="kw">fn </span>from_native(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+                    <span class="self">Self</span>::from_ne_bytes(<span class="self">Self</span>::Native::to_ne_bytes(native))
                 }
 
-                <span class="attribute">#[<span class="ident">inline</span>]</span>
-                <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-                    <span class="ident"><span class="self">Self</span>::Native::from_ne_bytes</span>(<span class="ident"><span class="self">Self</span>::to_ne_bytes</span>(<span class="self">self</span>))
+                <span class="attribute">#[inline]
+                </span><span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+                    <span class="self">Self</span>::Native::from_ne_bytes(<span class="self">Self</span>::to_ne_bytes(<span class="self">self</span>))
                 }
             }
-        )<span class="op">*</span>
+        )*
     };
 }
 
 <span class="macro">from_to_native_wasm_type!</span>(
-    <span class="ident">i8</span> =&gt; <span class="ident">i32</span>,
-    <span class="ident">u8</span> =&gt; <span class="ident">i32</span>,
-    <span class="ident">i16</span> =&gt; <span class="ident">i32</span>,
-    <span class="ident">u16</span> =&gt; <span class="ident">i32</span>
+    i8 =&gt; i32,
+    u8 =&gt; i32,
+    i16 =&gt; i32,
+    u16 =&gt; i32
 );
 
 <span class="macro">from_to_native_wasm_type_same_size!</span>(
-    <span class="ident">i32</span> =&gt; <span class="ident">i32</span>,
-    <span class="ident">u32</span> =&gt; <span class="ident">i32</span>,
-    <span class="ident">i64</span> =&gt; <span class="ident">i64</span>,
-    <span class="ident">u64</span> =&gt; <span class="ident">i64</span>,
-    <span class="ident">f32</span> =&gt; <span class="ident">f32</span>,
-    <span class="ident">f64</span> =&gt; <span class="ident">f64</span>
+    i32 =&gt; i32,
+    u32 =&gt; i32,
+    i64 =&gt; i64,
+    u64 =&gt; i64,
+    f32 =&gt; f32,
+    f64 =&gt; f64
 );
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExternRef</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="self">Self</span>;
+<span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;ExternRef&gt; {
+    <span class="kw">type </span>Native = <span class="self">Self</span>;
 
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-        <span class="self">self</span>
+    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+        <span class="self">self
+    </span>}
+    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+        n
     }
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">n</span>
-    }
-    <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>))
+    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="self">self</span>.as_ref().map_or(<span class="bool-val">true</span>, |e| e.is_from_store(store))
     }
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span> {
-    <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="self">Self</span>;
+<span class="kw">unsafe impl </span>FromToNativeWasmType <span class="kw">for </span><span class="prelude-ty">Option</span>&lt;Function&gt; {
+    <span class="kw">type </span>Native = <span class="self">Self</span>;
 
-    <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Native</span> {
-        <span class="self">self</span>
+    <span class="kw">fn </span>to_native(<span class="self">self</span>) -&gt; <span class="self">Self</span>::Native {
+        <span class="self">self
+    </span>}
+    <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
+        n
     }
-    <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="ident"><span class="self">Self</span>::Native</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">n</span>
-    }
-    <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">map_or</span>(<span class="bool-val">true</span>, <span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>))
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_from_to_native_wasm_type</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_to_native</span>() {
-        <span class="macro">assert_eq!</span>(<span class="number">7i8</span>.<span class="ident">to_native</span>(), <span class="number">7i32</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7u8</span>.<span class="ident">to_native</span>(), <span class="number">7i32</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7i16</span>.<span class="ident">to_native</span>(), <span class="number">7i32</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7u16</span>.<span class="ident">to_native</span>(), <span class="number">7i32</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">u32::MAX</span>.<span class="ident">to_native</span>(), <span class="op">-</span><span class="number">1</span>);
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_to_native_same_size</span>() {
-        <span class="macro">assert_eq!</span>(<span class="number">7i32</span>.<span class="ident">to_native</span>(), <span class="number">7i32</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7u32</span>.<span class="ident">to_native</span>(), <span class="number">7i32</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7i64</span>.<span class="ident">to_native</span>(), <span class="number">7i64</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7u64</span>.<span class="ident">to_native</span>(), <span class="number">7i64</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7f32</span>.<span class="ident">to_native</span>(), <span class="number">7f32</span>);
-        <span class="macro">assert_eq!</span>(<span class="number">7f64</span>.<span class="ident">to_native</span>(), <span class="number">7f64</span>);
+    <span class="kw">fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="self">self</span>.as_ref().map_or(<span class="bool-val">true</span>, |f| f.is_from_store(store))
     }
 }
 
-<span class="doccomment">/// The `WasmTypeList` trait represents a tuple (list) of Wasm</span>
-<span class="doccomment">/// typed values. It is used to get low-level representation of</span>
-<span class="doccomment">/// such a tuple.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasmTypeList</span>
-<span class="kw">where</span>
-    <span class="self">Self</span>: <span class="ident">Sized</span>,
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_from_to_native_wasm_type {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_to_native() {
+        <span class="macro">assert_eq!</span>(<span class="number">7i8</span>.to_native(), <span class="number">7i32</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7u8</span>.to_native(), <span class="number">7i32</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7i16</span>.to_native(), <span class="number">7i32</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7u16</span>.to_native(), <span class="number">7i32</span>);
+        <span class="macro">assert_eq!</span>(u32::MAX.to_native(), -<span class="number">1</span>);
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_to_native_same_size() {
+        <span class="macro">assert_eq!</span>(<span class="number">7i32</span>.to_native(), <span class="number">7i32</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7u32</span>.to_native(), <span class="number">7i32</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7i64</span>.to_native(), <span class="number">7i64</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7u64</span>.to_native(), <span class="number">7i64</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7f32</span>.to_native(), <span class="number">7f32</span>);
+        <span class="macro">assert_eq!</span>(<span class="number">7f64</span>.to_native(), <span class="number">7f64</span>);
+    }
+}
+
+<span class="doccomment">/// The `WasmTypeList` trait represents a tuple (list) of Wasm
+/// typed values. It is used to get low-level representation of
+/// such a tuple.
+</span><span class="kw">pub trait </span>WasmTypeList
+<span class="kw">where
+    </span><span class="self">Self</span>: Sized,
 {
-    <span class="doccomment">/// The C type (a struct) that can hold/represent all the</span>
-    <span class="doccomment">/// represented values.</span>
-    <span class="kw">type</span> <span class="ident">CStruct</span>;
+    <span class="doccomment">/// The C type (a struct) that can hold/represent all the
+    /// represented values.
+    </span><span class="kw">type </span>CStruct;
 
-    <span class="doccomment">/// The array type that can hold all the represented values.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note that all values are stored in their binary form.</span>
-    <span class="kw">type</span> <span class="ident">Array</span>: <span class="ident">AsMut</span><span class="op">&lt;</span>[<span class="ident">RawValue</span>]<span class="op">&gt;</span>;
+    <span class="doccomment">/// The array type that can hold all the represented values.
+    ///
+    /// Note that all values are stored in their binary form.
+    </span><span class="kw">type </span>Array: AsMut&lt;[RawValue]&gt;;
 
-    <span class="doccomment">/// The size of the array</span>
-    <span class="kw">fn</span> <span class="ident">size</span>() -&gt; <span class="ident">u32</span>;
+    <span class="doccomment">/// The size of the array
+    </span><span class="kw">fn </span>size() -&gt; u32;
 
-    <span class="doccomment">/// Constructs `Self` based on an array of values.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_array</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">array</span>: <span class="ident"><span class="self">Self</span>::Array</span>) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Constructs `Self` based on an array of values.
+    ///
+    /// # Safety
+    </span><span class="kw">unsafe fn </span>from_array(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, array: <span class="self">Self</span>::Array) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Constructs `Self` based on a slice of values.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// `from_slice` returns a `Result` because it is possible</span>
-    <span class="doccomment">/// that the slice doesn&#39;t have the same size than</span>
-    <span class="doccomment">/// `Self::Array`, in which circumstance an error of kind</span>
-    <span class="doccomment">/// `TryFromSliceError` will be returned.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_slice</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">RawValue</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TryFromSliceError</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Constructs `Self` based on a slice of values.
+    ///
+    /// `from_slice` returns a `Result` because it is possible
+    /// that the slice doesn&#39;t have the same size than
+    /// `Self::Array`, in which circumstance an error of kind
+    /// `TryFromSliceError` will be returned.
+    ///
+    /// # Safety
+    </span><span class="kw">unsafe fn </span>from_slice(
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        slice: <span class="kw-2">&amp;</span>[RawValue],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt;;
 
-    <span class="doccomment">/// Builds and returns an array of type `Array` from a tuple</span>
-    <span class="doccomment">/// (list) of values.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">into_array</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Array</span>;
+    <span class="doccomment">/// Builds and returns an array of type `Array` from a tuple
+    /// (list) of values.
+    ///
+    /// # Safety
+    </span><span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array;
 
-    <span class="doccomment">/// Allocates and return an empty array of type `Array` that</span>
-    <span class="doccomment">/// will hold a tuple (list) of values, usually to hold the</span>
-    <span class="doccomment">/// returned values of a WebAssembly function call.</span>
-    <span class="kw">fn</span> <span class="ident">empty_array</span>() -&gt; <span class="ident"><span class="self">Self</span>::Array</span>;
+    <span class="doccomment">/// Allocates and return an empty array of type `Array` that
+    /// will hold a tuple (list) of values, usually to hold the
+    /// returned values of a WebAssembly function call.
+    </span><span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array;
 
-    <span class="doccomment">/// Builds a tuple (list) of values from a C struct of type</span>
-    <span class="doccomment">/// `CStruct`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">c_struct</span>: <span class="ident"><span class="self">Self</span>::CStruct</span>) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Builds a tuple (list) of values from a C struct of type
+    /// `CStruct`.
+    ///
+    /// # Safety
+    </span><span class="kw">unsafe fn </span>from_c_struct(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, c_struct: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Builds and returns a C struct of type `CStruct` from a</span>
-    <span class="doccomment">/// tuple (list) of values.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::CStruct</span>;
+    <span class="doccomment">/// Builds and returns a C struct of type `CStruct` from a
+    /// tuple (list) of values.
+    ///
+    /// # Safety
+    </span><span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct;
 
-    <span class="doccomment">/// Writes the contents of a C struct to an array of `RawValue`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_c_struct_to_ptr</span>(<span class="ident">c_struct</span>: <span class="ident"><span class="self">Self</span>::CStruct</span>, <span class="ident">ptr</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>);
+    <span class="doccomment">/// Writes the contents of a C struct to an array of `RawValue`.
+    ///
+    /// # Safety
+    </span><span class="kw">unsafe fn </span>write_c_struct_to_ptr(c_struct: <span class="self">Self</span>::CStruct, ptr: <span class="kw-2">*mut </span>RawValue);
 
-    <span class="doccomment">/// Get the Wasm types for the tuple (list) of currently</span>
-    <span class="doccomment">/// represented values.</span>
-    <span class="kw">fn</span> <span class="ident">wasm_types</span>() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>];
+    <span class="doccomment">/// Get the Wasm types for the tuple (list) of currently
+    /// represented values.
+    </span><span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[Type];
 }
 
-<span class="doccomment">/// The `IntoResult` trait turns a `WasmTypeList` into a</span>
-<span class="doccomment">/// `Result&lt;WasmTypeList, Self::Error&gt;`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It is mostly used to turn result values of a Wasm function</span>
-<span class="doccomment">/// call into a `Result`.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">WasmTypeList</span>,
+<span class="doccomment">/// The `IntoResult` trait turns a `WasmTypeList` into a
+/// `Result&lt;WasmTypeList, Self::Error&gt;`.
+///
+/// It is mostly used to turn result values of a Wasm function
+/// call into a `Result`.
+</span><span class="kw">pub trait </span>IntoResult&lt;T&gt;
+<span class="kw">where
+    </span>T: WasmTypeList,
 {
-    <span class="doccomment">/// The error type for this trait.</span>
-    <span class="kw">type</span> <span class="ident">Error</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>;
+    <span class="doccomment">/// The error type for this trait.
+    </span><span class="kw">type </span>Error: Error + Sync + Send + <span class="lifetime">&#39;static</span>;
 
-    <span class="doccomment">/// Transforms `Self` into a `Result`.</span>
-    <span class="kw">fn</span> <span class="ident">into_result</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Transforms `Self` into a `Result`.
+    </span><span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>::Error&gt;;
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">T</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">WasmTypeList</span>,
+<span class="kw">impl</span>&lt;T&gt; IntoResult&lt;T&gt; <span class="kw">for </span>T
+<span class="kw">where
+    </span>T: WasmTypeList,
 {
-    <span class="comment">// `T` is not a `Result`, it&#39;s already a value, so no error</span>
-    <span class="comment">// can be built.</span>
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">Infallible</span>;
+    <span class="comment">// `T` is not a `Result`, it&#39;s already a value, so no error
+    // can be built.
+    </span><span class="kw">type </span>Error = Infallible;
 
-    <span class="kw">fn</span> <span class="ident">into_result</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">Infallible</span><span class="op">&gt;</span> {
+    <span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Infallible&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">E</span><span class="op">&gt;</span> <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">E</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">WasmTypeList</span>,
-    <span class="ident">E</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="kw">impl</span>&lt;T, E&gt; IntoResult&lt;T&gt; <span class="kw">for </span><span class="prelude-ty">Result</span>&lt;T, E&gt;
+<span class="kw">where
+    </span>T: WasmTypeList,
+    E: Error + Sync + Send + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">E</span>;
+    <span class="kw">type </span>Error = E;
 
-    <span class="kw">fn</span> <span class="ident">into_result</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>
-    }
+    <span class="kw">fn </span>into_result(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">self
+    </span>}
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_into_result</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">std::convert::Infallible</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_into_result {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::convert::Infallible;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_into_result_over_t</span>() {
-        <span class="kw">let</span> <span class="ident">x</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="number">42</span>;
-        <span class="kw">let</span> <span class="ident">result_of_x</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into_result</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_into_result_over_t() {
+        <span class="kw">let </span>x: i32 = <span class="number">42</span>;
+        <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = x.into_result();
 
-        <span class="macro">assert_eq!</span>(<span class="ident">result_of_x</span>.<span class="ident">unwrap</span>(), <span class="ident">x</span>);
+        <span class="macro">assert_eq!</span>(result_of_x.unwrap(), x);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_into_result_over_result</span>() {
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_into_result_over_result() {
         {
-            <span class="kw">let</span> <span class="ident">x</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">Ok</span>(<span class="number">42</span>);
-            <span class="kw">let</span> <span class="ident">result_of_x</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">i32</span>, <span class="ident">Infallible</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into_result</span>();
+            <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = <span class="prelude-val">Ok</span>(<span class="number">42</span>);
+            <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;i32, Infallible&gt; = x.into_result();
 
-            <span class="macro">assert_eq!</span>(<span class="ident">result_of_x</span>, <span class="ident">x</span>);
+            <span class="macro">assert_eq!</span>(result_of_x, x);
         }
 
         {
-            <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">error</span>, <span class="ident">fmt</span>};
+            <span class="kw">use </span>std::{error, fmt};
 
-            <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
-            <span class="kw">struct</span> <span class="ident">E</span>;
+            <span class="attribute">#[derive(Debug, PartialEq)]
+            </span><span class="kw">struct </span>E;
 
-            <span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">E</span> {
-                <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">formatter</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-                    <span class="macro">write!</span>(<span class="ident">formatter</span>, <span class="string">&quot;E&quot;</span>)
+            <span class="kw">impl </span>fmt::Display <span class="kw">for </span>E {
+                <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+                    <span class="macro">write!</span>(formatter, <span class="string">&quot;E&quot;</span>)
                 }
             }
 
-            <span class="kw">impl</span> <span class="ident">error::Error</span> <span class="kw">for</span> <span class="ident">E</span> {}
+            <span class="kw">impl </span>error::Error <span class="kw">for </span>E {}
 
-            <span class="kw">let</span> <span class="ident">x</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Infallible</span>, <span class="ident">E</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">E</span>);
-            <span class="kw">let</span> <span class="ident">result_of_x</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Infallible</span>, <span class="ident">E</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into_result</span>();
+            <span class="kw">let </span>x: <span class="prelude-ty">Result</span>&lt;Infallible, E&gt; = <span class="prelude-val">Err</span>(E);
+            <span class="kw">let </span>result_of_x: <span class="prelude-ty">Result</span>&lt;Infallible, E&gt; = x.into_result();
 
-            <span class="macro">assert_eq!</span>(<span class="ident">result_of_x</span>.<span class="ident">unwrap_err</span>(), <span class="ident">E</span>);
+            <span class="macro">assert_eq!</span>(result_of_x.unwrap_err(), E);
         }
     }
 }
 
-<span class="comment">// Implement `WasmTypeList` on `Infallible`, which means that</span>
-<span class="comment">// `Infallible` can be used as a returned type of a host function</span>
-<span class="comment">// to express that it doesn&#39;t return, or to express that it cannot</span>
-<span class="comment">// fail (with `Result&lt;_, Infallible&gt;`).</span>
-<span class="kw">impl</span> <span class="ident">WasmTypeList</span> <span class="kw">for</span> <span class="ident">Infallible</span> {
-    <span class="kw">type</span> <span class="ident">CStruct</span> <span class="op">=</span> <span class="self">Self</span>;
-    <span class="kw">type</span> <span class="ident">Array</span> <span class="op">=</span> [<span class="ident">RawValue</span>; <span class="number">0</span>];
+<span class="comment">// Implement `WasmTypeList` on `Infallible`, which means that
+// `Infallible` can be used as a returned type of a host function
+// to express that it doesn&#39;t return, or to express that it cannot
+// fail (with `Result&lt;_, Infallible&gt;`).
+</span><span class="kw">impl </span>WasmTypeList <span class="kw">for </span>Infallible {
+    <span class="kw">type </span>CStruct = <span class="self">Self</span>;
+    <span class="kw">type </span>Array = [RawValue; <span class="number">0</span>];
 
-    <span class="kw">fn</span> <span class="ident">size</span>() -&gt; <span class="ident">u32</span> {
-        <span class="number">0</span>
-    }
+    <span class="kw">fn </span>size() -&gt; u32 {
+        <span class="number">0
+    </span>}
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_array</span>(<span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="kw">_</span>: <span class="ident"><span class="self">Self</span>::Array</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">unsafe fn </span>from_array(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, <span class="kw">_</span>: <span class="self">Self</span>::Array) -&gt; <span class="self">Self </span>{
         <span class="macro">unreachable!</span>()
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_slice</span>(
-        <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="kw">_</span>: <span class="kw-2">&amp;</span>[<span class="ident">RawValue</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TryFromSliceError</span><span class="op">&gt;</span> {
+    <span class="kw">unsafe fn </span>from_slice(
+        <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        <span class="kw">_</span>: <span class="kw-2">&amp;</span>[RawValue],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt; {
         <span class="macro">unreachable!</span>()
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">into_array</span>(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Array</span> {
+    <span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array {
         []
     }
 
-    <span class="kw">fn</span> <span class="ident">empty_array</span>() -&gt; <span class="ident"><span class="self">Self</span>::Array</span> {
+    <span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array {
         []
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">self_</span>: <span class="ident"><span class="self">Self</span>::CStruct</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">self_</span>
+    <span class="kw">unsafe fn </span>from_c_struct(<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, self_: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self </span>{
+        self_
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::CStruct</span> {
-        <span class="self">self</span>
-    }
+    <span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct {
+        <span class="self">self
+    </span>}
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_c_struct_to_ptr</span>(<span class="kw">_</span>: <span class="ident"><span class="self">Self</span>::CStruct</span>, <span class="kw">_</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>) {}
+    <span class="kw">unsafe fn </span>write_c_struct_to_ptr(<span class="kw">_</span>: <span class="self">Self</span>::CStruct, <span class="kw">_</span>: <span class="kw-2">*mut </span>RawValue) {}
 
-    <span class="kw">fn</span> <span class="ident">wasm_types</span>() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
+    <span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[Type] {
         <span class="kw-2">&amp;</span>[]
     }
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">impl_wasmtypelist</span> {
-    ( [<span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_representation</span>:<span class="ident">ident</span>]
-       <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span>:<span class="ident">ident</span>,
-       $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span> ),<span class="op">*</span> ) =&gt; {
+<span class="macro">macro_rules! </span>impl_wasmtypelist {
+    ( [<span class="macro-nonterminal">$c_struct_representation</span>:ident]
+       <span class="macro-nonterminal">$c_struct_name</span>:ident,
+       $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {
 
-        <span class="doccomment">/// A structure with a C-compatible representation that can hold a set of Wasm values.</span>
-        <span class="doccomment">/// This type is used by `WasmTypeList::CStruct`.</span>
-        <span class="attribute">#[<span class="ident">repr</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_representation</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> <span class="op">&gt;</span> ( $( <span class="op">&lt;</span><span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="kw">as</span> <span class="ident">FromToNativeWasmType</span><span class="op">&gt;</span><span class="ident">::Native</span> <span class="kw">as</span> <span class="ident">NativeWasmType</span><span class="op">&gt;</span><span class="ident">::Abi</span> ),<span class="op">*</span> )
-        <span class="kw">where</span>
-            $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span> ),<span class="kw-2">*</span>;
+        <span class="doccomment">/// A structure with a C-compatible representation that can hold a set of Wasm values.
+        /// This type is used by `WasmTypeList::CStruct`.
+        </span><span class="attribute">#[repr(<span class="macro-nonterminal">$c_struct_representation</span>)]
+        </span><span class="kw">pub struct </span><span class="macro-nonterminal">$c_struct_name</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt; ( $( &lt;&lt;<span class="macro-nonterminal">$x </span><span class="kw">as </span>FromToNativeWasmType&gt;::Native <span class="kw">as </span>NativeWasmType&gt;::Abi ),* )
+        <span class="kw">where
+            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType ),<span class="kw-2">*</span>;
 
-        <span class="comment">// Implement `WasmTypeList` for a specific tuple.</span>
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>, <span class="ident">dead_code</span>)]</span>
-        <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> <span class="op">&gt;</span>
-            <span class="ident">WasmTypeList</span>
-        <span class="kw">for</span>
-            ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> )
-        <span class="kw">where</span>
-            $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span> ),<span class="op">*</span>
+        <span class="comment">// Implement `WasmTypeList` for a specific tuple.
+        </span><span class="attribute">#[allow(unused_parens, dead_code)]
+        </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt;
+            WasmTypeList
+        <span class="kw">for
+            </span>( $( <span class="macro-nonterminal">$x </span>),* )
+        <span class="kw">where
+            </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType ),*
         {
-            <span class="kw">type</span> <span class="ident">CStruct</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> <span class="op">&gt;</span>;
+            <span class="kw">type </span>CStruct = <span class="macro-nonterminal">$c_struct_name</span>&lt; $( <span class="macro-nonterminal">$x </span>),* &gt;;
 
-            <span class="kw">type</span> <span class="ident">Array</span> <span class="op">=</span> [<span class="ident">RawValue</span>; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> )];
+            <span class="kw">type </span>Array = [RawValue; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* )];
 
-            <span class="kw">fn</span> <span class="ident">size</span>() -&gt; <span class="ident">u32</span> {
-                <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="kw">as</span> <span class="kw">_</span>
-            }
+            <span class="kw">fn </span>size() -&gt; u32 {
+                <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* ) <span class="kw">as _
+            </span>}
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::unused_unit</span>)]</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::missing_safety_doc</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_array</span>(<span class="kw-2">mut</span> <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">array</span>: <span class="ident"><span class="self">Self</span>::Array</span>) -&gt; <span class="self">Self</span> {
-                <span class="comment">// Unpack items of the array.</span>
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">let</span> [ $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ] <span class="op">=</span> <span class="ident">array</span>;
+            <span class="attribute">#[allow(unused_mut)]
+            #[allow(clippy::unused_unit)]
+            #[allow(clippy::missing_safety_doc)]
+            </span><span class="kw">unsafe fn </span>from_array(<span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, array: <span class="self">Self</span>::Array) -&gt; <span class="self">Self </span>{
+                <span class="comment">// Unpack items of the array.
+                </span><span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">let </span>[ $( <span class="macro-nonterminal">$x </span>),* ] = array;
 
-                <span class="comment">// Build the tuple.</span>
-                (
+                <span class="comment">// Build the tuple.
+                </span>(
                     $(
-                        <span class="ident">FromToNativeWasmType::from_native</span>(<span class="ident">NativeWasmTypeInto::from_raw</span>(<span class="ident">_store</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>))
-                    ),<span class="op">*</span>
+                        FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, <span class="macro-nonterminal">$x</span>))
+                    ),*
                 )
             }
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::missing_safety_doc</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_slice</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">RawValue</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TryFromSliceError</span><span class="op">&gt;</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_array</span>(<span class="ident">store</span>, <span class="ident">slice</span>.<span class="ident">try_into</span>()<span class="question-mark">?</span>))
+            <span class="attribute">#[allow(clippy::missing_safety_doc)]
+            </span><span class="kw">unsafe fn </span>from_slice(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, slice: <span class="kw-2">&amp;</span>[RawValue]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TryFromSliceError&gt; {
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_array(store, slice.try_into()<span class="question-mark">?</span>))
             }
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::missing_safety_doc</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">into_array</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::Array</span> {
-                <span class="comment">// Unpack items of the tuple.</span>
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">let</span> ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="self">self</span>;
+            <span class="attribute">#[allow(unused_mut)]
+            #[allow(clippy::missing_safety_doc)]
+            </span><span class="kw">unsafe fn </span>into_array(<span class="self">self</span>, <span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Array {
+                <span class="comment">// Unpack items of the tuple.
+                </span><span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">let </span>( $( <span class="macro-nonterminal">$x </span>),* ) = <span class="self">self</span>;
 
-                <span class="comment">// Build the array.</span>
-                [
+                <span class="comment">// Build the array.
+                </span>[
                     $(
-                        <span class="ident">FromToNativeWasmType::to_native</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>).<span class="ident">into_raw</span>(<span class="ident">_store</span>)
-                    ),<span class="op">*</span>
+                        FromToNativeWasmType::to_native(<span class="macro-nonterminal">$x</span>).into_raw(_store)
+                    ),*
                 ]
             }
 
-            <span class="kw">fn</span> <span class="ident">empty_array</span>() -&gt; <span class="ident"><span class="self">Self</span>::Array</span> {
-                <span class="comment">// Build an array initialized with `0`.</span>
-                [<span class="ident">RawValue</span> { <span class="ident">i32</span>: <span class="number">0</span> }; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> )]
+            <span class="kw">fn </span>empty_array() -&gt; <span class="self">Self</span>::Array {
+                <span class="comment">// Build an array initialized with `0`.
+                </span>[RawValue { i32: <span class="number">0 </span>}; <span class="macro">count_idents!</span>( $( <span class="macro-nonterminal">$x </span>),* )]
             }
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::unused_unit</span>)]</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::missing_safety_doc</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_c_struct</span>(<span class="kw-2">mut</span> <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">c_struct</span>: <span class="ident"><span class="self">Self</span>::CStruct</span>) -&gt; <span class="self">Self</span> {
-                <span class="comment">// Unpack items of the C structure.</span>
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="ident">c_struct</span>;
+            <span class="attribute">#[allow(unused_mut)]
+            #[allow(clippy::unused_unit)]
+            #[allow(clippy::missing_safety_doc)]
+            </span><span class="kw">unsafe fn </span>from_c_struct(<span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, c_struct: <span class="self">Self</span>::CStruct) -&gt; <span class="self">Self </span>{
+                <span class="comment">// Unpack items of the C structure.
+                </span><span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">let </span><span class="macro-nonterminal">$c_struct_name</span>( $( <span class="macro-nonterminal">$x </span>),* ) = c_struct;
 
                 (
                     $(
-                        <span class="ident">FromToNativeWasmType::from_native</span>(<span class="ident">NativeWasmTypeInto::from_abi</span>(<span class="ident">_store</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>))
-                    ),<span class="op">*</span>
+                        FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, <span class="macro-nonterminal">$x</span>))
+                    ),*
                 )
             }
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>, <span class="ident">non_snake_case</span>, <span class="ident">unused_mut</span>)]</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::missing_safety_doc</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">into_c_struct</span>(<span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">_store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>) -&gt; <span class="ident"><span class="self">Self</span>::CStruct</span> {
-                <span class="comment">// Unpack items of the tuple.</span>
-                <span class="kw">let</span> ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="self">self</span>;
+            <span class="attribute">#[allow(unused_parens, non_snake_case, unused_mut)]
+            #[allow(clippy::missing_safety_doc)]
+            </span><span class="kw">unsafe fn </span>into_c_struct(<span class="self">self</span>, <span class="kw-2">mut </span>_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::CStruct {
+                <span class="comment">// Unpack items of the tuple.
+                </span><span class="kw">let </span>( $( <span class="macro-nonterminal">$x </span>),* ) = <span class="self">self</span>;
 
-                <span class="comment">// Build the C structure.</span>
-                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span>(
+                <span class="comment">// Build the C structure.
+                </span><span class="macro-nonterminal">$c_struct_name</span>(
                     $(
-                        <span class="ident">FromToNativeWasmType::to_native</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>).<span class="ident">into_abi</span>(<span class="ident">_store</span>)
-                    ),<span class="op">*</span>
+                        FromToNativeWasmType::to_native(<span class="macro-nonterminal">$x</span>).into_abi(_store)
+                    ),*
                 )
             }
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-            <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_c_struct_to_ptr</span>(<span class="ident">c_struct</span>: <span class="ident"><span class="self">Self</span>::CStruct</span>, <span class="ident">_ptr</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>) {
-                <span class="comment">// Unpack items of the tuple.</span>
-                <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span>( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ) <span class="op">=</span> <span class="ident">c_struct</span>;
+            <span class="attribute">#[allow(non_snake_case)]
+            </span><span class="kw">unsafe fn </span>write_c_struct_to_ptr(c_struct: <span class="self">Self</span>::CStruct, _ptr: <span class="kw-2">*mut </span>RawValue) {
+                <span class="comment">// Unpack items of the tuple.
+                </span><span class="kw">let </span><span class="macro-nonterminal">$c_struct_name</span>( $( <span class="macro-nonterminal">$x </span>),* ) = c_struct;
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">_n</span> <span class="op">=</span> <span class="number">0</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>_n = <span class="number">0</span>;
                 $(
-                    <span class="kw-2">*</span><span class="ident">_ptr</span>.<span class="ident">add</span>(<span class="ident">_n</span>).<span class="ident">cast</span>() <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>;
-                    <span class="ident">_n</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                )<span class="op">*</span>
+                    <span class="kw-2">*</span>_ptr.add(_n).cast() = <span class="macro-nonterminal">$x</span>;
+                    _n += <span class="number">1</span>;
+                )*
             }
 
-            <span class="kw">fn</span> <span class="ident">wasm_types</span>() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">Type</span>] {
+            <span class="kw">fn </span>wasm_types() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[Type] {
                 <span class="kw-2">&amp;</span>[
                     $(
-                        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x::Native::WASM_TYPE</span>
-                    ),<span class="op">*</span>
+                        <span class="macro-nonterminal">$x::Native::WASM_TYPE
+                    </span>),*
                 ]
             }
         }
@@ -1611,52 +1611,52 @@
     };
 }
 
-<span class="comment">// Black-magic to count the number of identifiers at compile-time.</span>
-<span class="macro">macro_rules!</span> <span class="ident">count_idents</span> {
-    ( $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">idents</span>:<span class="ident">ident</span>),<span class="op">*</span> ) =&gt; {
+<span class="comment">// Black-magic to count the number of identifiers at compile-time.
+</span><span class="macro">macro_rules! </span>count_idents {
+    ( $(<span class="macro-nonterminal">$idents</span>:ident),* ) =&gt; {
         {
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">non_camel_case_types</span>)]</span>
-            <span class="kw">enum</span> <span class="ident">Idents</span> { $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">idents</span>, )<span class="op">*</span> <span class="ident">__CountIdentsLast</span> }
-            <span class="kw">const</span> <span class="ident">COUNT</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">Idents::__CountIdentsLast</span> <span class="kw">as</span> <span class="ident">usize</span>;
-            <span class="ident">COUNT</span>
+            <span class="attribute">#[allow(dead_code, non_camel_case_types)]
+            </span><span class="kw">enum </span>Idents { $( <span class="macro-nonterminal">$idents</span>, )* __CountIdentsLast }
+            <span class="kw">const </span>COUNT: usize = Idents::__CountIdentsLast <span class="kw">as </span>usize;
+            COUNT
         }
     };
 }
 
-<span class="comment">// Here we go! Let&#39;s generate all the C struct and `WasmTypeList`</span>
-<span class="comment">// implementations.</span>
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S0</span>,);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">transparent</span>] <span class="ident">S1</span>, <span class="ident">A1</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S2</span>, <span class="ident">A1</span>, <span class="ident">A2</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S3</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S4</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S5</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S6</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S7</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S8</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S9</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S10</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S11</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S12</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S13</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S14</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S15</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S16</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S17</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S18</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S19</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S20</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S21</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S22</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S23</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S24</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>, <span class="ident">A24</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S25</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>, <span class="ident">A24</span>, <span class="ident">A25</span>);
-<span class="macro">impl_wasmtypelist!</span>([<span class="ident">C</span>] <span class="ident">S26</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>, <span class="ident">A24</span>, <span class="ident">A25</span>, <span class="ident">A26</span>);
+<span class="comment">// Here we go! Let&#39;s generate all the C struct and `WasmTypeList`
+// implementations.
+</span><span class="macro">impl_wasmtypelist!</span>([C] S0,);
+<span class="macro">impl_wasmtypelist!</span>([transparent] S1, A1);
+<span class="macro">impl_wasmtypelist!</span>([C] S2, A1, A2);
+<span class="macro">impl_wasmtypelist!</span>([C] S3, A1, A2, A3);
+<span class="macro">impl_wasmtypelist!</span>([C] S4, A1, A2, A3, A4);
+<span class="macro">impl_wasmtypelist!</span>([C] S5, A1, A2, A3, A4, A5);
+<span class="macro">impl_wasmtypelist!</span>([C] S6, A1, A2, A3, A4, A5, A6);
+<span class="macro">impl_wasmtypelist!</span>([C] S7, A1, A2, A3, A4, A5, A6, A7);
+<span class="macro">impl_wasmtypelist!</span>([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+<span class="macro">impl_wasmtypelist!</span>([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+<span class="macro">impl_wasmtypelist!</span>([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+<span class="macro">impl_wasmtypelist!</span>([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+<span class="macro">impl_wasmtypelist!</span>([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+<span class="macro">impl_wasmtypelist!</span>([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+<span class="macro">impl_wasmtypelist!</span>([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+<span class="macro">impl_wasmtypelist!</span>([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+<span class="macro">impl_wasmtypelist!</span>([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+<span class="macro">impl_wasmtypelist!</span>([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+<span class="macro">impl_wasmtypelist!</span>([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+<span class="macro">impl_wasmtypelist!</span>([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+<span class="macro">impl_wasmtypelist!</span>([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+<span class="macro">impl_wasmtypelist!</span>([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+<span class="macro">impl_wasmtypelist!</span>([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+<span class="macro">impl_wasmtypelist!</span>([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+<span class="macro">impl_wasmtypelist!</span>([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+<span class="macro">impl_wasmtypelist!</span>([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+<span class="macro">impl_wasmtypelist!</span>([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_wasm_type_list</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_wasm_type_list {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>wasmer_types::Type;
     <span class="comment">/*
     #[test]
     fn test_from_array() {
@@ -1688,12 +1688,12 @@
             [RawValue{i32: 1}, RawValue{i32: 2}, RawValue{ f32: 3.1f32}, RawValue{f64: 4.2f64}]
         );
     }
-    */</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_empty_array</span>() {
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span>()<span class="op">&gt;</span><span class="ident">::empty_array</span>().<span class="ident">len</span>(), <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::empty_array</span>().<span class="ident">len</span>(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span>(<span class="ident">i32</span>, <span class="ident">i64</span>)<span class="op">&gt;</span><span class="ident">::empty_array</span>().<span class="ident">len</span>(), <span class="number">2</span>);
+    */
+    </span><span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_empty_array() {
+        <span class="macro">assert_eq!</span>(&lt;()&gt;::empty_array().len(), <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(&lt;i32&gt;::empty_array().len(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(&lt;(i32, i64)&gt;::empty_array().len(), <span class="number">2</span>);
     }
     <span class="comment">/*
     #[test]
@@ -1708,25 +1708,25 @@
             (1i32, 2i64, 3.1f32, 4.2f64)
         );
     }
-    */</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_wasm_types_for_uni_values</span>() {
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::I32</span>]);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::I64</span>]);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::F32</span>]);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span><span class="ident">f64</span><span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::F64</span>]);
+    */
+    </span><span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_wasm_types_for_uni_values() {
+        <span class="macro">assert_eq!</span>(&lt;i32&gt;::wasm_types(), [Type::I32]);
+        <span class="macro">assert_eq!</span>(&lt;i64&gt;::wasm_types(), [Type::I64]);
+        <span class="macro">assert_eq!</span>(&lt;f32&gt;::wasm_types(), [Type::F32]);
+        <span class="macro">assert_eq!</span>(&lt;f64&gt;::wasm_types(), [Type::F64]);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_wasm_types_for_multi_values</span>() {
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span>(<span class="ident">i32</span>, <span class="ident">i32</span>)<span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::I32</span>, <span class="ident">Type::I32</span>]);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span>(<span class="ident">i64</span>, <span class="ident">i64</span>)<span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::I64</span>, <span class="ident">Type::I64</span>]);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span>(<span class="ident">f32</span>, <span class="ident">f32</span>)<span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::F32</span>, <span class="ident">Type::F32</span>]);
-        <span class="macro">assert_eq!</span>(<span class="op">&lt;</span>(<span class="ident">f64</span>, <span class="ident">f64</span>)<span class="op">&gt;</span><span class="ident">::wasm_types</span>(), [<span class="ident">Type::F64</span>, <span class="ident">Type::F64</span>]);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_wasm_types_for_multi_values() {
+        <span class="macro">assert_eq!</span>(&lt;(i32, i32)&gt;::wasm_types(), [Type::I32, Type::I32]);
+        <span class="macro">assert_eq!</span>(&lt;(i64, i64)&gt;::wasm_types(), [Type::I64, Type::I64]);
+        <span class="macro">assert_eq!</span>(&lt;(f32, f32)&gt;::wasm_types(), [Type::F32, Type::F32]);
+        <span class="macro">assert_eq!</span>(&lt;(f64, f64)&gt;::wasm_types(), [Type::F64, Type::F64]);
 
         <span class="macro">assert_eq!</span>(
-            <span class="op">&lt;</span>(<span class="ident">i32</span>, <span class="ident">i64</span>, <span class="ident">f32</span>, <span class="ident">f64</span>)<span class="op">&gt;</span><span class="ident">::wasm_types</span>(),
-            [<span class="ident">Type::I32</span>, <span class="ident">Type::I64</span>, <span class="ident">Type::F32</span>, <span class="ident">Type::F64</span>]
+            &lt;(i32, i64, f32, f64)&gt;::wasm_types(),
+            [Type::I32, Type::I64, Type::F32, Type::F64]
         );
     }
 }
@@ -1799,20 +1799,20 @@
             assert_eq!(function(0, 3), 6);
         }
     }
-*/</span>
+*/
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test_native_type</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::Type</span>;
+</span><span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test_native_type {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>wasmer_types::Type;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_wasm_types</span>() {
-        <span class="macro">assert_eq!</span>(<span class="ident">i32::WASM_TYPE</span>, <span class="ident">Type::I32</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">i64::WASM_TYPE</span>, <span class="ident">Type::I64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">f32::WASM_TYPE</span>, <span class="ident">Type::F32</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">f64::WASM_TYPE</span>, <span class="ident">Type::F64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">u128::WASM_TYPE</span>, <span class="ident">Type::V128</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_wasm_types() {
+        <span class="macro">assert_eq!</span>(i32::WASM_TYPE, Type::I32);
+        <span class="macro">assert_eq!</span>(i64::WASM_TYPE, Type::I64);
+        <span class="macro">assert_eq!</span>(f32::WASM_TYPE, Type::F32);
+        <span class="macro">assert_eq!</span>(f64::WASM_TYPE, Type::F64);
+        <span class="macro">assert_eq!</span>(u128::WASM_TYPE, Type::V128);
     }
     <span class="comment">/*
     #[test]
@@ -1825,24 +1825,24 @@
             assert_eq!(u128::from_raw(42u128.into_raw()), 42u128);
         }
     }
-    */</span>
-}
+    */
+</span>}
 
-<span class="comment">// pub trait IntegerAtomic</span>
-<span class="comment">// where</span>
-<span class="comment">//     Self: Sized</span>
-<span class="comment">// {</span>
-<span class="comment">//     type Primitive;</span>
+<span class="comment">// pub trait IntegerAtomic
+// where
+//     Self: Sized
+// {
+//     type Primitive;
 
-<span class="comment">//     fn add(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn sub(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn and(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn or(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn xor(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn load(&amp;self) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn store(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn compare_exchange(&amp;self, expected: Self::Primitive, new: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">//     fn swap(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;</span>
-<span class="comment">// }</span>
-</code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+//     fn add(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+//     fn sub(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+//     fn and(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+//     fn or(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+//     fn xor(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+//     fn load(&amp;self) -&gt; Self::Primitive;
+//     fn store(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+//     fn compare_exchange(&amp;self, expected: Self::Primitive, new: Self::Primitive) -&gt; Self::Primitive;
+//     fn swap(&amp;self, other: Self::Primitive) -&gt; Self::Primitive;
+// }
+</span></code></pre></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

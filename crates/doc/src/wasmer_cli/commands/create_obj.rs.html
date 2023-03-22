@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_obj.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>create_obj.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_obj.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>create_obj.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -173,173 +173,173 @@
 <span id="171">171</span>
 <span id="172">172</span>
 <span id="173">173</span>
-</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
+</pre><pre class="rust"><code><span class="attribute">#![allow(dead_code)]
+</span><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::CompilerOptions</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::env</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
+<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>std::env;
 
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+<span class="kw">use </span>std::path::PathBuf;
 
-<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="doccomment">/// The options for the `wasmer create-exe` subcommand</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CreateObj</span> {
-    <span class="doccomment">/// Input file</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;FILE&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-    <span class="ident">path</span>: <span class="ident">PathBuf</span>,
+<span class="attribute">#[derive(Debug, Parser)]
+</span><span class="doccomment">/// The options for the `wasmer create-exe` subcommand
+</span><span class="kw">pub struct </span>CreateObj {
+    <span class="doccomment">/// Input file
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;FILE&quot;</span>, parse(from_os_str))]
+    </span>path: PathBuf,
 
-    <span class="doccomment">/// Output file or directory if the input is a pirita file</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OUTPUT_PATH&quot;</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;o&#39;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-    <span class="ident">output</span>: <span class="ident">PathBuf</span>,
+    <span class="doccomment">/// Output file or directory if the input is a pirita file
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;OUTPUT_PATH&quot;</span>, short = <span class="string">&#39;o&#39;</span>, parse(from_os_str))]
+    </span>output: PathBuf,
 
-    <span class="doccomment">/// Optional directorey used for debugging: if present, will</span>
-    <span class="doccomment">/// output the files to a debug instead of a temp directory</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;DEBUG PATH&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-    <span class="ident">debug_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Optional directorey used for debugging: if present, will
+    /// output the files to a debug instead of a temp directory
+    </span><span class="attribute">#[clap(long, name = <span class="string">&quot;DEBUG PATH&quot;</span>, parse(from_os_str))]
+    </span>debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-    <span class="doccomment">/// Prefix for the function names in the input file in the compiled object file.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Default value = sha256 of the input file</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;PREFIX&quot;</span>)]</span>
-    <span class="ident">prefix</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Prefix for the function names in the input file in the compiled object file.
+    ///
+    /// Default value = sha256 of the input file
+    </span><span class="attribute">#[clap(long, name = <span class="string">&quot;PREFIX&quot;</span>)]
+    </span>prefix: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// Atom name to compile when compiling multi-atom pirita files</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;ATOM&quot;</span>)]</span>
-    <span class="ident">atom</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Atom name to compile when compiling multi-atom pirita files
+    </span><span class="attribute">#[clap(long, name = <span class="string">&quot;ATOM&quot;</span>)]
+    </span>atom: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// Compilation Target triple</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Accepted target triple values must follow the</span>
-    <span class="doccomment">/// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The recommended targets we try to support are:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// - &quot;x86_64-linux-gnu&quot;</span>
-    <span class="doccomment">/// - &quot;aarch64-linux-gnu&quot;</span>
-    <span class="doccomment">/// - &quot;x86_64-apple-darwin&quot;</span>
-    <span class="doccomment">/// - &quot;arm64-apple-darwin&quot;</span>
-    <span class="doccomment">/// - &quot;x86_64-windows-gnu&quot;</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
-    <span class="ident">target_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Triple</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Compilation Target triple
+    ///
+    /// Accepted target triple values must follow the
+    /// [&#39;target_lexicon&#39;](https://crates.io/crates/target-lexicon) crate format.
+    ///
+    /// The recommended targets we try to support are:
+    ///
+    /// - &quot;x86_64-linux-gnu&quot;
+    /// - &quot;aarch64-linux-gnu&quot;
+    /// - &quot;x86_64-apple-darwin&quot;
+    /// - &quot;arm64-apple-darwin&quot;
+    /// - &quot;x86_64-windows-gnu&quot;
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;target&quot;</span>)]
+    </span>target_triple: <span class="prelude-ty">Option</span>&lt;Triple&gt;,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;m&#39;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
-    <span class="ident">cpu_features</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
+    <span class="attribute">#[clap(long, short = <span class="string">&#39;m&#39;</span>, multiple = <span class="bool-val">true</span>, number_of_values = <span class="number">1</span>)]
+    </span>cpu_features: Vec&lt;CpuFeature&gt;,
 
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">compiler</span>: <span class="ident">CompilerOptions</span>,
+    <span class="attribute">#[clap(flatten)]
+    </span>compiler: CompilerOptions,
 }
 
-<span class="kw">impl</span> <span class="ident">CreateObj</span> {
-    <span class="doccomment">/// Runs logic for the `create-obj` subcommand</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()));
-        <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_else</span>(<span class="ident">Triple::host</span>);
-        <span class="kw">let</span> <span class="ident">starting_cd</span> <span class="op">=</span> <span class="ident">env::current_dir</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">input_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
-        <span class="kw">let</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>();
-        <span class="kw">let</span> <span class="ident">output_directory_path</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">as_ref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>.<span class="ident">clone</span>(),
-            <span class="prelude-val">None</span> =&gt; <span class="ident">temp_dir</span><span class="question-mark">?</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>(),
+<span class="kw">impl </span>CreateObj {
+    <span class="doccomment">/// Runs logic for the `create-obj` subcommand
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>path = <span class="kw">crate</span>::common::normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.path.display()));
+        <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple.clone().unwrap_or_else(Triple::host);
+        <span class="kw">let </span>starting_cd = env::current_dir()<span class="question-mark">?</span>;
+        <span class="kw">let </span>input_path = starting_cd.join(<span class="kw-2">&amp;</span>path);
+        <span class="kw">let </span>temp_dir = tempfile::tempdir();
+        <span class="kw">let </span>output_directory_path = <span class="kw">match </span><span class="self">self</span>.debug_dir.as_ref() {
+            <span class="prelude-val">Some</span>(s) =&gt; s.clone(),
+            <span class="prelude-val">None </span>=&gt; temp_dir<span class="question-mark">?</span>.path().to_path_buf(),
         };
-        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">prefix</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">prefix</span>.<span class="ident">as_ref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="macro">vec!</span>[<span class="ident">s</span>.<span class="ident">clone</span>()],
-            <span class="prelude-val">None</span> =&gt; <span class="ident">Vec::new</span>(),
+        std::fs::create_dir_all(<span class="kw-2">&amp;</span>output_directory_path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>prefix = <span class="kw">match </span><span class="self">self</span>.prefix.as_ref() {
+            <span class="prelude-val">Some</span>(s) =&gt; <span class="macro">vec!</span>[s.clone()],
+            <span class="prelude-val">None </span>=&gt; Vec::new(),
         };
 
-        <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::commands::create_exe::utils::target_triple_to_target</span>(
-            <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
+        <span class="kw">let </span>target = <span class="kw">crate</span>::commands::create_exe::utils::target_triple_to_target(
+            <span class="kw-2">&amp;</span>target_triple,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
         );
-        <span class="kw">let</span> (<span class="kw">_</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">get_store_for_target</span>(<span class="ident">target</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-        <span class="macro">println!</span>(<span class="string">&quot;Compiler: {}&quot;</span>, <span class="ident">compiler_type</span>.<span class="ident">to_string</span>());
-        <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, <span class="ident">target</span>.<span class="ident">triple</span>());
+        <span class="kw">let </span>(<span class="kw">_</span>, compiler_type) = <span class="self">self</span>.compiler.get_store_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="macro">println!</span>(<span class="string">&quot;Compiler: {}&quot;</span>, compiler_type.to_string());
+        <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, target.triple());
 
-        <span class="kw">let</span> <span class="ident">atoms</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pirita</span>) <span class="op">=</span>
-            <span class="ident">webc::v1::WebCMmap::parse</span>(<span class="ident">input_path</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">webc::v1::ParseOptions::default</span>())
+        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) =
+            webc::v1::WebCMmap::parse(input_path.clone(), <span class="kw-2">&amp;</span>webc::v1::ParseOptions::default())
         {
-            <span class="ident"><span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory</span>(
-                <span class="kw-2">&amp;</span><span class="ident">pirita</span>,
-                <span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
-                <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
-                <span class="kw-2">&amp;</span><span class="ident">prefix</span>,
-                <span class="ident"><span class="kw">crate</span>::commands::AllowMultiWasm::Reject</span>(<span class="self">self</span>.<span class="ident">atom</span>.<span class="ident">clone</span>()),
-                <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
+            <span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory(
+                <span class="kw-2">&amp;</span>pirita,
+                <span class="kw-2">&amp;</span>output_directory_path,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
+                <span class="kw-2">&amp;</span>target_triple,
+                <span class="kw-2">&amp;</span>prefix,
+                <span class="kw">crate</span>::commands::AllowMultiWasm::Reject(<span class="self">self</span>.atom.clone()),
+                <span class="self">self</span>.debug_dir.is_some(),
             )
-        } <span class="kw">else</span> {
-            <span class="ident"><span class="kw">crate</span>::commands::create_exe::prepare_directory_from_single_wasm_file</span>(
-                <span class="kw-2">&amp;</span><span class="ident">input_path</span>,
-                <span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
-                <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
-                <span class="kw-2">&amp;</span><span class="ident">prefix</span>,
-                <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
+        } <span class="kw">else </span>{
+            <span class="kw">crate</span>::commands::create_exe::prepare_directory_from_single_wasm_file(
+                <span class="kw-2">&amp;</span>input_path,
+                <span class="kw-2">&amp;</span>output_directory_path,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
+                <span class="kw-2">&amp;</span>target_triple,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
+                <span class="kw-2">&amp;</span>prefix,
+                <span class="self">self</span>.debug_dir.is_some(),
             )
         }<span class="question-mark">?</span>;
 
-        <span class="comment">// Copy output files into target path, depending on whether</span>
-        <span class="comment">// there are one or many files being compiled</span>
-        <span class="kw">let</span> <span class="ident">file_paths</span> <span class="op">=</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">output_directory_path</span>.<span class="ident">join</span>(<span class="string">&quot;atoms&quot;</span>))
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        <span class="comment">// Copy output files into target path, depending on whether
+        // there are one or many files being compiled
+        </span><span class="kw">let </span>file_paths = std::fs::read_dir(output_directory_path.join(<span class="string">&quot;atoms&quot;</span>))
+            .map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;could not read {}: {e}&quot;</span>,
-                    <span class="ident">output_directory_path</span>.<span class="ident">join</span>(<span class="string">&quot;atoms&quot;</span>).<span class="ident">display</span>()
+                    output_directory_path.join(<span class="string">&quot;atoms&quot;</span>).display()
                 )
-            })<span class="question-mark">?</span>
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">path</span><span class="op">|</span> <span class="ident">path</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">path</span>().<span class="ident">canonicalize</span>().<span class="ident">ok</span>())
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+            })<span class="question-mark">?
+            </span>.filter_map(|path| path.ok()<span class="question-mark">?</span>.path().canonicalize().ok())
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">if</span> <span class="ident">file_paths</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+        <span class="kw">if </span>file_paths.is_empty() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;could not compile object file: no output objects in {}&quot;</span>,
-                <span class="ident">output_directory_path</span>.<span class="ident">join</span>(<span class="string">&quot;atoms&quot;</span>).<span class="ident">display</span>()
+                output_directory_path.join(<span class="string">&quot;atoms&quot;</span>).display()
             ));
         }
 
-        <span class="kw">if</span> <span class="ident">file_paths</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">parent</span>() {
-                <span class="ident">std::fs::create_dir_all</span>(<span class="ident">parent</span>)<span class="question-mark">?</span>;
+        <span class="kw">if </span>file_paths.len() == <span class="number">1 </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = <span class="self">self</span>.output.parent() {
+                std::fs::create_dir_all(parent)<span class="question-mark">?</span>;
             }
-            <span class="ident">std::fs::copy</span>(
-                <span class="ident">std::env::current_dir</span>().<span class="ident">unwrap</span>().<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">file_paths</span>[<span class="number">0</span>]),
-                <span class="ident">std::env::current_dir</span>().<span class="ident">unwrap</span>().<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output</span>),
+            std::fs::copy(
+                std::env::current_dir().unwrap().join(<span class="kw-2">&amp;</span>file_paths[<span class="number">0</span>]),
+                std::env::current_dir().unwrap().join(<span class="kw-2">&amp;</span><span class="self">self</span>.output),
             )
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            .map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;{} -&gt; {}: {e}&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">file_paths</span>[<span class="number">0</span>].<span class="ident">display</span>(),
-                    <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">display</span>()
+                    <span class="kw-2">&amp;</span>file_paths[<span class="number">0</span>].display(),
+                    <span class="self">self</span>.output.display()
                 )
             })<span class="question-mark">?</span>;
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">keys</span> <span class="op">=</span> <span class="ident">atoms</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">name</span>.<span class="ident">clone</span>())
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>keys = atoms
+                .iter()
+                .map(|(name, <span class="kw">_</span>)| name.clone())
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;where &lt;ATOM&gt; is one of: {}&quot;</span>,
-                <span class="ident">keys</span>.<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>)
+                keys.join(<span class="string">&quot;, &quot;</span>)
             ))
-            .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;note: use --atom &lt;ATOM&gt; to specify which atom to compile&quot;</span>
-            ))
-            .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;cannot compile more than one atom at a time&quot;</span>
-            ));
+            .context(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;note: use --atom &lt;ATOM&gt; to specify which atom to compile&quot;
+            </span>))
+            .context(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;cannot compile more than one atom at a time&quot;
+            </span>));
         }
 
-        <span class="kw">let</span> <span class="ident">output_file</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap</span>().<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">output_file</span> <span class="op">=</span> <span class="ident">output_file</span>
-            .<span class="ident">strip_prefix</span>(<span class="string">r&quot;\\?\&quot;</span>)
-            .<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">output_file</span>)
-            .<span class="ident">to_string</span>();
+        <span class="kw">let </span>output_file = <span class="self">self</span>.output.canonicalize().unwrap().display().to_string();
+        <span class="kw">let </span>output_file = output_file
+            .strip_prefix(<span class="string">r&quot;\\?\&quot;</span>)
+            .unwrap_or(<span class="kw-2">&amp;</span>output_file)
+            .to_string();
 
         <span class="macro">eprintln!</span>(<span class="string">&quot;✔ Object compiled successfully to `{output_file}`&quot;</span>);
 
@@ -347,4 +347,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

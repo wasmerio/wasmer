@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run_unstable.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>run_unstable.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run_unstable.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>run_unstable.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -617,622 +617,622 @@
 <span id="615">615</span>
 <span id="616">616</span>
 <span id="617">617</span>
-</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>, <span class="ident">unused</span>)]</span>
+</pre><pre class="rust"><code><span class="attribute">#![allow(missing_docs, unused)]
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::BTreeMap</span>,
-    <span class="ident">fmt::Display</span>,
-    <span class="ident">fs::File</span>,
-    <span class="ident">io</span>::{<span class="ident">ErrorKind</span>, <span class="ident">LineWriter</span>, <span class="ident">Read</span>, <span class="ident">Write</span>},
-    <span class="ident">net::SocketAddr</span>,
-    <span class="ident">path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>},
-    <span class="ident">str::FromStr</span>,
-    <span class="ident">sync::Mutex</span>,
-    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">SystemTime</span>},
+</span><span class="kw">use </span>std::{
+    collections::BTreeMap,
+    fmt::Display,
+    fs::File,
+    io::{ErrorKind, LineWriter, Read, Write},
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Mutex,
+    time::{Duration, SystemTime},
 };
 
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">clap_verbosity_flag::WarnLevel</span>;
-<span class="kw">use</span> <span class="ident">sha2</span>::{<span class="ident">Digest</span>, <span class="ident">Sha256</span>};
-<span class="kw">use</span> <span class="ident">tempfile::NamedTempFile</span>;
-<span class="kw">use</span> <span class="ident">url::Url</span>;
-<span class="kw">use</span> <span class="ident">wapm_targz_to_pirita::FileMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{
-    <span class="ident">DeserializeError</span>, <span class="ident">Function</span>, <span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">Store</span>, <span class="ident">Type</span>, <span class="ident">TypedFunction</span>, <span class="ident">Value</span>,
+<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>clap_verbosity_flag::WarnLevel;
+<span class="kw">use </span>sha2::{Digest, Sha256};
+<span class="kw">use </span>tempfile::NamedTempFile;
+<span class="kw">use </span>url::Url;
+<span class="kw">use </span>wapm_targz_to_pirita::FileMap;
+<span class="kw">use </span>wasmer::{
+    DeserializeError, Function, Imports, Instance, Module, Store, Type, TypedFunction, Value,
 };
-<span class="kw">use</span> <span class="ident">wasmer_cache::Cache</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::ArtifactBuild</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry::Package</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasix::runners</span>::{<span class="ident">MappedDirectory</span>, <span class="ident">Runner</span>, <span class="ident">WapmContainer</span>};
-<span class="kw">use</span> <span class="ident">webc::metadata::Manifest</span>;
-<span class="kw">use</span> <span class="ident">webc_v4::DirOrFile</span>;
+<span class="kw">use </span>wasmer_cache::Cache;
+<span class="kw">use </span>wasmer_compiler::ArtifactBuild;
+<span class="kw">use </span>wasmer_registry::Package;
+<span class="kw">use </span>wasmer_wasix::runners::{MappedDirectory, Runner, WapmContainer};
+<span class="kw">use </span>webc::metadata::Manifest;
+<span class="kw">use </span>webc_v4::DirOrFile;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">store::StoreOptions</span>,
-    <span class="ident">wasmer_home</span>::{<span class="ident">DownloadCached</span>, <span class="ident">ModuleCache</span>, <span class="ident">WasmerHome</span>},
+<span class="kw">use crate</span>::{
+    store::StoreOptions,
+    wasmer_home::{DownloadCached, ModuleCache, WasmerHome},
 };
 
-<span class="doccomment">/// The unstable `wasmer run` subcommand.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RunUnstable</span> {
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">verbosity</span>: <span class="ident">clap_verbosity_flag::Verbosity</span><span class="op">&lt;</span><span class="ident">WarnLevel</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">wasmer_home</span>: <span class="ident">WasmerHome</span>,
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">store</span>: <span class="ident">StoreOptions</span>,
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">wasi</span>: <span class="ident"><span class="kw">crate</span>::commands::run::Wasi</span>,
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">wcgi</span>: <span class="ident">WcgiOptions</span>,
-    <span class="doccomment">/// The function or command to invoke.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">short</span>, <span class="ident">long</span>, <span class="ident">aliases</span> <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;command&quot;</span>, <span class="string">&quot;invoke&quot;</span>]</span>)]
-    <span class="ident">entrypoint</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Generate a coredump at this path if a WebAssembly trap occurs</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;COREDUMP PATH&quot;</span>, <span class="ident">long</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
-    <span class="ident">coredump_on_trap</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The file, URL, or package to run.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">PackageSource::infer</span>)]</span>
-    <span class="ident">input</span>: <span class="ident">PackageSource</span>,
-    <span class="doccomment">/// Command-line arguments passed to the package</span>
-    <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The unstable `wasmer run` subcommand.
+</span><span class="attribute">#[derive(Debug, Parser)]
+</span><span class="kw">pub struct </span>RunUnstable {
+    <span class="attribute">#[clap(flatten)]
+    </span>verbosity: clap_verbosity_flag::Verbosity&lt;WarnLevel&gt;,
+    <span class="attribute">#[clap(flatten)]
+    </span>wasmer_home: WasmerHome,
+    <span class="attribute">#[clap(flatten)]
+    </span>store: StoreOptions,
+    <span class="attribute">#[clap(flatten)]
+    </span>wasi: <span class="kw">crate</span>::commands::run::Wasi,
+    <span class="attribute">#[clap(flatten)]
+    </span>wcgi: WcgiOptions,
+    <span class="doccomment">/// The function or command to invoke.
+    </span><span class="attribute">#[clap(short, long, aliases = <span class="kw-2">&amp;</span>[<span class="string">&quot;command&quot;</span>, <span class="string">&quot;invoke&quot;</span>]</span>)]
+    entrypoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Generate a coredump at this path if a WebAssembly trap occurs
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long, parse(from_os_str))]
+    </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    <span class="doccomment">/// The file, URL, or package to run.
+    </span><span class="attribute">#[clap(value_parser = PackageSource::infer)]
+    </span>input: PackageSource,
+    <span class="doccomment">/// Command-line arguments passed to the package
+    </span>args: Vec&lt;String&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">RunUnstable</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="ident"><span class="kw">crate</span>::logging::set_up_logging</span>(<span class="self">self</span>.<span class="ident">verbosity</span>.<span class="ident">log_level_filter</span>());
+<span class="kw">impl </span>RunUnstable {
+    <span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">crate</span>::logging::set_up_logging(<span class="self">self</span>.verbosity.log_level_filter());
 
-        <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">input</span>
-            .<span class="ident">resolve_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">wasmer_home</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to resolve \&quot;{}\&quot;&quot;</span>, <span class="self">self</span>.<span class="ident">input</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>target = <span class="self">self
+            </span>.input
+            .resolve_target(<span class="kw-2">&amp;</span><span class="self">self</span>.wasmer_home)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to resolve \&quot;{}\&quot;&quot;</span>, <span class="self">self</span>.input))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">store</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
+        <span class="kw">let </span>(<span class="kw-2">mut </span>store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">wasmer_home</span>.<span class="ident">module_cache</span>();
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">load</span>(<span class="kw-2">&amp;mut</span> <span class="ident">cache</span>, <span class="kw-2">&amp;</span><span class="ident">store</span>)<span class="question-mark">?</span> {
-            <span class="ident">ExecutableTarget::WebAssembly</span>(<span class="ident">wasm</span>) =&gt; <span class="self">self</span>.<span class="ident">execute_wasm</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>, <span class="kw-2">&amp;mut</span> <span class="ident">store</span>),
-            <span class="ident">ExecutableTarget::Webc</span>(<span class="ident">container</span>) =&gt; <span class="self">self</span>.<span class="ident">execute_webc</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>, <span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="kw-2">&amp;mut</span> <span class="ident">store</span>),
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.wasmer_home.module_cache();
+        <span class="kw">let </span>result = <span class="kw">match </span>target.load(<span class="kw-2">&amp;mut </span>cache, <span class="kw-2">&amp;</span>store)<span class="question-mark">? </span>{
+            ExecutableTarget::WebAssembly(wasm) =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>target, <span class="kw-2">&amp;</span>wasm, <span class="kw-2">&amp;mut </span>store),
+            ExecutableTarget::Webc(container) =&gt; <span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>target, <span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;mut </span>store),
         };
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">result</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">coredump</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">coredump_on_trap</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">generate_coredump</span>(<span class="ident">e</span>, <span class="ident">target</span>.<span class="ident">path</span>(), <span class="ident">coredump</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, target.path(), coredump) {
                     <span class="macro">tracing::warn!</span>(
-                        <span class="ident">error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
-                        <span class="ident">coredump_path</span><span class="op">=</span><span class="op">%</span><span class="ident">coredump</span>.<span class="ident">display</span>(),
+                        error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        coredump_path=%coredump.display(),
                         <span class="string">&quot;Unable to generate a coredump&quot;</span>,
                     );
                 }
             }
         }
 
-        <span class="ident">result</span>
+        result
     }
 
-    <span class="kw">fn</span> <span class="ident">execute_wasm</span>(
+    <span class="kw">fn </span>execute_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">TargetOnDisk</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">wasmer_emscripten::is_emscripten_module</span>(<span class="ident">module</span>) {
-            <span class="self">self</span>.<span class="ident">execute_emscripten_module</span>()
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">wasmer_wasix::is_wasi_module</span>(<span class="ident">module</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">wasmer_wasix::is_wasix_module</span>(<span class="ident">module</span>) {
-            <span class="self">self</span>.<span class="ident">execute_wasi_module</span>(<span class="ident">target</span>.<span class="ident">path</span>(), <span class="ident">module</span>, <span class="ident">store</span>)
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">execute_pure_wasm_module</span>(<span class="ident">module</span>, <span class="ident">store</span>)
+        target: <span class="kw-2">&amp;</span>TargetOnDisk,
+        module: <span class="kw-2">&amp;</span>Module,
+        store: <span class="kw-2">&amp;mut </span>Store,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">if </span>wasmer_emscripten::is_emscripten_module(module) {
+            <span class="self">self</span>.execute_emscripten_module()
+        } <span class="kw">else if </span>wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+            <span class="self">self</span>.execute_wasi_module(target.path(), module, store)
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.execute_pure_wasm_module(module, store)
         }
     }
 
-    <span class="attribute">#[<span class="ident">tracing::instrument</span>(<span class="ident">skip_all</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">execute_webc</span>(
+    <span class="attribute">#[tracing::instrument(skip_all)]
+    </span><span class="kw">fn </span>execute_webc(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">TargetOnDisk</span>,
-        <span class="ident">container</span>: <span class="kw-2">&amp;</span><span class="ident">WapmContainer</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">entrypoint</span>.<span class="ident">as_deref</span>() {
-            <span class="prelude-val">Some</span>(<span class="ident">cmd</span>) =&gt; <span class="ident">cmd</span>,
-            <span class="prelude-val">None</span> =&gt; <span class="ident">infer_webc_entrypoint</span>(<span class="ident">container</span>.<span class="ident">manifest</span>())<span class="question-mark">?</span>,
+        target: <span class="kw-2">&amp;</span>TargetOnDisk,
+        container: <span class="kw-2">&amp;</span>WapmContainer,
+        store: <span class="kw-2">&amp;mut </span>Store,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>id = <span class="kw">match </span><span class="self">self</span>.entrypoint.as_deref() {
+            <span class="prelude-val">Some</span>(cmd) =&gt; cmd,
+            <span class="prelude-val">None </span>=&gt; infer_webc_entrypoint(container.manifest())<span class="question-mark">?</span>,
         };
-        <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">container</span>
-            .<span class="ident">manifest</span>()
-            .<span class="ident">commands</span>
-            .<span class="ident">get</span>(<span class="ident">id</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to get metadata for the \&quot;{id}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>command = container
+            .manifest()
+            .commands
+            .get(id)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to get metadata for the \&quot;{id}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="comment">// TODO(Michael-F-Bryan): Refactor the wasmer_wasi::runners::Runner</span>
-        <span class="comment">// trait So we can check whether a command is supported by a runner</span>
-        <span class="comment">// without needing to go through and instantiate each one.</span>
+        <span class="comment">// TODO(Michael-F-Bryan): Refactor the wasmer_wasi::runners::Runner
+        // trait So we can check whether a command is supported by a runner
+        // without needing to go through and instantiate each one.
 
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::wasi::WasiRunner::new</span>(<span class="ident">store</span>)
-            .<span class="ident">with_args</span>(<span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>())
-            .<span class="ident">with_envs</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">env_vars</span>.<span class="ident">clone</span>())
-            .<span class="ident">with_mapped_directories</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">clone</span>());
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">forward_host_env</span> {
-            <span class="ident">runner</span>.<span class="ident">set_forward_host_env</span>();
+        </span><span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
+            .with_args(<span class="self">self</span>.args.clone())
+            .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
+            .with_mapped_directories(<span class="self">self</span>.wasi.mapped_dirs.clone());
+        <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
+            runner.set_forward_host_env();
         }
-        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WASI runner failed&quot;</span>);
-        }
-
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::emscripten::EmscriptenRunner::new</span>(<span class="ident">store</span>);
-        <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>());
-        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="ident">runner</span>
-                .<span class="ident">run_cmd</span>(<span class="ident">container</span>, <span class="ident">id</span>)
-                .<span class="ident">context</span>(<span class="string">&quot;Emscripten runner failed&quot;</span>);
+        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span>runner.run_cmd(container, id).context(<span class="string">&quot;WASI runner failed&quot;</span>);
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasix::runners::wcgi::WcgiRunner::new</span>(<span class="ident">id</span>);
-        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-        <span class="ident">runner</span>
-            .<span class="ident">config</span>()
-            .<span class="ident">args</span>(<span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>())
-            .<span class="ident">store</span>(<span class="ident">store</span>)
-            .<span class="ident">addr</span>(<span class="self">self</span>.<span class="ident">wcgi</span>.<span class="ident">addr</span>)
-            .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">env_vars</span>.<span class="ident">clone</span>())
-            .<span class="ident">map_directories</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">clone</span>())
-            .<span class="ident">callbacks</span>(<span class="ident">Callbacks::default</span>());
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">forward_host_env</span> {
-            <span class="ident">runner</span>.<span class="ident">config</span>().<span class="ident">forward_host_env</span>();
+        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(<span class="self">self</span>.args.clone());
+        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span>runner
+                .run_cmd(container, id)
+                .context(<span class="string">&quot;Emscripten runner failed&quot;</span>);
         }
-        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WCGI runner failed&quot;</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
+        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
+        runner
+            .config()
+            .args(<span class="self">self</span>.args.clone())
+            .store(store)
+            .addr(<span class="self">self</span>.wcgi.addr)
+            .envs(<span class="self">self</span>.wasi.env_vars.clone())
+            .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone())
+            .callbacks(Callbacks::default());
+        <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
+            runner.config().forward_host_env();
+        }
+        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span>runner.run_cmd(container, id).context(<span class="string">&quot;WCGI runner failed&quot;</span>);
         }
 
         <span class="macro">anyhow::bail!</span>(
             <span class="string">&quot;Unable to find a runner that supports \&quot;{}\&quot;&quot;</span>,
-            <span class="ident">command</span>.<span class="ident">runner</span>
+            command.runner
         );
     }
 
-    <span class="attribute">#[<span class="ident">tracing::instrument</span>(<span class="ident">skip_all</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">execute_pure_wasm_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">Imports::default</span>();
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)
-            .<span class="ident">context</span>(<span class="string">&quot;Unable to instantiate the WebAssembly module&quot;</span>)<span class="question-mark">?</span>;
+    <span class="attribute">#[tracing::instrument(skip_all)]
+    </span><span class="kw">fn </span>execute_pure_wasm_module(<span class="kw-2">&amp;</span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>imports = Imports::default();
+        <span class="kw">let </span>instance = Instance::new(store, module, <span class="kw-2">&amp;</span>imports)
+            .context(<span class="string">&quot;Unable to instantiate the WebAssembly module&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">entrypoint</span>  <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">entrypoint</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">entry</span>) =&gt; {
-                <span class="ident">instance</span>.<span class="ident">exports</span>
-                    .<span class="ident">get_function</span>(<span class="ident">entry</span>)
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;The module doesn&#39;t contain a \&quot;{entry}\&quot; function&quot;</span>))<span class="question-mark">?</span>
-            },
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>)
-                    .<span class="ident">context</span>(<span class="string">&quot;The module doesn&#39;t contain a \&quot;_start\&quot; function. Either implement it or specify an entrypoint function.&quot;</span>)<span class="question-mark">?</span>
-            }
+        <span class="kw">let </span>entrypoint  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.entrypoint {
+            <span class="prelude-val">Some</span>(entry) =&gt; {
+                instance.exports
+                    .get_function(entry)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The module doesn&#39;t contain a \&quot;{entry}\&quot; function&quot;</span>))<span class="question-mark">?
+            </span>},
+            <span class="prelude-val">None </span>=&gt; {
+                instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)
+                    .context(<span class="string">&quot;The module doesn&#39;t contain a \&quot;_start\&quot; function. Either implement it or specify an entrypoint function.&quot;</span>)<span class="question-mark">?
+            </span>}
         };
 
-        <span class="kw">let</span> <span class="ident">return_values</span> <span class="op">=</span> <span class="ident">invoke_function</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="ident">store</span>, <span class="ident">entrypoint</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, store, entrypoint, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
 
         <span class="macro">println!</span>(
             <span class="string">&quot;{}&quot;</span>,
-            <span class="ident">return_values</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">to_string</span>())
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                .<span class="ident">join</span>(<span class="string">&quot; &quot;</span>)
+            return_values
+                .iter()
+                .map(|val| val.to_string())
+                .collect::&lt;Vec&lt;String&gt;&gt;()
+                .join(<span class="string">&quot; &quot;</span>)
         );
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="attribute">#[<span class="ident">tracing::instrument</span>(<span class="ident">skip_all</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">execute_wasi_module</span>(
+    <span class="attribute">#[tracing::instrument(skip_all)]
+    </span><span class="kw">fn </span>execute_wasi_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">wasm_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">program_name</span> <span class="op">=</span> <span class="ident">wasm_path</span>.<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">wasi</span>
-            .<span class="ident">prepare</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="ident">program_name</span>, <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
+        wasm_path: <span class="kw-2">&amp;</span>Path,
+        module: <span class="kw-2">&amp;</span>Module,
+        store: <span class="kw-2">&amp;mut </span>Store,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>program_name = wasm_path.display().to_string();
+        <span class="kw">let </span>builder = <span class="self">self
+            </span>.wasi
+            .prepare(store, module, program_name, <span class="self">self</span>.args.clone())<span class="question-mark">?</span>;
 
-        <span class="ident">builder</span>.<span class="ident">run_with_store</span>(<span class="ident">module</span>.<span class="ident">clone</span>(), <span class="ident">store</span>)<span class="question-mark">?</span>;
+        builder.run_with_store(module.clone(), store)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="attribute">#[<span class="ident">tracing::instrument</span>(<span class="ident">skip_all</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">execute_emscripten_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
+    <span class="attribute">#[tracing::instrument(skip_all)]
+    </span><span class="kw">fn </span>execute_emscripten_module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="macro">todo!</span>()
     }
 }
 
-<span class="kw">fn</span> <span class="ident">invoke_function</span>(
-    <span class="ident">instance</span>: <span class="kw-2">&amp;</span><span class="ident">Instance</span>,
-    <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>,
-    <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">Function</span>,
-    <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">func_ty</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">ty</span>(<span class="ident">store</span>);
-    <span class="kw">let</span> <span class="ident">required_arguments</span> <span class="op">=</span> <span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="ident">provided_arguments</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">len</span>();
+<span class="kw">fn </span>invoke_function(
+    instance: <span class="kw-2">&amp;</span>Instance,
+    store: <span class="kw-2">&amp;mut </span>Store,
+    func: <span class="kw-2">&amp;</span>Function,
+    args: <span class="kw-2">&amp;</span>[String],
+) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;[Value]&gt;, Error&gt; {
+    <span class="kw">let </span>func_ty = func.ty(store);
+    <span class="kw">let </span>required_arguments = func_ty.params().len();
+    <span class="kw">let </span>provided_arguments = args.len();
 
     <span class="macro">anyhow::ensure!</span>(
-        <span class="ident">required_arguments</span> <span class="op">==</span> <span class="ident">provided_arguments</span>,
+        required_arguments == provided_arguments,
         <span class="string">&quot;Function expected {} arguments, but received {}&quot;</span>,
-        <span class="ident">required_arguments</span>,
-        <span class="ident">provided_arguments</span>,
+        required_arguments,
+        provided_arguments,
     );
 
-    <span class="kw">let</span> <span class="ident">invoke_args</span> <span class="op">=</span> <span class="ident">args</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">zip</span>(<span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">iter</span>())
-        .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">arg</span>, <span class="ident">param_type</span>)<span class="op">|</span> {
-            <span class="ident">parse_value</span>(<span class="ident">arg</span>, <span class="kw-2">*</span><span class="ident">param_type</span>)
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to convert {arg:?} to {param_type:?}&quot;</span>))
+    <span class="kw">let </span>invoke_args = args
+        .iter()
+        .zip(func_ty.params().iter())
+        .map(|(arg, param_type)| {
+            parse_value(arg, <span class="kw-2">*</span>param_type)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to convert {arg:?} to {param_type:?}&quot;</span>))
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">return_values</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">call</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">invoke_args</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>return_values = func.call(store, <span class="kw-2">&amp;</span>invoke_args)<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">return_values</span>)
+    <span class="prelude-val">Ok</span>(return_values)
 }
 
-<span class="kw">fn</span> <span class="ident">parse_value</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">ty</span>: <span class="ident">wasmer_types::Type</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Value</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">Type::I32</span> =&gt; <span class="ident">Value::I32</span>(<span class="ident">s</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>),
-        <span class="ident">Type::I64</span> =&gt; <span class="ident">Value::I64</span>(<span class="ident">s</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>),
-        <span class="ident">Type::F32</span> =&gt; <span class="ident">Value::F32</span>(<span class="ident">s</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>),
-        <span class="ident">Type::F64</span> =&gt; <span class="ident">Value::F64</span>(<span class="ident">s</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>),
-        <span class="ident">Type::V128</span> =&gt; <span class="ident">Value::V128</span>(<span class="ident">s</span>.<span class="ident">parse</span>()<span class="question-mark">?</span>),
-        <span class="kw">_</span> =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;There is no known conversion from {s:?} to {ty:?}&quot;</span>),
+<span class="kw">fn </span>parse_value(s: <span class="kw-2">&amp;</span>str, ty: wasmer_types::Type) -&gt; <span class="prelude-ty">Result</span>&lt;Value, Error&gt; {
+    <span class="kw">let </span>value = <span class="kw">match </span>ty {
+        Type::I32 =&gt; Value::I32(s.parse()<span class="question-mark">?</span>),
+        Type::I64 =&gt; Value::I64(s.parse()<span class="question-mark">?</span>),
+        Type::F32 =&gt; Value::F32(s.parse()<span class="question-mark">?</span>),
+        Type::F64 =&gt; Value::F64(s.parse()<span class="question-mark">?</span>),
+        Type::V128 =&gt; Value::V128(s.parse()<span class="question-mark">?</span>),
+        <span class="kw">_ </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;There is no known conversion from {s:?} to {ty:?}&quot;</span>),
     };
-    <span class="prelude-val">Ok</span>(<span class="ident">value</span>)
+    <span class="prelude-val">Ok</span>(value)
 }
 
-<span class="kw">fn</span> <span class="ident">infer_webc_entrypoint</span>(<span class="ident">manifest</span>: <span class="kw-2">&amp;</span><span class="ident">Manifest</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">entrypoint</span>) <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">entrypoint</span>.<span class="ident">as_deref</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">entrypoint</span>);
+<span class="kw">fn </span>infer_webc_entrypoint(manifest: <span class="kw-2">&amp;</span>Manifest) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>str, Error&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(entrypoint) = manifest.entrypoint.as_deref() {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(entrypoint);
     }
 
-    <span class="kw">let</span> <span class="ident">commands</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">commands</span>.<span class="ident">keys</span>().<span class="ident">collect</span>();
+    <span class="kw">let </span>commands: Vec&lt;<span class="kw">_</span>&gt; = manifest.commands.keys().collect();
 
-    <span class="kw">match</span> <span class="ident">commands</span>.<span class="ident">as_slice</span>() {
+    <span class="kw">match </span>commands.as_slice() {
         [] =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;The WEBC file doesn&#39;t contain any executable commands&quot;</span>),
-        [<span class="ident">one</span>] =&gt; <span class="prelude-val">Ok</span>(<span class="ident">one</span>.<span class="ident">as_str</span>()),
+        [one] =&gt; <span class="prelude-val">Ok</span>(one.as_str()),
         [..] =&gt; {
             <span class="macro">anyhow::bail!</span>(
-                <span class="string">&quot;Unable to determine the WEBC file&#39;s entrypoint. Please choose one of {commands:?}&quot;</span>
-            );
+                <span class="string">&quot;Unable to determine the WEBC file&#39;s entrypoint. Please choose one of {commands:?}&quot;
+            </span>);
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">compile_directory_to_webc</span>(<span class="ident">dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">BTreeMap::new</span>();
-    <span class="ident">load_files_from_disk</span>(<span class="kw-2">&amp;mut</span> <span class="ident">files</span>, <span class="ident">dir</span>, <span class="ident">dir</span>)<span class="question-mark">?</span>;
+<span class="kw">fn </span>compile_directory_to_webc(dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
+    load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">webc_v4::DirOrFile::File</span>(<span class="string">&quot;wasmer.toml&quot;</span>.<span class="ident">into</span>());
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">toml_data</span>) <span class="op">=</span> <span class="ident">files</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_toml</span>) {
-        <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are</span>
-        <span class="comment">// using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we</span>
-        <span class="comment">// manually patch things up if people have already migrated their</span>
-        <span class="comment">// projects.</span>
-        <span class="ident">files</span>
-            .<span class="ident">entry</span>(<span class="ident">DirOrFile::File</span>(<span class="string">&quot;wapm.toml&quot;</span>.<span class="ident">into</span>()))
-            .<span class="ident">or_insert</span>(<span class="ident">toml_data</span>);
+    <span class="kw">let </span>wasmer_toml = webc_v4::DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(toml_data) = files.remove(<span class="kw-2">&amp;</span>wasmer_toml) {
+        <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+        // using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we
+        // manually patch things up if people have already migrated their
+        // projects.
+        </span>files
+            .entry(DirOrFile::File(<span class="string">&quot;wapm.toml&quot;</span>.into()))
+            .or_insert(toml_data);
     }
 
-    <span class="kw">let</span> <span class="ident">functions</span> <span class="op">=</span> <span class="ident">wapm_targz_to_pirita::TransformManifestFunctions::default</span>();
-    <span class="ident">wapm_targz_to_pirita::generate_webc_file</span>(<span class="ident">files</span>, <span class="kw-2">&amp;</span><span class="ident">dir</span>.<span class="ident">to_path_buf</span>(), <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">functions</span>)
+    <span class="kw">let </span>functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
+    wapm_targz_to_pirita::generate_webc_file(files, <span class="kw-2">&amp;</span>dir.to_path_buf(), <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>functions)
 }
 
-<span class="kw">fn</span> <span class="ident">load_files_from_disk</span>(<span class="ident">files</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FileMap</span>, <span class="ident">dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">base</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">dir</span>
-        .<span class="ident">read_dir</span>()
-        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to read the contents of \&quot;{}\&quot;&quot;</span>, <span class="ident">dir</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+<span class="kw">fn </span>load_files_from_disk(files: <span class="kw-2">&amp;mut </span>FileMap, dir: <span class="kw-2">&amp;</span>Path, base: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    <span class="kw">let </span>entries = dir
+        .read_dir()
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read the contents of \&quot;{}\&quot;&quot;</span>, dir.display()))<span class="question-mark">?</span>;
 
-    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">entries</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>.<span class="ident">path</span>();
-        <span class="kw">let</span> <span class="ident">relative_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">strip_prefix</span>(<span class="ident">base</span>)<span class="question-mark">?</span>.<span class="ident">to_path_buf</span>();
+    <span class="kw">for </span>entry <span class="kw">in </span>entries {
+        <span class="kw">let </span>path = entry<span class="question-mark">?</span>.path();
+        <span class="kw">let </span>relative_path = path.strip_prefix(base)<span class="question-mark">?</span>.to_path_buf();
 
-        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">is_dir</span>() {
-            <span class="ident">load_files_from_disk</span>(<span class="ident">files</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>, <span class="ident">base</span>)<span class="question-mark">?</span>;
-            <span class="ident">files</span>.<span class="ident">insert</span>(<span class="ident">webc_v4::DirOrFile::Dir</span>(<span class="ident">relative_path</span>), <span class="ident">Vec::new</span>());
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">is_file</span>() {
-            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
-                .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-            <span class="ident">files</span>.<span class="ident">insert</span>(<span class="ident">webc_v4::DirOrFile::File</span>(<span class="ident">relative_path</span>), <span class="ident">data</span>);
+        <span class="kw">if </span>path.is_dir() {
+            load_files_from_disk(files, <span class="kw-2">&amp;</span>path, base)<span class="question-mark">?</span>;
+            files.insert(webc_v4::DirOrFile::Dir(relative_path), Vec::new());
+        } <span class="kw">else if </span>path.is_file() {
+            <span class="kw">let </span>data = std::fs::read(<span class="kw-2">&amp;</span>path)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+            files.insert(webc_v4::DirOrFile::File(relative_path), data);
         }
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">enum</span> <span class="ident">PackageSource</span> {
-    <span class="ident">File</span>(<span class="ident">PathBuf</span>),
-    <span class="ident">Dir</span>(<span class="ident">PathBuf</span>),
-    <span class="ident">Package</span>(<span class="ident">Package</span>),
-    <span class="ident">Url</span>(<span class="ident">Url</span>),
+<span class="attribute">#[derive(Debug, Clone, PartialEq)]
+</span><span class="kw">enum </span>PackageSource {
+    File(PathBuf),
+    Dir(PathBuf),
+    Package(Package),
+    Url(Url),
 }
 
-<span class="kw">impl</span> <span class="ident">PackageSource</span> {
-    <span class="kw">fn</span> <span class="ident">infer</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PackageSource</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="ident">s</span>);
-        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">is_file</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PackageSource::File</span>(<span class="ident">path</span>.<span class="ident">to_path_buf</span>()));
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">is_dir</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PackageSource::Dir</span>(<span class="ident">path</span>.<span class="ident">to_path_buf</span>()));
+<span class="kw">impl </span>PackageSource {
+    <span class="kw">fn </span>infer(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSource, Error&gt; {
+        <span class="kw">let </span>path = Path::new(s);
+        <span class="kw">if </span>path.is_file() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSource::File(path.to_path_buf()));
+        } <span class="kw">else if </span>path.is_dir() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSource::Dir(path.to_path_buf()));
         }
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">url</span>) <span class="op">=</span> <span class="ident">Url::parse</span>(<span class="ident">s</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PackageSource::Url</span>(<span class="ident">url</span>));
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(s) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSource::Url(url));
         }
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pkg</span>) <span class="op">=</span> <span class="ident">Package::from_str</span>(<span class="ident">s</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">PackageSource::Package</span>(<span class="ident">pkg</span>));
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(pkg) = Package::from_str(s) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSource::Package(pkg));
         }
 
         <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;Unable to resolve \&quot;{s}\&quot; as a URL, package name, or file on disk&quot;</span>
-        ))
+            <span class="string">&quot;Unable to resolve \&quot;{s}\&quot; as a URL, package name, or file on disk&quot;
+        </span>))
     }
 
-    <span class="doccomment">/// Try to resolve the [`PackageSource`] to an artifact on disk.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This will try to automatically download and cache any resources from the</span>
-    <span class="doccomment">/// internet.</span>
-    <span class="kw">fn</span> <span class="ident">resolve_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">home</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">DownloadCached</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TargetOnDisk</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">PackageSource::File</span>(<span class="ident">path</span>) =&gt; <span class="ident">TargetOnDisk::from_file</span>(<span class="ident">path</span>.<span class="ident">clone</span>()),
-            <span class="ident">PackageSource::Dir</span>(<span class="ident">d</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::Directory</span>(<span class="ident">d</span>.<span class="ident">clone</span>())),
-            <span class="ident">PackageSource::Package</span>(<span class="ident">pkg</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">cached</span> <span class="op">=</span> <span class="ident">home</span>.<span class="ident">download_package</span>(<span class="ident">pkg</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::Webc</span>(<span class="ident">cached</span>))
+    <span class="doccomment">/// Try to resolve the [`PackageSource`] to an artifact on disk.
+    ///
+    /// This will try to automatically download and cache any resources from the
+    /// internet.
+    </span><span class="kw">fn </span>resolve_target(<span class="kw-2">&amp;</span><span class="self">self</span>, home: <span class="kw-2">&amp;</span><span class="kw">impl </span>DownloadCached) -&gt; <span class="prelude-ty">Result</span>&lt;TargetOnDisk, Error&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            PackageSource::File(path) =&gt; TargetOnDisk::from_file(path.clone()),
+            PackageSource::Dir(d) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::Directory(d.clone())),
+            PackageSource::Package(pkg) =&gt; {
+                <span class="kw">let </span>cached = home.download_package(pkg)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(TargetOnDisk::Webc(cached))
             }
-            <span class="ident">PackageSource::Url</span>(<span class="ident">url</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">cached</span> <span class="op">=</span> <span class="ident">home</span>.<span class="ident">download_url</span>(<span class="ident">url</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::Webc</span>(<span class="ident">cached</span>))
+            PackageSource::Url(url) =&gt; {
+                <span class="kw">let </span>cached = home.download_url(url)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(TargetOnDisk::Webc(cached))
             }
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">PackageSource</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">PackageSource::File</span>(<span class="ident">path</span>) <span class="op">|</span> <span class="ident">PackageSource::Dir</span>(<span class="ident">path</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()),
-            <span class="ident">PackageSource::Package</span>(<span class="ident">p</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{p}&quot;</span>),
-            <span class="ident">PackageSource::Url</span>(<span class="ident">u</span>) =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{u}&quot;</span>),
+<span class="kw">impl </span>Display <span class="kw">for </span>PackageSource {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            PackageSource::File(path) | PackageSource::Dir(path) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, path.display()),
+            PackageSource::Package(p) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{p}&quot;</span>),
+            PackageSource::Url(u) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{u}&quot;</span>),
         }
     }
 }
 
-<span class="doccomment">/// A file/directory on disk that will be executed.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Depending on the type of target and the command-line arguments, this might</span>
-<span class="doccomment">/// be something the user passed in manually or something that was automatically</span>
-<span class="doccomment">/// saved to `$WASMER_HOME` for caching purposes.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">enum</span> <span class="ident">TargetOnDisk</span> {
-    <span class="ident">WebAssemblyBinary</span>(<span class="ident">PathBuf</span>),
-    <span class="ident">Wat</span>(<span class="ident">PathBuf</span>),
-    <span class="ident">Webc</span>(<span class="ident">PathBuf</span>),
-    <span class="ident">Directory</span>(<span class="ident">PathBuf</span>),
-    <span class="ident">Artifact</span>(<span class="ident">PathBuf</span>),
+<span class="doccomment">/// A file/directory on disk that will be executed.
+///
+/// Depending on the type of target and the command-line arguments, this might
+/// be something the user passed in manually or something that was automatically
+/// saved to `$WASMER_HOME` for caching purposes.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">enum </span>TargetOnDisk {
+    WebAssemblyBinary(PathBuf),
+    Wat(PathBuf),
+    Webc(PathBuf),
+    Directory(PathBuf),
+    Artifact(PathBuf),
 }
 
-<span class="kw">impl</span> <span class="ident">TargetOnDisk</span> {
-    <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="ident">path</span>: <span class="ident">PathBuf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TargetOnDisk</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="comment">// Normally the first couple hundred bytes is enough to figure</span>
-        <span class="comment">// out what type of file this is.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> [<span class="number">0_u8</span>; <span class="number">512</span>];
+<span class="kw">impl </span>TargetOnDisk {
+    <span class="kw">fn </span>from_file(path: PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;TargetOnDisk, Error&gt; {
+        <span class="comment">// Normally the first couple hundred bytes is enough to figure
+        // out what type of file this is.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0_u8</span>; <span class="number">512</span>];
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">File::open</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to open \&quot;{}\&quot; for reading&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>(),))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>f = File::open(<span class="kw-2">&amp;</span>path)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to open \&quot;{}\&quot; for reading&quot;</span>, path.display(),))<span class="question-mark">?</span>;
+        <span class="kw">let </span>bytes_read = f.read(<span class="kw-2">&amp;mut </span>buffer)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">leading_bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">buffer</span>[..<span class="ident">bytes_read</span>];
+        <span class="kw">let </span>leading_bytes = <span class="kw-2">&amp;</span>buffer[..bytes_read];
 
-        <span class="kw">if</span> <span class="ident">wasmer::is_wasm</span>(<span class="ident">leading_bytes</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::WebAssemblyBinary</span>(<span class="ident">path</span>))
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">webc::detect</span>(<span class="ident">leading_bytes</span>).<span class="ident">is_ok</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::Webc</span>(<span class="ident">path</span>))
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">ArtifactBuild::is_deserializable</span>(<span class="ident">leading_bytes</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::Artifact</span>(<span class="ident">path</span>))
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">extension</span>() <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="string">&quot;wat&quot;</span>.<span class="ident">as_ref</span>()) {
-            <span class="prelude-val">Ok</span>(<span class="ident">TargetOnDisk::Wat</span>(<span class="ident">path</span>))
-        } <span class="kw">else</span> {
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Unable to determine how to execute \&quot;{}\&quot;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
+        <span class="kw">if </span>wasmer::is_wasm(leading_bytes) {
+            <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary(path))
+        } <span class="kw">else if </span>webc::detect(leading_bytes).is_ok() {
+            <span class="prelude-val">Ok</span>(TargetOnDisk::Webc(path))
+        } <span class="kw">else if </span>ArtifactBuild::is_deserializable(leading_bytes) {
+            <span class="prelude-val">Ok</span>(TargetOnDisk::Artifact(path))
+        } <span class="kw">else if </span>path.extension() == <span class="prelude-val">Some</span>(<span class="string">&quot;wat&quot;</span>.as_ref()) {
+            <span class="prelude-val">Ok</span>(TargetOnDisk::Wat(path))
+        } <span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Unable to determine how to execute \&quot;{}\&quot;&quot;</span>, path.display());
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Path</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">TargetOnDisk::WebAssemblyBinary</span>(<span class="ident">p</span>)
-            <span class="op">|</span> <span class="ident">TargetOnDisk::Webc</span>(<span class="ident">p</span>)
-            <span class="op">|</span> <span class="ident">TargetOnDisk::Wat</span>(<span class="ident">p</span>)
-            <span class="op">|</span> <span class="ident">TargetOnDisk::Directory</span>(<span class="ident">p</span>)
-            <span class="op">|</span> <span class="ident">TargetOnDisk::Artifact</span>(<span class="ident">p</span>) =&gt; <span class="ident">p</span>,
+    <span class="kw">fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Path {
+        <span class="kw">match </span><span class="self">self </span>{
+            TargetOnDisk::WebAssemblyBinary(p)
+            | TargetOnDisk::Webc(p)
+            | TargetOnDisk::Wat(p)
+            | TargetOnDisk::Directory(p)
+            | TargetOnDisk::Artifact(p) =&gt; p,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">load</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cache</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ModuleCache</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExecutableTarget</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">TargetOnDisk::Webc</span>(<span class="ident">webc</span>) =&gt; {
-                <span class="comment">// As an optimisation, try to use the mmapped version first.</span>
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">container</span>) <span class="op">=</span> <span class="ident">WapmContainer::from_path</span>(<span class="ident">webc</span>.<span class="ident">clone</span>()) {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ExecutableTarget::Webc</span>(<span class="ident">container</span>));
+    <span class="kw">fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, cache: <span class="kw-2">&amp;mut </span>ModuleCache, store: <span class="kw-2">&amp;</span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutableTarget, Error&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            TargetOnDisk::Webc(webc) =&gt; {
+                <span class="comment">// As an optimisation, try to use the mmapped version first.
+                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = WapmContainer::from_path(webc.clone()) {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container));
                 }
 
-                <span class="comment">// Otherwise, fall back to the version that reads everything</span>
-                <span class="comment">// into memory.</span>
-                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">webc</span>)
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, <span class="ident">webc</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">container</span> <span class="op">=</span> <span class="ident">WapmContainer::from_bytes</span>(<span class="ident">bytes</span>.<span class="ident">into</span>())<span class="question-mark">?</span>;
+                <span class="comment">// Otherwise, fall back to the version that reads everything
+                // into memory.
+                </span><span class="kw">let </span>bytes = std::fs::read(webc)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, webc.display()))<span class="question-mark">?</span>;
+                <span class="kw">let </span>container = WapmContainer::from_bytes(bytes.into())<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>(<span class="ident">ExecutableTarget::Webc</span>(<span class="ident">container</span>))
+                <span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container))
             }
-            <span class="ident">TargetOnDisk::Directory</span>(<span class="ident">dir</span>) =&gt; {
-                <span class="comment">// FIXME: Runners should be able to load directories directly</span>
-                <span class="comment">// instead of needing to compile to a WEBC file.</span>
-                <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">compile_directory_to_webc</span>(<span class="ident">dir</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
-                    <span class="macro">format!</span>(<span class="string">&quot;Unable to bundle \&quot;{}\&quot; as a WEBC package&quot;</span>, <span class="ident">dir</span>.<span class="ident">display</span>())
+            TargetOnDisk::Directory(dir) =&gt; {
+                <span class="comment">// FIXME: Runners should be able to load directories directly
+                // instead of needing to compile to a WEBC file.
+                </span><span class="kw">let </span>webc = compile_directory_to_webc(dir).with_context(|| {
+                    <span class="macro">format!</span>(<span class="string">&quot;Unable to bundle \&quot;{}\&quot; as a WEBC package&quot;</span>, dir.display())
                 })<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">container</span> <span class="op">=</span> <span class="ident">WapmContainer::from_bytes</span>(<span class="ident">webc</span>.<span class="ident">into</span>())
-                    .<span class="ident">context</span>(<span class="string">&quot;Unable to parse the generated WEBC file&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>container = WapmContainer::from_bytes(webc.into())
+                    .context(<span class="string">&quot;Unable to parse the generated WEBC file&quot;</span>)<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>(<span class="ident">ExecutableTarget::Webc</span>(<span class="ident">container</span>))
+                <span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container))
             }
-            <span class="ident">TargetOnDisk::WebAssemblyBinary</span>(<span class="ident">path</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">compile_wasm_cached</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>, <span class="ident">cache</span>, <span class="ident">store</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">ExecutableTarget::WebAssembly</span>(<span class="ident">module</span>))
+            TargetOnDisk::WebAssemblyBinary(path) =&gt; {
+                <span class="kw">let </span>wasm = std::fs::read(path)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                <span class="kw">let </span>module = compile_wasm_cached(path, <span class="kw-2">&amp;</span>wasm, cache, store)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly(module))
             }
-            <span class="ident">TargetOnDisk::Wat</span>(<span class="ident">path</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">wat</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">path</span>)
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span>
-                    <span class="ident">wasmer::wat2wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>).<span class="ident">context</span>(<span class="string">&quot;Unable to convert the WAT to WebAssembly&quot;</span>)<span class="question-mark">?</span>;
+            TargetOnDisk::Wat(path) =&gt; {
+                <span class="kw">let </span>wat = std::fs::read(path)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                <span class="kw">let </span>wasm =
+                    wasmer::wat2wasm(<span class="kw-2">&amp;</span>wat).context(<span class="string">&quot;Unable to convert the WAT to WebAssembly&quot;</span>)<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">compile_wasm_cached</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>, <span class="ident">cache</span>, <span class="ident">store</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(<span class="ident">ExecutableTarget::WebAssembly</span>(<span class="ident">module</span>))
+                <span class="kw">let </span>module = compile_wasm_cached(path, <span class="kw-2">&amp;</span>wasm, cache, store)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly(module))
             }
-            <span class="ident">TargetOnDisk::Artifact</span>(<span class="ident">artifact</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                    <span class="ident">Module::deserialize_from_file</span>(<span class="ident">store</span>, <span class="ident">artifact</span>)
-                        .<span class="ident">context</span>(<span class="string">&quot;Unable to deserialize the pre-compiled module&quot;</span>)<span class="question-mark">?</span>
-                };
-                <span class="prelude-val">Ok</span>(<span class="ident">ExecutableTarget::WebAssembly</span>(<span class="ident">module</span>))
+            TargetOnDisk::Artifact(artifact) =&gt; {
+                <span class="kw">let </span>module = <span class="kw">unsafe </span>{
+                    Module::deserialize_from_file(store, artifact)
+                        .context(<span class="string">&quot;Unable to deserialize the pre-compiled module&quot;</span>)<span class="question-mark">?
+                </span>};
+                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly(module))
             }
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">compile_wasm_cached</span>(
-    <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-    <span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    <span class="ident">cache</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ModuleCache</span>,
-    <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">wasmer_cache::Hash::generate</span>(<span class="ident">wasm</span>);
+<span class="kw">fn </span>compile_wasm_cached(
+    path: <span class="kw-2">&amp;</span>Path,
+    wasm: <span class="kw-2">&amp;</span>[u8],
+    cache: <span class="kw-2">&amp;mut </span>ModuleCache,
+    store: <span class="kw-2">&amp;</span>Store,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
+    <span class="kw">let </span>hash = wasmer_cache::Hash::generate(wasm);
 
-    <span class="kw">unsafe</span> {
-        <span class="kw">match</span> <span class="ident">cache</span>.<span class="ident">load</span>(<span class="ident">store</span>, <span class="ident">hash</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">m</span>) =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="op">%</span><span class="ident">hash</span>, <span class="string">&quot;Reusing a cached module&quot;</span>);
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">m</span>);
+    <span class="kw">unsafe </span>{
+        <span class="kw">match </span>cache.load(store, hash) {
+            <span class="prelude-val">Ok</span>(m) =&gt; {
+                <span class="macro">tracing::debug!</span>(%hash, <span class="string">&quot;Reusing a cached module&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(m);
             }
-            <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Io</span>(<span class="ident">e</span>)) <span class="kw">if</span> <span class="ident">e</span>.<span class="ident">kind</span>() <span class="op">==</span> <span class="ident">ErrorKind::NotFound</span> =&gt; {}
-            <span class="prelude-val">Err</span>(<span class="ident">error</span>) =&gt; {
+            <span class="prelude-val">Err</span>(DeserializeError::Io(e)) <span class="kw">if </span>e.kind() == ErrorKind::NotFound =&gt; {}
+            <span class="prelude-val">Err</span>(error) =&gt; {
                 <span class="macro">tracing::warn!</span>(
-                    <span class="op">%</span><span class="ident">hash</span>,
-                    <span class="ident">error</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">error</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
-                    <span class="ident">wasm_path</span><span class="op">=</span><span class="op">%</span><span class="ident">path</span>.<span class="ident">display</span>(),
+                    %hash,
+                    error=<span class="kw-2">&amp;</span>error <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    wasm_path=%path.display(),
                     <span class="string">&quot;Unable to deserialize the cached module&quot;</span>,
                 );
             }
         }
     }
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="ident">store</span>, <span class="ident">wasm</span>).<span class="ident">context</span>(<span class="string">&quot;Unable to load the module from a file&quot;</span>)<span class="question-mark">?</span>;
-    <span class="ident">module</span>.<span class="ident">set_name</span>(<span class="ident">path</span>.<span class="ident">display</span>().<span class="ident">to_string</span>().<span class="ident">as_str</span>());
+    <span class="kw">let </span><span class="kw-2">mut </span>module = Module::new(store, wasm).context(<span class="string">&quot;Unable to load the module from a file&quot;</span>)<span class="question-mark">?</span>;
+    module.set_name(path.display().to_string().as_str());
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">store</span>(<span class="ident">hash</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>) {
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = cache.store(hash, <span class="kw-2">&amp;</span>module) {
         <span class="macro">tracing::warn!</span>(
-            <span class="ident">error</span><span class="op">=</span><span class="kw-2">&amp;</span><span class="ident">e</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span>,
-            <span class="ident">wat</span><span class="op">=</span><span class="op">%</span><span class="ident">path</span>.<span class="ident">display</span>(),
-            <span class="ident">key</span><span class="op">=</span><span class="op">%</span><span class="ident">hash</span>,
+            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+            wat=%path.display(),
+            key=%hash,
             <span class="string">&quot;Unable to cache the compiled module&quot;</span>,
         );
     }
 
-    <span class="prelude-val">Ok</span>(<span class="ident">module</span>)
+    <span class="prelude-val">Ok</span>(module)
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">enum</span> <span class="ident">ExecutableTarget</span> {
-    <span class="ident">WebAssembly</span>(<span class="ident">Module</span>),
-    <span class="ident">Webc</span>(<span class="ident">WapmContainer</span>),
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">enum </span>ExecutableTarget {
+    WebAssembly(Module),
+    Webc(WapmContainer),
 }
 
-<span class="kw">fn</span> <span class="ident">generate_coredump</span>(<span class="ident">err</span>: <span class="kw-2">&amp;</span><span class="ident">Error</span>, <span class="ident">source</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">coredump_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">err</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer::RuntimeError</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">err</span>.<span class="ident">downcast_ref</span>() {
-        <span class="prelude-val">Some</span>(<span class="ident">e</span>) =&gt; <span class="ident">e</span>,
-        <span class="prelude-val">None</span> =&gt; {
+<span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source: <span class="kw-2">&amp;</span>Path, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
+        <span class="prelude-val">Some</span>(e) =&gt; e,
+        <span class="prelude-val">None </span>=&gt; {
             <span class="macro">log::warn!</span>(<span class="string">&quot;no runtime error found to generate coredump with&quot;</span>);
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
     };
 
-    <span class="kw">let</span> <span class="ident">source_name</span> <span class="op">=</span> <span class="ident">source</span>.<span class="ident">display</span>().<span class="ident">to_string</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">coredump_builder</span> <span class="op">=</span>
-        <span class="ident">wasm_coredump_builder::CoredumpBuilder::new</span>().<span class="ident">executable_name</span>(<span class="kw-2">&amp;</span><span class="ident">source_name</span>);
+    <span class="kw">let </span>source_name = source.display().to_string();
+    <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
+        wasm_coredump_builder::CoredumpBuilder::new().executable_name(<span class="kw-2">&amp;</span>source_name);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">thread_builder</span> <span class="op">=</span> <span class="ident">wasm_coredump_builder::ThreadBuilder::new</span>().<span class="ident">thread_name</span>(<span class="string">&quot;main&quot;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">&quot;main&quot;</span>);
 
-    <span class="kw">for</span> <span class="ident">frame</span> <span class="kw">in</span> <span class="ident">err</span>.<span class="ident">trace</span>() {
-        <span class="kw">let</span> <span class="ident">coredump_frame</span> <span class="op">=</span> <span class="ident">wasm_coredump_builder::FrameBuilder::new</span>()
-            .<span class="ident">codeoffset</span>(<span class="ident">frame</span>.<span class="ident">func_offset</span>() <span class="kw">as</span> <span class="ident">u32</span>)
-            .<span class="ident">funcidx</span>(<span class="ident">frame</span>.<span class="ident">func_index</span>())
-            .<span class="ident">build</span>();
-        <span class="ident">thread_builder</span>.<span class="ident">add_frame</span>(<span class="ident">coredump_frame</span>);
+    <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
+        <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
+            .codeoffset(frame.func_offset() <span class="kw">as </span>u32)
+            .funcidx(frame.func_index())
+            .build();
+        thread_builder.add_frame(coredump_frame);
     }
 
-    <span class="ident">coredump_builder</span>.<span class="ident">add_thread</span>(<span class="ident">thread_builder</span>.<span class="ident">build</span>());
+    coredump_builder.add_thread(thread_builder.build());
 
-    <span class="kw">let</span> <span class="ident">coredump</span> <span class="op">=</span> <span class="ident">coredump_builder</span>
-        .<span class="ident">serialize</span>()
-        .<span class="ident">map_err</span>(<span class="ident">Error::msg</span>)
-        .<span class="ident">context</span>(<span class="string">&quot;Coredump serializing failed&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>coredump = coredump_builder
+        .serialize()
+        .map_err(Error::msg)
+        .context(<span class="string">&quot;Coredump serializing failed&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">coredump_path</span>, <span class="kw-2">&amp;</span><span class="ident">coredump</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+    std::fs::write(coredump_path, <span class="kw-2">&amp;</span>coredump).with_context(|| {
         <span class="macro">format!</span>(
             <span class="string">&quot;Unable to save the coredump to \&quot;{}\&quot;&quot;</span>,
-            <span class="ident">coredump_path</span>.<span class="ident">display</span>()
+            coredump_path.display()
         )
     })<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WcgiOptions</span> {
-    <span class="doccomment">/// The address to serve on.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">short</span>, <span class="ident">env</span>, <span class="ident">default_value_t</span> <span class="op">=</span> ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).<span class="ident">into</span>())]
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
+<span class="attribute">#[derive(Debug, Clone, Parser)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WcgiOptions {
+    <span class="doccomment">/// The address to serve on.
+    </span><span class="attribute">#[clap(long, short, env, default_value_t = ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).into())]
+    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WcgiOptions</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">addr</span>: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).<span class="ident">into</span>(),
+<span class="kw">impl </span>Default <span class="kw">for </span>WcgiOptions {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">Callbacks</span> {
-    <span class="ident">stderr</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">LineWriter</span><span class="op">&lt;</span><span class="ident">std::io::Stderr</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">struct </span>Callbacks {
+    stderr: Mutex&lt;LineWriter&lt;std::io::Stderr&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Callbacks</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">stderr</span>: <span class="ident">Mutex::new</span>(<span class="ident">LineWriter::new</span>(<span class="ident">std::io::stderr</span>())),
+<span class="kw">impl </span>Default <span class="kw">for </span>Callbacks {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">wasmer_wasix::runners::wcgi::Callbacks</span> <span class="kw">for</span> <span class="ident">Callbacks</span> {
-    <span class="kw">fn</span> <span class="ident">on_stderr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">raw_message</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">stderr</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">stderr</span>.<span class="ident">lock</span>() {
-            <span class="comment">// If the WCGI runner printed any log messages we want to make sure</span>
-            <span class="comment">// they get propagated to the user. Line buffering is important here</span>
-            <span class="comment">// because it helps prevent the output from becoming a complete</span>
-            <span class="comment">// mess.</span>
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">stderr</span>.<span class="ident">write_all</span>(<span class="ident">raw_message</span>);
+<span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
+    <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = <span class="self">self</span>.stderr.lock() {
+            <span class="comment">// If the WCGI runner printed any log messages we want to make sure
+            // they get propagated to the user. Line buffering is important here
+            // because it helps prevent the output from becoming a complete
+            // mess.
+            </span><span class="kw">let _ </span>= stderr.write_all(raw_message);
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

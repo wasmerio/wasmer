@@ -1,78 +1,72 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generic hashing support."><meta name="keywords" content="rust, rustlang, rust-lang, hash"><title>wasmer_types::lib::std::hash - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module hash</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></div></section></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">hash</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.64.0/src/core/lib.rs.html#330">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generic hashing support.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generic hashing support."><meta name="keywords" content="rust, rustlang, rust-lang, hash"><title>wasmer_types::lib::std::hash - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module hash</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li></ul></div></section></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="#">hash</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.65.0/src/core/lib.rs.html#336">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generic hashing support.</p>
 <p>This module provides a generic way to compute the <a href="https://en.wikipedia.org/wiki/Hash_function">hash</a> of a value.
 Hashes are most commonly used with <a href="../../std/collections/struct.HashMap.html"><code>HashMap</code></a> and <a href="../../std/collections/struct.HashSet.html"><code>HashSet</code></a>.</p>
 <p>The simplest way to make a type hashable is to use <code>#[derive(Hash)]</code>:</p>
 <h2 id="examples"><a href="#examples">Examples</a></h2>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::collections::hash_map::DefaultHasher</span>;
-<span class="kw">use</span> <span class="ident">std::hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>};
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::collections::hash_map::DefaultHasher;
+<span class="kw">use </span>std::hash::{Hash, Hasher};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Hash</span>)]</span>
-<span class="kw">struct</span> <span class="ident">Person</span> {
-    <span class="ident">id</span>: <span class="ident">u32</span>,
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="ident">phone</span>: <span class="ident">u64</span>,
+<span class="attribute">#[derive(Hash)]
+</span><span class="kw">struct </span>Person {
+    id: u32,
+    name: String,
+    phone: u64,
 }
 
-<span class="kw">let</span> <span class="ident">person1</span> <span class="op">=</span> <span class="ident">Person</span> {
-    <span class="ident">id</span>: <span class="number">5</span>,
-    <span class="ident">name</span>: <span class="string">&quot;Janet&quot;</span>.<span class="ident">to_string</span>(),
-    <span class="ident">phone</span>: <span class="number">555_666_7777</span>,
+<span class="kw">let </span>person1 = Person {
+    id: <span class="number">5</span>,
+    name: <span class="string">&quot;Janet&quot;</span>.to_string(),
+    phone: <span class="number">555_666_7777</span>,
 };
-<span class="kw">let</span> <span class="ident">person2</span> <span class="op">=</span> <span class="ident">Person</span> {
-    <span class="ident">id</span>: <span class="number">5</span>,
-    <span class="ident">name</span>: <span class="string">&quot;Bob&quot;</span>.<span class="ident">to_string</span>(),
-    <span class="ident">phone</span>: <span class="number">555_666_7777</span>,
+<span class="kw">let </span>person2 = Person {
+    id: <span class="number">5</span>,
+    name: <span class="string">&quot;Bob&quot;</span>.to_string(),
+    phone: <span class="number">555_666_7777</span>,
 };
 
-<span class="macro">assert!</span>(<span class="ident">calculate_hash</span>(<span class="kw-2">&amp;</span><span class="ident">person1</span>) <span class="op">!</span><span class="op">=</span> <span class="ident">calculate_hash</span>(<span class="kw-2">&amp;</span><span class="ident">person2</span>));
+<span class="macro">assert!</span>(calculate_hash(<span class="kw-2">&amp;</span>person1) != calculate_hash(<span class="kw-2">&amp;</span>person2));
 
-<span class="kw">fn</span> <span class="ident">calculate_hash</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Hash</span><span class="op">&gt;</span>(<span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>) -&gt; <span class="ident">u64</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">DefaultHasher::new</span>();
-    <span class="ident">t</span>.<span class="ident">hash</span>(<span class="kw-2">&amp;mut</span> <span class="ident">s</span>);
-    <span class="ident">s</span>.<span class="ident">finish</span>()
+<span class="kw">fn </span>calculate_hash&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
+    <span class="kw">let </span><span class="kw-2">mut </span>s = DefaultHasher::new();
+    t.hash(<span class="kw-2">&amp;mut </span>s);
+    s.finish()
 }</code></pre></div>
 <p>If you need more control over how a value is hashed, you need to implement
 the <a href="trait.Hash.html" title="Hash"><code>Hash</code></a> trait:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::collections::hash_map::DefaultHasher</span>;
-<span class="kw">use</span> <span class="ident">std::hash</span>::{<span class="ident">Hash</span>, <span class="ident">Hasher</span>};
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::collections::hash_map::DefaultHasher;
+<span class="kw">use </span>std::hash::{Hash, Hasher};
 
-<span class="kw">struct</span> <span class="ident">Person</span> {
-    <span class="ident">id</span>: <span class="ident">u32</span>,
-    <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="ident">phone</span>: <span class="ident">u64</span>,
+<span class="kw">struct </span>Person {
+    id: u32,
+    name: String,
+    phone: u64,
 }
 
-<span class="kw">impl</span> <span class="ident">Hash</span> <span class="kw">for</span> <span class="ident">Person</span> {
-    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span>: <span class="ident">Hasher</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">H</span>) {
-        <span class="self">self</span>.<span class="ident">id</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
-        <span class="self">self</span>.<span class="ident">phone</span>.<span class="ident">hash</span>(<span class="ident">state</span>);
+<span class="kw">impl </span>Hash <span class="kw">for </span>Person {
+    <span class="kw">fn </span>hash&lt;H: Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        <span class="self">self</span>.id.hash(state);
+        <span class="self">self</span>.phone.hash(state);
     }
 }
 
-<span class="kw">let</span> <span class="ident">person1</span> <span class="op">=</span> <span class="ident">Person</span> {
-    <span class="ident">id</span>: <span class="number">5</span>,
-    <span class="ident">name</span>: <span class="string">&quot;Janet&quot;</span>.<span class="ident">to_string</span>(),
-    <span class="ident">phone</span>: <span class="number">555_666_7777</span>,
+<span class="kw">let </span>person1 = Person {
+    id: <span class="number">5</span>,
+    name: <span class="string">&quot;Janet&quot;</span>.to_string(),
+    phone: <span class="number">555_666_7777</span>,
 };
-<span class="kw">let</span> <span class="ident">person2</span> <span class="op">=</span> <span class="ident">Person</span> {
-    <span class="ident">id</span>: <span class="number">5</span>,
-    <span class="ident">name</span>: <span class="string">&quot;Bob&quot;</span>.<span class="ident">to_string</span>(),
-    <span class="ident">phone</span>: <span class="number">555_666_7777</span>,
+<span class="kw">let </span>person2 = Person {
+    id: <span class="number">5</span>,
+    name: <span class="string">&quot;Bob&quot;</span>.to_string(),
+    phone: <span class="number">555_666_7777</span>,
 };
 
-<span class="macro">assert_eq!</span>(<span class="ident">calculate_hash</span>(<span class="kw-2">&amp;</span><span class="ident">person1</span>), <span class="ident">calculate_hash</span>(<span class="kw-2">&amp;</span><span class="ident">person2</span>));
+<span class="macro">assert_eq!</span>(calculate_hash(<span class="kw-2">&amp;</span>person1), calculate_hash(<span class="kw-2">&amp;</span>person2));
 
-<span class="kw">fn</span> <span class="ident">calculate_hash</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Hash</span><span class="op">&gt;</span>(<span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>) -&gt; <span class="ident">u64</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">s</span> <span class="op">=</span> <span class="ident">DefaultHasher::new</span>();
-    <span class="ident">t</span>.<span class="ident">hash</span>(<span class="kw-2">&amp;mut</span> <span class="ident">s</span>);
-    <span class="ident">s</span>.<span class="ident">finish</span>()
+<span class="kw">fn </span>calculate_hash&lt;T: Hash&gt;(t: <span class="kw-2">&amp;</span>T) -&gt; u64 {
+    <span class="kw">let </span><span class="kw-2">mut </span>s = DefaultHasher::new();
+    t.hash(<span class="kw-2">&amp;mut </span>s);
+    s.finish()
 }</code></pre></div>
-</div></details><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.Hash.html" title="wasmer_types::lib::std::hash::Hash macro">Hash</a></div><div class="item-right docblock-short"><p>Derive macro generating an impl of the trait <code>Hash</code>.</p>
-</div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.BuildHasherDefault.html" title="wasmer_types::lib::std::hash::BuildHasherDefault struct">BuildHasherDefault</a></div><div class="item-right docblock-short"><p>Used to create a default <a href="trait.BuildHasher.html" title="BuildHasher"><code>BuildHasher</code></a> instance for types that implement
-<a href="trait.Hasher.html" title="Hasher"><code>Hasher</code></a> and <a href="https://doc.rust-lang.org/1.64.0/core/default/trait.Default.html" title="Default"><code>Default</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left deprecated module-item"><a class="struct" href="struct.SipHasher.html" title="wasmer_types::lib::std::hash::SipHasher struct">SipHasher</a><span class="stab deprecated" title="">Deprecated</span></div><div class="item-right docblock-short"><p>An implementation of SipHash 2-4.</p>
-</div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.BuildHasher.html" title="wasmer_types::lib::std::hash::BuildHasher trait">BuildHasher</a></div><div class="item-right docblock-short"><p>A trait for creating instances of <a href="trait.Hasher.html" title="Hasher"><code>Hasher</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Hash.html" title="wasmer_types::lib::std::hash::Hash trait">Hash</a></div><div class="item-right docblock-short"><p>A hashable type.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Hasher.html" title="wasmer_types::lib::std::hash::Hasher trait">Hasher</a></div><div class="item-right docblock-short"><p>A trait for hashing an arbitrary stream of bytes.</p>
-</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</div></details><h2 id="macros" class="small-section-header"><a href="#macros">Macros</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="macro" href="macro.Hash.html" title="wasmer_types::lib::std::hash::Hash macro">Hash</a></div><div class="item-right docblock-short">Derive macro generating an impl of the trait <code>Hash</code>.</div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.BuildHasherDefault.html" title="wasmer_types::lib::std::hash::BuildHasherDefault struct">BuildHasherDefault</a></div><div class="item-right docblock-short">Used to create a default <a href="trait.BuildHasher.html" title="BuildHasher"><code>BuildHasher</code></a> instance for types that implement
+<a href="trait.Hasher.html" title="Hasher"><code>Hasher</code></a> and <a href="https://doc.rust-lang.org/1.65.0/core/default/trait.Default.html" title="Default"><code>Default</code></a>.</div></div><div class="item-row"><div class="item-left deprecated module-item"><a class="struct" href="struct.SipHasher.html" title="wasmer_types::lib::std::hash::SipHasher struct">SipHasher</a><span class="stab deprecated" title="">Deprecated</span></div><div class="item-right docblock-short">An implementation of SipHash 2-4.</div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.BuildHasher.html" title="wasmer_types::lib::std::hash::BuildHasher trait">BuildHasher</a></div><div class="item-right docblock-short">A trait for creating instances of <a href="trait.Hasher.html" title="Hasher"><code>Hasher</code></a>.</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Hash.html" title="wasmer_types::lib::std::hash::Hash trait">Hash</a></div><div class="item-right docblock-short">A hashable type.</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Hasher.html" title="wasmer_types::lib::std::hash::Hasher trait">Hasher</a></div><div class="item-right docblock-short">A trait for hashing an arbitrary stream of bytes.</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

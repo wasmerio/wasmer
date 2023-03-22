@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/exports.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>exports.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/exports.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>exports.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -323,328 +323,328 @@
 <span id="321">321</span>
 <span id="322">322</span>
 <span id="323">323</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::AsStoreRef</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>, <span class="ident">TypedFunction</span>, <span class="ident">WasmTypeList</span>};
-<span class="kw">use</span> <span class="ident">indexmap::IndexMap</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::iter</span>::{<span class="ident">ExactSizeIterator</span>, <span class="ident">FromIterator</span>};
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
+<span class="kw">use crate</span>::{Extern, Function, Global, Memory, Table, TypedFunction, WasmTypeList};
+<span class="kw">use </span>indexmap::IndexMap;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::iter::{ExactSizeIterator, FromIterator};
+<span class="kw">use </span>thiserror::Error;
 
-<span class="doccomment">/// The `ExportError` can happen when trying to get a specific</span>
-<span class="doccomment">/// export [`Extern`] from the [`Instance`] exports.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [`Instance`]: crate::Instance</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Examples</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Incompatible export type</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```should_panic</span>
-<span class="doccomment">/// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};</span>
-<span class="doccomment">/// # let mut store = Store::default();</span>
-<span class="doccomment">/// # let wasm_bytes = wat2wasm(r#&quot;</span>
-<span class="doccomment">/// # (module</span>
-<span class="doccomment">/// #   (global $one (export &quot;glob&quot;) f32 (f32.const 1)))</span>
-<span class="doccomment">/// # &quot;#.as_bytes()).unwrap();</span>
-<span class="doccomment">/// # let module = Module::new(&amp;store, wasm_bytes).unwrap();</span>
-<span class="doccomment">/// # let import_object = imports! {};</span>
-<span class="doccomment">/// # let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).unwrap();</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// // This results with an error: `ExportError::IncompatibleType`.</span>
-<span class="doccomment">/// let export = instance.exports.get_function(&quot;glob&quot;).unwrap();</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Missing export</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```should_panic</span>
-<span class="doccomment">/// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};</span>
-<span class="doccomment">/// # let mut store = Store::default();</span>
-<span class="doccomment">/// # let wasm_bytes = wat2wasm(&quot;(module)&quot;.as_bytes()).unwrap();</span>
-<span class="doccomment">/// # let module = Module::new(&amp;store, wasm_bytes).unwrap();</span>
-<span class="doccomment">/// # let import_object = imports! {};</span>
-<span class="doccomment">/// # let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).unwrap();</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// // This results with an error: `ExportError::Missing`.</span>
-<span class="doccomment">/// let export = instance.exports.get_function(&quot;unknown&quot;).unwrap();</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExportError</span> {
-    <span class="doccomment">/// An error than occurs when the exported type and the expected type</span>
-    <span class="doccomment">/// are incompatible.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Incompatible Export Type&quot;</span>)]</span>
-    <span class="ident">IncompatibleType</span>,
-    <span class="doccomment">/// This error arises when an export is missing</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Missing export {0}&quot;</span>)]</span>
-    <span class="ident">Missing</span>(<span class="ident">String</span>),
+<span class="doccomment">/// The `ExportError` can happen when trying to get a specific
+/// export [`Extern`] from the [`Instance`] exports.
+///
+/// [`Instance`]: crate::Instance
+///
+/// # Examples
+///
+/// ## Incompatible export type
+///
+/// ```should_panic
+/// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
+/// # let mut store = Store::default();
+/// # let wasm_bytes = wat2wasm(r#&quot;
+/// # (module
+/// #   (global $one (export &quot;glob&quot;) f32 (f32.const 1)))
+/// # &quot;#.as_bytes()).unwrap();
+/// # let module = Module::new(&amp;store, wasm_bytes).unwrap();
+/// # let import_object = imports! {};
+/// # let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).unwrap();
+/// #
+/// // This results with an error: `ExportError::IncompatibleType`.
+/// let export = instance.exports.get_function(&quot;glob&quot;).unwrap();
+/// ```
+///
+/// ## Missing export
+///
+/// ```should_panic
+/// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
+/// # let mut store = Store::default();
+/// # let wasm_bytes = wat2wasm(&quot;(module)&quot;.as_bytes()).unwrap();
+/// # let module = Module::new(&amp;store, wasm_bytes).unwrap();
+/// # let import_object = imports! {};
+/// # let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).unwrap();
+/// #
+/// // This results with an error: `ExportError::Missing`.
+/// let export = instance.exports.get_function(&quot;unknown&quot;).unwrap();
+/// ```
+</span><span class="attribute">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>ExportError {
+    <span class="doccomment">/// An error than occurs when the exported type and the expected type
+    /// are incompatible.
+    </span><span class="attribute">#[error(<span class="string">&quot;Incompatible Export Type&quot;</span>)]
+    </span>IncompatibleType,
+    <span class="doccomment">/// This error arises when an export is missing
+    </span><span class="attribute">#[error(<span class="string">&quot;Missing export {0}&quot;</span>)]
+    </span>Missing(String),
 }
 
-<span class="doccomment">/// Exports is a special kind of map that allows easily unwrapping</span>
-<span class="doccomment">/// the types of instances.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// TODO: add examples of using exports</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Exports</span> {
-    <span class="ident">map</span>: <span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Extern</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Exports is a special kind of map that allows easily unwrapping
+/// the types of instances.
+///
+/// TODO: add examples of using exports
+</span><span class="attribute">#[derive(Clone, Default, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Exports {
+    map: IndexMap&lt;String, Extern&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Exports</span> {
-    <span class="doccomment">/// Creates a new `Exports`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident">Default::default</span>()
+<span class="kw">impl </span>Exports {
+    <span class="doccomment">/// Creates a new `Exports`.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        Default::default()
     }
 
-    <span class="doccomment">/// Creates a new `Exports` with capacity `n`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_capacity</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">map</span>: <span class="ident">IndexMap::with_capacity</span>(<span class="ident">n</span>),
+    <span class="doccomment">/// Creates a new `Exports` with capacity `n`.
+    </span><span class="kw">pub fn </span>with_capacity(n: usize) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            map: IndexMap::with_capacity(n),
         }
     }
 
-    <span class="doccomment">/// Return the number of exports in the `Exports` map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">len</span>()
+    <span class="doccomment">/// Return the number of exports in the `Exports` map.
+    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.map.len()
     }
 
-    <span class="doccomment">/// Return whether or not there are no exports</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">0</span>
-    }
+    <span class="doccomment">/// Return whether or not there are no exports
+    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.len() == <span class="number">0
+    </span>}
 
-    <span class="doccomment">/// Insert a new export into this `Exports` map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">E</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">S</span>, <span class="ident">value</span>: <span class="ident">E</span>)
-    <span class="kw">where</span>
-        <span class="ident">S</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-        <span class="ident">E</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Extern</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Insert a new export into this `Exports` map.
+    </span><span class="kw">pub fn </span>insert&lt;S, E&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: S, value: E)
+    <span class="kw">where
+        </span>S: Into&lt;String&gt;,
+        E: Into&lt;Extern&gt;,
     {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">name</span>.<span class="ident">into</span>(), <span class="ident">value</span>.<span class="ident">into</span>());
+        <span class="self">self</span>.map.insert(name.into(), value.into());
     }
 
-    <span class="doccomment">/// Get an export given a `name`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The `get` method is specifically made for usage inside of</span>
-    <span class="doccomment">/// Rust APIs, as we can detect what&#39;s the desired type easily.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If you want to get an export dynamically with type checking</span>
-    <span class="doccomment">/// please use the following functions: `get_func`, `get_memory`,</span>
-    <span class="doccomment">/// `get_table` or `get_global` instead.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If you want to get an export dynamically handling manually</span>
-    <span class="doccomment">/// type checking manually, please use `get_extern`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">name</span>) {
-            <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">ExportError::Missing</span>(<span class="ident">name</span>.<span class="ident">to_string</span>())),
-            <span class="prelude-val">Some</span>(<span class="ident">extern_</span>) =&gt; <span class="ident">T::get_self_from_extern</span>(<span class="ident">extern_</span>),
+    <span class="doccomment">/// Get an export given a `name`.
+    ///
+    /// The `get` method is specifically made for usage inside of
+    /// Rust APIs, as we can detect what&#39;s the desired type easily.
+    ///
+    /// If you want to get an export dynamically with type checking
+    /// please use the following functions: `get_func`, `get_memory`,
+    /// `get_table` or `get_global` instead.
+    ///
+    /// If you want to get an export dynamically handling manually
+    /// type checking manually, please use `get_extern`.
+    </span><span class="kw">pub fn </span>get&lt;<span class="lifetime">&#39;a</span>, T: Exportable&lt;<span class="lifetime">&#39;a</span>&gt;&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T, ExportError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.map.get(name) {
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ExportError::Missing(name.to_string())),
+            <span class="prelude-val">Some</span>(extern_) =&gt; T::get_self_from_extern(extern_),
         }
     }
 
-    <span class="doccomment">/// Get an export as a `Global`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_global</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Global</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Get an export as a `Global`.
+    </span><span class="kw">pub fn </span>get_global(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Global, ExportError&gt; {
+        <span class="self">self</span>.get(name)
     }
 
-    <span class="doccomment">/// Get an export as a `Memory`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Memory</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Get an export as a `Memory`.
+    </span><span class="kw">pub fn </span>get_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Memory, ExportError&gt; {
+        <span class="self">self</span>.get(name)
     }
 
-    <span class="doccomment">/// Get an export as a `Table`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Table</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Get an export as a `Table`.
+    </span><span class="kw">pub fn </span>get_table(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Table, ExportError&gt; {
+        <span class="self">self</span>.get(name)
     }
 
-    <span class="doccomment">/// Get an export as a `Func`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Function</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Get an export as a `Func`.
+    </span><span class="kw">pub fn </span>get_function(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Function, ExportError&gt; {
+        <span class="self">self</span>.get(name)
     }
 
-    <span class="attribute">#[<span class="ident">deprecated</span>(
-        <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;3.0.0&quot;</span>,
-        <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;get_native_function() has been renamed to get_typed_function(), just like NativeFunc has been renamed to TypedFunction.&quot;</span>
-    )]</span>
-    <span class="doccomment">/// Get an export as a `TypedFunction`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_native_function</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(
+    <span class="attribute">#[deprecated(
+        since = <span class="string">&quot;3.0.0&quot;</span>,
+        note = <span class="string">&quot;get_native_function() has been renamed to get_typed_function(), just like NativeFunc has been renamed to TypedFunction.&quot;
+    </span>)]
+    </span><span class="doccomment">/// Get an export as a `TypedFunction`.
+    </span><span class="kw">pub fn </span>get_native_function&lt;Args, Rets&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+        name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TypedFunction&lt;Args, Rets&gt;, ExportError&gt;
+    <span class="kw">where
+        </span>Args: WasmTypeList,
+        Rets: WasmTypeList,
     {
-        <span class="self">self</span>.<span class="ident">get_typed_function</span>(<span class="ident">store</span>, <span class="ident">name</span>)
+        <span class="self">self</span>.get_typed_function(store, name)
     }
 
-    <span class="doccomment">/// Get an export as a `TypedFunction`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_typed_function</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(
+    <span class="doccomment">/// Get an export as a `TypedFunction`.
+    </span><span class="kw">pub fn </span>get_typed_function&lt;Args, Rets&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+        name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TypedFunction&lt;Args, Rets&gt;, ExportError&gt;
+    <span class="kw">where
+        </span>Args: WasmTypeList,
+        Rets: WasmTypeList,
     {
-        <span class="self">self</span>.<span class="ident">get_function</span>(<span class="ident">name</span>)<span class="question-mark">?</span>
-            .<span class="ident">typed</span>(<span class="ident">store</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">ExportError::IncompatibleType</span>)
+        <span class="self">self</span>.get_function(name)<span class="question-mark">?
+            </span>.typed(store)
+            .map_err(|<span class="kw">_</span>| ExportError::IncompatibleType)
     }
 
-    <span class="doccomment">/// Hack to get this working with nativefunc too</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_with_generics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-        <span class="ident">T</span>: <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Hack to get this working with nativefunc too
+    </span><span class="kw">pub fn </span>get_with_generics&lt;<span class="lifetime">&#39;a</span>, T, Args, Rets&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;T, ExportError&gt;
+    <span class="kw">where
+        </span>Args: WasmTypeList,
+        Rets: WasmTypeList,
+        T: ExportableWithGenerics&lt;<span class="lifetime">&#39;a</span>, Args, Rets&gt;,
     {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">name</span>) {
-            <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">ExportError::Missing</span>(<span class="ident">name</span>.<span class="ident">to_string</span>())),
-            <span class="prelude-val">Some</span>(<span class="ident">extern_</span>) =&gt; <span class="ident">T::get_self_from_extern_with_generics</span>(<span class="ident">extern_</span>),
+        <span class="kw">match </span><span class="self">self</span>.map.get(name) {
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ExportError::Missing(name.to_string())),
+            <span class="prelude-val">Some</span>(extern_) =&gt; T::get_self_from_extern_with_generics(extern_),
         }
     }
 
-    <span class="doccomment">/// Get an export as an `Extern`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Extern</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">get</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Get an export as an `Extern`.
+    </span><span class="kw">pub fn </span>get_extern(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Extern&gt; {
+        <span class="self">self</span>.map.get(name)
     }
 
-    <span class="doccomment">/// Returns true if the `Exports` contains the given export name.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">contains</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">S</span>) -&gt; <span class="ident">bool</span>
-    <span class="kw">where</span>
-        <span class="ident">S</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Returns true if the `Exports` contains the given export name.
+    </span><span class="kw">pub fn </span>contains&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, name: S) -&gt; bool
+    <span class="kw">where
+        </span>S: Into&lt;String&gt;,
     {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>.<span class="ident">into</span>())
+        <span class="self">self</span>.map.contains_key(<span class="kw-2">&amp;</span>name.into())
     }
 
-    <span class="doccomment">/// Get an iterator over the exports.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="ident">Extern</span>)<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">ExportsIterator</span> {
-            <span class="ident">iter</span>: <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">iter</span>(),
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Exports</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_set</span>().<span class="ident">entries</span>(<span class="self">self</span>.<span class="ident">iter</span>()).<span class="ident">finish</span>()
-    }
-}
-
-<span class="doccomment">/// An iterator over exports.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span>,
-{
-    <span class="ident">iter</span>: <span class="ident">I</span>,
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span> <span class="ident">Iterator</span> <span class="kw">for</span> <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span>,
-{
-    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>);
-
-    <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Item</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">next</span>()
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span> <span class="ident">ExactSizeIterator</span> <span class="kw">for</span> <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">ExactSizeIterator</span> <span class="op">+</span> <span class="ident">Sized</span>,
-{
-    <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">len</span>()
-    }
-}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span> <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">I</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span>,
-{
-    <span class="doccomment">/// Get only the functions.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">functions</span>(<span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Function</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">export</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">Extern::Function</span>(<span class="ident">function</span>) =&gt; <span class="prelude-val">Some</span>((<span class="ident">name</span>, <span class="ident">function</span>)),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
-        })
-    }
-
-    <span class="doccomment">/// Get only the memories.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memories</span>(<span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Memory</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">export</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">Extern::Memory</span>(<span class="ident">memory</span>) =&gt; <span class="prelude-val">Some</span>((<span class="ident">name</span>, <span class="ident">memory</span>)),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
-        })
-    }
-
-    <span class="doccomment">/// Get only the globals.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">globals</span>(<span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Global</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">export</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">Extern::Global</span>(<span class="ident">global</span>) =&gt; <span class="prelude-val">Some</span>((<span class="ident">name</span>, <span class="ident">global</span>)),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
-        })
-    }
-
-    <span class="doccomment">/// Get only the tables.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tables</span>(<span class="self">self</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Table</span>)<span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sized</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>.<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">export</span>)<span class="op">|</span> <span class="kw">match</span> <span class="ident">export</span> {
-            <span class="ident">Extern::Table</span>(<span class="ident">table</span>) =&gt; <span class="prelude-val">Some</span>((<span class="ident">name</span>, <span class="ident">table</span>)),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
-        })
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">FromIterator</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">Extern</span>)<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Exports</span> {
-    <span class="kw">fn</span> <span class="ident">from_iter</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="ident">String</span>, <span class="ident">Extern</span>)<span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">iter</span>: <span class="ident">I</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">map</span>: <span class="ident">IndexMap::from_iter</span>(<span class="ident">iter</span>),
+    <span class="doccomment">/// Get an iterator over the exports.
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span>String, <span class="kw-2">&amp;</span>Extern)&gt;&gt; {
+        ExportsIterator {
+            iter: <span class="self">self</span>.map.iter(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">IntoIterator</span> <span class="kw">for</span> <span class="ident">Exports</span> {
-    <span class="kw">type</span> <span class="ident">IntoIter</span> <span class="op">=</span> <span class="ident">indexmap::map::IntoIter</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Extern</span><span class="op">&gt;</span>;
-    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> (<span class="ident">String</span>, <span class="ident">Extern</span>);
-
-    <span class="kw">fn</span> <span class="ident">into_iter</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::IntoIter</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">into_iter</span>()
+<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Exports {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        f.debug_set().entries(<span class="self">self</span>.iter()).finish()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">IntoIterator</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Exports</span> {
-    <span class="kw">type</span> <span class="ident">IntoIter</span> <span class="op">=</span> <span class="ident">indexmap::map::Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">String</span>, <span class="ident">Extern</span><span class="op">&gt;</span>;
-    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">String</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>);
+<span class="doccomment">/// An iterator over exports.
+</span><span class="kw">pub struct </span>ExportsIterator&lt;<span class="lifetime">&#39;a</span>, I&gt;
+<span class="kw">where
+    </span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern)&gt; + Sized,
+{
+    iter: I,
+}
 
-    <span class="kw">fn</span> <span class="ident">into_iter</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::IntoIter</span> {
-        <span class="self">self</span>.<span class="ident">map</span>.<span class="ident">iter</span>()
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I&gt; Iterator <span class="kw">for </span>ExportsIterator&lt;<span class="lifetime">&#39;a</span>, I&gt;
+<span class="kw">where
+    </span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern)&gt; + Sized,
+{
+    <span class="kw">type </span>Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern);
+
+    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
+        <span class="self">self</span>.iter.next()
     }
 }
 
-<span class="doccomment">/// This trait is used to mark types as gettable from an [`Instance`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [`Instance`]: crate::Instance</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>: <span class="ident">Sized</span> {
-    <span class="doccomment">/// Implementation of how to get the export corresponding to the implementing type</span>
-    <span class="doccomment">/// from an [`Instance`] by name.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`Instance`]: crate::Instance</span>
-    <span class="kw">fn</span> <span class="ident">get_self_from_extern</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I&gt; ExactSizeIterator <span class="kw">for </span>ExportsIterator&lt;<span class="lifetime">&#39;a</span>, I&gt;
+<span class="kw">where
+    </span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern)&gt; + ExactSizeIterator + Sized,
+{
+    <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.iter.len()
+    }
 }
 
-<span class="doccomment">/// A trait for accessing exports (like [`Exportable`]) but it takes generic</span>
-<span class="doccomment">/// `Args` and `Rets` parameters so that `TypedFunction` can be accessed directly</span>
-<span class="doccomment">/// as well.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>, <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span><span class="op">&gt;</span>: <span class="ident">Sized</span> {
-    <span class="doccomment">/// Get an export with the given generics.</span>
-    <span class="kw">fn</span> <span class="ident">get_self_from_extern_with_generics</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span>;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I&gt; ExportsIterator&lt;<span class="lifetime">&#39;a</span>, I&gt;
+<span class="kw">where
+    </span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern)&gt; + Sized,
+{
+    <span class="doccomment">/// Get only the functions.
+    </span><span class="kw">pub fn </span>functions(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Function)&gt; + Sized {
+        <span class="self">self</span>.iter.filter_map(|(name, export)| <span class="kw">match </span>export {
+            Extern::Function(function) =&gt; <span class="prelude-val">Some</span>((name, function)),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        })
+    }
+
+    <span class="doccomment">/// Get only the memories.
+    </span><span class="kw">pub fn </span>memories(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Memory)&gt; + Sized {
+        <span class="self">self</span>.iter.filter_map(|(name, export)| <span class="kw">match </span>export {
+            Extern::Memory(memory) =&gt; <span class="prelude-val">Some</span>((name, memory)),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        })
+    }
+
+    <span class="doccomment">/// Get only the globals.
+    </span><span class="kw">pub fn </span>globals(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Global)&gt; + Sized {
+        <span class="self">self</span>.iter.filter_map(|(name, export)| <span class="kw">match </span>export {
+            Extern::Global(global) =&gt; <span class="prelude-val">Some</span>((name, global)),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        })
+    }
+
+    <span class="doccomment">/// Get only the tables.
+    </span><span class="kw">pub fn </span>tables(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Table)&gt; + Sized {
+        <span class="self">self</span>.iter.filter_map(|(name, export)| <span class="kw">match </span>export {
+            Extern::Table(table) =&gt; <span class="prelude-val">Some</span>((name, table)),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        })
+    }
 }
 
-<span class="doccomment">/// We implement it for all concrete [`Exportable`] types (that are `Clone`)</span>
-<span class="doccomment">/// with empty `Args` and `Rets`.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">ExportableWithGenerics</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, (), ()<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">T</span> {
-    <span class="kw">fn</span> <span class="ident">get_self_from_extern_with_generics</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
-        <span class="ident">T::get_self_from_extern</span>(<span class="ident">_extern</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">clone</span>())
+<span class="kw">impl </span>FromIterator&lt;(String, Extern)&gt; <span class="kw">for </span>Exports {
+    <span class="kw">fn </span>from_iter&lt;I: IntoIterator&lt;Item = (String, Extern)&gt;&gt;(iter: I) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            map: IndexMap::from_iter(iter),
+        }
+    }
+}
+
+<span class="kw">impl </span>IntoIterator <span class="kw">for </span>Exports {
+    <span class="kw">type </span>IntoIter = indexmap::map::IntoIter&lt;String, Extern&gt;;
+    <span class="kw">type </span>Item = (String, Extern);
+
+    <span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
+        <span class="self">self</span>.map.into_iter()
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; IntoIterator <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Exports {
+    <span class="kw">type </span>IntoIter = indexmap::map::Iter&lt;<span class="lifetime">&#39;a</span>, String, Extern&gt;;
+    <span class="kw">type </span>Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern);
+
+    <span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
+        <span class="self">self</span>.map.iter()
+    }
+}
+
+<span class="doccomment">/// This trait is used to mark types as gettable from an [`Instance`].
+///
+/// [`Instance`]: crate::Instance
+</span><span class="kw">pub trait </span>Exportable&lt;<span class="lifetime">&#39;a</span>&gt;: Sized {
+    <span class="doccomment">/// Implementation of how to get the export corresponding to the implementing type
+    /// from an [`Instance`] by name.
+    ///
+    /// [`Instance`]: crate::Instance
+    </span><span class="kw">fn </span>get_self_from_extern(_extern: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">Self</span>, ExportError&gt;;
+}
+
+<span class="doccomment">/// A trait for accessing exports (like [`Exportable`]) but it takes generic
+/// `Args` and `Rets` parameters so that `TypedFunction` can be accessed directly
+/// as well.
+</span><span class="kw">pub trait </span>ExportableWithGenerics&lt;<span class="lifetime">&#39;a</span>, Args: WasmTypeList, Rets: WasmTypeList&gt;: Sized {
+    <span class="doccomment">/// Get an export with the given generics.
+    </span><span class="kw">fn </span>get_self_from_extern_with_generics(_extern: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ExportError&gt;;
+}
+
+<span class="doccomment">/// We implement it for all concrete [`Exportable`] types (that are `Clone`)
+/// with empty `Args` and `Rets`.
+</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: Exportable&lt;<span class="lifetime">&#39;a</span>&gt; + Clone + <span class="lifetime">&#39;static</span>&gt; ExportableWithGenerics&lt;<span class="lifetime">&#39;a</span>, (), ()&gt; <span class="kw">for </span>T {
+    <span class="kw">fn </span>get_self_from_extern_with_generics(_extern: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Extern) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ExportError&gt; {
+        T::get_self_from_extern(_extern).map(|i| i.clone())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/errno.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>errno.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/errno.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>errno.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_emscripten/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -267,272 +267,272 @@
 <span id="265">265</span>
 <span id="266">266</span>
 <span id="267">267</span>
-</pre><pre class="rust"><code><span class="comment">// use std::collections::HashMap;</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
-<span class="kw">use</span> <span class="ident">wasmer::FunctionEnvMut</span>;
+</pre><pre class="rust"><code><span class="comment">// use std::collections::HashMap;
+</span><span class="kw">use </span><span class="kw">crate</span>::EmEnv;
+<span class="kw">use </span>wasmer::FunctionEnvMut;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___seterrno</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_value</span>: <span class="ident">i32</span>) {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___seterrno {}&quot;</span>, <span class="ident">_value</span>);
-    <span class="comment">// TODO: Incomplete impl</span>
-    <span class="macro">eprintln!</span>(<span class="string">&quot;failed to set errno!&quot;</span>);
-    <span class="comment">// value</span>
-}
+<span class="kw">pub fn </span>___seterrno(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _value: i32) {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___seterrno {}&quot;</span>, _value);
+    <span class="comment">// TODO: Incomplete impl
+    </span><span class="macro">eprintln!</span>(<span class="string">&quot;failed to set errno!&quot;</span>);
+    <span class="comment">// value
+</span>}
 
-<span class="comment">// pub enum ErrnoCodes {</span>
-<span class="comment">//     EPERM = 1,</span>
-<span class="comment">//     ENOENT = 2,</span>
-<span class="comment">//     ESRCH = 3,</span>
-<span class="comment">//     EINTR = 4,</span>
-<span class="comment">//     EIO = 5,</span>
-<span class="comment">//     ENXIO = 6,</span>
-<span class="comment">//     E2BIG = 7,</span>
-<span class="comment">//     ENOEXEC = 8,</span>
-<span class="comment">//     EBADF = 9,</span>
-<span class="comment">//     ECHILD = 10,</span>
-<span class="comment">//     EAGAIN = 11,</span>
-<span class="comment">//     EWOULDBLOCK = 11,</span>
-<span class="comment">//     ENOMEM = 12,</span>
-<span class="comment">//     EACCES = 13,</span>
-<span class="comment">//     EFAULT = 14,</span>
-<span class="comment">//     ENOTBLK = 15,</span>
-<span class="comment">//     EBUSY = 16,</span>
-<span class="comment">//     EEXIST = 17,</span>
-<span class="comment">//     EXDEV = 18,</span>
-<span class="comment">//     ENODEV = 19,</span>
-<span class="comment">//     ENOTDIR = 20,</span>
-<span class="comment">//     EISDIR = 21,</span>
-<span class="comment">//     EINVAL = 22,</span>
-<span class="comment">//     ENFILE = 23,</span>
-<span class="comment">//     EMFILE = 24,</span>
-<span class="comment">//     ENOTTY = 25,</span>
-<span class="comment">//     ETXTBSY = 26,</span>
-<span class="comment">//     EFBIG = 27,</span>
-<span class="comment">//     ENOSPC = 28,</span>
-<span class="comment">//     ESPIPE = 29,</span>
-<span class="comment">//     EROFS = 30,</span>
-<span class="comment">//     EMLINK = 31,</span>
-<span class="comment">//     EPIPE = 32,</span>
-<span class="comment">//     EDOM = 33,</span>
-<span class="comment">//     ERANGE = 34,</span>
-<span class="comment">//     ENOMSG = 42,</span>
-<span class="comment">//     EIDRM = 43,</span>
-<span class="comment">//     ECHRNG = 44,</span>
-<span class="comment">//     EL2NSYNC = 45,</span>
-<span class="comment">//     EL3HLT = 46,</span>
-<span class="comment">//     EL3RST = 47,</span>
-<span class="comment">//     ELNRNG = 48,</span>
-<span class="comment">//     EUNATCH = 49,</span>
-<span class="comment">//     ENOCSI = 50,</span>
-<span class="comment">//     EL2HLT = 51,</span>
-<span class="comment">//     EDEADLK = 35,</span>
-<span class="comment">//     ENOLCK = 37,</span>
-<span class="comment">//     EBADE = 52,</span>
-<span class="comment">//     EBADR = 53,</span>
-<span class="comment">//     EXFULL = 54,</span>
-<span class="comment">//     ENOANO = 55,</span>
-<span class="comment">//     EBADRQC = 56,</span>
-<span class="comment">//     EBADSLT = 57,</span>
-<span class="comment">//     EDEADLOCK = 35,</span>
-<span class="comment">//     EBFONT = 59,</span>
-<span class="comment">//     ENOSTR = 60,</span>
-<span class="comment">//     ENODATA = 61,</span>
-<span class="comment">//     ETIME = 62,</span>
-<span class="comment">//     ENOSR = 63,</span>
-<span class="comment">//     ENONET = 64,</span>
-<span class="comment">//     ENOPKG = 65,</span>
-<span class="comment">//     EREMOTE = 66,</span>
-<span class="comment">//     ENOLINK = 67,</span>
-<span class="comment">//     EADV = 68,</span>
-<span class="comment">//     ESRMNT = 69,</span>
-<span class="comment">//     ECOMM = 70,</span>
-<span class="comment">//     EPROTO = 71,</span>
-<span class="comment">//     EMULTIHOP = 72,</span>
-<span class="comment">//     EDOTDOT = 73,</span>
-<span class="comment">//     EBADMSG = 74,</span>
-<span class="comment">//     ENOTUNIQ = 76,</span>
-<span class="comment">//     EBADFD = 77,</span>
-<span class="comment">//     EREMCHG = 78,</span>
-<span class="comment">//     ELIBACC = 79,</span>
-<span class="comment">//     ELIBBAD = 80,</span>
-<span class="comment">//     ELIBSCN = 81,</span>
-<span class="comment">//     ELIBMAX = 82,</span>
-<span class="comment">//     ELIBEXEC = 83,</span>
-<span class="comment">//     ENOSYS = 38,</span>
-<span class="comment">//     ENOTEMPTY = 39,</span>
-<span class="comment">//     ENAMETOOLONG = 36,</span>
-<span class="comment">//     ELOOP = 40,</span>
-<span class="comment">//     EOPNOTSUPP = 95,</span>
-<span class="comment">//     EPFNOSUPPORT = 96,</span>
-<span class="comment">//     ECONNRESET = 104,</span>
-<span class="comment">//     ENOBUFS = 105,</span>
-<span class="comment">//     EAFNOSUPPORT = 97,</span>
-<span class="comment">//     EPROTOTYPE = 91,</span>
-<span class="comment">//     ENOTSOCK = 88,</span>
-<span class="comment">//     ENOPROTOOPT = 92,</span>
-<span class="comment">//     ESHUTDOWN = 108,</span>
-<span class="comment">//     ECONNREFUSED = 111,</span>
-<span class="comment">//     EADDRINUSE = 98,</span>
-<span class="comment">//     ECONNABORTED = 103,</span>
-<span class="comment">//     ENETUNREACH = 101,</span>
-<span class="comment">//     ENETDOWN = 100,</span>
-<span class="comment">//     ETIMEDOUT = 110,</span>
-<span class="comment">//     EHOSTDOWN = 112,</span>
-<span class="comment">//     EHOSTUNREACH = 113,</span>
-<span class="comment">//     EINPROGRESS = 115,</span>
-<span class="comment">//     EALREADY = 114,</span>
-<span class="comment">//     EDESTADDRREQ = 89,</span>
-<span class="comment">//     EMSGSIZE = 90,</span>
-<span class="comment">//     EPROTONOSUPPORT = 93,</span>
-<span class="comment">//     ESOCKTNOSUPPORT = 94,</span>
-<span class="comment">//     EADDRNOTAVAIL = 99,</span>
-<span class="comment">//     ENETRESET = 102,</span>
-<span class="comment">//     EISCONN = 106,</span>
-<span class="comment">//     ENOTCONN = 107,</span>
-<span class="comment">//     ETOOMANYREFS = 109,</span>
-<span class="comment">//     EUSERS = 87,</span>
-<span class="comment">//     EDQUOT = 122,</span>
-<span class="comment">//     ESTALE = 116,</span>
-<span class="comment">//     ENOTSUP = 95,</span>
-<span class="comment">//     ENOMEDIUM = 123,</span>
-<span class="comment">//     EILSEQ = 84,</span>
-<span class="comment">//     EOVERFLOW = 75,</span>
-<span class="comment">//     ECANCELED = 125,</span>
-<span class="comment">//     ENOTRECOVERABLE = 131,</span>
-<span class="comment">//     EOWNERDEAD = 130,</span>
-<span class="comment">//     ESTRPIPE = 86,</span>
-<span class="comment">// }</span>
+<span class="comment">// pub enum ErrnoCodes {
+//     EPERM = 1,
+//     ENOENT = 2,
+//     ESRCH = 3,
+//     EINTR = 4,
+//     EIO = 5,
+//     ENXIO = 6,
+//     E2BIG = 7,
+//     ENOEXEC = 8,
+//     EBADF = 9,
+//     ECHILD = 10,
+//     EAGAIN = 11,
+//     EWOULDBLOCK = 11,
+//     ENOMEM = 12,
+//     EACCES = 13,
+//     EFAULT = 14,
+//     ENOTBLK = 15,
+//     EBUSY = 16,
+//     EEXIST = 17,
+//     EXDEV = 18,
+//     ENODEV = 19,
+//     ENOTDIR = 20,
+//     EISDIR = 21,
+//     EINVAL = 22,
+//     ENFILE = 23,
+//     EMFILE = 24,
+//     ENOTTY = 25,
+//     ETXTBSY = 26,
+//     EFBIG = 27,
+//     ENOSPC = 28,
+//     ESPIPE = 29,
+//     EROFS = 30,
+//     EMLINK = 31,
+//     EPIPE = 32,
+//     EDOM = 33,
+//     ERANGE = 34,
+//     ENOMSG = 42,
+//     EIDRM = 43,
+//     ECHRNG = 44,
+//     EL2NSYNC = 45,
+//     EL3HLT = 46,
+//     EL3RST = 47,
+//     ELNRNG = 48,
+//     EUNATCH = 49,
+//     ENOCSI = 50,
+//     EL2HLT = 51,
+//     EDEADLK = 35,
+//     ENOLCK = 37,
+//     EBADE = 52,
+//     EBADR = 53,
+//     EXFULL = 54,
+//     ENOANO = 55,
+//     EBADRQC = 56,
+//     EBADSLT = 57,
+//     EDEADLOCK = 35,
+//     EBFONT = 59,
+//     ENOSTR = 60,
+//     ENODATA = 61,
+//     ETIME = 62,
+//     ENOSR = 63,
+//     ENONET = 64,
+//     ENOPKG = 65,
+//     EREMOTE = 66,
+//     ENOLINK = 67,
+//     EADV = 68,
+//     ESRMNT = 69,
+//     ECOMM = 70,
+//     EPROTO = 71,
+//     EMULTIHOP = 72,
+//     EDOTDOT = 73,
+//     EBADMSG = 74,
+//     ENOTUNIQ = 76,
+//     EBADFD = 77,
+//     EREMCHG = 78,
+//     ELIBACC = 79,
+//     ELIBBAD = 80,
+//     ELIBSCN = 81,
+//     ELIBMAX = 82,
+//     ELIBEXEC = 83,
+//     ENOSYS = 38,
+//     ENOTEMPTY = 39,
+//     ENAMETOOLONG = 36,
+//     ELOOP = 40,
+//     EOPNOTSUPP = 95,
+//     EPFNOSUPPORT = 96,
+//     ECONNRESET = 104,
+//     ENOBUFS = 105,
+//     EAFNOSUPPORT = 97,
+//     EPROTOTYPE = 91,
+//     ENOTSOCK = 88,
+//     ENOPROTOOPT = 92,
+//     ESHUTDOWN = 108,
+//     ECONNREFUSED = 111,
+//     EADDRINUSE = 98,
+//     ECONNABORTED = 103,
+//     ENETUNREACH = 101,
+//     ENETDOWN = 100,
+//     ETIMEDOUT = 110,
+//     EHOSTDOWN = 112,
+//     EHOSTUNREACH = 113,
+//     EINPROGRESS = 115,
+//     EALREADY = 114,
+//     EDESTADDRREQ = 89,
+//     EMSGSIZE = 90,
+//     EPROTONOSUPPORT = 93,
+//     ESOCKTNOSUPPORT = 94,
+//     EADDRNOTAVAIL = 99,
+//     ENETRESET = 102,
+//     EISCONN = 106,
+//     ENOTCONN = 107,
+//     ETOOMANYREFS = 109,
+//     EUSERS = 87,
+//     EDQUOT = 122,
+//     ESTALE = 116,
+//     ENOTSUP = 95,
+//     ENOMEDIUM = 123,
+//     EILSEQ = 84,
+//     EOVERFLOW = 75,
+//     ECANCELED = 125,
+//     ENOTRECOVERABLE = 131,
+//     EOWNERDEAD = 130,
+//     ESTRPIPE = 86,
+// }
 
-<span class="comment">// pub struct ErrnoMessages&lt;&#39;a&gt; {</span>
-<span class="comment">//     message_map: HashMap&lt;u32, &amp;&#39;a str&gt;</span>
-<span class="comment">// }</span>
+// pub struct ErrnoMessages&lt;&#39;a&gt; {
+//     message_map: HashMap&lt;u32, &amp;&#39;a str&gt;
+// }
 
-<span class="comment">// impl&lt;&#39;a&gt; ErrnoMessages&lt;&#39;a&gt; {</span>
-<span class="comment">//     fn new() -&gt; Self {</span>
-<span class="comment">//         let mut message_map = HashMap::new();</span>
-<span class="comment">//         message_map.insert(0, &quot;Success&quot;);</span>
-<span class="comment">//         message_map.insert(1, &quot;Not super-user&quot;);</span>
-<span class="comment">//         message_map.insert(2, &quot;No such file or directory&quot;);</span>
-<span class="comment">//         message_map.insert(3, &quot;No such process&quot;);</span>
-<span class="comment">//         message_map.insert(4, &quot;Interrupted system call&quot;);</span>
-<span class="comment">//         message_map.insert(5, &quot;I/O error&quot;);</span>
-<span class="comment">//         message_map.insert(6, &quot;No such device or address&quot;);</span>
-<span class="comment">//         message_map.insert(7, &quot;Arg list too long&quot;);</span>
-<span class="comment">//         message_map.insert(8, &quot;Exec format error&quot;);</span>
-<span class="comment">//         message_map.insert(9, &quot;Bad file number&quot;);</span>
-<span class="comment">//         message_map.insert(10, &quot;No children&quot;);</span>
-<span class="comment">//         message_map.insert(11, &quot;No more processes&quot;);</span>
-<span class="comment">//         message_map.insert(12, &quot;Not enough core&quot;);</span>
-<span class="comment">//         message_map.insert(13, &quot;Permission denied&quot;);</span>
-<span class="comment">//         message_map.insert(14, &quot;Bad address&quot;);</span>
-<span class="comment">//         message_map.insert(15, &quot;Block device required&quot;);</span>
-<span class="comment">//         message_map.insert(16, &quot;Mount device busy&quot;);</span>
-<span class="comment">//         message_map.insert(17, &quot;File exists&quot;);</span>
-<span class="comment">//         message_map.insert(18, &quot;Cross-device link&quot;);</span>
-<span class="comment">//         message_map.insert(19, &quot;No such device&quot;);</span>
-<span class="comment">//         message_map.insert(20, &quot;Not a directory&quot;);</span>
-<span class="comment">//         message_map.insert(21, &quot;Is a directory&quot;);</span>
-<span class="comment">//         message_map.insert(22, &quot;Invalid argument&quot;);</span>
-<span class="comment">//         message_map.insert(23, &quot;Too many open files in system&quot;);</span>
-<span class="comment">//         message_map.insert(24, &quot;Too many open files&quot;);</span>
-<span class="comment">//         message_map.insert(25, &quot;Not a typewriter&quot;);</span>
-<span class="comment">//         message_map.insert(26, &quot;Text file busy&quot;);</span>
-<span class="comment">//         message_map.insert(27, &quot;File too large&quot;);</span>
-<span class="comment">//         message_map.insert(28, &quot;No space left on device&quot;);</span>
-<span class="comment">//         message_map.insert(29, &quot;Illegal seek&quot;);</span>
-<span class="comment">//         message_map.insert(30, &quot;Read only file system&quot;);</span>
-<span class="comment">//         message_map.insert(31, &quot;Too many links&quot;);</span>
-<span class="comment">//         message_map.insert(32, &quot;Broken pipe&quot;);</span>
-<span class="comment">//         message_map.insert(33, &quot;Math arg out of domain of func&quot;);</span>
-<span class="comment">//         message_map.insert(34, &quot;Math result not representable&quot;);</span>
-<span class="comment">//         message_map.insert(35, &quot;File locking deadlock error&quot;);</span>
-<span class="comment">//         message_map.insert(36, &quot;File or path name too long&quot;);</span>
-<span class="comment">//         message_map.insert(37, &quot;No record locks available&quot;);</span>
-<span class="comment">//         message_map.insert(38, &quot;Function not implemented&quot;);</span>
-<span class="comment">//         message_map.insert(39, &quot;Directory not empty&quot;);</span>
-<span class="comment">//         message_map.insert(40, &quot;Too many symbolic links&quot;);</span>
-<span class="comment">//         message_map.insert(42, &quot;No message of desired type&quot;);</span>
-<span class="comment">//         message_map.insert(43, &quot;Identifier removed&quot;);</span>
-<span class="comment">//         message_map.insert(44, &quot;Channel number out of range&quot;);</span>
-<span class="comment">//         message_map.insert(45, &quot;Level 2 not synchronized&quot;);</span>
-<span class="comment">//         message_map.insert(46, &quot;Level 3 halted&quot;);</span>
-<span class="comment">//         message_map.insert(47, &quot;Level 3 reset&quot;);</span>
-<span class="comment">//         message_map.insert(48, &quot;Link number out of range&quot;);</span>
-<span class="comment">//         message_map.insert(49, &quot;Protocol driver not attached&quot;);</span>
-<span class="comment">//         message_map.insert(50, &quot;No CSI structure available&quot;);</span>
-<span class="comment">//         message_map.insert(51, &quot;Level 2 halted&quot;);</span>
-<span class="comment">//         message_map.insert(52, &quot;Invalid exchange&quot;);</span>
-<span class="comment">//         message_map.insert(53, &quot;Invalid request descriptor&quot;);</span>
-<span class="comment">//         message_map.insert(54, &quot;Exchange full&quot;);</span>
-<span class="comment">//         message_map.insert(55, &quot;No anode&quot;);</span>
-<span class="comment">//         message_map.insert(56, &quot;Invalid request code&quot;);</span>
-<span class="comment">//         message_map.insert(57, &quot;Invalid slot&quot;);</span>
-<span class="comment">//         message_map.insert(59, &quot;Bad font file fmt&quot;);</span>
-<span class="comment">//         message_map.insert(60, &quot;Device not a stream&quot;);</span>
-<span class="comment">//         message_map.insert(61, &quot;No data (for no delay io)&quot;);</span>
-<span class="comment">//         message_map.insert(62, &quot;Timer expired&quot;);</span>
-<span class="comment">//         message_map.insert(63, &quot;Out of streams resources&quot;);</span>
-<span class="comment">//         message_map.insert(64, &quot;Machine is not on the network&quot;);</span>
-<span class="comment">//         message_map.insert(65, &quot;Package not installed&quot;);</span>
-<span class="comment">//         message_map.insert(66, &quot;The object is remote&quot;);</span>
-<span class="comment">//         message_map.insert(67, &quot;The link has been severed&quot;);</span>
-<span class="comment">//         message_map.insert(68, &quot;Advertise error&quot;);</span>
-<span class="comment">//         message_map.insert(69, &quot;Srmount error&quot;);</span>
-<span class="comment">//         message_map.insert(70, &quot;Communication error on send&quot;);</span>
-<span class="comment">//         message_map.insert(71, &quot;Protocol error&quot;);</span>
-<span class="comment">//         message_map.insert(72, &quot;Multihop attempted&quot;);</span>
-<span class="comment">//         message_map.insert(73, &quot;Cross mount point (not really error)&quot;);</span>
-<span class="comment">//         message_map.insert(74, &quot;Trying to read unreadable message&quot;);</span>
-<span class="comment">//         message_map.insert(75, &quot;Value too large for defined data type&quot;);</span>
-<span class="comment">//         message_map.insert(76, &quot;Given log. name not unique&quot;);</span>
-<span class="comment">//         message_map.insert(77, &quot;f.d. invalid for this operation&quot;);</span>
-<span class="comment">//         message_map.insert(78, &quot;Remote address changed&quot;);</span>
-<span class="comment">//         message_map.insert(79, &quot;Can   access a needed shared lib&quot;);</span>
-<span class="comment">//         message_map.insert(80, &quot;Accessing a corrupted shared lib&quot;);</span>
-<span class="comment">//         message_map.insert(81, &quot;.lib section in a.out corrupted&quot;);</span>
-<span class="comment">//         message_map.insert(82, &quot;Attempting to link in too many libs&quot;);</span>
-<span class="comment">//         message_map.insert(83, &quot;Attempting to exec a shared library&quot;);</span>
-<span class="comment">//         message_map.insert(84, &quot;Illegal byte sequence&quot;);</span>
-<span class="comment">//         message_map.insert(86, &quot;Streams pipe error&quot;);</span>
-<span class="comment">//         message_map.insert(87, &quot;Too many users&quot;);</span>
-<span class="comment">//         message_map.insert(88, &quot;Socket operation on non-socket&quot;);</span>
-<span class="comment">//         message_map.insert(89, &quot;Destination address required&quot;);</span>
-<span class="comment">//         message_map.insert(90, &quot;Message too long&quot;);</span>
-<span class="comment">//         message_map.insert(91, &quot;Protocol wrong type for socket&quot;);</span>
-<span class="comment">//         message_map.insert(92, &quot;Protocol not available&quot;);</span>
-<span class="comment">//         message_map.insert(93, &quot;Unknown protocol&quot;);</span>
-<span class="comment">//         message_map.insert(94, &quot;Socket type not supported&quot;);</span>
-<span class="comment">//         message_map.insert(95, &quot;Not supported&quot;);</span>
-<span class="comment">//         message_map.insert(96, &quot;Protocol family not supported&quot;);</span>
-<span class="comment">//         message_map.insert(97, &quot;Address family not supported by protocol family&quot;);</span>
-<span class="comment">//         message_map.insert(98, &quot;Address already in use&quot;);</span>
-<span class="comment">//         message_map.insert(99, &quot;Address not available&quot;);</span>
-<span class="comment">//         message_map.insert(100, &quot;Network interface is not configured&quot;);</span>
-<span class="comment">//         message_map.insert(101, &quot;Network is unreachable&quot;);</span>
-<span class="comment">//         message_map.insert(102, &quot;Connection reset by network&quot;);</span>
-<span class="comment">//         message_map.insert(103, &quot;Connection aborted&quot;);</span>
-<span class="comment">//         message_map.insert(104, &quot;Connection reset by peer&quot;);</span>
-<span class="comment">//         message_map.insert(105, &quot;No buffer space available&quot;);</span>
-<span class="comment">//         message_map.insert(106, &quot;Socket is already connected&quot;);</span>
-<span class="comment">//         message_map.insert(107, &quot;Socket is not connected&quot;);</span>
-<span class="comment">//         message_map.insert(108, &quot;Can&#39;t send after socket shutdown&quot;);</span>
-<span class="comment">//         message_map.insert(109, &quot;Too many references&quot;);</span>
-<span class="comment">//         message_map.insert(110, &quot;Connection timed out&quot;);</span>
-<span class="comment">//         message_map.insert(111, &quot;Connection refused&quot;);</span>
-<span class="comment">//         message_map.insert(112, &quot;Host is down&quot;);</span>
-<span class="comment">//         message_map.insert(113, &quot;Host is unreachable&quot;);</span>
-<span class="comment">//         message_map.insert(114, &quot;Socket already connected&quot;);</span>
-<span class="comment">//         message_map.insert(115, &quot;Connection already in progress&quot;);</span>
-<span class="comment">//         message_map.insert(116, &quot;Stale file handle&quot;);</span>
-<span class="comment">//         message_map.insert(122, &quot;Quota exceeded&quot;);</span>
-<span class="comment">//         message_map.insert(123, &quot;No medium (in tape drive)&quot;);</span>
-<span class="comment">//         message_map.insert(125, &quot;Operation canceled&quot;);</span>
-<span class="comment">//         message_map.insert(130, &quot;Previous owner died&quot;);</span>
-<span class="comment">//         message_map.insert(131, &quot;State not recoverable&quot;);</span>
+// impl&lt;&#39;a&gt; ErrnoMessages&lt;&#39;a&gt; {
+//     fn new() -&gt; Self {
+//         let mut message_map = HashMap::new();
+//         message_map.insert(0, &quot;Success&quot;);
+//         message_map.insert(1, &quot;Not super-user&quot;);
+//         message_map.insert(2, &quot;No such file or directory&quot;);
+//         message_map.insert(3, &quot;No such process&quot;);
+//         message_map.insert(4, &quot;Interrupted system call&quot;);
+//         message_map.insert(5, &quot;I/O error&quot;);
+//         message_map.insert(6, &quot;No such device or address&quot;);
+//         message_map.insert(7, &quot;Arg list too long&quot;);
+//         message_map.insert(8, &quot;Exec format error&quot;);
+//         message_map.insert(9, &quot;Bad file number&quot;);
+//         message_map.insert(10, &quot;No children&quot;);
+//         message_map.insert(11, &quot;No more processes&quot;);
+//         message_map.insert(12, &quot;Not enough core&quot;);
+//         message_map.insert(13, &quot;Permission denied&quot;);
+//         message_map.insert(14, &quot;Bad address&quot;);
+//         message_map.insert(15, &quot;Block device required&quot;);
+//         message_map.insert(16, &quot;Mount device busy&quot;);
+//         message_map.insert(17, &quot;File exists&quot;);
+//         message_map.insert(18, &quot;Cross-device link&quot;);
+//         message_map.insert(19, &quot;No such device&quot;);
+//         message_map.insert(20, &quot;Not a directory&quot;);
+//         message_map.insert(21, &quot;Is a directory&quot;);
+//         message_map.insert(22, &quot;Invalid argument&quot;);
+//         message_map.insert(23, &quot;Too many open files in system&quot;);
+//         message_map.insert(24, &quot;Too many open files&quot;);
+//         message_map.insert(25, &quot;Not a typewriter&quot;);
+//         message_map.insert(26, &quot;Text file busy&quot;);
+//         message_map.insert(27, &quot;File too large&quot;);
+//         message_map.insert(28, &quot;No space left on device&quot;);
+//         message_map.insert(29, &quot;Illegal seek&quot;);
+//         message_map.insert(30, &quot;Read only file system&quot;);
+//         message_map.insert(31, &quot;Too many links&quot;);
+//         message_map.insert(32, &quot;Broken pipe&quot;);
+//         message_map.insert(33, &quot;Math arg out of domain of func&quot;);
+//         message_map.insert(34, &quot;Math result not representable&quot;);
+//         message_map.insert(35, &quot;File locking deadlock error&quot;);
+//         message_map.insert(36, &quot;File or path name too long&quot;);
+//         message_map.insert(37, &quot;No record locks available&quot;);
+//         message_map.insert(38, &quot;Function not implemented&quot;);
+//         message_map.insert(39, &quot;Directory not empty&quot;);
+//         message_map.insert(40, &quot;Too many symbolic links&quot;);
+//         message_map.insert(42, &quot;No message of desired type&quot;);
+//         message_map.insert(43, &quot;Identifier removed&quot;);
+//         message_map.insert(44, &quot;Channel number out of range&quot;);
+//         message_map.insert(45, &quot;Level 2 not synchronized&quot;);
+//         message_map.insert(46, &quot;Level 3 halted&quot;);
+//         message_map.insert(47, &quot;Level 3 reset&quot;);
+//         message_map.insert(48, &quot;Link number out of range&quot;);
+//         message_map.insert(49, &quot;Protocol driver not attached&quot;);
+//         message_map.insert(50, &quot;No CSI structure available&quot;);
+//         message_map.insert(51, &quot;Level 2 halted&quot;);
+//         message_map.insert(52, &quot;Invalid exchange&quot;);
+//         message_map.insert(53, &quot;Invalid request descriptor&quot;);
+//         message_map.insert(54, &quot;Exchange full&quot;);
+//         message_map.insert(55, &quot;No anode&quot;);
+//         message_map.insert(56, &quot;Invalid request code&quot;);
+//         message_map.insert(57, &quot;Invalid slot&quot;);
+//         message_map.insert(59, &quot;Bad font file fmt&quot;);
+//         message_map.insert(60, &quot;Device not a stream&quot;);
+//         message_map.insert(61, &quot;No data (for no delay io)&quot;);
+//         message_map.insert(62, &quot;Timer expired&quot;);
+//         message_map.insert(63, &quot;Out of streams resources&quot;);
+//         message_map.insert(64, &quot;Machine is not on the network&quot;);
+//         message_map.insert(65, &quot;Package not installed&quot;);
+//         message_map.insert(66, &quot;The object is remote&quot;);
+//         message_map.insert(67, &quot;The link has been severed&quot;);
+//         message_map.insert(68, &quot;Advertise error&quot;);
+//         message_map.insert(69, &quot;Srmount error&quot;);
+//         message_map.insert(70, &quot;Communication error on send&quot;);
+//         message_map.insert(71, &quot;Protocol error&quot;);
+//         message_map.insert(72, &quot;Multihop attempted&quot;);
+//         message_map.insert(73, &quot;Cross mount point (not really error)&quot;);
+//         message_map.insert(74, &quot;Trying to read unreadable message&quot;);
+//         message_map.insert(75, &quot;Value too large for defined data type&quot;);
+//         message_map.insert(76, &quot;Given log. name not unique&quot;);
+//         message_map.insert(77, &quot;f.d. invalid for this operation&quot;);
+//         message_map.insert(78, &quot;Remote address changed&quot;);
+//         message_map.insert(79, &quot;Can   access a needed shared lib&quot;);
+//         message_map.insert(80, &quot;Accessing a corrupted shared lib&quot;);
+//         message_map.insert(81, &quot;.lib section in a.out corrupted&quot;);
+//         message_map.insert(82, &quot;Attempting to link in too many libs&quot;);
+//         message_map.insert(83, &quot;Attempting to exec a shared library&quot;);
+//         message_map.insert(84, &quot;Illegal byte sequence&quot;);
+//         message_map.insert(86, &quot;Streams pipe error&quot;);
+//         message_map.insert(87, &quot;Too many users&quot;);
+//         message_map.insert(88, &quot;Socket operation on non-socket&quot;);
+//         message_map.insert(89, &quot;Destination address required&quot;);
+//         message_map.insert(90, &quot;Message too long&quot;);
+//         message_map.insert(91, &quot;Protocol wrong type for socket&quot;);
+//         message_map.insert(92, &quot;Protocol not available&quot;);
+//         message_map.insert(93, &quot;Unknown protocol&quot;);
+//         message_map.insert(94, &quot;Socket type not supported&quot;);
+//         message_map.insert(95, &quot;Not supported&quot;);
+//         message_map.insert(96, &quot;Protocol family not supported&quot;);
+//         message_map.insert(97, &quot;Address family not supported by protocol family&quot;);
+//         message_map.insert(98, &quot;Address already in use&quot;);
+//         message_map.insert(99, &quot;Address not available&quot;);
+//         message_map.insert(100, &quot;Network interface is not configured&quot;);
+//         message_map.insert(101, &quot;Network is unreachable&quot;);
+//         message_map.insert(102, &quot;Connection reset by network&quot;);
+//         message_map.insert(103, &quot;Connection aborted&quot;);
+//         message_map.insert(104, &quot;Connection reset by peer&quot;);
+//         message_map.insert(105, &quot;No buffer space available&quot;);
+//         message_map.insert(106, &quot;Socket is already connected&quot;);
+//         message_map.insert(107, &quot;Socket is not connected&quot;);
+//         message_map.insert(108, &quot;Can&#39;t send after socket shutdown&quot;);
+//         message_map.insert(109, &quot;Too many references&quot;);
+//         message_map.insert(110, &quot;Connection timed out&quot;);
+//         message_map.insert(111, &quot;Connection refused&quot;);
+//         message_map.insert(112, &quot;Host is down&quot;);
+//         message_map.insert(113, &quot;Host is unreachable&quot;);
+//         message_map.insert(114, &quot;Socket already connected&quot;);
+//         message_map.insert(115, &quot;Connection already in progress&quot;);
+//         message_map.insert(116, &quot;Stale file handle&quot;);
+//         message_map.insert(122, &quot;Quota exceeded&quot;);
+//         message_map.insert(123, &quot;No medium (in tape drive)&quot;);
+//         message_map.insert(125, &quot;Operation canceled&quot;);
+//         message_map.insert(130, &quot;Previous owner died&quot;);
+//         message_map.insert(131, &quot;State not recoverable&quot;);
 
-<span class="comment">//         ErrnoMessages {</span>
-<span class="comment">//             message_map,</span>
-<span class="comment">//         }</span>
-<span class="comment">//     }</span>
-<span class="comment">// }</span>
-</code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+//         ErrnoMessages {
+//             message_map,
+//         }
+//     }
+// }
+</span></code></pre></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

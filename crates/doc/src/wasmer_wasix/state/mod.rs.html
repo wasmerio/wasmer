@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/state/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/state/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -281,286 +281,286 @@
 <span id="279">279</span>
 <span id="280">280</span>
 <span id="281">281</span>
-</pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
-<span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
-<span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Wasmer always has a virtual root directory located at `/` at which all pre-opened directories can</span>
-<span class="doccomment">//! be found.  It&#39;s possible to traverse between preopened directories this way as well (for example</span>
-<span class="doccomment">//! `preopen-dir1/../preopen-dir2`).</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! A preopened directory is a directory or directory + name combination passed into the</span>
-<span class="doccomment">//! `generate_import_object` function.  These are directories that the caller has given</span>
-<span class="doccomment">//! the WASI module permission to access.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! You can implement `VirtualFile` for your own types to get custom behavior and extend WASI, see the</span>
-<span class="doccomment">//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).</span>
+</pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
+//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,
+//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
+//!
+//! Wasmer always has a virtual root directory located at `/` at which all pre-opened directories can
+//! be found.  It&#39;s possible to traverse between preopened directories this way as well (for example
+//! `preopen-dir1/../preopen-dir2`).
+//!
+//! A preopened directory is a directory or directory + name combination passed into the
+//! `generate_import_object` function.  These are directories that the caller has given
+//! the WASI module permission to access.
+//!
+//! You can implement `VirtualFile` for your own types to get custom behavior and extend WASI, see the
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).
 
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::cognitive_complexity</span>, <span class="ident">clippy::too_many_arguments</span>)]</span>
+</span><span class="attribute">#![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 
-<span class="kw">mod</span> <span class="ident">builder</span>;
-<span class="kw">mod</span> <span class="ident">env</span>;
-<span class="kw">mod</span> <span class="ident">func_env</span>;
-<span class="kw">mod</span> <span class="ident">types</span>;
+</span><span class="kw">mod </span>builder;
+<span class="kw">mod </span>env;
+<span class="kw">mod </span>func_env;
+<span class="kw">mod </span>types;
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">cell::RefCell</span>,
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">path::Path</span>,
-    <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>, <span class="ident">RwLock</span>},
-    <span class="ident">task::Waker</span>,
-    <span class="ident">time::Duration</span>,
+<span class="kw">use </span>std::{
+    cell::RefCell,
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex, RwLock},
+    task::Waker,
+    time::Duration,
 };
 
-<span class="kw">use</span> <span class="ident">derivative::Derivative</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">FileOpener</span>, <span class="ident">FileSystem</span>, <span class="ident">FsError</span>, <span class="ident">OpenOptions</span>, <span class="ident">VirtualFile</span>};
-<span class="kw">use</span> <span class="ident">wasmer::Store</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi</span>::{<span class="ident">Errno</span>, <span class="ident">Fd</span> <span class="kw">as</span> <span class="ident">WasiFd</span>, <span class="ident">Rights</span>, <span class="ident">Snapshot0Clockid</span>};
+<span class="kw">use </span>derivative::Derivative;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
+<span class="kw">use </span>wasmer::Store;
+<span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, Fd <span class="kw">as </span>WasiFd, Rights, Snapshot0Clockid};
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">builder</span>::<span class="kw-2">*</span>,
-    <span class="ident">env</span>::{<span class="ident">WasiEnv</span>, <span class="ident">WasiEnvInit</span>, <span class="ident">WasiInstanceHandles</span>},
-    <span class="ident">func_env::WasiFunctionEnv</span>,
-    <span class="ident">types</span>::<span class="kw-2">*</span>,
+<span class="kw">pub use </span><span class="self">self</span>::{
+    builder::<span class="kw-2">*</span>,
+    env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
+    func_env::WasiFunctionEnv,
+    types::<span class="kw-2">*</span>,
 };
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::fs</span>::{<span class="ident">InodeGuard</span>, <span class="ident">InodeWeakGuard</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">fs</span>::{<span class="ident">fs_error_into_wasi_err</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsRoot</span>, <span class="ident">WasiInodes</span>, <span class="ident">WasiStateFileGuard</span>},
-    <span class="ident">syscalls::types</span>::<span class="kw-2">*</span>,
-    <span class="ident">utils::WasiParkingLot</span>,
-    <span class="ident">WasiCallingId</span>,
+<span class="kw">pub use </span><span class="kw">crate</span>::fs::{InodeGuard, InodeWeakGuard};
+<span class="kw">use crate</span>::{
+    fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
+    syscalls::types::<span class="kw-2">*</span>,
+    utils::WasiParkingLot,
+    WasiCallingId,
 };
 
-<span class="doccomment">/// all the rights enabled</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ALL_RIGHTS</span>: <span class="ident">Rights</span> <span class="op">=</span> <span class="ident">Rights::all</span>();
+<span class="doccomment">/// all the rights enabled
+</span><span class="kw">pub const </span>ALL_RIGHTS: Rights = Rights::all();
 
-<span class="kw">struct</span> <span class="ident">WasiStateOpener</span> {
-    <span class="ident">root_fs</span>: <span class="ident">WasiFsRoot</span>,
+<span class="kw">struct </span>WasiStateOpener {
+    root_fs: WasiFsRoot,
 }
 
-<span class="kw">impl</span> <span class="ident">FileOpener</span> <span class="kw">for</span> <span class="ident">WasiStateOpener</span> {
-    <span class="kw">fn</span> <span class="ident">open</span>(
+<span class="kw">impl </span>FileOpener <span class="kw">for </span>WasiStateOpener {
+    <span class="kw">fn </span>open(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">virtual_fs::OpenOptionsConfig</span>,
-    ) -&gt; <span class="ident">virtual_fs::Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_options</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">root_fs</span>.<span class="ident">new_open_options</span>();
-        <span class="ident">new_options</span>.<span class="ident">options</span>(<span class="ident">conf</span>.<span class="ident">clone</span>());
-        <span class="ident">new_options</span>.<span class="ident">open</span>(<span class="ident">path</span>)
+        path: <span class="kw-2">&amp;</span>Path,
+        conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
+    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>new_options = <span class="self">self</span>.root_fs.new_open_options();
+        new_options.options(conf.clone());
+        new_options.open(path)
     }
 }
 
-<span class="comment">// TODO: review allow...</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WasiThreadContext</span> {
-    <span class="kw">pub</span> <span class="ident">ctx</span>: <span class="ident">WasiFunctionEnv</span>,
-    <span class="kw">pub</span> <span class="ident">store</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
+<span class="comment">// TODO: review allow...
+</span><span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiThreadContext {
+    <span class="kw">pub </span>ctx: WasiFunctionEnv,
+    <span class="kw">pub </span>store: RefCell&lt;Store&gt;,
 }
 
-<span class="doccomment">/// The code itself makes safe use of the struct so multiple threads don&#39;t access</span>
-<span class="doccomment">/// it (without this the JS code prevents the reference to the module from being stored</span>
-<span class="doccomment">/// which is needed for the multithreading mode)</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">WasiThreadContext</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">WasiThreadContext</span> {}
+<span class="doccomment">/// The code itself makes safe use of the struct so multiple threads don&#39;t access
+/// it (without this the JS code prevents the reference to the module from being stored
+/// which is needed for the multithreading mode)
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>WasiThreadContext {}
+<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>WasiThreadContext {}
 
-<span class="doccomment">/// Structures used for the threading and sub-processes</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// These internal implementation details are hidden away from the</span>
-<span class="doccomment">/// consumer who should instead implement the vbus trait on the runtime</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Derivative</span>, <span class="ident">Default</span>)]</span>
-<span class="comment">// TODO: review allow...</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WasiStateThreading</span> {
-    <span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span> <span class="op">=</span> <span class="string">&quot;ignore&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">thread_ctx</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">WasiCallingId</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiThreadContext</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Structures used for the threading and sub-processes
+///
+/// These internal implementation details are hidden away from the
+/// consumer who should instead implement the vbus trait on the runtime
+</span><span class="attribute">#[derive(Derivative, Default)]
+</span><span class="comment">// TODO: review allow...
+</span><span class="attribute">#[allow(dead_code)]
+#[derivative(Debug)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiStateThreading {
+    <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="kw">pub </span>thread_ctx: HashMap&lt;WasiCallingId, Arc&lt;WasiThreadContext&gt;&gt;,
 }
 
-<span class="doccomment">/// Represents a futex which will make threads wait for completion in a more</span>
-<span class="doccomment">/// CPU efficient manner</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiFutex</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wakers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Waker</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Represents a futex which will make threads wait for completion in a more
+/// CPU efficient manner
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>WasiFutex {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) wakers: Vec&lt;Waker&gt;,
 }
 
-<span class="doccomment">/// Structure that holds the state of BUS calls to this process and from</span>
-<span class="doccomment">/// this process. BUS calls are the equivalent of RPC&#39;s with support</span>
-<span class="doccomment">/// for all the major serializers</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiBusState</span> {
-    <span class="ident">poll_waker</span>: <span class="ident">WasiParkingLot</span>,
+<span class="doccomment">/// Structure that holds the state of BUS calls to this process and from
+/// this process. BUS calls are the equivalent of RPC&#39;s with support
+/// for all the major serializers
+</span><span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>WasiBusState {
+    poll_waker: WasiParkingLot,
 }
 
-<span class="kw">impl</span> <span class="ident">WasiBusState</span> {
-    <span class="doccomment">/// Gets a reference to the waker that can be used for</span>
-    <span class="doccomment">/// asynchronous calls</span>
-    <span class="comment">// TODO: review allow...</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_poll_waker</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Waker</span> {
-        <span class="self">self</span>.<span class="ident">poll_waker</span>.<span class="ident">get_waker</span>()
+<span class="kw">impl </span>WasiBusState {
+    <span class="doccomment">/// Gets a reference to the waker that can be used for
+    /// asynchronous calls
+    </span><span class="comment">// TODO: review allow...
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub fn </span>get_poll_waker(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Waker {
+        <span class="self">self</span>.poll_waker.get_waker()
     }
 
-    <span class="doccomment">/// Wakes one of the reactors thats currently waiting</span>
-    <span class="comment">// TODO: review allow...</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_wake</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">poll_waker</span>.<span class="ident">wake</span>()
+    <span class="doccomment">/// Wakes one of the reactors thats currently waiting
+    </span><span class="comment">// TODO: review allow...
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub fn </span>poll_wake(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.poll_waker.wake()
     }
 
-    <span class="doccomment">/// Will wait until either the reactor is triggered</span>
-    <span class="doccomment">/// or the timeout occurs</span>
-    <span class="comment">// TODO: review allow...</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_wait</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">timeout</span>: <span class="ident">Duration</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">poll_waker</span>.<span class="ident">wait</span>(<span class="ident">timeout</span>)
+    <span class="doccomment">/// Will wait until either the reactor is triggered
+    /// or the timeout occurs
+    </span><span class="comment">// TODO: review allow...
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub fn </span>poll_wait(<span class="kw-2">&amp;</span><span class="self">self</span>, timeout: Duration) -&gt; bool {
+        <span class="self">self</span>.poll_waker.wait(timeout)
     }
 }
 
-<span class="doccomment">/// Top level data type containing all* the state with which WASI can</span>
-<span class="doccomment">/// interact.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// * The contents of files are not stored and may be modified by</span>
-<span class="doccomment">/// other, concurrently running programs.  Data such as the contents</span>
-<span class="doccomment">/// of directories are lazily loaded.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WasiState</span> {
-    <span class="kw">pub</span> <span class="ident">secret</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
+<span class="doccomment">/// Top level data type containing all* the state with which WASI can
+/// interact.
+///
+/// * The contents of files are not stored and may be modified by
+/// other, concurrently running programs.  Data such as the contents
+/// of directories are lazily loaded.
+</span><span class="attribute">#[derive(Debug)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiState {
+    <span class="kw">pub </span>secret: [u8; <span class="number">32</span>],
 
-    <span class="kw">pub</span> <span class="ident">fs</span>: <span class="ident">WasiFs</span>,
-    <span class="kw">pub</span> <span class="ident">inodes</span>: <span class="ident">WasiInodes</span>,
-    <span class="kw">pub</span> <span class="ident">threading</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">WasiStateThreading</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">futexs</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">WasiFutex</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">clock_offset</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Snapshot0Clockid</span>, <span class="ident">i64</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">envs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// TODO: should not be here, since this requires active work to resolve.</span>
-    <span class="comment">// State should only hold active runtime state that can be reproducibly re-created.</span>
-    <span class="kw">pub</span> <span class="ident">preopen</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+    <span class="kw">pub </span>fs: WasiFs,
+    <span class="kw">pub </span>inodes: WasiInodes,
+    <span class="kw">pub </span>threading: RwLock&lt;WasiStateThreading&gt;,
+    <span class="kw">pub </span>futexs: Mutex&lt;HashMap&lt;u64, WasiFutex&gt;&gt;,
+    <span class="kw">pub </span>clock_offset: Mutex&lt;HashMap&lt;Snapshot0Clockid, i64&gt;&gt;,
+    <span class="kw">pub </span>args: Vec&lt;String&gt;,
+    <span class="kw">pub </span>envs: Vec&lt;Vec&lt;u8&gt;&gt;,
+    <span class="comment">// TODO: should not be here, since this requires active work to resolve.
+    // State should only hold active runtime state that can be reproducibly re-created.
+    </span><span class="kw">pub </span>preopen: Vec&lt;String&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">WasiState</span> {
-    <span class="comment">// fn new(fs: WasiFs, inodes: Arc&lt;RwLock&lt;WasiInodes&gt;&gt;) -&gt; Self {</span>
-    <span class="comment">//     WasiState {</span>
-    <span class="comment">//         fs,</span>
-    <span class="comment">//         secret: rand::thread_rng().gen::&lt;[u8; 32]&gt;(),</span>
-    <span class="comment">//         inodes,</span>
-    <span class="comment">//         args: Vec::new(),</span>
-    <span class="comment">//         preopen: Vec::new(),</span>
-    <span class="comment">//         threading: Default::default(),</span>
-    <span class="comment">//         futexs: Default::default(),</span>
-    <span class="comment">//         clock_offset: Default::default(),</span>
-    <span class="comment">//         envs: Vec::new(),</span>
-    <span class="comment">//     }</span>
-    <span class="comment">// }</span>
-}
+<span class="kw">impl </span>WasiState {
+    <span class="comment">// fn new(fs: WasiFs, inodes: Arc&lt;RwLock&lt;WasiInodes&gt;&gt;) -&gt; Self {
+    //     WasiState {
+    //         fs,
+    //         secret: rand::thread_rng().gen::&lt;[u8; 32]&gt;(),
+    //         inodes,
+    //         args: Vec::new(),
+    //         preopen: Vec::new(),
+    //         threading: Default::default(),
+    //         futexs: Default::default(),
+    //         clock_offset: Default::default(),
+    //         envs: Vec::new(),
+    //     }
+    // }
+</span>}
 
-<span class="comment">// Implementations of direct to FS calls so that we can easily change their implementation</span>
-<span class="kw">impl</span> <span class="ident">WasiState</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fs_read_dir</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+<span class="comment">// Implementations of direct to FS calls so that we can easily change their implementation
+</span><span class="kw">impl </span>WasiState {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_read_dir&lt;P: AsRef&lt;Path&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">path</span>: <span class="ident">P</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">virtual_fs::ReadDir</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>
-            .<span class="ident">root_fs</span>
-            .<span class="ident">read_dir</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())
-            .<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)
+        path: P,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;virtual_fs::ReadDir, Errno&gt; {
+        <span class="self">self</span>.fs
+            .root_fs
+            .read_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fs_create_dir</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>
-            .<span class="ident">root_fs</span>
-            .<span class="ident">create_dir</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())
-            .<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_create_dir&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: P) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+        <span class="self">self</span>.fs
+            .root_fs
+            .create_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fs_remove_dir</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>
-            .<span class="ident">root_fs</span>
-            .<span class="ident">remove_dir</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())
-            .<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_remove_dir&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: P) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+        <span class="self">self</span>.fs
+            .root_fs
+            .remove_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fs_rename</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>, <span class="ident">Q</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_rename&lt;P: AsRef&lt;Path&gt;, Q: AsRef&lt;Path&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">from</span>: <span class="ident">P</span>,
-        <span class="ident">to</span>: <span class="ident">Q</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>
-            .<span class="ident">root_fs</span>
-            .<span class="ident">rename</span>(<span class="ident">from</span>.<span class="ident">as_ref</span>(), <span class="ident">to</span>.<span class="ident">as_ref</span>())
-            .<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)
+        from: P,
+        to: Q,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+        <span class="self">self</span>.fs
+            .root_fs
+            .rename(from.as_ref(), to.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fs_remove_file</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="ident">P</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Errno</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>
-            .<span class="ident">root_fs</span>
-            .<span class="ident">remove_file</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())
-            .<span class="ident">map_err</span>(<span class="ident">fs_error_into_wasi_err</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_remove_file&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: P) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+        <span class="self">self</span>.fs
+            .root_fs
+            .remove_file(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">fs_new_open_options</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">OpenOptions</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>.<span class="ident">root_fs</span>.<span class="ident">new_open_options</span>()
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
+        <span class="self">self</span>.fs.root_fs.new_open_options()
     }
 
-    <span class="doccomment">/// Turn the WasiState into bytes</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">freeze</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">bincode::serialize</span>(<span class="self">self</span>).<span class="ident">ok</span>()
+    <span class="doccomment">/// Turn the WasiState into bytes
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+    </span><span class="kw">pub fn </span>freeze(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+        bincode::serialize(<span class="self">self</span>).ok()
     }
 
-    <span class="doccomment">/// Get a WasiState from bytes</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unfreeze</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="ident">bincode::deserialize</span>(<span class="ident">bytes</span>).<span class="ident">ok</span>()
+    <span class="doccomment">/// Get a WasiState from bytes
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+    </span><span class="kw">pub fn </span>unfreeze(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        bincode::deserialize(bytes).ok()
     }
 
-    <span class="doccomment">/// Get the `VirtualFile` object at stdout</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdout</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">std_dev_get</span>(<span class="ident">__WASI_STDOUT_FILENO</span>)
+    <span class="doccomment">/// Get the `VirtualFile` object at stdout
+    </span><span class="kw">pub fn </span>stdout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;, FsError&gt; {
+        <span class="self">self</span>.std_dev_get(__WASI_STDOUT_FILENO)
     }
 
-    <span class="doccomment">/// Get the `VirtualFile` object at stderr</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stderr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">std_dev_get</span>(<span class="ident">__WASI_STDERR_FILENO</span>)
+    <span class="doccomment">/// Get the `VirtualFile` object at stderr
+    </span><span class="kw">pub fn </span>stderr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;, FsError&gt; {
+        <span class="self">self</span>.std_dev_get(__WASI_STDERR_FILENO)
     }
 
-    <span class="doccomment">/// Get the `VirtualFile` object at stdin</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">stdin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">std_dev_get</span>(<span class="ident">__WASI_STDIN_FILENO</span>)
+    <span class="doccomment">/// Get the `VirtualFile` object at stdin
+    </span><span class="kw">pub fn </span>stdin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;, FsError&gt; {
+        <span class="self">self</span>.std_dev_get(__WASI_STDIN_FILENO)
     }
 
-    <span class="doccomment">/// Internal helper function to get a standard device handle.</span>
-    <span class="doccomment">/// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.</span>
-    <span class="kw">fn</span> <span class="ident">std_dev_get</span>(
+    <span class="doccomment">/// Internal helper function to get a standard device handle.
+    /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
+    </span><span class="kw">fn </span>std_dev_get(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">WasiStateFileGuard::new</span>(<span class="self">self</span>, <span class="ident">fd</span>)<span class="question-mark">?</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">a</span>);
-            <span class="kw">let</span> <span class="ident">ret</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">ret</span>;
-            <span class="ident">ret</span>
+        fd: WasiFd,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;, FsError&gt; {
+        <span class="kw">let </span>ret = WasiStateFileGuard::new(<span class="self">self</span>, fd)<span class="question-mark">?</span>.map(|a| {
+            <span class="kw">let </span>ret = Box::new(a);
+            <span class="kw">let </span>ret: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt; = ret;
+            ret
         });
-        <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
+        <span class="prelude-val">Ok</span>(ret)
     }
 
-    <span class="doccomment">/// Forking the WasiState is used when either fork or vfork is called</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fork</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">WasiState</span> {
-            <span class="ident">fs</span>: <span class="self">self</span>.<span class="ident">fs</span>.<span class="ident">fork</span>(),
-            <span class="ident">secret</span>: <span class="self">self</span>.<span class="ident">secret</span>,
-            <span class="ident">inodes</span>: <span class="self">self</span>.<span class="ident">inodes</span>.<span class="ident">clone</span>(),
-            <span class="ident">threading</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">futexs</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">clock_offset</span>: <span class="ident">Mutex::new</span>(<span class="self">self</span>.<span class="ident">clock_offset</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>().<span class="ident">clone</span>()),
-            <span class="ident">args</span>: <span class="self">self</span>.<span class="ident">args</span>.<span class="ident">clone</span>(),
-            <span class="ident">envs</span>: <span class="self">self</span>.<span class="ident">envs</span>.<span class="ident">clone</span>(),
-            <span class="ident">preopen</span>: <span class="self">self</span>.<span class="ident">preopen</span>.<span class="ident">clone</span>(),
+    <span class="doccomment">/// Forking the WasiState is used when either fork or vfork is called
+    </span><span class="kw">pub fn </span>fork(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        WasiState {
+            fs: <span class="self">self</span>.fs.fork(),
+            secret: <span class="self">self</span>.secret,
+            inodes: <span class="self">self</span>.inodes.clone(),
+            threading: Default::default(),
+            futexs: Default::default(),
+            clock_offset: Mutex::new(<span class="self">self</span>.clock_offset.lock().unwrap().clone()),
+            args: <span class="self">self</span>.args.clone(),
+            envs: <span class="self">self</span>.envs.clone(),
+            preopen: <span class="self">self</span>.preopen.clone(),
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

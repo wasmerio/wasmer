@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/environ.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>environ.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/environ.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>environ.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -450,457 +450,457 @@
 <span id="450">450</span>
 <span id="451">451</span>
 <span id="452">452</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::state::ModuleTranslationState</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string::ToString</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std</span>::{<span class="ident">boxed::Box</span>, <span class="ident">string::String</span>, <span class="ident">vec::Vec</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translate_module</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">ValType</span>};
-<span class="kw">use</span> <span class="ident">std::convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
-<span class="kw">use</span> <span class="ident">std::ops::Range</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::FunctionType</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::WasmResult</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CustomSectionIndex</span>, <span class="ident">DataIndex</span>, <span class="ident">DataInitializer</span>, <span class="ident">DataInitializerLocation</span>, <span class="ident">ElemIndex</span>,
-    <span class="ident">ExportIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportIndex</span>,
-    <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
-    <span class="ident">TableInitializer</span>, <span class="ident">TableType</span>,
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+</span><span class="kw">use </span><span class="kw">super</span>::state::ModuleTranslationState;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::string::ToString;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::{boxed::Box, string::String, vec::Vec};
+<span class="kw">use </span><span class="kw">crate</span>::translate_module;
+<span class="kw">use </span><span class="kw">crate</span>::wasmparser::{Operator, ValType};
+<span class="kw">use </span>std::convert::{TryFrom, TryInto};
+<span class="kw">use </span>std::ops::Range;
+<span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::FunctionType;
+<span class="kw">use </span>wasmer_types::WasmResult;
+<span class="kw">use </span>wasmer_types::{
+    CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
+    ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
+    LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
+    TableInitializer, TableType,
 };
 
-<span class="doccomment">/// Contains function data: bytecode and its offset in the module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Function body bytecode.</span>
-    <span class="kw">pub</span> <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
+<span class="doccomment">/// Contains function data: bytecode and its offset in the module.
+</span><span class="attribute">#[derive(Hash)]
+</span><span class="kw">pub struct </span>FunctionBodyData&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Function body bytecode.
+    </span><span class="kw">pub </span>data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
 
-    <span class="doccomment">/// Body offset relative to the module file.</span>
-    <span class="kw">pub</span> <span class="ident">module_offset</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// Body offset relative to the module file.
+    </span><span class="kw">pub </span>module_offset: usize,
 }
 
-<span class="doccomment">/// Trait for iterating over the operators of a Wasm Function</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">FunctionBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Read a `count` indicating the number of times to call `read_local_decl`.</span>
-    <span class="kw">fn</span> <span class="ident">read_local_count</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Trait for iterating over the operators of a Wasm Function
+</span><span class="kw">pub trait </span>FunctionBinaryReader&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Read a `count` indicating the number of times to call `read_local_decl`.
+    </span><span class="kw">fn </span>read_local_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;u32&gt;;
 
-    <span class="doccomment">/// Read a `(count, value_type)` declaration of local variables of the same type.</span>
-    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">ValType</span>)<span class="op">&gt;</span>;
+    <span class="doccomment">/// Read a `(count, value_type)` declaration of local variables of the same type.
+    </span><span class="kw">fn </span>read_local_decl(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;(u32, ValType)&gt;;
 
-    <span class="doccomment">/// Reads the next available `Operator`.</span>
-    <span class="kw">fn</span> <span class="ident">read_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Reads the next available `Operator`.
+    </span><span class="kw">fn </span>read_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt;;
 
-    <span class="doccomment">/// Returns the current position.</span>
-    <span class="kw">fn</span> <span class="ident">current_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span>;
+    <span class="doccomment">/// Returns the current position.
+    </span><span class="kw">fn </span>current_position(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-    <span class="doccomment">/// Returns the original position (with the offset)</span>
-    <span class="kw">fn</span> <span class="ident">original_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span>;
+    <span class="doccomment">/// Returns the original position (with the offset)
+    </span><span class="kw">fn </span>original_position(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-    <span class="doccomment">/// Returns the number of bytes remaining.</span>
-    <span class="kw">fn</span> <span class="ident">bytes_remaining</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span>;
+    <span class="doccomment">/// Returns the number of bytes remaining.
+    </span><span class="kw">fn </span>bytes_remaining(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
-    <span class="doccomment">/// Returns whether the readers has reached the end of the file.</span>
-    <span class="kw">fn</span> <span class="ident">eof</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span>;
+    <span class="doccomment">/// Returns whether the readers has reached the end of the file.
+    </span><span class="kw">fn </span>eof(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 
-    <span class="doccomment">/// Return the range (original offset, original offset + data length)</span>
-    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Return the range (original offset, original offset + data length)
+    </span><span class="kw">fn </span>range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;usize&gt;;
 }
 
-<span class="doccomment">/// The result of translating via `ModuleEnvironment`. Function bodies are not</span>
-<span class="doccomment">/// yet translated, and data initializers have not yet been copied out of the</span>
-<span class="doccomment">/// original buffer.</span>
-<span class="doccomment">/// The function bodies will be translated by a specific compiler backend.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleEnvironment</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// ModuleInfo information.</span>
-    <span class="kw">pub</span> <span class="ident">module</span>: <span class="ident">ModuleInfo</span>,
+<span class="doccomment">/// The result of translating via `ModuleEnvironment`. Function bodies are not
+/// yet translated, and data initializers have not yet been copied out of the
+/// original buffer.
+/// The function bodies will be translated by a specific compiler backend.
+</span><span class="kw">pub struct </span>ModuleEnvironment&lt;<span class="lifetime">&#39;data</span>&gt; {
+    <span class="doccomment">/// ModuleInfo information.
+    </span><span class="kw">pub </span>module: ModuleInfo,
 
-    <span class="doccomment">/// References to the function bodies.</span>
-    <span class="kw">pub</span> <span class="ident">function_body_inputs</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// References to the function bodies.
+    </span><span class="kw">pub </span>function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">&#39;data</span>&gt;&gt;,
 
-    <span class="doccomment">/// References to the data initializers.</span>
-    <span class="kw">pub</span> <span class="ident">data_initializers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DataInitializer</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// References to the data initializers.
+    </span><span class="kw">pub </span>data_initializers: Vec&lt;DataInitializer&lt;<span class="lifetime">&#39;data</span>&gt;&gt;,
 
-    <span class="doccomment">/// The decoded Wasm types for the module.</span>
-    <span class="kw">pub</span> <span class="ident">module_translation_state</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ModuleTranslationState</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The decoded Wasm types for the module.
+    </span><span class="kw">pub </span>module_translation_state: <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span> <span class="ident">ModuleEnvironment</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Allocates the environment data structures.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">module</span>: <span class="ident">ModuleInfo::new</span>(),
-            <span class="ident">function_body_inputs</span>: <span class="ident">PrimaryMap::new</span>(),
-            <span class="ident">data_initializers</span>: <span class="ident">Vec::new</span>(),
-            <span class="ident">module_translation_state</span>: <span class="prelude-val">None</span>,
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;data</span>&gt; ModuleEnvironment&lt;<span class="lifetime">&#39;data</span>&gt; {
+    <span class="doccomment">/// Allocates the environment data structures.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            module: ModuleInfo::new(),
+            function_body_inputs: PrimaryMap::new(),
+            data_initializers: Vec::new(),
+            module_translation_state: <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="doccomment">/// Translate a wasm module using this environment. This consumes the</span>
-    <span class="doccomment">/// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">translate</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ModuleEnvironment</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">module_translation_state</span>.<span class="ident">is_none</span>());
-        <span class="kw">let</span> <span class="ident">module_translation_state</span> <span class="op">=</span> <span class="ident">translate_module</span>(<span class="ident">data</span>, <span class="kw-2">&amp;mut</span> <span class="self">self</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">module_translation_state</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">module_translation_state</span>);
+    <span class="doccomment">/// Translate a wasm module using this environment. This consumes the
+    /// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.
+    </span><span class="kw">pub fn </span>translate(<span class="kw-2">mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8]) -&gt; WasmResult&lt;ModuleEnvironment&lt;<span class="lifetime">&#39;data</span>&gt;&gt; {
+        <span class="macro">assert!</span>(<span class="self">self</span>.module_translation_state.is_none());
+        <span class="kw">let </span>module_translation_state = translate_module(data, <span class="kw-2">&amp;mut </span><span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="self">self</span>.module_translation_state = <span class="prelude-val">Some</span>(module_translation_state);
         <span class="prelude-val">Ok</span>(<span class="self">self</span>)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_export</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">export</span>: <span class="ident">ExportIndex</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">exports</span>.<span class="ident">insert</span>(<span class="ident">String::from</span>(<span class="ident">name</span>), <span class="ident">export</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_export(<span class="kw-2">&amp;mut </span><span class="self">self</span>, export: ExportIndex, name: <span class="kw-2">&amp;</span>str) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.exports.insert(String::from(name), export);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_import</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">import</span>: <span class="ident">ImportIndex</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">imports</span>.<span class="ident">insert</span>(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        import: ImportIndex,
+        module: <span class="kw-2">&amp;</span>str,
+        field: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.imports.insert(
             (
-                <span class="ident">String::from</span>(<span class="ident">module</span>),
-                <span class="ident">String::from</span>(<span class="ident">field</span>),
-                <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">imports</span>.<span class="ident">len</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>(),
+                String::from(module),
+                String::from(field),
+                <span class="self">self</span>.module.imports.len().try_into().unwrap(),
             )
-                .<span class="ident">into</span>(),
-            <span class="ident">import</span>,
+                .into(),
+            import,
         );
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_signatures</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">signatures</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_signatures(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .signatures
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_signature</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sig</span>: <span class="ident">FunctionType</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="comment">// TODO: Deduplicate signatures.</span>
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">signatures</span>.<span class="ident">push</span>(<span class="ident">sig</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_signature(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sig: FunctionType) -&gt; WasmResult&lt;()&gt; {
+        <span class="comment">// TODO: Deduplicate signatures.
+        </span><span class="self">self</span>.module.signatures.push(sig);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_func_import</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">sig_index</span>: <span class="ident">SignatureIndex</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_func_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        sig_index: SignatureIndex,
+        module: <span class="kw-2">&amp;</span>str,
+        field: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
         <span class="macro">debug_assert_eq!</span>(
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">functions</span>.<span class="ident">len</span>(),
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_functions</span>,
-            <span class="string">&quot;Imported functions must be declared first&quot;</span>
-        );
-        <span class="self">self</span>.<span class="ident">declare_import</span>(
-            <span class="ident">ImportIndex::Function</span>(<span class="ident">FunctionIndex::from_u32</span>(
-                <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_functions</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="self">self</span>.module.functions.len(),
+            <span class="self">self</span>.module.num_imported_functions,
+            <span class="string">&quot;Imported functions must be declared first&quot;
+        </span>);
+        <span class="self">self</span>.declare_import(
+            ImportIndex::Function(FunctionIndex::from_u32(
+                <span class="self">self</span>.module.num_imported_functions <span class="kw">as _</span>,
             )),
-            <span class="ident">module</span>,
-            <span class="ident">field</span>,
+            module,
+            field,
         )<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">functions</span>.<span class="ident">push</span>(<span class="ident">sig_index</span>);
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_functions</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="self">self</span>.module.functions.push(sig_index);
+        <span class="self">self</span>.module.num_imported_functions += <span class="number">1</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_table_import</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">table</span>: <span class="ident">TableType</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_table_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        table: TableType,
+        module: <span class="kw-2">&amp;</span>str,
+        field: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
         <span class="macro">debug_assert_eq!</span>(
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">len</span>(),
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_tables</span>,
-            <span class="string">&quot;Imported tables must be declared first&quot;</span>
-        );
-        <span class="self">self</span>.<span class="ident">declare_import</span>(
-            <span class="ident">ImportIndex::Table</span>(<span class="ident">TableIndex::from_u32</span>(<span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_tables</span> <span class="kw">as</span> <span class="kw">_</span>)),
-            <span class="ident">module</span>,
-            <span class="ident">field</span>,
+            <span class="self">self</span>.module.tables.len(),
+            <span class="self">self</span>.module.num_imported_tables,
+            <span class="string">&quot;Imported tables must be declared first&quot;
+        </span>);
+        <span class="self">self</span>.declare_import(
+            ImportIndex::Table(TableIndex::from_u32(<span class="self">self</span>.module.num_imported_tables <span class="kw">as _</span>)),
+            module,
+            field,
         )<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">push</span>(<span class="ident">table</span>);
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_tables</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="self">self</span>.module.tables.push(table);
+        <span class="self">self</span>.module.num_imported_tables += <span class="number">1</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_memory_import</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">memory</span>: <span class="ident">MemoryType</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_memory_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        memory: MemoryType,
+        module: <span class="kw-2">&amp;</span>str,
+        field: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
         <span class="macro">debug_assert_eq!</span>(
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">len</span>(),
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_memories</span>,
-            <span class="string">&quot;Imported memories must be declared first&quot;</span>
-        );
-        <span class="self">self</span>.<span class="ident">declare_import</span>(
-            <span class="ident">ImportIndex::Memory</span>(<span class="ident">MemoryIndex::from_u32</span>(
-                <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_memories</span> <span class="kw">as</span> <span class="kw">_</span>,
+            <span class="self">self</span>.module.memories.len(),
+            <span class="self">self</span>.module.num_imported_memories,
+            <span class="string">&quot;Imported memories must be declared first&quot;
+        </span>);
+        <span class="self">self</span>.declare_import(
+            ImportIndex::Memory(MemoryIndex::from_u32(
+                <span class="self">self</span>.module.num_imported_memories <span class="kw">as _</span>,
             )),
-            <span class="ident">module</span>,
-            <span class="ident">field</span>,
+            module,
+            field,
         )<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">push</span>(<span class="ident">memory</span>);
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_memories</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="self">self</span>.module.memories.push(memory);
+        <span class="self">self</span>.module.num_imported_memories += <span class="number">1</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_global_import</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">global</span>: <span class="ident">GlobalType</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_global_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        global: GlobalType,
+        module: <span class="kw-2">&amp;</span>str,
+        field: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
         <span class="macro">debug_assert_eq!</span>(
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">len</span>(),
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_globals</span>,
-            <span class="string">&quot;Imported globals must be declared first&quot;</span>
-        );
-        <span class="self">self</span>.<span class="ident">declare_import</span>(
-            <span class="ident">ImportIndex::Global</span>(<span class="ident">GlobalIndex::from_u32</span>(<span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_globals</span> <span class="kw">as</span> <span class="kw">_</span>)),
-            <span class="ident">module</span>,
-            <span class="ident">field</span>,
+            <span class="self">self</span>.module.globals.len(),
+            <span class="self">self</span>.module.num_imported_globals,
+            <span class="string">&quot;Imported globals must be declared first&quot;
+        </span>);
+        <span class="self">self</span>.declare_import(
+            ImportIndex::Global(GlobalIndex::from_u32(<span class="self">self</span>.module.num_imported_globals <span class="kw">as _</span>)),
+            module,
+            field,
         )<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">push</span>(<span class="ident">global</span>);
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">num_imported_globals</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="self">self</span>.module.globals.push(global);
+        <span class="self">self</span>.module.num_imported_globals += <span class="number">1</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">finish_imports</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>finish_imports(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_func_types</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">functions</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
-        <span class="self">self</span>.<span class="ident">function_body_inputs</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_func_types(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .functions
+            .reserve_exact(usize::try_from(num).unwrap());
+        <span class="self">self</span>.function_body_inputs
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_func_type</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sig_index</span>: <span class="ident">SignatureIndex</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">functions</span>.<span class="ident">push</span>(<span class="ident">sig_index</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_func_type(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sig_index: SignatureIndex) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.functions.push(sig_index);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_tables</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">tables</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_tables(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .tables
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_table</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">table</span>: <span class="ident">TableType</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">push</span>(<span class="ident">table</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, table: TableType) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.tables.push(table);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_memories</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">memories</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_memories(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .memories
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_memory</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">memory</span>: <span class="ident">MemoryType</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">push</span>(<span class="ident">memory</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_memory(<span class="kw-2">&amp;mut </span><span class="self">self</span>, memory: MemoryType) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.memories.push(memory);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_globals</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">globals</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_globals(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .globals
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_global</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">global</span>: <span class="ident">GlobalType</span>,
-        <span class="ident">initializer</span>: <span class="ident">GlobalInit</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">push</span>(<span class="ident">global</span>);
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">global_initializers</span>.<span class="ident">push</span>(<span class="ident">initializer</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_global(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        global: GlobalType,
+        initializer: GlobalInit,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.globals.push(global);
+        <span class="self">self</span>.module.global_initializers.push(initializer);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_exports</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">exports</span>.<span class="ident">reserve</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_exports(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.exports.reserve(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_func_export</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">declare_export</span>(<span class="ident">ExportIndex::Function</span>(<span class="ident">func_index</span>), <span class="ident">name</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_func_export(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        func_index: FunctionIndex,
+        name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.declare_export(ExportIndex::Function(func_index), name)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_table_export</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">table_index</span>: <span class="ident">TableIndex</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">declare_export</span>(<span class="ident">ExportIndex::Table</span>(<span class="ident">table_index</span>), <span class="ident">name</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_table_export(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        table_index: TableIndex,
+        name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.declare_export(ExportIndex::Table(table_index), name)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_memory_export</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">memory_index</span>: <span class="ident">MemoryIndex</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">declare_export</span>(<span class="ident">ExportIndex::Memory</span>(<span class="ident">memory_index</span>), <span class="ident">name</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_memory_export(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        memory_index: MemoryIndex,
+        name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.declare_export(ExportIndex::Memory(memory_index), name)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_global_export</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">global_index</span>: <span class="ident">GlobalIndex</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">declare_export</span>(<span class="ident">ExportIndex::Global</span>(<span class="ident">global_index</span>), <span class="ident">name</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_global_export(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        global_index: GlobalIndex,
+        name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.declare_export(ExportIndex::Global(global_index), name)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_start_function</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">debug_assert!</span>(<span class="self">self</span>.<span class="ident">module</span>.<span class="ident">start_function</span>.<span class="ident">is_none</span>());
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">start_function</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">func_index</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_start_function(<span class="kw-2">&amp;mut </span><span class="self">self</span>, func_index: FunctionIndex) -&gt; WasmResult&lt;()&gt; {
+        <span class="macro">debug_assert!</span>(<span class="self">self</span>.module.start_function.is_none());
+        <span class="self">self</span>.module.start_function = <span class="prelude-val">Some</span>(func_index);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_table_initializers</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">table_initializers</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_table_initializers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .table_initializers
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_table_initializers</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">table_index</span>: <span class="ident">TableIndex</span>,
-        <span class="ident">base</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalIndex</span><span class="op">&gt;</span>,
-        <span class="ident">offset</span>: <span class="ident">usize</span>,
-        <span class="ident">elements</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">table_initializers</span>.<span class="ident">push</span>(<span class="ident">TableInitializer</span> {
-            <span class="ident">table_index</span>,
-            <span class="ident">base</span>,
-            <span class="ident">offset</span>,
-            <span class="ident">elements</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_table_initializers(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        table_index: TableIndex,
+        base: <span class="prelude-ty">Option</span>&lt;GlobalIndex&gt;,
+        offset: usize,
+        elements: Box&lt;[FunctionIndex]&gt;,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.table_initializers.push(TableInitializer {
+            table_index,
+            base,
+            offset,
+            elements,
         });
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_passive_element</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">elem_index</span>: <span class="ident">ElemIndex</span>,
-        <span class="ident">segments</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">passive_elements</span>.<span class="ident">insert</span>(<span class="ident">elem_index</span>, <span class="ident">segments</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_passive_element(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        elem_index: ElemIndex,
+        segments: Box&lt;[FunctionIndex]&gt;,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="kw">let </span>old = <span class="self">self</span>.module.passive_elements.insert(elem_index, segments);
         <span class="macro">debug_assert!</span>(
-            <span class="ident">old</span>.<span class="ident">is_none</span>(),
+            old.is_none(),
             <span class="string">&quot;should never get duplicate element indices, that would be a bug in `wasmer_compiler`&#39;s \
-             translation&quot;</span>
-        );
+             translation&quot;
+        </span>);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">define_function_body</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">_module_translation_state</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
-        <span class="ident">body_bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
-        <span class="ident">body_offset</span>: <span class="ident">usize</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">function_body_inputs</span>.<span class="ident">push</span>(<span class="ident">FunctionBodyData</span> {
-            <span class="ident">data</span>: <span class="ident">body_bytes</span>,
-            <span class="ident">module_offset</span>: <span class="ident">body_offset</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>define_function_body(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+        body_bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8],
+        body_offset: usize,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.function_body_inputs.push(FunctionBodyData {
+            data: body_bytes,
+            module_offset: body_offset,
         });
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_data_initializers</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">data_initializers</span>
-            .<span class="ident">reserve_exact</span>(<span class="ident">usize::try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_data_initializers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.data_initializers
+            .reserve_exact(usize::try_from(num).unwrap());
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_data_initialization</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">memory_index</span>: <span class="ident">MemoryIndex</span>,
-        <span class="ident">base</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalIndex</span><span class="op">&gt;</span>,
-        <span class="ident">offset</span>: <span class="ident">usize</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">data_initializers</span>.<span class="ident">push</span>(<span class="ident">DataInitializer</span> {
-            <span class="ident">location</span>: <span class="ident">DataInitializerLocation</span> {
-                <span class="ident">memory_index</span>,
-                <span class="ident">base</span>,
-                <span class="ident">offset</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_data_initialization(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        memory_index: MemoryIndex,
+        base: <span class="prelude-ty">Option</span>&lt;GlobalIndex&gt;,
+        offset: usize,
+        data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8],
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.data_initializers.push(DataInitializer {
+            location: DataInitializerLocation {
+                memory_index,
+                base,
+                offset,
             },
-            <span class="ident">data</span>,
+            data,
         });
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_passive_data</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">count</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">count</span>).<span class="ident">unwrap</span>();
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">passive_data</span>.<span class="ident">reserve</span>(<span class="ident">count</span>);
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_passive_data(<span class="kw-2">&amp;mut </span><span class="self">self</span>, count: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="kw">let </span>count = usize::try_from(count).unwrap();
+        <span class="self">self</span>.module.passive_data.reserve(count);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_passive_data</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">data_index</span>: <span class="ident">DataIndex</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">passive_data</span>.<span class="ident">insert</span>(<span class="ident">data_index</span>, <span class="ident">Box::from</span>(<span class="ident">data</span>));
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_passive_data(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        data_index: DataIndex,
+        data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8],
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="kw">let </span>old = <span class="self">self</span>.module.passive_data.insert(data_index, Box::from(data));
         <span class="macro">debug_assert!</span>(
-            <span class="ident">old</span>.<span class="ident">is_none</span>(),
-            <span class="string">&quot;a module can&#39;t have duplicate indices, this would be a wasmer-compiler bug&quot;</span>
+            old.is_none(),
+            <span class="string">&quot;a module can&#39;t have duplicate indices, this would be a wasmer-compiler bug&quot;
+        </span>);
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_module_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>str) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module.name = <span class="prelude-val">Some</span>(name.to_string());
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>declare_function_name(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        func_index: FunctionIndex,
+        name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>str,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="self">self</span>.module
+            .function_names
+            .insert(func_index, name.to_string());
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Provides the number of imports up front. By default this does nothing, but
+    /// implementations can use this to preallocate memory if desired.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>reserve_imports(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _num: u32) -&gt; WasmResult&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Notifies the implementation that all exports have been declared.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>finish_exports(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Indicates that a custom section has been found in the wasm file
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>custom_section(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>str, data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data </span>[u8]) -&gt; WasmResult&lt;()&gt; {
+        <span class="kw">let </span>custom_section = CustomSectionIndex::from_u32(
+            <span class="self">self</span>.module.custom_sections_data.len().try_into().unwrap(),
         );
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_module_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> <span class="ident">str</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">name</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>.<span class="ident">to_string</span>());
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_function_name</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> <span class="ident">str</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">function_names</span>
-            .<span class="ident">insert</span>(<span class="ident">func_index</span>, <span class="ident">name</span>.<span class="ident">to_string</span>());
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Provides the number of imports up front. By default this does nothing, but</span>
-    <span class="doccomment">/// implementations can use this to preallocate memory if desired.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_imports</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_num</span>: <span class="ident">u32</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Notifies the implementation that all exports have been declared.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">finish_exports</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Indicates that a custom section has been found in the wasm file</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">custom_section</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> <span class="ident">str</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">custom_section</span> <span class="op">=</span> <span class="ident">CustomSectionIndex::from_u32</span>(
-            <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">custom_sections_data</span>.<span class="ident">len</span>().<span class="ident">try_into</span>().<span class="ident">unwrap</span>(),
-        );
-        <span class="self">self</span>.<span class="ident">module</span>
-            .<span class="ident">custom_sections</span>
-            .<span class="ident">insert</span>(<span class="ident">String::from</span>(<span class="ident">name</span>), <span class="ident">custom_section</span>);
-        <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">custom_sections_data</span>.<span class="ident">push</span>(<span class="ident">Box::from</span>(<span class="ident">data</span>));
+        <span class="self">self</span>.module
+            .custom_sections
+            .insert(String::from(name), custom_section);
+        <span class="self">self</span>.module.custom_sections_data.push(Box::from(data));
         <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

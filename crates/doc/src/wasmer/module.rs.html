@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/module.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/module.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -418,423 +418,423 @@
 <span id="416">416</span>
 <span id="417">417</span>
 <span id="418">418</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::fs</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>;
-<span class="kw">use</span> <span class="ident">std::path::Path</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::fs;
+<span class="kw">use </span>std::io;
+<span class="kw">use </span>std::path::Path;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::AsEngineRef</span>;
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types::WasmError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CompileError</span>, <span class="ident">DeserializeError</span>, <span class="ident">ExportsIterator</span>, <span class="ident">ImportsIterator</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SerializeError</span>,
+<span class="kw">use </span><span class="kw">crate</span>::engine::AsEngineRef;
+<span class="kw">use </span>thiserror::Error;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;wat&quot;</span>)]
+</span><span class="kw">use </span>wasmer_types::WasmError;
+<span class="kw">use </span>wasmer_types::{
+    CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
+<span class="kw">use </span>wasmer_types::{ExportType, ImportType};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::into_bytes::IntoBytes</span>;
+<span class="kw">use </span><span class="kw">crate</span>::into_bytes::IntoBytes;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::js::module</span> <span class="kw">as</span> <span class="ident">module_imp</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::module</span> <span class="kw">as</span> <span class="ident">module_imp</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::js::module <span class="kw">as </span>module_imp;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::sys::module <span class="kw">as </span>module_imp;
 
-<span class="doccomment">/// IO Error on a Module Compilation</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IoCompileError</span> {
-    <span class="doccomment">/// An IO error</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-    <span class="ident">Io</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">io::Error</span>),
-    <span class="doccomment">/// A compilation error</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="ident">transparent</span>)]</span>
-    <span class="ident">Compile</span>(<span class="attribute">#[<span class="ident">from</span>]</span> <span class="ident">CompileError</span>),
+<span class="doccomment">/// IO Error on a Module Compilation
+</span><span class="attribute">#[derive(Error, Debug)]
+</span><span class="kw">pub enum </span>IoCompileError {
+    <span class="doccomment">/// An IO error
+    </span><span class="attribute">#[error(transparent)]
+    </span>Io(<span class="attribute">#[from] </span>io::Error),
+    <span class="doccomment">/// A compilation error
+    </span><span class="attribute">#[error(transparent)]
+    </span>Compile(<span class="attribute">#[from] </span>CompileError),
 }
 
-<span class="doccomment">/// A WebAssembly Module contains stateless WebAssembly</span>
-<span class="doccomment">/// code that has already been compiled and can be instantiated</span>
-<span class="doccomment">/// multiple times.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ## Cloning a module</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Cloning a module is cheap: it does a shallow copy of the compiled</span>
-<span class="doccomment">/// contents rather than a deep copy.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Module</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">module_imp::Module</span>);
+<span class="doccomment">/// A WebAssembly Module contains stateless WebAssembly
+/// code that has already been compiled and can be instantiated
+/// multiple times.
+///
+/// ## Cloning a module
+///
+/// Cloning a module is cheap: it does a shallow copy of the compiled
+/// contents rather than a deep copy.
+</span><span class="attribute">#[derive(Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Module(<span class="kw">pub</span>(<span class="kw">crate</span>) module_imp::Module);
 
-<span class="kw">impl</span> <span class="ident">Module</span> {
-    <span class="doccomment">/// Creates a new WebAssembly Module given the configuration</span>
-    <span class="doccomment">/// in the store.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If the provided bytes are not WebAssembly-like (start with `b&quot;\0asm&quot;`),</span>
-    <span class="doccomment">/// and the &quot;wat&quot; feature is enabled for this crate, this function will try to</span>
-    <span class="doccomment">/// to convert the bytes assuming they correspond to the WebAssembly text</span>
-    <span class="doccomment">/// format.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ## Security</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Before the code is compiled, it will be validated using the store</span>
-    <span class="doccomment">/// features.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ## Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Creating a WebAssembly module from bytecode can result in a</span>
-    <span class="doccomment">/// [`CompileError`] since this operation requires to transorm the Wasm</span>
-    <span class="doccomment">/// bytecode into code the machine can easily execute.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ## Example</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Reading from a WAT file.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// let wat = &quot;(module)&quot;;</span>
-    <span class="doccomment">/// let module = Module::new(&amp;store, wat)?;</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Reading from bytes:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// // The following is the same as:</span>
-    <span class="doccomment">/// // (module</span>
-    <span class="doccomment">/// //   (type $t0 (func (param i32) (result i32)))</span>
-    <span class="doccomment">/// //   (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)</span>
-    <span class="doccomment">/// //     get_local $p0</span>
-    <span class="doccomment">/// //     i32.const 1</span>
-    <span class="doccomment">/// //     i32.add)</span>
-    <span class="doccomment">/// // )</span>
-    <span class="doccomment">/// let bytes: Vec&lt;u8&gt; = vec![</span>
-    <span class="doccomment">///     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,</span>
-    <span class="doccomment">///     0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,</span>
-    <span class="doccomment">///     0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,</span>
-    <span class="doccomment">///     0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,</span>
-    <span class="doccomment">///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,</span>
-    <span class="doccomment">///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,</span>
-    <span class="doccomment">/// ];</span>
-    <span class="doccomment">/// let module = Module::new(&amp;store, bytes)?;</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # Example of loading a module using just an `Engine` and no `Store`</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// #</span>
-    <span class="doccomment">/// # let engine: Engine = Cranelift::default().into();</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// let module = Module::from_file(&amp;engine, &quot;path/to/foo.wasm&quot;);</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">wat::parse_bytes</span>(<span class="ident">bytes</span>.<span class="ident">as_ref</span>()).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="ident">CompileError::Wasm</span>(<span class="ident">WasmError::Generic</span>(<span class="macro">format!</span>(
+<span class="kw">impl </span>Module {
+    <span class="doccomment">/// Creates a new WebAssembly Module given the configuration
+    /// in the store.
+    ///
+    /// If the provided bytes are not WebAssembly-like (start with `b&quot;\0asm&quot;`),
+    /// and the &quot;wat&quot; feature is enabled for this crate, this function will try to
+    /// to convert the bytes assuming they correspond to the WebAssembly text
+    /// format.
+    ///
+    /// ## Security
+    ///
+    /// Before the code is compiled, it will be validated using the store
+    /// features.
+    ///
+    /// ## Errors
+    ///
+    /// Creating a WebAssembly module from bytecode can result in a
+    /// [`CompileError`] since this operation requires to transorm the Wasm
+    /// bytecode into code the machine can easily execute.
+    ///
+    /// ## Example
+    ///
+    /// Reading from a WAT file.
+    ///
+    /// ```
+    /// use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let wat = &quot;(module)&quot;;
+    /// let module = Module::new(&amp;store, wat)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Reading from bytes:
+    ///
+    /// ```
+    /// use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// // The following is the same as:
+    /// // (module
+    /// //   (type $t0 (func (param i32) (result i32)))
+    /// //   (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)
+    /// //     get_local $p0
+    /// //     i32.const 1
+    /// //     i32.add)
+    /// // )
+    /// let bytes: Vec&lt;u8&gt; = vec![
+    ///     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,
+    ///     0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,
+    ///     0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,
+    ///     0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,
+    ///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
+    ///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
+    /// ];
+    /// let module = Module::new(&amp;store, bytes)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    /// # Example of loading a module using just an `Engine` and no `Store`
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// #
+    /// # let engine: Engine = Cranelift::default().into();
+    ///
+    /// let module = Module::from_file(&amp;engine, &quot;path/to/foo.wasm&quot;);
+    /// ```
+    </span><span class="kw">pub fn </span>new(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, bytes: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;wat&quot;</span>)]
+        </span><span class="kw">let </span>bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            CompileError::Wasm(WasmError::Generic(<span class="macro">format!</span>(
                 <span class="string">&quot;Error when converting wat: {}&quot;</span>,
-                <span class="ident">e</span>
+                e
             )))
         })<span class="question-mark">?</span>;
-        <span class="ident"><span class="self">Self</span>::from_binary</span>(<span class="ident">engine</span>, <span class="ident">bytes</span>.<span class="ident">as_ref</span>())
+        <span class="self">Self</span>::from_binary(engine, bytes.as_ref())
     }
 
-    <span class="doccomment">/// Creates a new WebAssembly module from a file path.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
-        <span class="ident">file</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">IoCompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">file_ref</span> <span class="op">=</span> <span class="ident">file</span>.<span class="ident">as_ref</span>();
-        <span class="kw">let</span> <span class="ident">canonical</span> <span class="op">=</span> <span class="ident">file_ref</span>.<span class="ident">canonicalize</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">file_ref</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
-        <span class="comment">// Set the module name to the absolute path of the filename.</span>
-        <span class="comment">// This is useful for debugging the stack traces.</span>
-        <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">canonical</span>.<span class="ident">as_path</span>().<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
-        <span class="ident">module</span>.<span class="ident">set_name</span>(<span class="ident">filename</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">module</span>)
+    <span class="doccomment">/// Creates a new WebAssembly module from a file path.
+    </span><span class="kw">pub fn </span>from_file(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        file: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, IoCompileError&gt; {
+        <span class="kw">let </span>file_ref = file.as_ref();
+        <span class="kw">let </span>canonical = file_ref.canonicalize()<span class="question-mark">?</span>;
+        <span class="kw">let </span>wasm_bytes = std::fs::read(file_ref)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>module = <span class="self">Self</span>::new(engine, <span class="kw-2">&amp;</span>wasm_bytes)<span class="question-mark">?</span>;
+        <span class="comment">// Set the module name to the absolute path of the filename.
+        // This is useful for debugging the stack traces.
+        </span><span class="kw">let </span>filename = canonical.as_path().to_str().unwrap();
+        module.set_name(filename);
+        <span class="prelude-val">Ok</span>(module)
     }
 
-    <span class="doccomment">/// Creates a new WebAssembly module from a Wasm binary.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Opposed to [`Module::new`], this function is not compatible with</span>
-    <span class="doccomment">/// the WebAssembly text format (if the &quot;wat&quot; feature is enabled for</span>
-    <span class="doccomment">/// this crate).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">module_imp::Module::from_binary</span>(<span class="ident">engine</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>))
+    <span class="doccomment">/// Creates a new WebAssembly module from a Wasm binary.
+    ///
+    /// Opposed to [`Module::new`], this function is not compatible with
+    /// the WebAssembly text format (if the &quot;wat&quot; feature is enabled for
+    /// this crate).
+    </span><span class="kw">pub fn </span>from_binary(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::from_binary(engine, binary)<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Creates a new WebAssembly module from a Wasm binary,</span>
-    <span class="doccomment">/// skipping any kind of validation on the WebAssembly file.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This can speed up compilation time a bit, but it should be only used</span>
-    <span class="doccomment">/// in environments where the WebAssembly modules are trusted and validated</span>
-    <span class="doccomment">/// beforehand.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_binary_unchecked</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
-        <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">module_imp::Module::from_binary_unchecked</span>(
-            <span class="ident">engine</span>, <span class="ident">binary</span>,
+    <span class="doccomment">/// Creates a new WebAssembly module from a Wasm binary,
+    /// skipping any kind of validation on the WebAssembly file.
+    ///
+    /// # Safety
+    ///
+    /// This can speed up compilation time a bit, but it should be only used
+    /// in environments where the WebAssembly modules are trusted and validated
+    /// beforehand.
+    </span><span class="kw">pub unsafe fn </span>from_binary_unchecked(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        binary: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::from_binary_unchecked(
+            engine, binary,
         )<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Validates a new WebAssembly Module given the configuration</span>
-    <span class="doccomment">/// in the Store.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This validation is normally pretty fast and checks the enabled</span>
-    <span class="doccomment">/// WebAssembly features in the Store Engine to assure deterministic</span>
-    <span class="doccomment">/// validation of the Module.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="ident">module_imp::Module::validate</span>(<span class="ident">engine</span>, <span class="ident">binary</span>)
+    <span class="doccomment">/// Validates a new WebAssembly Module given the configuration
+    /// in the Store.
+    ///
+    /// This validation is normally pretty fast and checks the enabled
+    /// WebAssembly features in the Store Engine to assure deterministic
+    /// validation of the Module.
+    </span><span class="kw">pub fn </span>validate(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        module_imp::Module::validate(engine, binary)
     }
 
-    <span class="doccomment">/// Serializes a module into a binary representation that the `Engine`</span>
-    <span class="doccomment">/// can later process via [`Module::deserialize`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Important</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This function will return a custom binary format that will be different than</span>
-    <span class="doccomment">/// the `wasm` binary format, but faster to load in Native hosts.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Usage</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;</span>
-    <span class="doccomment">/// let serialized = module.serialize()?;</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Bytes</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">serialize</span>()
+    <span class="doccomment">/// Serializes a module into a binary representation that the `Engine`
+    /// can later process via [`Module::deserialize`].
+    ///
+    /// # Important
+    ///
+    /// This function will return a custom binary format that will be different than
+    /// the `wasm` binary format, but faster to load in Native hosts.
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;
+    /// let serialized = module.serialize()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, SerializeError&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.serialize()
     }
 
-    <span class="doccomment">/// Serializes a module into a file that the `Engine`</span>
-    <span class="doccomment">/// can later process via [`Module::deserialize_from_file`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Usage</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;</span>
-    <span class="doccomment">/// module.serialize_to_file(&quot;path/to/foo.so&quot;)?;</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize_to_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-        <span class="ident">fs::write</span>(<span class="ident">path</span>, <span class="ident">serialized</span>)<span class="question-mark">?</span>;
+    <span class="doccomment">/// Serializes a module into a file that the `Engine`
+    /// can later process via [`Module::deserialize_from_file`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// # let module = Module::from_file(&amp;store, &quot;path/to/foo.wasm&quot;)?;
+    /// module.serialize_to_file(&quot;path/to/foo.so&quot;)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>serialize_to_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), SerializeError&gt; {
+        <span class="kw">let </span>serialized = <span class="self">self</span>.<span class="number">0</span>.serialize()<span class="question-mark">?</span>;
+        fs::write(path, serialized)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Deserializes a serialized Module binary into a `Module`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Important</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This function only accepts a custom binary format, which will be different</span>
-    <span class="doccomment">/// than the `wasm` binary format and may change among Wasmer versions.</span>
-    <span class="doccomment">/// (it should be the result of the serialization of a Module via the</span>
-    <span class="doccomment">/// `Module::serialize` method.).</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This function is inherently **unsafe** as the provided bytes:</span>
-    <span class="doccomment">/// 1. Are going to be deserialized directly into Rust objects.</span>
-    <span class="doccomment">/// 2. Contains the function assembly bodies and, if intercepted,</span>
-    <span class="doccomment">///    a malicious actor could inject code into executable</span>
-    <span class="doccomment">///    memory.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// And as such, the `deserialize` method is unsafe.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Usage</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// let module = Module::deserialize(&amp;store, serialized_data)?;</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
-        <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">IntoBytes</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">module_imp::Module::deserialize</span>(<span class="ident">engine</span>, <span class="ident">bytes</span>)<span class="question-mark">?</span>))
+    <span class="doccomment">/// Deserializes a serialized Module binary into a `Module`.
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
+    ///
+    /// # Safety
+    ///
+    /// This function is inherently **unsafe** as the provided bytes:
+    /// 1. Are going to be deserialized directly into Rust objects.
+    /// 2. Contains the function assembly bodies and, if intercepted,
+    ///    a malicious actor could inject code into executable
+    ///    memory.
+    ///
+    /// And as such, the `deserialize` method is unsafe.
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let module = Module::deserialize(&amp;store, serialized_data)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub unsafe fn </span>deserialize(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        bytes: <span class="kw">impl </span>IntoBytes,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize(engine, bytes)<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.</span>
-    <span class="doccomment">/// &gt; Note: the module has to be serialized before with the `serialize` method.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Please check [`Module::deserialize`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Usage</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```ignore</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// let module = Module::deserialize_from_file(&amp;store, path)?;</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize_from_file</span>(
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
-        <span class="ident">path</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">module_imp::Module::deserialize_from_file</span>(
-            <span class="ident">engine</span>, <span class="ident">path</span>,
+    <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// &gt; Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// let module = Module::deserialize_from_file(&amp;store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub unsafe fn </span>deserialize_from_file(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_from_file(
+            engine, path,
         )<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Returns the name of the current module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This name is normally set in the WebAssembly bytecode by some</span>
-    <span class="doccomment">/// compilers, but can be also overwritten using the [`Module::set_name`] method.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// let wat = &quot;(module $moduleName)&quot;;</span>
-    <span class="doccomment">/// let module = Module::new(&amp;store, wat)?;</span>
-    <span class="doccomment">/// assert_eq!(module.name(), Some(&quot;moduleName&quot;));</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">name</span>()
+    <span class="doccomment">/// Returns the name of the current module.
+    ///
+    /// This name is normally set in the WebAssembly bytecode by some
+    /// compilers, but can be also overwritten using the [`Module::set_name`] method.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let wat = &quot;(module $moduleName)&quot;;
+    /// let module = Module::new(&amp;store, wat)?;
+    /// assert_eq!(module.name(), Some(&quot;moduleName&quot;));
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.name()
     }
 
-    <span class="doccomment">/// Sets the name of the current module.</span>
-    <span class="doccomment">/// This is normally useful for stacktraces and debugging.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// It will return `true` if the module name was changed successfully,</span>
-    <span class="doccomment">/// and return `false` otherwise (in case the module is cloned or</span>
-    <span class="doccomment">/// already instantiated).</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// let wat = &quot;(module)&quot;;</span>
-    <span class="doccomment">/// let mut module = Module::new(&amp;store, wat)?;</span>
-    <span class="doccomment">/// assert_eq!(module.name(), None);</span>
-    <span class="doccomment">/// module.set_name(&quot;foo&quot;);</span>
-    <span class="doccomment">/// assert_eq!(module.name(), Some(&quot;foo&quot;));</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">set_name</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Sets the name of the current module.
+    /// This is normally useful for stacktraces and debugging.
+    ///
+    /// It will return `true` if the module name was changed successfully,
+    /// and return `false` otherwise (in case the module is cloned or
+    /// already instantiated).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let wat = &quot;(module)&quot;;
+    /// let mut module = Module::new(&amp;store, wat)?;
+    /// assert_eq!(module.name(), None);
+    /// module.set_name(&quot;foo&quot;);
+    /// assert_eq!(module.name(), Some(&quot;foo&quot;));
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>set_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        <span class="self">self</span>.<span class="number">0</span>.set_name(name)
     }
 
-    <span class="doccomment">/// Returns an iterator over the imported types in the Module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The order of the imports is guaranteed to be the same as in the</span>
-    <span class="doccomment">/// WebAssembly bytecode.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// let wat = r#&quot;(module</span>
-    <span class="doccomment">///     (import &quot;host&quot; &quot;func1&quot; (func))</span>
-    <span class="doccomment">///     (import &quot;host&quot; &quot;func2&quot; (func))</span>
-    <span class="doccomment">/// )&quot;#;</span>
-    <span class="doccomment">/// let module = Module::new(&amp;store, wat)?;</span>
-    <span class="doccomment">/// for import in module.imports() {</span>
-    <span class="doccomment">///     assert_eq!(import.module(), &quot;host&quot;);</span>
-    <span class="doccomment">///     assert!(import.name().contains(&quot;func&quot;));</span>
-    <span class="doccomment">///     import.ty();</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">imports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ImportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ImportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">imports</span>()
+    <span class="doccomment">/// Returns an iterator over the imported types in the Module.
+    ///
+    /// The order of the imports is guaranteed to be the same as in the
+    /// WebAssembly bytecode.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let wat = r#&quot;(module
+    ///     (import &quot;host&quot; &quot;func1&quot; (func))
+    ///     (import &quot;host&quot; &quot;func2&quot; (func))
+    /// )&quot;#;
+    /// let module = Module::new(&amp;store, wat)?;
+    /// for import in module.imports() {
+    ///     assert_eq!(import.module(), &quot;host&quot;);
+    ///     assert!(import.name().contains(&quot;func&quot;));
+    ///     import.ty();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>imports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ImportType&gt; + <span class="lifetime">&#39;_</span>&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.imports()
     }
 
-    <span class="doccomment">/// Returns an iterator over the exported types in the Module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The order of the exports is guaranteed to be the same as in the</span>
-    <span class="doccomment">/// WebAssembly bytecode.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Example</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// ```</span>
-    <span class="doccomment">/// # use wasmer::*;</span>
-    <span class="doccomment">/// # fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
-    <span class="doccomment">/// # let mut store = Store::default();</span>
-    <span class="doccomment">/// let wat = r#&quot;(module</span>
-    <span class="doccomment">///     (func (export &quot;namedfunc&quot;))</span>
-    <span class="doccomment">///     (memory (export &quot;namedmemory&quot;) 1)</span>
-    <span class="doccomment">/// )&quot;#;</span>
-    <span class="doccomment">/// let module = Module::new(&amp;store, wat)?;</span>
-    <span class="doccomment">/// for export_ in module.exports() {</span>
-    <span class="doccomment">///     assert!(export_.name().contains(&quot;named&quot;));</span>
-    <span class="doccomment">///     export_.ty();</span>
-    <span class="doccomment">/// }</span>
-    <span class="doccomment">/// # Ok(())</span>
-    <span class="doccomment">/// # }</span>
-    <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exports</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ExportsIterator</span><span class="op">&lt;</span><span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">ExportType</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">exports</span>()
+    <span class="doccomment">/// Returns an iterator over the exported types in the Module.
+    ///
+    /// The order of the exports is guaranteed to be the same as in the
+    /// WebAssembly bytecode.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let wat = r#&quot;(module
+    ///     (func (export &quot;namedfunc&quot;))
+    ///     (memory (export &quot;namedmemory&quot;) 1)
+    /// )&quot;#;
+    /// let module = Module::new(&amp;store, wat)?;
+    /// for export_ in module.exports() {
+    ///     assert!(export_.name().contains(&quot;named&quot;));
+    ///     export_.ty();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExportsIterator&lt;<span class="kw">impl </span>Iterator&lt;Item = ExportType&gt; + <span class="lifetime">&#39;_</span>&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.exports()
     }
 
-    <span class="doccomment">/// Get the custom sections of the module given a `name`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Important</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Following the WebAssembly spec, one name can have multiple</span>
-    <span class="doccomment">/// custom sections. That&#39;s why an iterator (rather than one element)</span>
-    <span class="doccomment">/// is returned.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">custom_sections</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">custom_sections</span>(<span class="ident">name</span>)
+    <span class="doccomment">/// Get the custom sections of the module given a `name`.
+    ///
+    /// # Important
+    ///
+    /// Following the WebAssembly spec, one name can have multiple
+    /// custom sections. That&#39;s why an iterator (rather than one element)
+    /// is returned.
+    </span><span class="kw">pub fn </span>custom_sections&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;[u8]&gt;&gt; + <span class="lifetime">&#39;a </span>{
+        <span class="self">self</span>.<span class="number">0</span>.custom_sections(name)
     }
 
-    <span class="doccomment">/// The ABI of the [`ModuleInfo`] is very unstable, we refactor it very often.</span>
-    <span class="doccomment">/// This function is public because in some cases it can be useful to get some</span>
-    <span class="doccomment">/// extra information from the module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// However, the usage is highly discouraged.</span>
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">info</span>()
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Module</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Module&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>())
-            .<span class="ident">finish</span>()
+    <span class="doccomment">/// The ABI of the [`ModuleInfo`] is very unstable, we refactor it very often.
+    /// This function is public because in some cases it can be useful to get some
+    /// extra information from the module.
+    ///
+    /// However, the usage is highly discouraged.
+    </span><span class="attribute">#[doc(hidden)]
+    </span><span class="kw">pub fn </span>info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
+        <span class="self">self</span>.<span class="number">0</span>.info()
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_bindgen::JsValue</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">Module</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">wasm_bindgen::JsValue::from</span>(<span class="ident">value</span>.<span class="number">0</span>)
+<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Module {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        f.debug_struct(<span class="string">&quot;Module&quot;</span>)
+            .field(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name())
+            .finish()
+    }
+}
+
+<span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+</span><span class="kw">impl </span>From&lt;Module&gt; <span class="kw">for </span>wasm_bindgen::JsValue {
+    <span class="kw">fn </span>from(value: Module) -&gt; <span class="self">Self </span>{
+        wasm_bindgen::JsValue::from(value.<span class="number">0</span>)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

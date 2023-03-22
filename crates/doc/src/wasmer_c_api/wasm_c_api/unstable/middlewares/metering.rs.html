@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/middlewares/metering.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>metering.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../../storage.js"></script><script defer src="../../../../../source-script.js"></script><script defer src="../../../../../source-files.js"></script><script defer src="../../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/middlewares/metering.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>metering.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../../normalize.css"><link rel="stylesheet" href="../../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../../dark.css" disabled><link rel="stylesheet" href="../../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../../storage.js"></script><script defer src="../../../../../source-script.js"></script><script defer src="../../../../../source-files.js"></script><script defer src="../../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -326,331 +326,331 @@
 <span id="324">324</span>
 <span id="325">325</span>
 <span id="326">326</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains everything</span>
-<span class="doccomment">//! to create the middleware metering API.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The metering middleware is used for tracking how many operators</span>
-<span class="doccomment">//! are executed in total and putting a limit on the total number of</span>
-<span class="doccomment">//! operators executed.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! # Example</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">//! # fn main() {</span>
-<span class="doccomment">//! #    (assert_c! {</span>
-<span class="doccomment">//! # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">//! #</span>
-<span class="doccomment">//! // Define our “cost function”.</span>
-<span class="doccomment">//! uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {</span>
-<span class="doccomment">//!     switch(wasm_operator) {</span>
-<span class="doccomment">//!         // `local.get` and `i32.const` cost 1 unit.</span>
-<span class="doccomment">//!         case LocalGet:</span>
-<span class="doccomment">//!         case I32Const:</span>
-<span class="doccomment">//!             return 1;</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!         // `i32.add` costs 2 units.</span>
-<span class="doccomment">//!         case I32Add:</span>
-<span class="doccomment">//!             return 2;</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!         // The other operations are free.</span>
-<span class="doccomment">//!         default:</span>
-<span class="doccomment">//!             return 0;</span>
-<span class="doccomment">//!     }</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! int main() {</span>
-<span class="doccomment">//!     // Create a new metering middleware, with our cost function.</span>
-<span class="doccomment">//!     wasmer_metering_t* metering = wasmer_metering_new(10, cost_function);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Consume `metering` to produce a generic `wasmer_middleware_t` value.</span>
-<span class="doccomment">//!     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);</span>
-<span class="doccomment">//!     </span>
-<span class="doccomment">//!     // Create a new configuration, and push the middleware in it.</span>
-<span class="doccomment">//!     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">//!     wasm_config_push_middleware(config, middleware);</span>
-<span class="doccomment">//!     </span>
-<span class="doccomment">//!     // Create the engine and the store based on the configuration.</span>
-<span class="doccomment">//!     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">//!     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">//!     </span>
-<span class="doccomment">//!     // Create the new WebAssembly module.</span>
-<span class="doccomment">//!     wasm_byte_vec_t wat;</span>
-<span class="doccomment">//!     wasmer_byte_vec_new_from_string(</span>
-<span class="doccomment">//!         &amp;wat,</span>
-<span class="doccomment">//!         &quot;(module\n&quot;</span>
-<span class="doccomment">//!         &quot;  (type $add_t (func (param i32) (result i32)))\n&quot;</span>
-<span class="doccomment">//!         &quot;  (func $add_two_f (type $add_t) (param $value i32) (result i32)\n&quot;</span>
-<span class="doccomment">//!         &quot;    local.get $value\n&quot;</span>
-<span class="doccomment">//!         &quot;    i32.const 1\n&quot;</span>
-<span class="doccomment">//!         &quot;    i32.add)\n&quot;</span>
-<span class="doccomment">//!         &quot;  (export \&quot;add_two\&quot; (func $add_two_f)))&quot;</span>
-<span class="doccomment">//!     );</span>
-<span class="doccomment">//!     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">//!     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     wasm_module_t* module = wasm_module_new(store, &amp;wasm);</span>
-<span class="doccomment">//!     assert(module);</span>
-<span class="doccomment">//!     </span>
-<span class="doccomment">//!     // Instantiate the module.</span>
-<span class="doccomment">//!     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">//!     wasm_trap_t* trap = NULL;</span>
-<span class="doccomment">//!     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
-<span class="doccomment">//!     assert(instance);</span>
-<span class="doccomment">//!     </span>
-<span class="doccomment">//!     // Here we go. At this step, we will get the `add_two` exported function, and</span>
-<span class="doccomment">//!     // call it.</span>
-<span class="doccomment">//!     wasm_extern_vec_t exports;</span>
-<span class="doccomment">//!     wasm_instance_exports(instance, &amp;exports);</span>
-<span class="doccomment">//!     assert(exports.size &gt;= 1);</span>
-<span class="doccomment">//!     assert(wasm_extern_kind(exports.data[0]) == WASM_EXTERN_FUNC);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     const wasm_func_t* add_two = wasm_extern_as_func(exports.data[0]);</span>
-<span class="doccomment">//!     assert(add_two);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     wasm_val_t arguments[1] = { WASM_I32_VAL(41) };</span>
-<span class="doccomment">//!     wasm_val_t results[1] = { WASM_INIT_VAL };</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);</span>
-<span class="doccomment">//!     wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Let&#39;s call `add_two` for the first time!</span>
-<span class="doccomment">//!     {</span>
-<span class="doccomment">//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
-<span class="doccomment">//!         assert(trap == NULL);</span>
-<span class="doccomment">//!         assert(results[0].of.i32 == 42);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!         // There is 6 points left!</span>
-<span class="doccomment">//!         assert(wasmer_metering_get_remaining_points(instance) == 6);</span>
-<span class="doccomment">//!         assert(wasmer_metering_points_are_exhausted(instance) == false);</span>
-<span class="doccomment">//!     }</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Let&#39;s call `add_two` for the second time!</span>
-<span class="doccomment">//!     {</span>
-<span class="doccomment">//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
-<span class="doccomment">//!         assert(trap == NULL);</span>
-<span class="doccomment">//!         assert(results[0].of.i32 == 42);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!         // There is 2 points left!</span>
-<span class="doccomment">//!         assert(wasmer_metering_get_remaining_points(instance) == 2);</span>
-<span class="doccomment">//!         assert(wasmer_metering_points_are_exhausted(instance) == false);</span>
-<span class="doccomment">//!     }</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     // Let&#39;s call `add_two` for the third time!</span>
-<span class="doccomment">//!     {</span>
-<span class="doccomment">//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);</span>
-<span class="doccomment">//!         // Oh, it failed!</span>
-<span class="doccomment">//!         assert(trap != NULL);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!         // There is 0 point left… they are exhausted.</span>
-<span class="doccomment">//!         assert(wasmer_metering_points_are_exhausted(instance) == true);</span>
-<span class="doccomment">//!     }</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     wasm_extern_vec_delete(&amp;exports);</span>
-<span class="doccomment">//!     wasm_instance_delete(instance);</span>
-<span class="doccomment">//!     wasm_module_delete(module);</span>
-<span class="doccomment">//!     wasm_store_delete(store);</span>
-<span class="doccomment">//!     wasm_engine_delete(engine);</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!     return 0;</span>
-<span class="doccomment">//! }</span>
-<span class="doccomment">//! #    })</span>
-<span class="doccomment">//! #    .success();</span>
-<span class="doccomment">//! # }</span>
-<span class="doccomment">//! ```</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains everything
+//! to create the middleware metering API.
+//!
+//! The metering middleware is used for tracking how many operators
+//! are executed in total and putting a limit on the total number of
+//! operators executed.
+//!
+//! # Example
+//!
+//! ```rust
+//! # use wasmer_inline_c::assert_c;
+//! # fn main() {
+//! #    (assert_c! {
+//! # #include &quot;tests/wasmer.h&quot;
+//! #
+//! // Define our “cost function”.
+//! uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {
+//!     switch(wasm_operator) {
+//!         // `local.get` and `i32.const` cost 1 unit.
+//!         case LocalGet:
+//!         case I32Const:
+//!             return 1;
+//!
+//!         // `i32.add` costs 2 units.
+//!         case I32Add:
+//!             return 2;
+//!
+//!         // The other operations are free.
+//!         default:
+//!             return 0;
+//!     }
+//! }
+//!
+//! int main() {
+//!     // Create a new metering middleware, with our cost function.
+//!     wasmer_metering_t* metering = wasmer_metering_new(10, cost_function);
+//!
+//!     // Consume `metering` to produce a generic `wasmer_middleware_t` value.
+//!     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);
+//!     
+//!     // Create a new configuration, and push the middleware in it.
+//!     wasm_config_t* config = wasm_config_new();
+//!     wasm_config_push_middleware(config, middleware);
+//!     
+//!     // Create the engine and the store based on the configuration.
+//!     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+//!     wasm_store_t* store = wasm_store_new(engine);
+//!     
+//!     // Create the new WebAssembly module.
+//!     wasm_byte_vec_t wat;
+//!     wasmer_byte_vec_new_from_string(
+//!         &amp;wat,
+//!         &quot;(module\n&quot;
+//!         &quot;  (type $add_t (func (param i32) (result i32)))\n&quot;
+//!         &quot;  (func $add_two_f (type $add_t) (param $value i32) (result i32)\n&quot;
+//!         &quot;    local.get $value\n&quot;
+//!         &quot;    i32.const 1\n&quot;
+//!         &quot;    i32.add)\n&quot;
+//!         &quot;  (export \&quot;add_two\&quot; (func $add_two_f)))&quot;
+//!     );
+//!     wasm_byte_vec_t wasm;
+//!     wat2wasm(&amp;wat, &amp;wasm);
+//!
+//!     wasm_module_t* module = wasm_module_new(store, &amp;wasm);
+//!     assert(module);
+//!     
+//!     // Instantiate the module.
+//!     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+//!     wasm_trap_t* trap = NULL;
+//!     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);
+//!     assert(instance);
+//!     
+//!     // Here we go. At this step, we will get the `add_two` exported function, and
+//!     // call it.
+//!     wasm_extern_vec_t exports;
+//!     wasm_instance_exports(instance, &amp;exports);
+//!     assert(exports.size &gt;= 1);
+//!     assert(wasm_extern_kind(exports.data[0]) == WASM_EXTERN_FUNC);
+//!
+//!     const wasm_func_t* add_two = wasm_extern_as_func(exports.data[0]);
+//!     assert(add_two);
+//!
+//!     wasm_val_t arguments[1] = { WASM_I32_VAL(41) };
+//!     wasm_val_t results[1] = { WASM_INIT_VAL };
+//!
+//!     wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
+//!     wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
+//!
+//!     // Let&#39;s call `add_two` for the first time!
+//!     {
+//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);
+//!         assert(trap == NULL);
+//!         assert(results[0].of.i32 == 42);
+//!
+//!         // There is 6 points left!
+//!         assert(wasmer_metering_get_remaining_points(instance) == 6);
+//!         assert(wasmer_metering_points_are_exhausted(instance) == false);
+//!     }
+//!
+//!     // Let&#39;s call `add_two` for the second time!
+//!     {
+//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);
+//!         assert(trap == NULL);
+//!         assert(results[0].of.i32 == 42);
+//!
+//!         // There is 2 points left!
+//!         assert(wasmer_metering_get_remaining_points(instance) == 2);
+//!         assert(wasmer_metering_points_are_exhausted(instance) == false);
+//!     }
+//!
+//!     // Let&#39;s call `add_two` for the third time!
+//!     {
+//!         trap = wasm_func_call(add_two, &amp;arguments_as_array, &amp;results_as_array);
+//!         // Oh, it failed!
+//!         assert(trap != NULL);
+//!
+//!         // There is 0 point left… they are exhausted.
+//!         assert(wasmer_metering_points_are_exhausted(instance) == true);
+//!     }
+//!
+//!     wasm_extern_vec_delete(&amp;exports);
+//!     wasm_instance_delete(instance);
+//!     wasm_module_delete(module);
+//!     wasm_store_delete(store);
+//!     wasm_engine_delete(engine);
+//!
+//!     return 0;
+//! }
+//! #    })
+//! #    .success();
+//! # }
+//! ```
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::<span class="kw">super</span>::instance::wasm_instance_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::parser::operator::wasmer_parser_operator_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::wasmer_middleware_t</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_api::wasmparser::Operator</span>;
-<span class="kw">use</span> <span class="ident">wasmer_middlewares</span>::{
-    <span class="ident">metering</span>::{<span class="ident">get_remaining_points</span>, <span class="ident">set_remaining_points</span>, <span class="ident">MeteringPoints</span>},
-    <span class="ident">Metering</span>,
+</span><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::<span class="kw">super</span>::instance::wasm_instance_t;
+<span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::parser::operator::wasmer_parser_operator_t;
+<span class="kw">use </span><span class="kw">super</span>::wasmer_middleware_t;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_api::wasmparser::Operator;
+<span class="kw">use </span>wasmer_middlewares::{
+    metering::{get_remaining_points, set_remaining_points, MeteringPoints},
+    Metering,
 };
 
-<span class="doccomment">/// Opaque type representing a metering middleware.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// To transform this specific middleware into a generic one, please</span>
-<span class="doccomment">/// see [`wasmer_metering_as_middleware`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>, <span class="ident">clippy::type_complexity</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_metering_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) -&gt; <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Opaque type representing a metering middleware.
+///
+/// To transform this specific middleware into a generic one, please
+/// see [`wasmer_metering_as_middleware`].
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[allow(non_camel_case_types, clippy::type_complexity)]
+</span><span class="kw">pub struct </span>wasmer_metering_t {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Arc&lt;Metering&lt;Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Operator) -&gt; u64 + Send + Sync&gt;&gt;&gt;,
 }
 
-<span class="doccomment">/// Function type to represent a user-defined cost function</span>
-<span class="doccomment">/// implemented in C.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">wasmer_metering_cost_function_t</span> <span class="op">=</span>
-    <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(<span class="ident">wasm_operator</span>: <span class="ident">wasmer_parser_operator_t</span>) -&gt; <span class="ident">u64</span>;
+<span class="doccomment">/// Function type to represent a user-defined cost function
+/// implemented in C.
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[allow(non_camel_case_types)]
+</span><span class="kw">pub type </span>wasmer_metering_cost_function_t =
+    <span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(wasm_operator: wasmer_parser_operator_t) -&gt; u64;
 
-<span class="doccomment">/// Creates a new metering middleware with an initial limit, i.e. a</span>
-<span class="doccomment">/// total number of operators to execute (regarding their respective</span>
-<span class="doccomment">/// cost), in addition to a cost function. The cost function defines</span>
-<span class="doccomment">/// the cost of an operation, that will decrease the initial limit.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_metering_new</span>(
-    <span class="ident">initial_limit</span>: <span class="ident">u64</span>,
-    <span class="ident">cost_function</span>: <span class="ident">wasmer_metering_cost_function_t</span>,
-) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_metering_t</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">cost_function</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">operator</span>: <span class="kw-2">&amp;</span><span class="ident">Operator</span><span class="op">|</span> -&gt; <span class="ident">u64</span> { <span class="ident">cost_function</span>(<span class="ident">operator</span>.<span class="ident">into</span>()) };
+<span class="doccomment">/// Creates a new metering middleware with an initial limit, i.e. a
+/// total number of operators to execute (regarding their respective
+/// cost), in addition to a cost function. The cost function defines
+/// the cost of an operation, that will decrease the initial limit.
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_metering_new(
+    initial_limit: u64,
+    cost_function: wasmer_metering_cost_function_t,
+) -&gt; Box&lt;wasmer_metering_t&gt; {
+    <span class="kw">let </span>cost_function = <span class="kw">move </span>|operator: <span class="kw-2">&amp;</span>Operator| -&gt; u64 { cost_function(operator.into()) };
 
-    <span class="ident">Box::new</span>(<span class="ident">wasmer_metering_t</span> {
-        <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">Metering::new</span>(<span class="ident">initial_limit</span>, <span class="ident">Box::new</span>(<span class="ident">cost_function</span>))),
+    Box::new(wasmer_metering_t {
+        inner: Arc::new(Metering::new(initial_limit, Box::new(cost_function))),
     })
 }
 
-<span class="doccomment">/// Deletes a [`wasmer_metering_t`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_metering_delete</span>(<span class="ident">_metering</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_metering_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="doccomment">/// Deletes a [`wasmer_metering_t`].
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_metering_delete(_metering: <span class="prelude-ty">Option</span>&lt;Box&lt;wasmer_metering_t&gt;&gt;) {}
 
-<span class="doccomment">/// Returns the remaining metering points. `u64::MAX` means</span>
-<span class="doccomment">/// points are exhausted, otherwise it returns the number of</span>
-<span class="doccomment">/// points. Notice that it could include zero! Zero doesn&#39;t mean</span>
-<span class="doccomment">/// points are exhausted _yet_.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_metering_get_remaining_points</span>(
-    <span class="ident">instance</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_instance_t</span>,
-) -&gt; <span class="ident">u64</span> {
-    <span class="kw">match</span> <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;mut</span> <span class="ident">instance</span>.<span class="ident">store</span>.<span class="ident">store_mut</span>(), <span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">inner</span>) {
-        <span class="ident">MeteringPoints::Remaining</span>(<span class="ident">value</span>) =&gt; <span class="ident">value</span>,
-        <span class="ident">MeteringPoints::Exhausted</span> =&gt; <span class="ident">std::u64::MAX</span>,
+<span class="doccomment">/// Returns the remaining metering points. `u64::MAX` means
+/// points are exhausted, otherwise it returns the number of
+/// points. Notice that it could include zero! Zero doesn&#39;t mean
+/// points are exhausted _yet_.
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_metering_get_remaining_points(
+    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
+) -&gt; u64 {
+    <span class="kw">match </span>get_remaining_points(<span class="kw-2">&amp;mut </span>instance.store.store_mut(), <span class="kw-2">&amp;</span>instance.inner) {
+        MeteringPoints::Remaining(value) =&gt; value,
+        MeteringPoints::Exhausted =&gt; std::u64::MAX,
     }
 }
 
-<span class="doccomment">/// Returns true if the remaning points are exhausted, false otherwise.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_metering_points_are_exhausted</span>(
-    <span class="ident">instance</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_instance_t</span>,
-) -&gt; <span class="ident">bool</span> {
+<span class="doccomment">/// Returns true if the remaning points are exhausted, false otherwise.
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_metering_points_are_exhausted(
+    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
+) -&gt; bool {
     <span class="macro">matches!</span>(
-        <span class="ident">get_remaining_points</span>(<span class="kw-2">&amp;mut</span> <span class="ident">instance</span>.<span class="ident">store</span>.<span class="ident">store_mut</span>(), <span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">inner</span>),
-        <span class="ident">MeteringPoints::Exhausted</span>,
+        get_remaining_points(<span class="kw-2">&amp;mut </span>instance.store.store_mut(), <span class="kw-2">&amp;</span>instance.inner),
+        MeteringPoints::Exhausted,
     )
 }
 
-<span class="doccomment">/// Set a new amount of points for the given metering middleware.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This example only illustrates the</span>
-<span class="doccomment">/// `wasmer_metering_set_remaining_points` function, as the number of</span>
-<span class="doccomment">/// points aren&#39;t updated by the WebAssembly module execution</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// // Define a dummy “cost function”.</span>
-<span class="doccomment">/// uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {</span>
-<span class="doccomment">///     switch(wasm_operator) {</span>
-<span class="doccomment">///         default:</span>
-<span class="doccomment">///             return 0;</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Set the initial amount of points to 7.</span>
-<span class="doccomment">///     wasmer_metering_t* metering = wasmer_metering_new(7, cost_function);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Consume `metering` to produce `middleware`.</span>
-<span class="doccomment">///     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the configuration (which consumes `middleware`),</span>
-<span class="doccomment">///     // the engine, and the store.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///     wasm_config_push_middleware(config, middleware);</span>
-<span class="doccomment">///     </span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">///     </span>
-<span class="doccomment">///     // Create the module and instantiate it.</span>
-<span class="doccomment">///     wasm_byte_vec_t wat;</span>
-<span class="doccomment">///     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(module)&quot;);</span>
-<span class="doccomment">///     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">///     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);</span>
-<span class="doccomment">///     assert(module);</span>
-<span class="doccomment">///     </span>
-<span class="doccomment">///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">///     wasm_trap_t* trap = NULL;</span>
-<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
-<span class="doccomment">///     assert(instance);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Read the number of points.</span>
-<span class="doccomment">///     assert(wasmer_metering_get_remaining_points(instance) == 7);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Set a new number of points.</span>
-<span class="doccomment">///     wasmer_metering_set_remaining_points(instance, 42);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Read the number of points.</span>
-<span class="doccomment">///     assert(wasmer_metering_get_remaining_points(instance) == 42);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     wasm_instance_delete(instance);</span>
-<span class="doccomment">///     wasm_module_delete(module);</span>
-<span class="doccomment">///     wasm_store_delete(store);</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_metering_set_remaining_points</span>(
-    <span class="ident">instance</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_instance_t</span>,
-    <span class="ident">new_limit</span>: <span class="ident">u64</span>,
+<span class="doccomment">/// Set a new amount of points for the given metering middleware.
+///
+/// # Example
+///
+/// This example only illustrates the
+/// `wasmer_metering_set_remaining_points` function, as the number of
+/// points aren&#39;t updated by the WebAssembly module execution
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// // Define a dummy “cost function”.
+/// uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {
+///     switch(wasm_operator) {
+///         default:
+///             return 0;
+///     }
+/// }
+///
+/// int main() {
+///     // Set the initial amount of points to 7.
+///     wasmer_metering_t* metering = wasmer_metering_new(7, cost_function);
+///
+///     // Consume `metering` to produce `middleware`.
+///     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);
+///
+///     // Create the configuration (which consumes `middleware`),
+///     // the engine, and the store.
+///     wasm_config_t* config = wasm_config_new();
+///     wasm_config_push_middleware(config, middleware);
+///     
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     wasm_store_t* store = wasm_store_new(engine);
+///     
+///     // Create the module and instantiate it.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(module)&quot;);
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&amp;wat, &amp;wasm);
+///
+///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);
+///     assert(module);
+///     
+///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+///     wasm_trap_t* trap = NULL;
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);
+///     assert(instance);
+///
+///     // Read the number of points.
+///     assert(wasmer_metering_get_remaining_points(instance) == 7);
+///
+///     // Set a new number of points.
+///     wasmer_metering_set_remaining_points(instance, 42);
+///
+///     // Read the number of points.
+///     assert(wasmer_metering_get_remaining_points(instance) == 42);
+///
+///     wasm_instance_delete(instance);
+///     wasm_module_delete(module);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_metering_set_remaining_points(
+    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
+    new_limit: u64,
 ) {
-    <span class="ident">set_remaining_points</span>(<span class="kw-2">&amp;mut</span> <span class="ident">instance</span>.<span class="ident">store</span>.<span class="ident">store_mut</span>(), <span class="kw-2">&amp;</span><span class="ident">instance</span>.<span class="ident">inner</span>, <span class="ident">new_limit</span>);
+    set_remaining_points(<span class="kw-2">&amp;mut </span>instance.store.store_mut(), <span class="kw-2">&amp;</span>instance.inner, new_limit);
 }
 
-<span class="doccomment">/// Transforms a [`wasmer_metering_t`] into a generic</span>
-<span class="doccomment">/// [`wasmer_middleware_t`], to then be pushed in the configuration with</span>
-<span class="doccomment">/// [`wasm_config_push_middleware`][super::wasm_config_push_middleware].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function takes ownership of `metering`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See module&#39;s documentation.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_metering_as_middleware</span>(
-    <span class="ident">metering</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_metering_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_middleware_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">metering</span> <span class="op">=</span> <span class="ident">metering</span><span class="question-mark">?</span>;
+<span class="doccomment">/// Transforms a [`wasmer_metering_t`] into a generic
+/// [`wasmer_middleware_t`], to then be pushed in the configuration with
+/// [`wasm_config_push_middleware`][super::wasm_config_push_middleware].
+///
+/// This function takes ownership of `metering`.
+///
+/// # Example
+///
+/// See module&#39;s documentation.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_metering_as_middleware(
+    metering: <span class="prelude-ty">Option</span>&lt;Box&lt;wasmer_metering_t&gt;&gt;,
+) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasmer_middleware_t&gt;&gt; {
+    <span class="kw">let </span>metering = metering<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasmer_middleware_t</span> {
-        <span class="ident">inner</span>: <span class="ident">metering</span>.<span class="ident">inner</span>,
+    <span class="prelude-val">Some</span>(Box::new(wasmer_middleware_t {
+        inner: metering.inner,
     }))
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

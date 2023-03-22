@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/command/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/command/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -108,113 +108,113 @@
 <span id="106">106</span>
 <span id="107">107</span>
 <span id="108">108</span>
-</pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">builtins</span>;
+</pre><pre class="rust"><code><span class="kw">pub mod </span>builtins;
 
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashMap</span>, <span class="ident">sync::Arc</span>};
+<span class="kw">use </span>std::{collections::HashMap, sync::Arc};
 
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Store</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi::Errno</span>;
+<span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
+<span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">bin_factory::ModuleCache</span>, <span class="ident">syscalls::stderr_write</span>, <span class="ident">VirtualBusError</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiRuntime</span>,
+<span class="kw">use crate</span>::{
+    bin_factory::ModuleCache, syscalls::stderr_write, VirtualBusError, WasiEnv, WasiRuntime,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::task</span>::{<span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskJoinHandle</span>, <span class="ident">TaskStatus</span>};
+<span class="kw">use </span><span class="kw">super</span>::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
-<span class="doccomment">/// A command available to an OS environment.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualCommand</span>
-<span class="kw">where</span>
-    <span class="self">Self</span>: <span class="ident">std::fmt::Debug</span>,
+<span class="doccomment">/// A command available to an OS environment.
+</span><span class="kw">pub trait </span>VirtualCommand
+<span class="kw">where
+    </span><span class="self">Self</span>: std::fmt::Debug,
 {
-    <span class="doccomment">/// Returns the canonical name of the command.</span>
-    <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span>;
+    <span class="doccomment">/// Returns the canonical name of the command.
+    </span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str;
 
-    <span class="doccomment">/// Retrieve the command as as a [`std::any::Any`] reference.</span>
-    <span class="kw">fn</span> <span class="ident">as_any</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std::any::Any</span>;
+    <span class="doccomment">/// Retrieve the command as as a [`std::any::Any`] reference.
+    </span><span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>std::any::Any;
 
-    <span class="doccomment">/// Executes the command.</span>
-    <span class="kw">fn</span> <span class="ident">exec</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+    <span class="doccomment">/// Executes the command.
+    </span><span class="kw">fn </span>exec&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">parent_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
-        <span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span>;
+        parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;,
+        path: <span class="kw-2">&amp;</span>str,
+        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
+        config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt;;
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Commands</span> {
-    <span class="ident">commands</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualCommand</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Commands {
+    commands: HashMap&lt;String, Arc&lt;<span class="kw">dyn </span>VirtualCommand + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Commands</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">commands</span>: <span class="ident">HashMap::new</span>(),
+<span class="kw">impl </span>Commands {
+    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            commands: HashMap::new(),
         }
     }
 
-    <span class="comment">// TODO: this method should be somewhere on the runtime, not here.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_builtins</span>(
-        <span class="ident">runtime</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-        <span class="ident">compiled_modules</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleCache</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>();
-        <span class="kw">let</span> <span class="ident">cmd_wasmer</span> <span class="op">=</span> <span class="ident">builtins::cmd_wasmer::CmdWasmer::new</span>(<span class="ident">runtime</span>.<span class="ident">clone</span>(), <span class="ident">compiled_modules</span>);
-        <span class="ident">cmd</span>.<span class="ident">register_command</span>(<span class="ident">cmd_wasmer</span>);
+    <span class="comment">// TODO: this method should be somewhere on the runtime, not here.
+    </span><span class="kw">pub fn </span>new_with_builtins(
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+        compiled_modules: Arc&lt;ModuleCache&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>cmd = <span class="self">Self</span>::new();
+        <span class="kw">let </span>cmd_wasmer = builtins::cmd_wasmer::CmdWasmer::new(runtime.clone(), compiled_modules);
+        cmd.register_command(cmd_wasmer);
 
-        <span class="ident">cmd</span>
+        cmd
     }
 
-    <span class="doccomment">/// Register a command.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The command will be available with it&#39;s canonical name ([`VirtualCommand::name()`]) at /bin/NAME.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_command</span><span class="op">&lt;</span><span class="ident">C</span>: <span class="ident">VirtualCommand</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cmd</span>: <span class="ident">C</span>) {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;/bin/{}&quot;</span>, <span class="ident">cmd</span>.<span class="ident">name</span>());
-        <span class="self">self</span>.<span class="ident">register_command_with_path</span>(<span class="ident">cmd</span>, <span class="ident">path</span>);
+    <span class="doccomment">/// Register a command.
+    ///
+    /// The command will be available with it&#39;s canonical name ([`VirtualCommand::name()`]) at /bin/NAME.
+    </span><span class="kw">pub fn </span>register_command&lt;C: VirtualCommand + Send + Sync + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cmd: C) {
+        <span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;/bin/{}&quot;</span>, cmd.name());
+        <span class="self">self</span>.register_command_with_path(cmd, path);
     }
 
-    <span class="doccomment">/// Register a command at a custom path.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_command_with_path</span><span class="op">&lt;</span><span class="ident">C</span>: <span class="ident">VirtualCommand</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cmd</span>: <span class="ident">C</span>,
-        <span class="ident">path</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// Register a command at a custom path.
+    </span><span class="kw">pub fn </span>register_command_with_path&lt;C: VirtualCommand + Send + Sync + <span class="lifetime">&#39;static</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cmd: C,
+        path: String,
     ) {
-        <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">insert</span>(<span class="ident">path</span>, <span class="ident">Arc::new</span>(<span class="ident">cmd</span>));
+        <span class="self">self</span>.commands.insert(path, Arc::new(cmd));
     }
 
-    <span class="doccomment">/// Determine if a command exists at the given path.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exists</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string</span>();
-        <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>)
+    <span class="doccomment">/// Determine if a command exists at the given path.
+    </span><span class="kw">pub fn </span>exists(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        <span class="kw">let </span>name = path.to_string();
+        <span class="self">self</span>.commands.contains_key(<span class="kw-2">&amp;</span>name)
     }
 
-    <span class="doccomment">/// Get a command by its path.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualCommand</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">get</span>(<span class="ident">path</span>)
+    <span class="doccomment">/// Get a command by its path.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualCommand + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="self">self</span>.commands.get(path)
     }
 
-    <span class="doccomment">/// Execute a command.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exec</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+    <span class="doccomment">/// Execute a command.
+    </span><span class="kw">pub fn </span>exec&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">parent_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
-        <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cmd</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
-            <span class="ident">cmd</span>.<span class="ident">exec</span>(<span class="ident">parent_ctx</span>, <span class="ident">path</span>.<span class="ident">as_str</span>(), <span class="ident">store</span>, <span class="ident">builder</span>)
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">stderr_write</span>(
-                <span class="ident">parent_ctx</span>,
-                <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, <span class="ident">path</span>).<span class="ident">as_bytes</span>(),
+        parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;,
+        path: <span class="kw-2">&amp;</span>str,
+        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
+        builder: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+        <span class="kw">let </span>path = path.to_string();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = <span class="self">self</span>.commands.get(<span class="kw-2">&amp;</span>path) {
+            cmd.exec(parent_ctx, path.as_str(), store, builder)
+        } <span class="kw">else </span>{
+            <span class="kw">let _ </span>= stderr_write(
+                parent_ctx,
+                <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, path).as_bytes(),
             );
 
-            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span>.<span class="ident">into</span>())));
-            <span class="prelude-val">Ok</span>(<span class="ident">res</span>.<span class="ident">handle</span>())
+            <span class="kw">let </span>res = OwnedTaskStatus::new(TaskStatus::Finished(<span class="prelude-val">Ok</span>(Errno::Noent.into())));
+            <span class="prelude-val">Ok</span>(res.handle())
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

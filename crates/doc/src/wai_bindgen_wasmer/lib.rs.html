@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -234,241 +234,241 @@
 <span id="234">234</span>
 <span id="235">235</span>
 <span id="236">236</span>
-</pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wai_bindgen_wasmer_impl</span>::{<span class="ident">export</span>, <span class="ident">import</span>};
+</pre><pre class="rust"><code><span class="kw">pub use </span>wai_bindgen_wasmer_impl::{export, import};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tracing-lib&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tracing_lib</span> <span class="kw">as</span> <span class="ident">tracing</span>;
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> {<span class="ident">anyhow</span>, <span class="ident">bitflags</span>, <span class="ident">once_cell</span>, <span class="ident">wasmer</span>};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;async&quot;</span>)]
+</span><span class="kw">pub use </span>async_trait::async_trait;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;tracing-lib&quot;</span>)]
+</span><span class="kw">pub use </span>tracing_lib <span class="kw">as </span>tracing;
+<span class="attribute">#[doc(hidden)]
+</span><span class="kw">pub use </span>{anyhow, bitflags, once_cell, wasmer};
 
-<span class="kw">mod</span> <span class="ident">error</span>;
-<span class="kw">mod</span> <span class="ident">le</span>;
-<span class="kw">mod</span> <span class="ident">region</span>;
-<span class="kw">mod</span> <span class="ident">slab</span>;
-<span class="kw">mod</span> <span class="ident">table</span>;
+<span class="kw">mod </span>error;
+<span class="kw">mod </span>le;
+<span class="kw">mod </span>region;
+<span class="kw">mod </span>slab;
+<span class="kw">mod </span>table;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">error::GuestError</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">le</span>::{<span class="ident">Endian</span>, <span class="ident">Le</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">region</span>::{<span class="ident">AllBytesValid</span>, <span class="ident">BorrowChecker</span>, <span class="ident">Region</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">table</span>::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>error::GuestError;
+<span class="kw">pub use </span>le::{Endian, Le};
+<span class="kw">pub use </span>region::{AllBytesValid, BorrowChecker, Region};
+<span class="kw">pub use </span>table::<span class="kw-2">*</span>;
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RawMemory</span> {
-    <span class="kw">pub</span> <span class="ident">slice</span>: <span class="kw-2">*mut</span> [<span class="ident">u8</span>],
+<span class="kw">pub struct </span>RawMemory {
+    <span class="kw">pub </span>slice: <span class="kw-2">*mut </span>[u8],
 }
 
-<span class="comment">// This type is threadsafe despite its internal pointer because it allows no</span>
-<span class="comment">// safe access to the internal pointer. Consumers must uphold Send/Sync</span>
-<span class="comment">// guarantees themselves.</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">RawMemory</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">RawMemory</span> {}
+<span class="comment">// This type is threadsafe despite its internal pointer because it allows no
+// safe access to the internal pointer. Consumers must uphold Send/Sync
+// guarantees themselves.
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>RawMemory {}
+<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>RawMemory {}
 
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">rt</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::slab::Slab</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Endian</span>, <span class="ident">Le</span>};
-    <span class="kw">use</span> <span class="ident">std::mem</span>;
-    <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[doc(hidden)]
+</span><span class="kw">pub mod </span>rt {
+    <span class="kw">use </span><span class="kw">crate</span>::slab::Slab;
+    <span class="kw">use crate</span>::{Endian, Le};
+    <span class="kw">use </span>std::mem;
+    <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 
-    <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">RawMem</span> {
-        <span class="kw">fn</span> <span class="ident">store</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">val</span>: <span class="ident">T</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span>;
-        <span class="kw">fn</span> <span class="ident">store_many</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">vals</span>: <span class="kw-2">&amp;</span>[<span class="ident">T</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span>;
-        <span class="kw">fn</span> <span class="ident">load</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>;
+    <span class="kw">pub trait </span>RawMem {
+        <span class="kw">fn </span>store&lt;T: Endian&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: i32, val: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt;;
+        <span class="kw">fn </span>store_many&lt;T: Endian&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: i32, vals: <span class="kw-2">&amp;</span>[T]) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt;;
+        <span class="kw">fn </span>load&lt;T: Endian&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, offset: i32) -&gt; <span class="prelude-ty">Result</span>&lt;T, RuntimeError&gt;;
     }
 
-    <span class="kw">impl</span> <span class="ident">RawMem</span> <span class="kw">for</span> [<span class="ident">u8</span>] {
-        <span class="kw">fn</span> <span class="ident">store</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">val</span>: <span class="ident">T</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">get_mut</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>..)
-                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">get_mut</span>(..<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>()))
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="string">&quot;out of bounds write&quot;</span>))<span class="question-mark">?</span>;
-            <span class="ident">Le::from_slice_mut</span>(<span class="ident">mem</span>)[<span class="number">0</span>].<span class="ident">set</span>(<span class="ident">val</span>);
+    <span class="kw">impl </span>RawMem <span class="kw">for </span>[u8] {
+        <span class="kw">fn </span>store&lt;T: Endian&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: i32, val: T) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+            <span class="kw">let </span>mem = <span class="self">self
+                </span>.get_mut(offset <span class="kw">as </span>usize..)
+                .and_then(|m| m.get_mut(..mem::size_of::&lt;T&gt;()))
+                .ok_or_else(|| RuntimeError::new(<span class="string">&quot;out of bounds write&quot;</span>))<span class="question-mark">?</span>;
+            Le::from_slice_mut(mem)[<span class="number">0</span>].set(val);
             <span class="prelude-val">Ok</span>(())
         }
 
-        <span class="kw">fn</span> <span class="ident">store_many</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>, <span class="ident">val</span>: <span class="kw-2">&amp;</span>[<span class="ident">T</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">get_mut</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>..)
-                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> {
-                    <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>().<span class="ident">checked_mul</span>(<span class="ident">val</span>.<span class="ident">len</span>())<span class="question-mark">?</span>;
-                    <span class="ident">m</span>.<span class="ident">get_mut</span>(..<span class="ident">len</span>)
+        <span class="kw">fn </span>store_many&lt;T: Endian&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: i32, val: <span class="kw-2">&amp;</span>[T]) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+            <span class="kw">let </span>mem = <span class="self">self
+                </span>.get_mut(offset <span class="kw">as </span>usize..)
+                .and_then(|m| {
+                    <span class="kw">let </span>len = mem::size_of::&lt;T&gt;().checked_mul(val.len())<span class="question-mark">?</span>;
+                    m.get_mut(..len)
                 })
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="string">&quot;out of bounds write&quot;</span>))<span class="question-mark">?</span>;
-            <span class="kw">for</span> (<span class="ident">slot</span>, <span class="ident">val</span>) <span class="kw">in</span> <span class="ident">Le::from_slice_mut</span>(<span class="ident">mem</span>).<span class="ident">iter_mut</span>().<span class="ident">zip</span>(<span class="ident">val</span>) {
-                <span class="ident">slot</span>.<span class="ident">set</span>(<span class="kw-2">*</span><span class="ident">val</span>);
+                .ok_or_else(|| RuntimeError::new(<span class="string">&quot;out of bounds write&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">for </span>(slot, val) <span class="kw">in </span>Le::from_slice_mut(mem).iter_mut().zip(val) {
+                slot.set(<span class="kw-2">*</span>val);
             }
             <span class="prelude-val">Ok</span>(())
         }
 
-        <span class="kw">fn</span> <span class="ident">load</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">mem</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">get</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>..)
-                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">get</span>(..<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>()))
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="string">&quot;out of bounds read&quot;</span>))<span class="question-mark">?</span>;
-            <span class="prelude-val">Ok</span>(<span class="ident">Le::from_slice</span>(<span class="ident">mem</span>)[<span class="number">0</span>].<span class="ident">get</span>())
+        <span class="kw">fn </span>load&lt;T: Endian&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, offset: i32) -&gt; <span class="prelude-ty">Result</span>&lt;T, RuntimeError&gt; {
+            <span class="kw">let </span>mem = <span class="self">self
+                </span>.get(offset <span class="kw">as </span>usize..)
+                .and_then(|m| m.get(..mem::size_of::&lt;Le&lt;T&gt;&gt;()))
+                .ok_or_else(|| RuntimeError::new(<span class="string">&quot;out of bounds read&quot;</span>))<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(Le::from_slice(mem)[<span class="number">0</span>].get())
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">char_from_i32</span>(<span class="ident">val</span>: <span class="ident">i32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">char</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="ident">core::char::from_u32</span>(<span class="ident">val</span> <span class="kw">as</span> <span class="ident">u32</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="string">&quot;char value out of valid range&quot;</span>))
+    <span class="kw">pub fn </span>char_from_i32(val: i32) -&gt; <span class="prelude-ty">Result</span>&lt;char, RuntimeError&gt; {
+        core::char::from_u32(val <span class="kw">as </span>u32)
+            .ok_or_else(|| RuntimeError::new(<span class="string">&quot;char value out of valid range&quot;</span>))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invalid_variant</span>(<span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">RuntimeError</span> {
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;invalid discriminant for `{}`&quot;</span>, <span class="ident">name</span>);
-        <span class="ident">RuntimeError::new</span>(<span class="ident">msg</span>)
+    <span class="kw">pub fn </span>invalid_variant(name: <span class="kw-2">&amp;</span>str) -&gt; RuntimeError {
+        <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;invalid discriminant for `{}`&quot;</span>, name);
+        RuntimeError::new(msg)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate_flags</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">U</span><span class="op">&gt;</span>(
-        <span class="ident">bits</span>: <span class="ident">T</span>,
-        <span class="ident">all</span>: <span class="ident">T</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">mk</span>: <span class="kw">impl</span> <span class="ident">FnOnce</span>(<span class="ident">T</span>) -&gt; <span class="ident">U</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">U</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
-    <span class="kw">where</span>
-        <span class="ident">T</span>: <span class="ident">std::ops::Not</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">std::ops::BitAnd</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">T</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">PartialEq</span> <span class="op">+</span> <span class="ident">Copy</span>,
+    <span class="kw">pub fn </span>validate_flags&lt;T, U&gt;(
+        bits: T,
+        all: T,
+        name: <span class="kw-2">&amp;</span>str,
+        mk: <span class="kw">impl </span>FnOnce(T) -&gt; U,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;U, RuntimeError&gt;
+    <span class="kw">where
+        </span>T: std::ops::Not&lt;Output = T&gt; + std::ops::BitAnd&lt;Output = T&gt; + From&lt;u8&gt; + PartialEq + Copy,
     {
-        <span class="kw">if</span> <span class="ident">bits</span> <span class="op">&amp;</span> <span class="op">!</span><span class="ident">all</span> <span class="op">!</span><span class="op">=</span> <span class="number">0u8</span>.<span class="ident">into</span>() {
-            <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;invalid flags specified for `{}`&quot;</span>, <span class="ident">name</span>);
-            <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="ident">msg</span>))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">mk</span>(<span class="ident">bits</span>))
+        <span class="kw">if </span>bits &amp; !all != <span class="number">0u8</span>.into() {
+            <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;invalid flags specified for `{}`&quot;</span>, name);
+            <span class="prelude-val">Err</span>(RuntimeError::new(msg))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(mk(bits))
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bad_int</span>(<span class="kw">_</span>: <span class="ident">std::num::TryFromIntError</span>) -&gt; <span class="ident">RuntimeError</span> {
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="string">&quot;out-of-bounds integer conversion&quot;</span>;
-        <span class="ident">RuntimeError::new</span>(<span class="ident">msg</span>)
+    <span class="kw">pub fn </span>bad_int(<span class="kw">_</span>: std::num::TryFromIntError) -&gt; RuntimeError {
+        <span class="kw">let </span>msg = <span class="string">&quot;out-of-bounds integer conversion&quot;</span>;
+        RuntimeError::new(msg)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_slice</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasmer::Store</span>,
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span>,
-        <span class="ident">free</span>: <span class="kw-2">&amp;</span><span class="ident">TypedFunction</span><span class="op">&lt;</span>(<span class="ident">i32</span>, <span class="ident">i32</span>, <span class="ident">i32</span>), ()<span class="op">&gt;</span>,
-        <span class="ident">base</span>: <span class="ident">i32</span>,
-        <span class="ident">len</span>: <span class="ident">i32</span>,
-        <span class="ident">align</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> (<span class="ident">len</span> <span class="kw">as</span> <span class="ident">u32</span>)
-            .<span class="ident">checked_mul</span>(<span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="ident">u32</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="string">&quot;array too large to fit in wasm memory&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">memory_view</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">view</span>(<span class="ident">store</span>);
-        <span class="kw">let</span> <span class="ident">slice</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="ident">memory_view</span>
-                .<span class="ident">data_unchecked</span>()
-                .<span class="ident">get</span>(<span class="ident">base</span> <span class="kw">as</span> <span class="ident">usize</span>..)
-                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">get</span>(..<span class="ident">size</span> <span class="kw">as</span> <span class="ident">usize</span>))
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="string">&quot;out of bounds read&quot;</span>))<span class="question-mark">?</span>
-        };
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">Le::from_slice</span>(<span class="ident">slice</span>).<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">get</span>()).<span class="ident">collect</span>();
-        <span class="ident">free</span>.<span class="ident">call</span>(<span class="ident">store</span>, <span class="ident">base</span>, <span class="ident">size</span> <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">align</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
+    <span class="kw">pub fn </span>copy_slice&lt;T: Endian&gt;(
+        store: <span class="kw-2">&amp;mut </span>wasmer::Store,
+        memory: <span class="kw-2">&amp;</span>Memory,
+        free: <span class="kw-2">&amp;</span>TypedFunction&lt;(i32, i32, i32), ()&gt;,
+        base: i32,
+        len: i32,
+        align: i32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;, RuntimeError&gt; {
+        <span class="kw">let </span>size = (len <span class="kw">as </span>u32)
+            .checked_mul(mem::size_of::&lt;T&gt;() <span class="kw">as </span>u32)
+            .ok_or_else(|| RuntimeError::new(<span class="string">&quot;array too large to fit in wasm memory&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>memory_view = memory.view(store);
+        <span class="kw">let </span>slice = <span class="kw">unsafe </span>{
+            memory_view
+                .data_unchecked()
+                .get(base <span class="kw">as </span>usize..)
+                .and_then(|s| s.get(..size <span class="kw">as </span>usize))
+                .ok_or_else(|| RuntimeError::new(<span class="string">&quot;out of bounds read&quot;</span>))<span class="question-mark">?
+        </span>};
+        <span class="kw">let </span>result = Le::from_slice(slice).iter().map(|s| s.get()).collect();
+        free.call(store, base, size <span class="kw">as </span>i32, align)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(result)
     }
 
-    <span class="macro">macro_rules!</span> <span class="ident">as_traits</span> {
-        ($((<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tr</span>:<span class="ident">ident</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>:<span class="ident">ident</span> ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">tys</span>:<span class="ident">ident</span>)<span class="kw-2">*</span>)))<span class="kw-2">*</span>) =&gt; ($(
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tr</span><span class="op">&gt;</span>(<span class="ident">t</span>: <span class="ident">T</span>) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
-                <span class="ident">t</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>()
+    <span class="macro">macro_rules! </span>as_traits {
+        ($((<span class="macro-nonterminal">$name</span>:ident <span class="macro-nonterminal">$tr</span>:ident <span class="macro-nonterminal">$ty</span>:ident ($(<span class="macro-nonterminal">$tys</span>:ident)<span class="kw-2">*</span>)))<span class="kw-2">*</span>) =&gt; ($(
+            <span class="kw">pub fn </span><span class="macro-nonterminal">$name</span>&lt;T: <span class="macro-nonterminal">$tr</span>&gt;(t: T) -&gt; <span class="macro-nonterminal">$ty </span>{
+                t.<span class="macro-nonterminal">$name</span>()
             }
 
-            <span class="kw">pub</span> <span class="kw">trait</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tr</span> {
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::wrong_self_convention</span>)]</span>
-                <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>;
+            <span class="kw">pub trait </span><span class="macro-nonterminal">$tr </span>{
+                <span class="attribute">#[allow(clippy::wrong_self_convention)]
+                </span><span class="kw">fn </span><span class="macro-nonterminal">$name</span>(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$ty</span>;
             }
 
-            <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tr</span><span class="op">&gt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tr</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span> {
-                <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
-                    (<span class="kw-2">*</span><span class="self">self</span>).<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>()
+            <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: Copy + <span class="macro-nonterminal">$tr</span>&gt; <span class="macro-nonterminal">$tr </span><span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T {
+                <span class="kw">fn </span><span class="macro-nonterminal">$name</span>(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$ty </span>{
+                    (<span class="kw-2">*</span><span class="self">self</span>).<span class="macro-nonterminal">$name</span>()
                 }
             }
 
             $(
-                <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tr</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">tys</span> {
-                    <span class="attribute">#[<span class="ident">inline</span>]</span>
-                    <span class="kw">fn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span> {
-                        <span class="self">self</span> <span class="kw">as</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ty</span>
-                    }
+                <span class="kw">impl </span><span class="macro-nonterminal">$tr </span><span class="kw">for </span><span class="macro-nonterminal">$tys </span>{
+                    <span class="attribute">#[inline]
+                    </span><span class="kw">fn </span><span class="macro-nonterminal">$name</span>(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$ty </span>{
+                        <span class="self">self </span><span class="kw">as </span><span class="macro-nonterminal">$ty
+                    </span>}
                 }
-            )<span class="op">*</span>
+            )*
         )<span class="kw-2">*</span>)
     }
 
-    <span class="macro">as_traits!</span> {
-        (<span class="ident">as_i32</span> <span class="ident">AsI32</span> <span class="ident">i32</span> (<span class="ident">char</span> <span class="ident">i8</span> <span class="ident">u8</span> <span class="ident">i16</span> <span class="ident">u16</span> <span class="ident">i32</span> <span class="ident">u32</span>))
-        (<span class="ident">as_i64</span> <span class="ident">AsI64</span> <span class="ident">i64</span> (<span class="ident">i64</span> <span class="ident">u64</span>))
-        (<span class="ident">as_f32</span> <span class="ident">AsF32</span> <span class="ident">f32</span> (<span class="ident">f32</span>))
-        (<span class="ident">as_f64</span> <span class="ident">AsF64</span> <span class="ident">f64</span> (<span class="ident">f64</span>))
+    <span class="macro">as_traits! </span>{
+        (as_i32 AsI32 i32 (char i8 u8 i16 u16 i32 u32))
+        (as_i64 AsI64 i64 (i64 u64))
+        (as_f32 AsF32 f32 (f32))
+        (as_f64 AsF64 f64 (f64))
     }
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Debug</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">IndexSlab</span> {
-        <span class="ident">slab</span>: <span class="ident">Slab</span><span class="op">&lt;</span><span class="ident">ResourceIndex</span><span class="op">&gt;</span>,
+    <span class="attribute">#[derive(Default, Debug)]
+    </span><span class="kw">pub struct </span>IndexSlab {
+        slab: Slab&lt;ResourceIndex&gt;,
     }
 
-    <span class="kw">impl</span> <span class="ident">IndexSlab</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">resource</span>: <span class="ident">ResourceIndex</span>) -&gt; <span class="ident">u32</span> {
-            <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">insert</span>(<span class="ident">resource</span>)
+    <span class="kw">impl </span>IndexSlab {
+        <span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, resource: ResourceIndex) -&gt; u32 {
+            <span class="self">self</span>.slab.insert(resource)
         }
 
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">slab_idx</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ResourceIndex</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">get</span>(<span class="ident">slab_idx</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">idx</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span><span class="ident">idx</span>),
-                <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;invalid index specified for handle&quot;</span>)),
+        <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, slab_idx: u32) -&gt; <span class="prelude-ty">Result</span>&lt;ResourceIndex, RuntimeError&gt; {
+            <span class="kw">match </span><span class="self">self</span>.slab.get(slab_idx) {
+                <span class="prelude-val">Some</span>(idx) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
+                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;invalid index specified for handle&quot;</span>)),
             }
         }
 
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">remove</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">slab_idx</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ResourceIndex</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">remove</span>(<span class="ident">slab_idx</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">idx</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">idx</span>),
-                <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;invalid index specified for handle&quot;</span>)),
+        <span class="kw">pub fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, slab_idx: u32) -&gt; <span class="prelude-ty">Result</span>&lt;ResourceIndex, RuntimeError&gt; {
+            <span class="kw">match </span><span class="self">self</span>.slab.remove(slab_idx) {
+                <span class="prelude-val">Some</span>(idx) =&gt; <span class="prelude-val">Ok</span>(idx),
+                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;invalid index specified for handle&quot;</span>)),
             }
         }
     }
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Debug</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ResourceSlab</span> {
-        <span class="ident">slab</span>: <span class="ident">Slab</span><span class="op">&lt;</span><span class="ident">Resource</span><span class="op">&gt;</span>,
+    <span class="attribute">#[derive(Default, Debug)]
+    </span><span class="kw">pub struct </span>ResourceSlab {
+        slab: Slab&lt;Resource&gt;,
     }
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">Resource</span> {
-        <span class="ident">wasm</span>: <span class="ident">i32</span>,
-        <span class="ident">refcnt</span>: <span class="ident">u32</span>,
+    <span class="attribute">#[derive(Debug)]
+    </span><span class="kw">struct </span>Resource {
+        wasm: i32,
+        refcnt: u32,
     }
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ResourceIndex</span>(<span class="ident">u32</span>);
+    <span class="attribute">#[derive(Debug, Copy, Clone)]
+    </span><span class="kw">pub struct </span>ResourceIndex(u32);
 
-    <span class="kw">impl</span> <span class="ident">ResourceSlab</span> {
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">insert</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">wasm</span>: <span class="ident">i32</span>) -&gt; <span class="ident">ResourceIndex</span> {
-            <span class="ident">ResourceIndex</span>(<span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">insert</span>(<span class="ident">Resource</span> { <span class="ident">wasm</span>, <span class="ident">refcnt</span>: <span class="number">1</span> }))
+    <span class="kw">impl </span>ResourceSlab {
+        <span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wasm: i32) -&gt; ResourceIndex {
+            ResourceIndex(<span class="self">self</span>.slab.insert(Resource { wasm, refcnt: <span class="number">1 </span>}))
         }
 
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">idx</span>: <span class="ident">ResourceIndex</span>) -&gt; <span class="ident">i32</span> {
-            <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">get</span>(<span class="ident">idx</span>.<span class="number">0</span>).<span class="ident">unwrap</span>().<span class="ident">wasm</span>
+        <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: ResourceIndex) -&gt; i32 {
+            <span class="self">self</span>.slab.get(idx.<span class="number">0</span>).unwrap().wasm
         }
 
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">idx</span>: <span class="ident">ResourceIndex</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">resource</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">get_mut</span>(<span class="ident">idx</span>.<span class="number">0</span>).<span class="ident">unwrap</span>();
-            <span class="ident">resource</span>.<span class="ident">refcnt</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">resource</span>.<span class="ident">refcnt</span>.<span class="ident">checked_add</span>(<span class="number">1</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">cnt</span>) =&gt; <span class="ident">cnt</span>,
-                <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;resource index count overflow&quot;</span>)),
+        <span class="kw">pub fn </span>clone(<span class="kw-2">&amp;mut </span><span class="self">self</span>, idx: ResourceIndex) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+            <span class="kw">let </span>resource = <span class="self">self</span>.slab.get_mut(idx.<span class="number">0</span>).unwrap();
+            resource.refcnt = <span class="kw">match </span>resource.refcnt.checked_add(<span class="number">1</span>) {
+                <span class="prelude-val">Some</span>(cnt) =&gt; cnt,
+                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;resource index count overflow&quot;</span>)),
             };
             <span class="prelude-val">Ok</span>(())
         }
 
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">idx</span>: <span class="ident">ResourceIndex</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">resource</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">get_mut</span>(<span class="ident">idx</span>.<span class="number">0</span>).<span class="ident">unwrap</span>();
-            <span class="macro">assert!</span>(<span class="ident">resource</span>.<span class="ident">refcnt</span> <span class="op">&gt;</span> <span class="number">0</span>);
-            <span class="ident">resource</span>.<span class="ident">refcnt</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="kw">if</span> <span class="ident">resource</span>.<span class="ident">refcnt</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                <span class="kw">return</span> <span class="prelude-val">None</span>;
+        <span class="kw">pub fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>, idx: ResourceIndex) -&gt; <span class="prelude-ty">Option</span>&lt;i32&gt; {
+            <span class="kw">let </span>resource = <span class="self">self</span>.slab.get_mut(idx.<span class="number">0</span>).unwrap();
+            <span class="macro">assert!</span>(resource.refcnt &gt; <span class="number">0</span>);
+            resource.refcnt -= <span class="number">1</span>;
+            <span class="kw">if </span>resource.refcnt != <span class="number">0 </span>{
+                <span class="kw">return </span><span class="prelude-val">None</span>;
             }
-            <span class="kw">let</span> <span class="ident">resource</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">slab</span>.<span class="ident">remove</span>(<span class="ident">idx</span>.<span class="number">0</span>).<span class="ident">unwrap</span>();
-            <span class="prelude-val">Some</span>(<span class="ident">resource</span>.<span class="ident">wasm</span>)
+            <span class="kw">let </span>resource = <span class="self">self</span>.slab.remove(idx.<span class="number">0</span>).unwrap();
+            <span class="prelude-val">Some</span>(resource.wasm)
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

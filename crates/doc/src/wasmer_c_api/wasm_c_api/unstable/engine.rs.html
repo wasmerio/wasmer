@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/unstable/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -257,262 +257,262 @@
 <span id="255">255</span>
 <span id="256">256</span>
 <span id="257">257</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific types for the</span>
-<span class="doccomment">//! `wasm_engine_t` and siblings.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific types for the
+//! `wasm_engine_t` and siblings.
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::engine::wasmer_compiler_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::<span class="kw">super</span>::engine</span>::{<span class="ident">wasm_config_t</span>, <span class="ident">wasmer_engine_t</span>};
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::engine::wasmer_compiler_t;
+<span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::engine::{wasm_config_t, wasmer_engine_t};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::features::wasmer_features_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::target_lexicon::wasmer_target_t</span>;
+<span class="kw">use </span><span class="kw">super</span>::features::wasmer_features_t;
+<span class="kw">use </span><span class="kw">super</span>::target_lexicon::wasmer_target_t;
 
-<span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the</span>
-<span class="doccomment">/// configuration to specify a particular target for the engine.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Set the target.</span>
-<span class="doccomment">///     {</span>
-<span class="doccomment">///         wasmer_triple_t* triple = wasmer_triple_new_from_host();</span>
-<span class="doccomment">///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();</span>
-<span class="doccomment">///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///         wasm_config_set_target(config, target);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_set_target</span>(<span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_config_t</span>, <span class="ident">target</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span>) {
-    <span class="ident">config</span>.<span class="ident">target</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>);
+<span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the
+/// configuration to specify a particular target for the engine.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Set the target.
+///     {
+///         wasmer_triple_t* triple = wasmer_triple_new_from_host();
+///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
+///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
+///
+///         wasm_config_set_target(config, target);
+///     }
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_set_target(config: <span class="kw-2">&amp;mut </span>wasm_config_t, target: Box&lt;wasmer_target_t&gt;) {
+    config.target = <span class="prelude-val">Some</span>(target);
 }
 
-<span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the</span>
-<span class="doccomment">/// configuration to specify particular features for the engine.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Set the target.</span>
-<span class="doccomment">///     {</span>
-<span class="doccomment">///         wasmer_features_t* features = wasmer_features_new();</span>
-<span class="doccomment">///         wasmer_features_simd(features, true);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///         wasm_config_set_features(config, features);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_set_features</span>(
-    <span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_config_t</span>,
-    <span class="ident">features</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the
+/// configuration to specify particular features for the engine.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Set the target.
+///     {
+///         wasmer_features_t* features = wasmer_features_new();
+///         wasmer_features_simd(features, true);
+///
+///         wasm_config_set_features(config, features);
+///     }
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_set_features(
+    config: <span class="kw-2">&amp;mut </span>wasm_config_t,
+    features: Box&lt;wasmer_features_t&gt;,
 ) {
-    <span class="ident">config</span>.<span class="ident">features</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>);
+    config.features = <span class="prelude-val">Some</span>(features);
 }
 
-<span class="doccomment">/// Updates the configuration to enable NaN canonicalization.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is a Wasmer-specific function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Enable NaN canonicalization.</span>
-<span class="doccomment">///     wasm_config_canonicalize_nans(config, true);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_canonicalize_nans</span>(<span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_config_t</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) {
-    <span class="ident">config</span>.<span class="ident">nan_canonicalization</span> <span class="op">=</span> <span class="ident">enable</span>;
+<span class="doccomment">/// Updates the configuration to enable NaN canonicalization.
+///
+/// This is a Wasmer-specific function.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Enable NaN canonicalization.
+///     wasm_config_canonicalize_nans(config, true);
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_canonicalize_nans(config: <span class="kw-2">&amp;mut </span>wasm_config_t, enable: bool) {
+    config.nan_canonicalization = enable;
 }
 
-<span class="doccomment">/// Check whether the given compiler is available, i.e. part of this</span>
-<span class="doccomment">/// compiled library.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_compiler_available</span>(<span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">match</span> <span class="ident">compiler</span> {
-        <span class="ident">wasmer_compiler_t::CRANELIFT</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) =&gt; <span class="bool-val">true</span>,
-        <span class="ident">wasmer_compiler_t::LLVM</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>) =&gt; <span class="bool-val">true</span>,
-        <span class="ident">wasmer_compiler_t::SINGLEPASS</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>) =&gt; <span class="bool-val">true</span>,
-        <span class="kw">_</span> =&gt; <span class="bool-val">false</span>,
+<span class="doccomment">/// Check whether the given compiler is available, i.e. part of this
+/// compiled library.
+</span><span class="attribute">#[no_mangle]
+#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_is_compiler_available(compiler: wasmer_compiler_t) -&gt; bool {
+    <span class="kw">match </span>compiler {
+        wasmer_compiler_t::CRANELIFT <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;cranelift&quot;</span>) =&gt; <span class="bool-val">true</span>,
+        wasmer_compiler_t::LLVM <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;llvm&quot;</span>) =&gt; <span class="bool-val">true</span>,
+        wasmer_compiler_t::SINGLEPASS <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;singlepass&quot;</span>) =&gt; <span class="bool-val">true</span>,
+        <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
     }
 }
 
-<span class="doccomment">/// Check whether there is no compiler available in this compiled</span>
-<span class="doccomment">/// library.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_headless</span>() -&gt; <span class="ident">bool</span> {
-    <span class="op">!</span><span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)
+<span class="doccomment">/// Check whether there is no compiler available in this compiled
+/// library.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_is_headless() -&gt; bool {
+    !<span class="macro">cfg!</span>(feature = <span class="string">&quot;compiler&quot;</span>)
 }
 
-<span class="doccomment">/// Check whether the given engine is available, i.e. part of this</span>
-<span class="doccomment">/// compiled library.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_is_engine_available</span>(<span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>) -&gt; <span class="ident">bool</span> {
-    <span class="macro">matches!</span>(<span class="ident">engine</span>, <span class="ident">wasmer_engine_t::UNIVERSAL</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))
+<span class="doccomment">/// Check whether the given engine is available, i.e. part of this
+/// compiled library.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_is_engine_available(engine: wasmer_engine_t) -&gt; bool {
+    <span class="macro">matches!</span>(engine, wasmer_engine_t::UNIVERSAL <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;compiler&quot;</span>))
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">use</span> <span class="ident">inline_c::assert_c</span>;
-    <span class="kw">use</span> <span class="ident">std::env</span>::{<span class="ident">remove_var</span>, <span class="ident">set_var</span>};
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+    </span><span class="kw">use </span>inline_c::assert_c;
+    <span class="kw">use </span>std::env::{remove_var, set_var};
+    <span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_wasmer_is_headless</span>() {
-        <span class="ident">set_var</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_wasmer_is_headless() {
+        set_var(
             <span class="string">&quot;COMPILER&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>) { <span class="string">&quot;0&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;1&quot;</span> },
+            <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;compiler&quot;</span>) { <span class="string">&quot;0&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;1&quot; </span>},
         );
 
-        (<span class="macro">assert_c!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
-            #<span class="ident">include</span> <span class="op">&lt;</span><span class="ident">stdlib</span>.<span class="ident">h</span><span class="op">&gt;</span>
+        (<span class="macro">assert_c! </span>{
+            #include <span class="string">&quot;tests/wasmer.h&quot;
+            </span>#include &lt;stdlib.h&gt;
 
-            <span class="ident">int</span> <span class="ident">main</span>() {
-                <span class="ident">assert</span>(<span class="ident">wasmer_is_headless</span>() <span class="op">==</span> (<span class="ident">getenv</span>(<span class="string">&quot;COMPILER&quot;</span>)[<span class="number">0</span>] <span class="op">==</span> <span class="string">&#39;1&#39;</span>));
+            int main() {
+                assert(wasmer_is_headless() == (getenv(<span class="string">&quot;COMPILER&quot;</span>)[<span class="number">0</span>] == <span class="string">&#39;1&#39;</span>));
 
-                <span class="kw">return</span> <span class="number">0</span>;
+                <span class="kw">return </span><span class="number">0</span>;
             }
         })
-        .<span class="ident">success</span>();
+        .success();
 
-        <span class="ident">remove_var</span>(<span class="string">&quot;COMPILER&quot;</span>);
+        remove_var(<span class="string">&quot;COMPILER&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_wasmer_is_compiler_available</span>() {
-        <span class="ident">set_var</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_wasmer_is_compiler_available() {
+        set_var(
             <span class="string">&quot;CRANELIFT&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>) {
-                <span class="string">&quot;1&quot;</span>
-            } <span class="kw">else</span> {
-                <span class="string">&quot;0&quot;</span>
-            },
+            <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;cranelift&quot;</span>) {
+                <span class="string">&quot;1&quot;
+            </span>} <span class="kw">else </span>{
+                <span class="string">&quot;0&quot;
+            </span>},
         );
-        <span class="ident">set_var</span>(<span class="string">&quot;LLVM&quot;</span>, <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> });
-        <span class="ident">set_var</span>(
+        set_var(<span class="string">&quot;LLVM&quot;</span>, <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;llvm&quot;</span>) { <span class="string">&quot;1&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;0&quot; </span>});
+        set_var(
             <span class="string">&quot;SINGLEPASS&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>) {
-                <span class="string">&quot;1&quot;</span>
-            } <span class="kw">else</span> {
-                <span class="string">&quot;0&quot;</span>
-            },
+            <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;singlepass&quot;</span>) {
+                <span class="string">&quot;1&quot;
+            </span>} <span class="kw">else </span>{
+                <span class="string">&quot;0&quot;
+            </span>},
         );
 
-        (<span class="macro">assert_c!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
-            #<span class="ident">include</span> <span class="op">&lt;</span><span class="ident">stdlib</span>.<span class="ident">h</span><span class="op">&gt;</span>
+        (<span class="macro">assert_c! </span>{
+            #include <span class="string">&quot;tests/wasmer.h&quot;
+            </span>#include &lt;stdlib.h&gt;
 
-            <span class="ident">int</span> <span class="ident">main</span>() {
-                <span class="ident">assert</span>(<span class="ident">wasmer_is_compiler_available</span>(<span class="ident">CRANELIFT</span>) <span class="op">==</span> (<span class="ident">getenv</span>(<span class="string">&quot;CRANELIFT&quot;</span>)[<span class="number">0</span>] <span class="op">==</span> <span class="string">&#39;1&#39;</span>));
-                <span class="ident">assert</span>(<span class="ident">wasmer_is_compiler_available</span>(<span class="ident">LLVM</span>) <span class="op">==</span> (<span class="ident">getenv</span>(<span class="string">&quot;LLVM&quot;</span>)[<span class="number">0</span>] <span class="op">==</span> <span class="string">&#39;1&#39;</span>));
-                <span class="ident">assert</span>(<span class="ident">wasmer_is_compiler_available</span>(<span class="ident">SINGLEPASS</span>) <span class="op">==</span> (<span class="ident">getenv</span>(<span class="string">&quot;SINGLEPASS&quot;</span>)[<span class="number">0</span>] <span class="op">==</span> <span class="string">&#39;1&#39;</span>));
+            int main() {
+                assert(wasmer_is_compiler_available(CRANELIFT) == (getenv(<span class="string">&quot;CRANELIFT&quot;</span>)[<span class="number">0</span>] == <span class="string">&#39;1&#39;</span>));
+                assert(wasmer_is_compiler_available(LLVM) == (getenv(<span class="string">&quot;LLVM&quot;</span>)[<span class="number">0</span>] == <span class="string">&#39;1&#39;</span>));
+                assert(wasmer_is_compiler_available(SINGLEPASS) == (getenv(<span class="string">&quot;SINGLEPASS&quot;</span>)[<span class="number">0</span>] == <span class="string">&#39;1&#39;</span>));
 
-                <span class="kw">return</span> <span class="number">0</span>;
+                <span class="kw">return </span><span class="number">0</span>;
             }
         })
-        .<span class="ident">success</span>();
+        .success();
 
-        <span class="ident">remove_var</span>(<span class="string">&quot;CRANELIFT&quot;</span>);
-        <span class="ident">remove_var</span>(<span class="string">&quot;LLVM&quot;</span>);
-        <span class="ident">remove_var</span>(<span class="string">&quot;SINGLEPASS&quot;</span>);
+        remove_var(<span class="string">&quot;CRANELIFT&quot;</span>);
+        remove_var(<span class="string">&quot;LLVM&quot;</span>);
+        remove_var(<span class="string">&quot;SINGLEPASS&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_wasmer_is_engine_available</span>() {
-        <span class="ident">set_var</span>(
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_wasmer_is_engine_available() {
+        set_var(
             <span class="string">&quot;UNIVERSAL&quot;</span>,
-            <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>) { <span class="string">&quot;1&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;0&quot;</span> },
+            <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;compiler&quot;</span>) { <span class="string">&quot;1&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;0&quot; </span>},
         );
 
-        (<span class="macro">assert_c!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
-            #<span class="ident">include</span> <span class="op">&lt;</span><span class="ident">stdlib</span>.<span class="ident">h</span><span class="op">&gt;</span>
+        (<span class="macro">assert_c! </span>{
+            #include <span class="string">&quot;tests/wasmer.h&quot;
+            </span>#include &lt;stdlib.h&gt;
 
-            <span class="ident">int</span> <span class="ident">main</span>() {
-                <span class="ident">assert</span>(<span class="ident">wasmer_is_engine_available</span>(<span class="ident">UNIVERSAL</span>) <span class="op">==</span> (<span class="ident">getenv</span>(<span class="string">&quot;UNIVERSAL&quot;</span>)[<span class="number">0</span>] <span class="op">==</span> <span class="string">&#39;1&#39;</span>));
+            int main() {
+                assert(wasmer_is_engine_available(UNIVERSAL) == (getenv(<span class="string">&quot;UNIVERSAL&quot;</span>)[<span class="number">0</span>] == <span class="string">&#39;1&#39;</span>));
 
-                <span class="kw">return</span> <span class="number">0</span>;
+                <span class="kw">return </span><span class="number">0</span>;
             }
         })
-        .<span class="ident">success</span>();
+        .success();
 
-        <span class="ident">remove_var</span>(<span class="string">&quot;UNIVERSAL&quot;</span>);
+        remove_var(<span class="string">&quot;UNIVERSAL&quot;</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

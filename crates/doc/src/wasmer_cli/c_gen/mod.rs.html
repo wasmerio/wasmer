@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/c_gen/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/c_gen/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -550,555 +550,555 @@
 <span id="548">548</span>
 <span id="549">549</span>
 <span id="550">550</span>
-</pre><pre class="rust"><code><span class="doccomment">//! A convenient little abstraction for building up C expressions and generating</span>
-<span class="doccomment">//! simple C code.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! A convenient little abstraction for building up C expressions and generating
+//! simple C code.
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">staticlib_header</span>;
+</span><span class="kw">pub mod </span>staticlib_header;
 
-<span class="doccomment">/// An identifier in C.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CIdent</span> <span class="op">=</span> <span class="ident">String</span>;
+<span class="doccomment">/// An identifier in C.
+</span><span class="kw">pub type </span>CIdent = String;
 
-<span class="doccomment">/// A Type in the C language.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CType</span> {
-    <span class="doccomment">/// C `void` type.</span>
-    <span class="ident">Void</span>,
-    <span class="doccomment">/// A pointer to some other type.</span>
-    <span class="ident">PointerTo</span> {
-        <span class="doccomment">/// Whether the pointer is `const`.</span>
-        <span class="ident">is_const</span>: <span class="ident">bool</span>,
-        <span class="doccomment">/// The type that the pointer points to.</span>
-        <span class="ident">inner</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CType</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A Type in the C language.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub enum </span>CType {
+    <span class="doccomment">/// C `void` type.
+    </span>Void,
+    <span class="doccomment">/// A pointer to some other type.
+    </span>PointerTo {
+        <span class="doccomment">/// Whether the pointer is `const`.
+        </span>is_const: bool,
+        <span class="doccomment">/// The type that the pointer points to.
+        </span>inner: Box&lt;CType&gt;,
     },
-    <span class="doccomment">/// C 8 bit unsigned integer type.</span>
-    <span class="ident">U8</span>,
-    <span class="doccomment">/// C 16 bit unsigned integer type.</span>
-    <span class="ident">U16</span>,
-    <span class="doccomment">/// C 32 bit unsigned integer type.</span>
-    <span class="ident">U32</span>,
-    <span class="doccomment">/// C 64 bit unsigned integer type.</span>
-    <span class="ident">U64</span>,
-    <span class="doccomment">/// C pointer sized unsigned integer type.</span>
-    <span class="ident">USize</span>,
-    <span class="doccomment">/// C 8 bit signed integer type.</span>
-    <span class="ident">I8</span>,
-    <span class="doccomment">/// C 16 bit signed integer type.</span>
-    <span class="ident">I16</span>,
-    <span class="doccomment">/// C 32 bit signed integer type.</span>
-    <span class="ident">I32</span>,
-    <span class="doccomment">/// C 64 bit signed integer type.</span>
-    <span class="ident">I64</span>,
-    <span class="doccomment">/// C pointer sized signed integer type.</span>
-    <span class="ident">ISize</span>,
-    <span class="doccomment">/// A function or function pointer.</span>
-    <span class="ident">Function</span> {
-        <span class="doccomment">/// The arguments the function takes.</span>
-        <span class="ident">arguments</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CType</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// The return value if it has one</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// None is equivalent to Some(Box(Ctype::Void)).</span>
-        <span class="ident">return_value</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// C 8 bit unsigned integer type.
+    </span>U8,
+    <span class="doccomment">/// C 16 bit unsigned integer type.
+    </span>U16,
+    <span class="doccomment">/// C 32 bit unsigned integer type.
+    </span>U32,
+    <span class="doccomment">/// C 64 bit unsigned integer type.
+    </span>U64,
+    <span class="doccomment">/// C pointer sized unsigned integer type.
+    </span>USize,
+    <span class="doccomment">/// C 8 bit signed integer type.
+    </span>I8,
+    <span class="doccomment">/// C 16 bit signed integer type.
+    </span>I16,
+    <span class="doccomment">/// C 32 bit signed integer type.
+    </span>I32,
+    <span class="doccomment">/// C 64 bit signed integer type.
+    </span>I64,
+    <span class="doccomment">/// C pointer sized signed integer type.
+    </span>ISize,
+    <span class="doccomment">/// A function or function pointer.
+    </span>Function {
+        <span class="doccomment">/// The arguments the function takes.
+        </span>arguments: Vec&lt;CType&gt;,
+        <span class="doccomment">/// The return value if it has one
+        ///
+        /// None is equivalent to Some(Box(Ctype::Void)).
+        </span>return_value: <span class="prelude-ty">Option</span>&lt;Box&lt;CType&gt;&gt;,
     },
-    <span class="doccomment">/// C constant array.</span>
-    <span class="ident">Array</span> {
-        <span class="doccomment">/// The type of the array.</span>
-        <span class="ident">inner</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CType</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// C constant array.
+    </span>Array {
+        <span class="doccomment">/// The type of the array.
+        </span>inner: Box&lt;CType&gt;,
     },
-    <span class="doccomment">/// A user defined type.</span>
-    <span class="ident">TypeDef</span>(<span class="ident">String</span>),
+    <span class="doccomment">/// A user defined type.
+    </span>TypeDef(String),
 }
 
-<span class="kw">impl</span> <span class="ident">CType</span> {
-    <span class="doccomment">/// Convenience function to get a mutable void pointer type.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">void_ptr</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident">CType::PointerTo</span> {
-            <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::Void</span>),
+<span class="kw">impl </span>CType {
+    <span class="doccomment">/// Convenience function to get a mutable void pointer type.
+    </span><span class="kw">pub fn </span>void_ptr() -&gt; <span class="self">Self </span>{
+        CType::PointerTo {
+            is_const: <span class="bool-val">false</span>,
+            inner: Box::new(CType::Void),
         }
     }
 
-    <span class="doccomment">/// Convenience function to get a const void pointer type.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">const_void_ptr</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident">CType::PointerTo</span> {
-            <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-            <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::Void</span>),
+    <span class="doccomment">/// Convenience function to get a const void pointer type.
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub fn </span>const_void_ptr() -&gt; <span class="self">Self </span>{
+        CType::PointerTo {
+            is_const: <span class="bool-val">true</span>,
+            inner: Box::new(CType::Void),
         }
     }
 
-    <span class="doccomment">/// Generate the C source code for a type into the given `String`.</span>
-    <span class="kw">fn</span> <span class="ident">generate_c</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">w</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Void</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;void&quot;</span>);
+    <span class="doccomment">/// Generate the C source code for a type into the given `String`.
+    </span><span class="kw">fn </span>generate_c(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>String) {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::Void =&gt; {
+                w.push_str(<span class="string">&quot;void&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::PointerTo</span> { <span class="ident">is_const</span>, <span class="ident">inner</span> } =&gt; {
-                <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">is_const</span> {
-                    <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;const &quot;</span>);
+            <span class="self">Self</span>::PointerTo { is_const, inner } =&gt; {
+                <span class="kw">if </span><span class="kw-2">*</span>is_const {
+                    w.push_str(<span class="string">&quot;const &quot;</span>);
                 }
-                <span class="ident">inner</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;*&#39;</span>);
+                inner.generate_c(w);
+                w.push(<span class="string">&#39;*&#39;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::U8</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;unsigned char&quot;</span>);
+            <span class="self">Self</span>::U8 =&gt; {
+                w.push_str(<span class="string">&quot;unsigned char&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::U16</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;unsigned short&quot;</span>);
+            <span class="self">Self</span>::U16 =&gt; {
+                w.push_str(<span class="string">&quot;unsigned short&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::U32</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;unsigned int&quot;</span>);
+            <span class="self">Self</span>::U32 =&gt; {
+                w.push_str(<span class="string">&quot;unsigned int&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::U64</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;unsigned long long&quot;</span>);
+            <span class="self">Self</span>::U64 =&gt; {
+                w.push_str(<span class="string">&quot;unsigned long long&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::USize</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;unsigned size_t&quot;</span>);
+            <span class="self">Self</span>::USize =&gt; {
+                w.push_str(<span class="string">&quot;unsigned size_t&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::I8</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;char&quot;</span>);
+            <span class="self">Self</span>::I8 =&gt; {
+                w.push_str(<span class="string">&quot;char&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::I16</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;short&quot;</span>);
+            <span class="self">Self</span>::I16 =&gt; {
+                w.push_str(<span class="string">&quot;short&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::I32</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;int&quot;</span>);
+            <span class="self">Self</span>::I32 =&gt; {
+                w.push_str(<span class="string">&quot;int&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::I64</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;long long&quot;</span>);
+            <span class="self">Self</span>::I64 =&gt; {
+                w.push_str(<span class="string">&quot;long long&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::ISize</span> =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;size_t&quot;</span>);
+            <span class="self">Self</span>::ISize =&gt; {
+                w.push_str(<span class="string">&quot;size_t&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::Function</span> {
-                <span class="ident">arguments</span>,
-                <span class="ident">return_value</span>,
+            <span class="self">Self</span>::Function {
+                arguments,
+                return_value,
             } =&gt; {
-                <span class="comment">// function with no, name, assume it&#39;s a function pointer</span>
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::borrowed_box</span>)]</span>
-                <span class="kw">let</span> <span class="ident">ret</span>: <span class="ident">CType</span> <span class="op">=</span> <span class="ident">return_value</span>
-                    .<span class="ident">as_ref</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span>: <span class="kw-2">&amp;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CType</span><span class="op">&gt;</span><span class="op">|</span> (<span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">clone</span>())
-                    .<span class="ident">unwrap_or_default</span>();
-                <span class="ident">ret</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;(*)&quot;</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;(&#39;</span>);
-                <span class="kw">match</span> <span class="ident">arguments</span>.<span class="ident">len</span>() {
-                    <span class="ident">l</span> <span class="kw">if</span> <span class="ident">l</span> <span class="op">&gt;</span> <span class="number">1</span> =&gt; {
-                        <span class="kw">for</span> <span class="ident">arg</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">arguments</span>[..<span class="ident">arguments</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>] {
-                            <span class="ident">arg</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                            <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;, &quot;</span>);
+                <span class="comment">// function with no, name, assume it&#39;s a function pointer
+                </span><span class="attribute">#[allow(clippy::borrowed_box)]
+                </span><span class="kw">let </span>ret: CType = return_value
+                    .as_ref()
+                    .map(|i: <span class="kw-2">&amp;</span>Box&lt;CType&gt;| (<span class="kw-2">**</span>i).clone())
+                    .unwrap_or_default();
+                ret.generate_c(w);
+                w.push(<span class="string">&#39; &#39;</span>);
+                w.push_str(<span class="string">&quot;(*)&quot;</span>);
+                w.push(<span class="string">&#39;(&#39;</span>);
+                <span class="kw">match </span>arguments.len() {
+                    l <span class="kw">if </span>l &gt; <span class="number">1 </span>=&gt; {
+                        <span class="kw">for </span>arg <span class="kw">in </span><span class="kw-2">&amp;</span>arguments[..arguments.len() - <span class="number">1</span>] {
+                            arg.generate_c(w);
+                            w.push_str(<span class="string">&quot;, &quot;</span>);
                         }
-                        <span class="ident">arguments</span>.<span class="ident">last</span>().<span class="ident">unwrap</span>().<span class="ident">generate_c</span>(<span class="ident">w</span>);
+                        arguments.last().unwrap().generate_c(w);
                     }
-                    <span class="number">1</span> =&gt; {
-                        <span class="ident">arguments</span>[<span class="number">0</span>].<span class="ident">generate_c</span>(<span class="ident">w</span>);
+                    <span class="number">1 </span>=&gt; {
+                        arguments[<span class="number">0</span>].generate_c(w);
                     }
-                    <span class="kw">_</span> =&gt; {}
+                    <span class="kw">_ </span>=&gt; {}
                 }
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;)&#39;</span>);
+                w.push(<span class="string">&#39;)&#39;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::Array</span> { <span class="ident">inner</span> } =&gt; {
-                <span class="ident">inner</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;[]&quot;</span>);
+            <span class="self">Self</span>::Array { inner } =&gt; {
+                inner.generate_c(w);
+                w.push_str(<span class="string">&quot;[]&quot;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::TypeDef</span>(<span class="ident">inner</span>) =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="ident">inner</span>);
+            <span class="self">Self</span>::TypeDef(inner) =&gt; {
+                w.push_str(inner);
             }
         }
     }
 
-    <span class="doccomment">/// Generate the C source code for a type with a nameinto the given `String`.</span>
-    <span class="kw">fn</span> <span class="ident">generate_c_with_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">w</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::PointerTo</span> { .. }
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::TypeDef</span> { .. }
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::Void</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::U8</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::U16</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::U32</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::U64</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::USize</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I8</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I16</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I32</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::I64</span>
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::ISize</span> =&gt; {
-                <span class="self">self</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="ident">name</span>);
+    <span class="doccomment">/// Generate the C source code for a type with a nameinto the given `String`.
+    </span><span class="kw">fn </span>generate_c_with_name(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, w: <span class="kw-2">&amp;mut </span>String) {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::PointerTo { .. }
+            | <span class="self">Self</span>::TypeDef { .. }
+            | <span class="self">Self</span>::Void
+            | <span class="self">Self</span>::U8
+            | <span class="self">Self</span>::U16
+            | <span class="self">Self</span>::U32
+            | <span class="self">Self</span>::U64
+            | <span class="self">Self</span>::USize
+            | <span class="self">Self</span>::I8
+            | <span class="self">Self</span>::I16
+            | <span class="self">Self</span>::I32
+            | <span class="self">Self</span>::I64
+            | <span class="self">Self</span>::ISize =&gt; {
+                <span class="self">self</span>.generate_c(w);
+                w.push(<span class="string">&#39; &#39;</span>);
+                w.push_str(name);
             }
-            <span class="ident"><span class="self">Self</span>::Function</span> {
-                <span class="ident">arguments</span>,
-                <span class="ident">return_value</span>,
+            <span class="self">Self</span>::Function {
+                arguments,
+                return_value,
             } =&gt; {
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::borrowed_box</span>)]</span>
-                <span class="kw">let</span> <span class="ident">ret</span>: <span class="ident">CType</span> <span class="op">=</span> <span class="ident">return_value</span>
-                    .<span class="ident">as_ref</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span>: <span class="kw-2">&amp;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CType</span><span class="op">&gt;</span><span class="op">|</span> (<span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">i</span>).<span class="ident">clone</span>())
-                    .<span class="ident">unwrap_or_default</span>();
-                <span class="ident">ret</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="ident">name</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;(&#39;</span>);
-                <span class="kw">match</span> <span class="ident">arguments</span>.<span class="ident">len</span>() {
-                    <span class="ident">l</span> <span class="kw">if</span> <span class="ident">l</span> <span class="op">&gt;</span> <span class="number">1</span> =&gt; {
-                        <span class="kw">for</span> <span class="ident">arg</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">arguments</span>[..<span class="ident">arguments</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>] {
-                            <span class="ident">arg</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                            <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;, &quot;</span>);
+                <span class="attribute">#[allow(clippy::borrowed_box)]
+                </span><span class="kw">let </span>ret: CType = return_value
+                    .as_ref()
+                    .map(|i: <span class="kw-2">&amp;</span>Box&lt;CType&gt;| (<span class="kw-2">**</span>i).clone())
+                    .unwrap_or_default();
+                ret.generate_c(w);
+                w.push(<span class="string">&#39; &#39;</span>);
+                w.push_str(name);
+                w.push(<span class="string">&#39;(&#39;</span>);
+                <span class="kw">match </span>arguments.len() {
+                    l <span class="kw">if </span>l &gt; <span class="number">1 </span>=&gt; {
+                        <span class="kw">for </span>arg <span class="kw">in </span><span class="kw-2">&amp;</span>arguments[..arguments.len() - <span class="number">1</span>] {
+                            arg.generate_c(w);
+                            w.push_str(<span class="string">&quot;, &quot;</span>);
                         }
-                        <span class="ident">arguments</span>.<span class="ident">last</span>().<span class="ident">unwrap</span>().<span class="ident">generate_c</span>(<span class="ident">w</span>);
+                        arguments.last().unwrap().generate_c(w);
                     }
-                    <span class="number">1</span> =&gt; {
-                        <span class="ident">arguments</span>[<span class="number">0</span>].<span class="ident">generate_c</span>(<span class="ident">w</span>);
+                    <span class="number">1 </span>=&gt; {
+                        arguments[<span class="number">0</span>].generate_c(w);
                     }
-                    <span class="kw">_</span> =&gt; {}
+                    <span class="kw">_ </span>=&gt; {}
                 }
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;)&#39;</span>);
+                w.push(<span class="string">&#39;)&#39;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::Array</span> { <span class="ident">inner</span> } =&gt; {
-                <span class="ident">inner</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="ident">name</span>);
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;[]&quot;</span>);
+            <span class="self">Self</span>::Array { inner } =&gt; {
+                inner.generate_c(w);
+                w.push(<span class="string">&#39; &#39;</span>);
+                w.push_str(name);
+                w.push_str(<span class="string">&quot;[]&quot;</span>);
             }
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">CType</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="ident">CType</span> {
-        <span class="ident">CType::Void</span>
+<span class="kw">impl </span>Default <span class="kw">for </span>CType {
+    <span class="kw">fn </span>default() -&gt; CType {
+        CType::Void
     }
 }
 
-<span class="doccomment">/// A statement in the C programming language. This may not be exact to what an</span>
-<span class="doccomment">/// AST would look like or what the C standard says about the C language, it&#39;s</span>
-<span class="doccomment">/// simply a structed way to organize data for generating C code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CStatement</span> {
-    <span class="doccomment">/// A declaration of some kind.</span>
-    <span class="ident">Declaration</span> {
-        <span class="doccomment">/// The name of the thing being declared.</span>
-        <span class="ident">name</span>: <span class="ident">CIdent</span>,
-        <span class="doccomment">/// Whether the thing being declared is `extern`.</span>
-        <span class="ident">is_extern</span>: <span class="ident">bool</span>,
-        <span class="doccomment">/// Whether the thing being declared is `const`.</span>
-        <span class="ident">is_const</span>: <span class="ident">bool</span>,
-        <span class="doccomment">/// The type of the thing being declared.</span>
-        <span class="ident">ctype</span>: <span class="ident">CType</span>,
-        <span class="doccomment">/// The definition of the thing being declared.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// This is useful for initializing constant arrays, for example.</span>
-        <span class="ident">definition</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CStatement</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A statement in the C programming language. This may not be exact to what an
+/// AST would look like or what the C standard says about the C language, it&#39;s
+/// simply a structed way to organize data for generating C code.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub enum </span>CStatement {
+    <span class="doccomment">/// A declaration of some kind.
+    </span>Declaration {
+        <span class="doccomment">/// The name of the thing being declared.
+        </span>name: CIdent,
+        <span class="doccomment">/// Whether the thing being declared is `extern`.
+        </span>is_extern: bool,
+        <span class="doccomment">/// Whether the thing being declared is `const`.
+        </span>is_const: bool,
+        <span class="doccomment">/// The type of the thing being declared.
+        </span>ctype: CType,
+        <span class="doccomment">/// The definition of the thing being declared.
+        ///
+        /// This is useful for initializing constant arrays, for example.
+        </span>definition: <span class="prelude-ty">Option</span>&lt;Box&lt;CStatement&gt;&gt;,
     },
 
-    <span class="doccomment">/// A literal array of CStatements.</span>
-    <span class="ident">LiteralArray</span> {
-        <span class="doccomment">/// The contents of the array.</span>
-        <span class="ident">items</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CStatement</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// A literal array of CStatements.
+    </span>LiteralArray {
+        <span class="doccomment">/// The contents of the array.
+        </span>items: Vec&lt;CStatement&gt;,
     },
 
-    <span class="doccomment">/// A literal constant value, passed through directly as a string.</span>
-    <span class="ident">LiteralConstant</span> {
-        <span class="doccomment">/// The raw value acting as a constant.</span>
-        <span class="ident">value</span>: <span class="ident">String</span>,
+    <span class="doccomment">/// A literal constant value, passed through directly as a string.
+    </span>LiteralConstant {
+        <span class="doccomment">/// The raw value acting as a constant.
+        </span>value: String,
     },
 
-    <span class="doccomment">/// A C-style cast</span>
-    <span class="ident">Cast</span> {
-        <span class="doccomment">/// The type to cast to.</span>
-        <span class="ident">target_type</span>: <span class="ident">CType</span>,
-        <span class="doccomment">/// The thing being cast.</span>
-        <span class="ident">expression</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">CStatement</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// A C-style cast
+    </span>Cast {
+        <span class="doccomment">/// The type to cast to.
+        </span>target_type: CType,
+        <span class="doccomment">/// The thing being cast.
+        </span>expression: Box&lt;CStatement&gt;,
     },
 
-    <span class="doccomment">/// Typedef one type to another.</span>
-    <span class="ident">TypeDef</span> {
-        <span class="doccomment">/// The type of the thing being typedef&#39;d.</span>
-        <span class="ident">source_type</span>: <span class="ident">CType</span>,
-        <span class="doccomment">/// The new name by which this type may be called.</span>
-        <span class="ident">new_name</span>: <span class="ident">CIdent</span>,
+    <span class="doccomment">/// Typedef one type to another.
+    </span>TypeDef {
+        <span class="doccomment">/// The type of the thing being typedef&#39;d.
+        </span>source_type: CType,
+        <span class="doccomment">/// The new name by which this type may be called.
+        </span>new_name: CIdent,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">CStatement</span> {
-    <span class="doccomment">/// Generate C source code for the given CStatement.</span>
-    <span class="kw">fn</span> <span class="ident">generate_c</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">w</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Declaration</span> {
-                <span class="ident">name</span>,
-                <span class="ident">is_extern</span>,
-                <span class="ident">is_const</span>,
-                <span class="ident">ctype</span>,
-                <span class="ident">definition</span>,
+<span class="kw">impl </span>CStatement {
+    <span class="doccomment">/// Generate C source code for the given CStatement.
+    </span><span class="kw">fn </span>generate_c(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>String) {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="self">Self</span>::Declaration {
+                name,
+                is_extern,
+                is_const,
+                ctype,
+                definition,
             } =&gt; {
-                <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">is_const</span> {
-                    <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;const &quot;</span>);
+                <span class="kw">if </span><span class="kw-2">*</span>is_const {
+                    w.push_str(<span class="string">&quot;const &quot;</span>);
                 }
-                <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">is_extern</span> {
-                    <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;extern &quot;</span>);
+                <span class="kw">if </span><span class="kw-2">*</span>is_extern {
+                    w.push_str(<span class="string">&quot;extern &quot;</span>);
                 }
-                <span class="ident">ctype</span>.<span class="ident">generate_c_with_name</span>(<span class="ident">name</span>, <span class="ident">w</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">def</span>) <span class="op">=</span> <span class="ident">definition</span> {
-                    <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot; = &quot;</span>);
-                    <span class="ident">def</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
+                ctype.generate_c_with_name(name, w);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(def) = definition {
+                    w.push_str(<span class="string">&quot; = &quot;</span>);
+                    def.generate_c(w);
                 }
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;;&#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                w.push(<span class="string">&#39;;&#39;</span>);
+                w.push(<span class="string">&#39;\n&#39;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::LiteralArray</span> { <span class="ident">items</span> } =&gt; {
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;{&#39;</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">items</span>.<span class="ident">is_empty</span>() {
-                    <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+            <span class="self">Self</span>::LiteralArray { items } =&gt; {
+                w.push(<span class="string">&#39;{&#39;</span>);
+                <span class="kw">if </span>!items.is_empty() {
+                    w.push(<span class="string">&#39;\n&#39;</span>);
                 }
-                <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="ident">items</span> {
-                    <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;\t&#39;</span>);
-                    <span class="ident">item</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                    <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;,&#39;</span>);
-                    <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                <span class="kw">for </span>item <span class="kw">in </span>items {
+                    w.push(<span class="string">&#39;\t&#39;</span>);
+                    item.generate_c(w);
+                    w.push(<span class="string">&#39;,&#39;</span>);
+                    w.push(<span class="string">&#39;\n&#39;</span>);
                 }
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;}&#39;</span>);
+                w.push(<span class="string">&#39;}&#39;</span>);
             }
-            <span class="ident"><span class="self">Self</span>::LiteralConstant</span> { <span class="ident">value</span> } =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="ident">value</span>);
+            <span class="self">Self</span>::LiteralConstant { value } =&gt; {
+                w.push_str(value);
             }
-            <span class="ident"><span class="self">Self</span>::Cast</span> {
-                <span class="ident">target_type</span>,
-                <span class="ident">expression</span>,
+            <span class="self">Self</span>::Cast {
+                target_type,
+                expression,
             } =&gt; {
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;(&#39;</span>);
-                <span class="ident">target_type</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;)&#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-                <span class="ident">expression</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
+                w.push(<span class="string">&#39;(&#39;</span>);
+                target_type.generate_c(w);
+                w.push(<span class="string">&#39;)&#39;</span>);
+                w.push(<span class="string">&#39; &#39;</span>);
+                expression.generate_c(w);
             }
-            <span class="ident"><span class="self">Self</span>::TypeDef</span> {
-                <span class="ident">source_type</span>,
-                <span class="ident">new_name</span>,
+            <span class="self">Self</span>::TypeDef {
+                source_type,
+                new_name,
             } =&gt; {
-                <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="string">&quot;typedef &quot;</span>);
-                <span class="comment">// leaky abstraction / hack, doesn&#39;t fully solve the problem</span>
-                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">CType::Function</span> { .. } <span class="op">=</span> <span class="ident">source_type</span> {
-                    <span class="ident">source_type</span>.<span class="ident">generate_c_with_name</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;(*{})&quot;</span>, <span class="ident">new_name</span>), <span class="ident">w</span>);
-                } <span class="kw">else</span> {
-                    <span class="ident">source_type</span>.<span class="ident">generate_c</span>(<span class="ident">w</span>);
-                    <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
-                    <span class="ident">w</span>.<span class="ident">push_str</span>(<span class="ident">new_name</span>);
+                w.push_str(<span class="string">&quot;typedef &quot;</span>);
+                <span class="comment">// leaky abstraction / hack, doesn&#39;t fully solve the problem
+                </span><span class="kw">if let </span>CType::Function { .. } = source_type {
+                    source_type.generate_c_with_name(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;(*{})&quot;</span>, new_name), w);
+                } <span class="kw">else </span>{
+                    source_type.generate_c(w);
+                    w.push(<span class="string">&#39; &#39;</span>);
+                    w.push_str(new_name);
                 }
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;;&#39;</span>);
-                <span class="ident">w</span>.<span class="ident">push</span>(<span class="string">&#39;\n&#39;</span>);
+                w.push(<span class="string">&#39;;&#39;</span>);
+                w.push(<span class="string">&#39;\n&#39;</span>);
             }
         }
     }
 }
 
-<span class="doccomment">/// Generate C source code from some `CStatements` into a String.</span>
-<span class="comment">// TODO: add config section</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_c</span>(<span class="ident">statements</span>: <span class="kw-2">&amp;</span>[<span class="ident">CStatement</span>]) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">String::new</span>();
-    <span class="kw">for</span> <span class="ident">statement</span> <span class="kw">in</span> <span class="ident">statements</span> {
-        <span class="ident">statement</span>.<span class="ident">generate_c</span>(<span class="kw-2">&amp;mut</span> <span class="ident">out</span>);
+<span class="doccomment">/// Generate C source code from some `CStatements` into a String.
+</span><span class="comment">// TODO: add config section
+</span><span class="kw">pub fn </span>generate_c(statements: <span class="kw-2">&amp;</span>[CStatement]) -&gt; String {
+    <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
+    <span class="kw">for </span>statement <span class="kw">in </span>statements {
+        statement.generate_c(<span class="kw-2">&amp;mut </span>out);
     }
-    <span class="ident">out</span>
+    out
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">generate_types</span>() {
-        <span class="macro">macro_rules!</span> <span class="ident">assert_c_type</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctype</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>:<span class="ident">expr</span>) =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">String::new</span>();
-                <span class="kw">let</span> <span class="ident">ctype</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctype</span>;
-                <span class="ident">ctype</span>.<span class="ident">generate_c</span>(<span class="kw-2">&amp;mut</span> <span class="ident">w</span>);
-                <span class="macro">assert_eq!</span>(<span class="ident">w</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>generate_types() {
+        <span class="macro">macro_rules! </span>assert_c_type {
+            (<span class="macro-nonterminal">$ctype</span>:expr, <span class="macro-nonterminal">$expected</span>:expr) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>w = String::new();
+                <span class="kw">let </span>ctype = <span class="macro-nonterminal">$ctype</span>;
+                ctype.generate_c(<span class="kw-2">&amp;mut </span>w);
+                <span class="macro">assert_eq!</span>(w, <span class="macro-nonterminal">$expected</span>);
             };
         }
 
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::Void</span>, <span class="string">&quot;void&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::void_ptr</span>(), <span class="string">&quot;void*&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::const_void_ptr</span>(), <span class="string">&quot;const void*&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U8</span>, <span class="string">&quot;unsigned char&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U16</span>, <span class="string">&quot;unsigned short&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U32</span>, <span class="string">&quot;unsigned int&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U64</span>, <span class="string">&quot;unsigned long long&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::USize</span>, <span class="string">&quot;unsigned size_t&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I8</span>, <span class="string">&quot;char&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I16</span>, <span class="string">&quot;short&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I32</span>, <span class="string">&quot;int&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I64</span>, <span class="string">&quot;long long&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::ISize</span>, <span class="string">&quot;size_t&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::TypeDef</span>(<span class="string">&quot;my_type&quot;</span>.<span class="ident">to_string</span>()), <span class="string">&quot;my_type&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::Void, <span class="string">&quot;void&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::void_ptr(), <span class="string">&quot;void*&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::const_void_ptr(), <span class="string">&quot;const void*&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U8, <span class="string">&quot;unsigned char&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U16, <span class="string">&quot;unsigned short&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U32, <span class="string">&quot;unsigned int&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U64, <span class="string">&quot;unsigned long long&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::USize, <span class="string">&quot;unsigned size_t&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I8, <span class="string">&quot;char&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I16, <span class="string">&quot;short&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I32, <span class="string">&quot;int&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I64, <span class="string">&quot;long long&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::ISize, <span class="string">&quot;size_t&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::TypeDef(<span class="string">&quot;my_type&quot;</span>.to_string()), <span class="string">&quot;my_type&quot;</span>);
         <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::Function</span> {
-                <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::U8</span>, <span class="ident">CType::ISize</span>],
-                <span class="ident">return_value</span>: <span class="prelude-val">None</span>
+            CType::Function {
+                arguments: <span class="macro">vec!</span>[CType::U8, CType::ISize],
+                return_value: <span class="prelude-val">None
+            </span>},
+            <span class="string">&quot;void (*)(unsigned char, size_t)&quot;
+        </span>);
+        <span class="macro">assert_c_type!</span>(
+            CType::Function {
+                arguments: <span class="macro">vec!</span>[],
+                return_value: <span class="prelude-val">Some</span>(Box::new(CType::ISize))
             },
-            <span class="string">&quot;void (*)(unsigned char, size_t)&quot;</span>
-        );
+            <span class="string">&quot;size_t (*)()&quot;
+        </span>);
         <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::Function</span> {
-                <span class="ident">arguments</span>: <span class="macro">vec!</span>[],
-                <span class="ident">return_value</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CType::ISize</span>))
-            },
-            <span class="string">&quot;size_t (*)()&quot;</span>
-        );
-        <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::PointerTo</span> {
-                <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-                <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::PointerTo</span> {
-                    <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                    <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::U32</span>)
+            CType::PointerTo {
+                is_const: <span class="bool-val">true</span>,
+                inner: Box::new(CType::PointerTo {
+                    is_const: <span class="bool-val">false</span>,
+                    inner: Box::new(CType::U32)
                 })
             },
-            <span class="string">&quot;const unsigned int**&quot;</span>
-        );
-        <span class="comment">// TODO: test more complicated const correctness rules: there are bugs relating to it.</span>
-    }
+            <span class="string">&quot;const unsigned int**&quot;
+        </span>);
+        <span class="comment">// TODO: test more complicated const correctness rules: there are bugs relating to it.
+    </span>}
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">generate_types_with_names</span>() {
-        <span class="macro">macro_rules!</span> <span class="ident">assert_c_type</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctype</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">literal</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>:<span class="ident">expr</span>) =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">String::new</span>();
-                <span class="kw">let</span> <span class="ident">ctype</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctype</span>;
-                <span class="ident">ctype</span>.<span class="ident">generate_c_with_name</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>, <span class="kw-2">&amp;mut</span> <span class="ident">w</span>);
-                <span class="macro">assert_eq!</span>(<span class="ident">w</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>generate_types_with_names() {
+        <span class="macro">macro_rules! </span>assert_c_type {
+            (<span class="macro-nonterminal">$ctype</span>:expr, <span class="macro-nonterminal">$name</span>:literal, <span class="macro-nonterminal">$expected</span>:expr) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>w = String::new();
+                <span class="kw">let </span>ctype = <span class="macro-nonterminal">$ctype</span>;
+                ctype.generate_c_with_name(<span class="macro-nonterminal">$name</span>, <span class="kw-2">&amp;mut </span>w);
+                <span class="macro">assert_eq!</span>(w, <span class="macro-nonterminal">$expected</span>);
             };
         }
 
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::Void</span>, <span class="string">&quot;main&quot;</span>, <span class="string">&quot;void main&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::void_ptr</span>(), <span class="string">&quot;data&quot;</span>, <span class="string">&quot;void* data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::const_void_ptr</span>(), <span class="string">&quot;data&quot;</span>, <span class="string">&quot;const void* data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U8</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned char data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U16</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned short data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U32</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned int data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::U64</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned long long data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::USize</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned size_t data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I8</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;char data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I16</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;short data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I32</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;int data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::I64</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;long long data&quot;</span>);
-        <span class="macro">assert_c_type!</span>(<span class="ident">CType::ISize</span>, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;size_t data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::Void, <span class="string">&quot;main&quot;</span>, <span class="string">&quot;void main&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::void_ptr(), <span class="string">&quot;data&quot;</span>, <span class="string">&quot;void* data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::const_void_ptr(), <span class="string">&quot;data&quot;</span>, <span class="string">&quot;const void* data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U8, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned char data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U16, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned short data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U32, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned int data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::U64, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned long long data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::USize, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;unsigned size_t data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I8, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;char data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I16, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;short data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I32, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;int data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::I64, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;long long data&quot;</span>);
+        <span class="macro">assert_c_type!</span>(CType::ISize, <span class="string">&quot;data&quot;</span>, <span class="string">&quot;size_t data&quot;</span>);
         <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::TypeDef</span>(<span class="string">&quot;my_type&quot;</span>.<span class="ident">to_string</span>()),
+            CType::TypeDef(<span class="string">&quot;my_type&quot;</span>.to_string()),
             <span class="string">&quot;data&quot;</span>,
-            <span class="string">&quot;my_type data&quot;</span>
-        );
+            <span class="string">&quot;my_type data&quot;
+        </span>);
         <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::Function</span> {
-                <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::U8</span>, <span class="ident">CType::ISize</span>],
-                <span class="ident">return_value</span>: <span class="prelude-val">None</span>
+            CType::Function {
+                arguments: <span class="macro">vec!</span>[CType::U8, CType::ISize],
+                return_value: <span class="prelude-val">None
+            </span>},
+            <span class="string">&quot;my_func&quot;</span>,
+            <span class="string">&quot;void my_func(unsigned char, size_t)&quot;
+        </span>);
+        <span class="macro">assert_c_type!</span>(
+            CType::Function {
+                arguments: <span class="macro">vec!</span>[],
+                return_value: <span class="prelude-val">Some</span>(Box::new(CType::ISize))
             },
             <span class="string">&quot;my_func&quot;</span>,
-            <span class="string">&quot;void my_func(unsigned char, size_t)&quot;</span>
-        );
+            <span class="string">&quot;size_t my_func()&quot;
+        </span>);
         <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::Function</span> {
-                <span class="ident">arguments</span>: <span class="macro">vec!</span>[],
-                <span class="ident">return_value</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CType::ISize</span>))
-            },
-            <span class="string">&quot;my_func&quot;</span>,
-            <span class="string">&quot;size_t my_func()&quot;</span>
-        );
-        <span class="macro">assert_c_type!</span>(
-            <span class="ident">CType::PointerTo</span> {
-                <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-                <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::PointerTo</span> {
-                    <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                    <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::U32</span>)
+            CType::PointerTo {
+                is_const: <span class="bool-val">true</span>,
+                inner: Box::new(CType::PointerTo {
+                    is_const: <span class="bool-val">false</span>,
+                    inner: Box::new(CType::U32)
                 })
             },
             <span class="string">&quot;data&quot;</span>,
-            <span class="string">&quot;const unsigned int** data&quot;</span>
-        );
-        <span class="comment">// TODO: test more complicated const correctness rules: there are bugs relating to it.</span>
-    }
+            <span class="string">&quot;const unsigned int** data&quot;
+        </span>);
+        <span class="comment">// TODO: test more complicated const correctness rules: there are bugs relating to it.
+    </span>}
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">generate_expressions_works</span>() {
-        <span class="macro">macro_rules!</span> <span class="ident">assert_c_expr</span> {
-            (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">cexpr</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>:<span class="ident">expr</span>) =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">String::new</span>();
-                <span class="kw">let</span> <span class="ident">cexpr</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">cexpr</span>;
-                <span class="ident">cexpr</span>.<span class="ident">generate_c</span>(<span class="kw-2">&amp;mut</span> <span class="ident">w</span>);
-                <span class="macro">assert_eq!</span>(<span class="ident">w</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expected</span>);
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>generate_expressions_works() {
+        <span class="macro">macro_rules! </span>assert_c_expr {
+            (<span class="macro-nonterminal">$cexpr</span>:expr, <span class="macro-nonterminal">$expected</span>:expr) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>w = String::new();
+                <span class="kw">let </span>cexpr = <span class="macro-nonterminal">$cexpr</span>;
+                cexpr.generate_c(<span class="kw-2">&amp;mut </span>w);
+                <span class="macro">assert_eq!</span>(w, <span class="macro-nonterminal">$expected</span>);
             };
         }
 
         <span class="macro">assert_c_expr!</span>(
-            <span class="ident">CStatement::LiteralConstant</span> {
-                <span class="ident">value</span>: <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>.<span class="ident">to_string</span>()
+            CStatement::LiteralConstant {
+                value: <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>.to_string()
             },
-            <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>
-        );
+            <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;
+        </span>);
         <span class="macro">assert_c_expr!</span>(
-            <span class="ident">CStatement::TypeDef</span> {
-                <span class="ident">source_type</span>: <span class="ident">CType::Function</span> {
-                    <span class="ident">arguments</span>: <span class="macro">vec!</span>[<span class="ident">CType::I32</span>, <span class="ident">CType::I32</span>],
-                    <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
+            CStatement::TypeDef {
+                source_type: CType::Function {
+                    arguments: <span class="macro">vec!</span>[CType::I32, CType::I32],
+                    return_value: <span class="prelude-val">None</span>,
                 },
-                <span class="ident">new_name</span>: <span class="string">&quot;my_func_ptr&quot;</span>.<span class="ident">to_string</span>(),
+                new_name: <span class="string">&quot;my_func_ptr&quot;</span>.to_string(),
             },
-            <span class="string">&quot;typedef void (*my_func_ptr)(int, int);\n&quot;</span>
-        );
+            <span class="string">&quot;typedef void (*my_func_ptr)(int, int);\n&quot;
+        </span>);
         <span class="macro">assert_c_expr!</span>(
-            <span class="ident">CStatement::LiteralArray</span> {
-                <span class="ident">items</span>: <span class="macro">vec!</span>[
-                    <span class="ident">CStatement::LiteralConstant</span> {
-                        <span class="ident">value</span>: <span class="string">&quot;1&quot;</span>.<span class="ident">to_string</span>()
+            CStatement::LiteralArray {
+                items: <span class="macro">vec!</span>[
+                    CStatement::LiteralConstant {
+                        value: <span class="string">&quot;1&quot;</span>.to_string()
                     },
-                    <span class="ident">CStatement::LiteralConstant</span> {
-                        <span class="ident">value</span>: <span class="string">&quot;2&quot;</span>.<span class="ident">to_string</span>()
+                    CStatement::LiteralConstant {
+                        value: <span class="string">&quot;2&quot;</span>.to_string()
                     },
-                    <span class="ident">CStatement::LiteralConstant</span> {
-                        <span class="ident">value</span>: <span class="string">&quot;3&quot;</span>.<span class="ident">to_string</span>()
+                    CStatement::LiteralConstant {
+                        value: <span class="string">&quot;3&quot;</span>.to_string()
                     },
                 ]
             },
-            <span class="string">&quot;{\n\t1,\n\t2,\n\t3,\n}&quot;</span>
-        );
-        <span class="macro">assert_c_expr!</span>(<span class="ident">CStatement::LiteralArray</span> { <span class="ident">items</span>: <span class="macro">vec!</span>[] }, <span class="string">&quot;{}&quot;</span>);
+            <span class="string">&quot;{\n\t1,\n\t2,\n\t3,\n}&quot;
+        </span>);
+        <span class="macro">assert_c_expr!</span>(CStatement::LiteralArray { items: <span class="macro">vec!</span>[] }, <span class="string">&quot;{}&quot;</span>);
         <span class="macro">assert_c_expr!</span>(
-            <span class="ident">CStatement::Declaration</span> {
-                <span class="ident">name</span>: <span class="string">&quot;my_array&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
-                <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-                <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
-                    <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::I32</span>)
+            CStatement::Declaration {
+                name: <span class="string">&quot;my_array&quot;</span>.to_string(),
+                is_extern: <span class="bool-val">false</span>,
+                is_const: <span class="bool-val">true</span>,
+                ctype: CType::Array {
+                    inner: Box::new(CType::I32)
                 },
-                <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">CStatement::LiteralArray</span> {
-                    <span class="ident">items</span>: <span class="macro">vec!</span>[
-                        <span class="ident">CStatement::LiteralConstant</span> {
-                            <span class="ident">value</span>: <span class="string">&quot;1&quot;</span>.<span class="ident">to_string</span>()
+                definition: <span class="prelude-val">Some</span>(Box::new(CStatement::LiteralArray {
+                    items: <span class="macro">vec!</span>[
+                        CStatement::LiteralConstant {
+                            value: <span class="string">&quot;1&quot;</span>.to_string()
                         },
-                        <span class="ident">CStatement::LiteralConstant</span> {
-                            <span class="ident">value</span>: <span class="string">&quot;2&quot;</span>.<span class="ident">to_string</span>()
+                        CStatement::LiteralConstant {
+                            value: <span class="string">&quot;2&quot;</span>.to_string()
                         },
-                        <span class="ident">CStatement::LiteralConstant</span> {
-                            <span class="ident">value</span>: <span class="string">&quot;3&quot;</span>.<span class="ident">to_string</span>()
+                        CStatement::LiteralConstant {
+                            value: <span class="string">&quot;3&quot;</span>.to_string()
                         },
                     ]
                 }))
             },
-            <span class="string">&quot;const int my_array[] = {\n\t1,\n\t2,\n\t3,\n};\n&quot;</span>
-        );
+            <span class="string">&quot;const int my_array[] = {\n\t1,\n\t2,\n\t3,\n};\n&quot;
+        </span>);
         <span class="macro">assert_c_expr!</span>(
-            <span class="ident">CStatement::Declaration</span> {
-                <span class="ident">name</span>: <span class="string">&quot;my_array&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">is_extern</span>: <span class="bool-val">true</span>,
-                <span class="ident">is_const</span>: <span class="bool-val">true</span>,
-                <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
-                    <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">CType::I32</span>)
+            CStatement::Declaration {
+                name: <span class="string">&quot;my_array&quot;</span>.to_string(),
+                is_extern: <span class="bool-val">true</span>,
+                is_const: <span class="bool-val">true</span>,
+                ctype: CType::Array {
+                    inner: Box::new(CType::I32)
                 },
-                <span class="ident">definition</span>: <span class="prelude-val">None</span>,
+                definition: <span class="prelude-val">None</span>,
             },
-            <span class="string">&quot;const extern int my_array[];\n&quot;</span>
-        );
+            <span class="string">&quot;const extern int my_array[];\n&quot;
+        </span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

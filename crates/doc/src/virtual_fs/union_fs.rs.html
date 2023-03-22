@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/union_fs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>union_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/union_fs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>union_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -1103,981 +1103,981 @@
 <span id="1103">1103</span>
 <span id="1104">1104</span>
 <span id="1105">1105</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,</span>
-<span class="doccomment">//! its not as simple as TmpFs. not currently used but was used by</span>
-<span class="doccomment">//! the previoulsy implementation of Deploy - now using TmpFs</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,
+//! its not as simple as TmpFs. not currently used but was used by
+//! the previoulsy implementation of Deploy - now using TmpFs
 
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">std::borrow::Cow</span>;
-<span class="kw">use</span> <span class="ident">std::ops::Add</span>;
-<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
-<span class="kw">use</span> <span class="ident">std::sync::atomic::AtomicU32</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Weak</span>;
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
+</span><span class="attribute">#![allow(dead_code)]
+#![allow(unused)]
+</span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>std::borrow::Cow;
+<span class="kw">use </span>std::ops::Add;
+<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::sync::atomic::AtomicU32;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::sync::Mutex;
+<span class="kw">use </span>std::sync::Weak;
+<span class="attribute">#[allow(unused_imports, dead_code)]
+</span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
 
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TempHolding</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">pub type </span>TempHolding = Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt;&gt;&gt;;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MountPoint</span> {
-    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">fs</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">weak_fs</span>: <span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">temp_holding</span>: <span class="ident">TempHolding</span>,
-    <span class="kw">pub</span> <span class="ident">should_sanitize</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">new_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>MountPoint {
+    <span class="kw">pub </span>path: String,
+    <span class="kw">pub </span>name: String,
+    <span class="kw">pub </span>fs: <span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt;,
+    <span class="kw">pub </span>weak_fs: Weak&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;,
+    <span class="kw">pub </span>temp_holding: TempHolding,
+    <span class="kw">pub </span>should_sanitize: bool,
+    <span class="kw">pub </span>new_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">MountPoint</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">path</span>: <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>(),
-            <span class="ident">name</span>: <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-            <span class="ident">fs</span>: <span class="prelude-val">None</span>,
-            <span class="ident">weak_fs</span>: <span class="self">self</span>.<span class="ident">weak_fs</span>.<span class="ident">clone</span>(),
-            <span class="ident">temp_holding</span>: <span class="self">self</span>.<span class="ident">temp_holding</span>.<span class="ident">clone</span>(),
-            <span class="ident">should_sanitize</span>: <span class="self">self</span>.<span class="ident">should_sanitize</span>,
-            <span class="ident">new_path</span>: <span class="self">self</span>.<span class="ident">new_path</span>.<span class="ident">clone</span>(),
+<span class="kw">impl </span>Clone <span class="kw">for </span>MountPoint {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            path: <span class="self">self</span>.path.clone(),
+            name: <span class="self">self</span>.name.clone(),
+            fs: <span class="prelude-val">None</span>,
+            weak_fs: <span class="self">self</span>.weak_fs.clone(),
+            temp_holding: <span class="self">self</span>.temp_holding.clone(),
+            should_sanitize: <span class="self">self</span>.should_sanitize,
+            new_path: <span class="self">self</span>.new_path.clone(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MountPoint</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fs</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">fs</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">a</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">a</span>.<span class="ident">clone</span>()),
-            <span class="prelude-val">None</span> =&gt; <span class="self">self</span>.<span class="ident">weak_fs</span>.<span class="ident">upgrade</span>(),
+<span class="kw">impl </span>MountPoint {
+    <span class="kw">pub fn </span>fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.fs {
+            <span class="prelude-val">Some</span>(a) =&gt; <span class="prelude-val">Some</span>(a.clone()),
+            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.weak_fs.upgrade(),
         }
     }
 
-    <span class="doccomment">/// Tries to recover the internal `Weak&lt;dyn FileSystem&gt;` to a `Arc&lt;dyn FileSystem&gt;`</span>
-    <span class="kw">fn</span> <span class="ident">solidify</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">fs</span>.<span class="ident">is_none</span>() {
-            <span class="self">self</span>.<span class="ident">fs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">weak_fs</span>.<span class="ident">upgrade</span>();
+    <span class="doccomment">/// Tries to recover the internal `Weak&lt;dyn FileSystem&gt;` to a `Arc&lt;dyn FileSystem&gt;`
+    </span><span class="kw">fn </span>solidify(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span><span class="self">self</span>.fs.is_none() {
+            <span class="self">self</span>.fs = <span class="self">self</span>.weak_fs.upgrade();
         }
         {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">temp_holding</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-            <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">take</span>();
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">fs</span>.<span class="ident">is_none</span>() {
-                <span class="self">self</span>.<span class="ident">fs</span> <span class="op">=</span> <span class="ident">fs</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.temp_holding.lock().unwrap();
+            <span class="kw">let </span>fs = guard.take();
+            <span class="kw">if </span><span class="self">self</span>.fs.is_none() {
+                <span class="self">self</span>.fs = fs;
             }
         }
     }
 
-    <span class="doccomment">/// Returns a strong-referenced copy of the internal `Arc&lt;dyn FileSystem&gt;`</span>
-    <span class="kw">fn</span> <span class="ident">strong</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">StrongMountPoint</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">fs</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">fs</span><span class="op">|</span> <span class="ident">StrongMountPoint</span> {
-            <span class="ident">path</span>: <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>(),
-            <span class="ident">name</span>: <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">clone</span>(),
-            <span class="ident">fs</span>,
-            <span class="ident">should_sanitize</span>: <span class="self">self</span>.<span class="ident">should_sanitize</span>,
-            <span class="ident">new_path</span>: <span class="self">self</span>.<span class="ident">new_path</span>.<span class="ident">clone</span>(),
+    <span class="doccomment">/// Returns a strong-referenced copy of the internal `Arc&lt;dyn FileSystem&gt;`
+    </span><span class="kw">fn </span>strong(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;StrongMountPoint&gt; {
+        <span class="self">self</span>.fs().map(|fs| StrongMountPoint {
+            path: <span class="self">self</span>.path.clone(),
+            name: <span class="self">self</span>.name.clone(),
+            fs,
+            should_sanitize: <span class="self">self</span>.should_sanitize,
+            new_path: <span class="self">self</span>.new_path.clone(),
         })
     }
 }
 
-<span class="doccomment">/// A `strong` mount point holds a strong `Arc` reference to the filesystem</span>
-<span class="doccomment">/// mounted at path `path`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StrongMountPoint</span> {
-    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">fs</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">should_sanitize</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">new_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A `strong` mount point holds a strong `Arc` reference to the filesystem
+/// mounted at path `path`.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>StrongMountPoint {
+    <span class="kw">pub </span>path: String,
+    <span class="kw">pub </span>name: String,
+    <span class="kw">pub </span>fs: Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;,
+    <span class="kw">pub </span>should_sanitize: bool,
+    <span class="kw">pub </span>new_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
-<span class="doccomment">/// Allows different filesystems of different types</span>
-<span class="doccomment">/// to be mounted at various mount points</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UnionFileSystem</span> {
-    <span class="kw">pub</span> <span class="ident">mounts</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MountPoint</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Allows different filesystems of different types
+/// to be mounted at various mount points
+</span><span class="attribute">#[derive(Debug, Default, Clone)]
+</span><span class="kw">pub struct </span>UnionFileSystem {
+    <span class="kw">pub </span>mounts: Vec&lt;MountPoint&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">UnionFileSystem</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::default</span>()
+<span class="kw">impl </span>UnionFileSystem {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::default()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clear</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">mounts</span>.<span class="ident">clear</span>();
+    <span class="kw">pub fn </span>clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.mounts.clear();
     }
 }
 
-<span class="kw">impl</span> <span class="ident">UnionFileSystem</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">mount</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">should_sanitize</span>: <span class="ident">bool</span>,
-        <span class="ident">fs</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span>,
-        <span class="ident">new_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
+<span class="kw">impl </span>UnionFileSystem {
+    <span class="kw">pub fn </span>mount(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        name: <span class="kw-2">&amp;</span>str,
+        path: <span class="kw-2">&amp;</span>str,
+        should_sanitize: bool,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem&gt;,
+        new_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
     ) {
-        <span class="self">self</span>.<span class="ident">unmount</span>(<span class="ident">path</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string</span>();
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">starts_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">path</span>.<span class="ident">insert</span>(<span class="number">0</span>, <span class="string">&#39;/&#39;</span>);
+        <span class="self">self</span>.unmount(path);
+        <span class="kw">let </span><span class="kw-2">mut </span>path = path.to_string();
+        <span class="kw">if </span>!path.starts_with(<span class="string">&#39;/&#39;</span>) {
+            path.insert(<span class="number">0</span>, <span class="string">&#39;/&#39;</span>);
         }
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">path</span> <span class="op">+</span><span class="op">=</span> <span class="string">&quot;/&quot;</span>;
+        <span class="kw">if </span>!path.ends_with(<span class="string">&#39;/&#39;</span>) {
+            path += <span class="string">&quot;/&quot;</span>;
         }
-        <span class="kw">let</span> <span class="ident">new_path</span> <span class="op">=</span> <span class="ident">new_path</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">new_path</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_path</span> <span class="op">=</span> <span class="ident">new_path</span>.<span class="ident">to_string</span>();
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">new_path</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-                <span class="ident">new_path</span> <span class="op">+</span><span class="op">=</span> <span class="string">&quot;/&quot;</span>;
+        <span class="kw">let </span>new_path = new_path.map(|new_path| {
+            <span class="kw">let </span><span class="kw-2">mut </span>new_path = new_path.to_string();
+            <span class="kw">if </span>!new_path.ends_with(<span class="string">&#39;/&#39;</span>) {
+                new_path += <span class="string">&quot;/&quot;</span>;
             }
-            <span class="ident">new_path</span>
+            new_path
         });
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">fs</span>);
+        <span class="kw">let </span>fs = Arc::new(fs);
 
-        <span class="kw">let</span> <span class="ident">mount</span> <span class="op">=</span> <span class="ident">MountPoint</span> {
-            <span class="ident">path</span>,
-            <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
-            <span class="ident">fs</span>: <span class="prelude-val">None</span>,
-            <span class="ident">weak_fs</span>: <span class="ident">Arc::downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>),
-            <span class="ident">temp_holding</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="prelude-val">Some</span>(<span class="ident">fs</span>.<span class="ident">clone</span>()))),
-            <span class="ident">should_sanitize</span>,
-            <span class="ident">new_path</span>,
+        <span class="kw">let </span>mount = MountPoint {
+            path,
+            name: name.to_string(),
+            fs: <span class="prelude-val">None</span>,
+            weak_fs: Arc::downgrade(<span class="kw-2">&amp;</span>fs),
+            temp_holding: Arc::new(Mutex::new(<span class="prelude-val">Some</span>(fs.clone()))),
+            should_sanitize,
+            new_path,
         };
 
-        <span class="self">self</span>.<span class="ident">mounts</span>.<span class="ident">push</span>(<span class="ident">mount</span>);
+        <span class="self">self</span>.mounts.push(mount);
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unmount</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="kw">let</span> <span class="ident">path1</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path2</span> <span class="op">=</span> <span class="ident">path1</span>;
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">path2</span>.<span class="ident">starts_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">path2</span>.<span class="ident">insert</span>(<span class="number">0</span>, <span class="string">&#39;/&#39;</span>);
+    <span class="kw">pub fn </span>unmount(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">let </span>path1 = path.to_string();
+        <span class="kw">let </span><span class="kw-2">mut </span>path2 = path1;
+        <span class="kw">if </span>!path2.starts_with(<span class="string">&#39;/&#39;</span>) {
+            path2.insert(<span class="number">0</span>, <span class="string">&#39;/&#39;</span>);
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path3</span> <span class="op">=</span> <span class="ident">path2</span>.<span class="ident">clone</span>();
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">path3</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">path3</span>.<span class="ident">push</span>(<span class="string">&#39;/&#39;</span>)
+        <span class="kw">let </span><span class="kw-2">mut </span>path3 = path2.clone();
+        <span class="kw">if </span>!path3.ends_with(<span class="string">&#39;/&#39;</span>) {
+            path3.push(<span class="string">&#39;/&#39;</span>)
         }
-        <span class="kw">if</span> <span class="ident">path2</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">path2</span> <span class="op">=</span> (<span class="ident">path2</span>[..(<span class="ident">path2</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>)]).<span class="ident">to_string</span>();
+        <span class="kw">if </span>path2.ends_with(<span class="string">&#39;/&#39;</span>) {
+            path2 = (path2[..(path2.len() - <span class="number">1</span>)]).to_string();
         }
 
-        <span class="self">self</span>.<span class="ident">mounts</span>
-            .<span class="ident">retain</span>(<span class="op">|</span><span class="ident">mount</span><span class="op">|</span> <span class="ident">mount</span>.<span class="ident">path</span> <span class="op">!</span><span class="op">=</span> <span class="ident">path2</span> <span class="op">&amp;&amp;</span> <span class="ident">mount</span>.<span class="ident">path</span> <span class="op">!</span><span class="op">=</span> <span class="ident">path3</span>);
+        <span class="self">self</span>.mounts
+            .retain(|mount| mount.path != path2 &amp;&amp; mount.path != path3);
     }
 
-    <span class="kw">fn</span> <span class="ident">read_dir_internal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ReadDir</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
+    <span class="kw">fn </span>read_dir_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
+        <span class="kw">let </span>path = path.to_string_lossy();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">dir</span>) =&gt; {
-                    <span class="kw">if</span> <span class="ident">ret</span>.<span class="ident">is_none</span>() {
-                        <span class="ident">ret</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Vec::new</span>());
+        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="prelude-val">None</span>;
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.read_dir(Path::new(path.as_str())) {
+                <span class="prelude-val">Ok</span>(dir) =&gt; {
+                    <span class="kw">if </span>ret.is_none() {
+                        ret = <span class="prelude-val">Some</span>(Vec::new());
                     }
-                    <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">ret</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>();
-                    <span class="kw">for</span> <span class="ident">sub</span> <span class="kw">in</span> <span class="ident">dir</span>.<span class="ident">flatten</span>() {
-                        <span class="ident">ret</span>.<span class="ident">push</span>(<span class="ident">sub</span>);
+                    <span class="kw">let </span>ret = ret.as_mut().unwrap();
+                    <span class="kw">for </span>sub <span class="kw">in </span>dir.flatten() {
+                        ret.push(sub);
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;failed to read dir - {}&quot;</span>, <span class="ident">err</span>);
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">debug!</span>(<span class="string">&quot;failed to read dir - {}&quot;</span>, err);
                 }
             }
         }
 
-        <span class="kw">match</span> <span class="ident">ret</span> {
-            <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">ret</span>) =&gt; {
-                <span class="ident">ret</span>.<span class="ident">sort_by</span>(<span class="op">|</span><span class="ident">a</span>, <span class="ident">b</span><span class="op">|</span> <span class="kw">match</span> (<span class="ident">a</span>.<span class="ident">metadata</span>.<span class="ident">as_ref</span>(), <span class="ident">b</span>.<span class="ident">metadata</span>.<span class="ident">as_ref</span>()) {
-                    (<span class="prelude-val">Ok</span>(<span class="ident">a</span>), <span class="prelude-val">Ok</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span>.<span class="ident">modified</span>.<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">b</span>.<span class="ident">modified</span>),
-                    <span class="kw">_</span> =&gt; <span class="ident">std::cmp::Ordering::Equal</span>,
+        <span class="kw">match </span>ret {
+            <span class="prelude-val">Some</span>(<span class="kw-2">mut </span>ret) =&gt; {
+                ret.sort_by(|a, b| <span class="kw">match </span>(a.metadata.as_ref(), b.metadata.as_ref()) {
+                    (<span class="prelude-val">Ok</span>(a), <span class="prelude-val">Ok</span>(b)) =&gt; a.modified.cmp(<span class="kw-2">&amp;</span>b.modified),
+                    <span class="kw">_ </span>=&gt; std::cmp::Ordering::Equal,
                 });
-                <span class="prelude-val">Ok</span>(<span class="ident">ReadDir::new</span>(<span class="ident">ret</span>))
+                <span class="prelude-val">Ok</span>(ReadDir::new(ret))
             }
-            <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>),
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(FsError::EntryNotFound),
         }
     }
 
-    <span class="doccomment">/// Deletes all mount points that do not have `sanitize` set in the options</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sanitize</span>(<span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">solidify</span>();
-        <span class="self">self</span>.<span class="ident">mounts</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">mount</span><span class="op">|</span> <span class="op">!</span><span class="ident">mount</span>.<span class="ident">should_sanitize</span>);
-        <span class="self">self</span>
-    }
+    <span class="doccomment">/// Deletes all mount points that do not have `sanitize` set in the options
+    </span><span class="kw">pub fn </span>sanitize(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.solidify();
+        <span class="self">self</span>.mounts.retain(|mount| !mount.should_sanitize);
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Tries to recover the internal `Weak&lt;dyn FileSystem&gt;` to a `Arc&lt;dyn FileSystem&gt;`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">solidify</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">for</span> <span class="ident">mount</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">mounts</span>.<span class="ident">iter_mut</span>() {
-            <span class="ident">mount</span>.<span class="ident">solidify</span>();
+    <span class="doccomment">/// Tries to recover the internal `Weak&lt;dyn FileSystem&gt;` to a `Arc&lt;dyn FileSystem&gt;`
+    </span><span class="kw">pub fn </span>solidify(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">for </span>mount <span class="kw">in </span><span class="self">self</span>.mounts.iter_mut() {
+            mount.solidify();
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">FileSystem</span> <span class="kw">for</span> <span class="ident">UnionFileSystem</span> {
-    <span class="kw">fn</span> <span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ReadDir</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;read_dir: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="self">self</span>.<span class="ident">read_dir_internal</span>(<span class="ident">path</span>)
+<span class="kw">impl </span>FileSystem <span class="kw">for </span>UnionFileSystem {
+    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;read_dir: path={}&quot;</span>, path.display());
+        <span class="self">self</span>.read_dir_internal(path)
     }
-    <span class="kw">fn</span> <span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;create_dir: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">parent</span>().<span class="ident">is_none</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>);
+    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;create_dir: path={}&quot;</span>, path.display());
+        <span class="kw">if </span>path.parent().is_none() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
         }
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">read_dir_internal</span>(<span class="ident">path</span>).<span class="ident">is_ok</span>() {
-            <span class="comment">//return Err(FsError::AlreadyExists);</span>
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+        <span class="kw">if </span><span class="self">self</span>.read_dir_internal(path).is_ok() {
+            <span class="comment">//return Err(FsError::AlreadyExists);
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
+        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.create_dir(Path::new(path.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">err</span>;
-                }
-            }
-        }
-        <span class="prelude-val">Err</span>(<span class="ident">ret_error</span>)
-    }
-    <span class="kw">fn</span> <span class="ident">remove_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;remove_dir: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">parent</span>().<span class="ident">is_none</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>);
-        }
-        <span class="comment">// https://github.com/rust-lang/rust/issues/86442</span>
-        <span class="comment">// DirectoryNotEmpty is not implemented consistently</span>
-        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">is_dir</span>() <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">read_dir</span>(<span class="ident">path</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="op">!</span><span class="ident">s</span>.<span class="ident">is_empty</span>()).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::DirectoryNotEmpty</span>);
-        }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
-                }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">err</span>;
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    ret_error = err;
                 }
             }
         }
-        <span class="prelude-val">Err</span>(<span class="ident">ret_error</span>)
+        <span class="prelude-val">Err</span>(ret_error)
     }
-    <span class="kw">fn</span> <span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">from</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">to</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">println!</span>(<span class="string">&quot;rename: from={} to={}&quot;</span>, <span class="ident">from</span>.<span class="ident">display</span>(), <span class="ident">to</span>.<span class="ident">display</span>());
-        <span class="kw">if</span> <span class="ident">from</span>.<span class="ident">parent</span>().<span class="ident">is_none</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>);
+    <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;remove_dir: path={}&quot;</span>, path.display());
+        <span class="kw">if </span>path.parent().is_none() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
         }
-        <span class="kw">if</span> <span class="ident">to</span>.<span class="ident">parent</span>().<span class="ident">is_none</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>);
+        <span class="comment">// https://github.com/rust-lang/rust/issues/86442
+        // DirectoryNotEmpty is not implemented consistently
+        </span><span class="kw">if </span>path.is_dir() &amp;&amp; <span class="self">self</span>.read_dir(path).map(|s| !s.is_empty()).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty);
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">let</span> <span class="ident">from</span> <span class="op">=</span> <span class="ident">from</span>.<span class="ident">to_string_lossy</span>();
-        <span class="kw">let</span> <span class="ident">to</span> <span class="op">=</span> <span class="ident">to</span>.<span class="ident">to_string_lossy</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">to</span> <span class="op">=</span> <span class="ident">to</span>.<span class="ident">replace</span>(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">from</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">to</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">to</span>.<span class="ident">starts_with</span>(<span class="ident">mount</span>.<span class="ident">path</span>.<span class="ident">as_str</span>()) {
-                (<span class="ident">to</span>[<span class="ident">mount</span>.<span class="ident">path</span>.<span class="ident">len</span>()..]).<span class="ident">to_string</span>()
-            } <span class="kw">else</span> {
-                <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::UnknownError</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.remove_dir(Path::new(path.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
+                }
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    ret_error = err;
+                }
+            }
+        }
+        <span class="prelude-val">Err</span>(ret_error)
+    }
+    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="macro">println!</span>(<span class="string">&quot;rename: from={} to={}&quot;</span>, from.display(), to.display());
+        <span class="kw">if </span>from.parent().is_none() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+        }
+        <span class="kw">if </span>to.parent().is_none() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">let </span>from = from.to_string_lossy();
+        <span class="kw">let </span>to = to.to_string_lossy();
+        <span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+        </span><span class="kw">let </span>to = to.replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, from.as_ref()) {
+            <span class="kw">let </span><span class="kw-2">mut </span>to = <span class="kw">if </span>to.starts_with(mount.path.as_str()) {
+                (to[mount.path.len()..]).to_string()
+            } <span class="kw">else </span>{
+                ret_error = FsError::UnknownError;
                 <span class="kw">continue</span>;
             };
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">to</span>.<span class="ident">starts_with</span>(<span class="string">&#39;/&#39;</span>) {
-                <span class="ident">to</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, <span class="ident">to</span>);
+            <span class="kw">if </span>!to.starts_with(<span class="string">&#39;/&#39;</span>) {
+                to = <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, to);
             }
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">rename</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>), <span class="ident">Path::new</span>(<span class="ident">to</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; {
+            <span class="kw">match </span>mount.fs.rename(Path::new(<span class="kw-2">&amp;</span>path), Path::new(to.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
                     <span class="macro">trace!</span>(<span class="string">&quot;rename ok&quot;</span>);
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="macro">trace!</span>(<span class="string">&quot;rename error (from={}, to={}) - {}&quot;</span>, <span class="ident">from</span>, <span class="ident">to</span>, <span class="ident">err</span>);
-                    <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">err</span>;
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">trace!</span>(<span class="string">&quot;rename error (from={}, to={}) - {}&quot;</span>, from, to, err);
+                    ret_error = err;
                 }
             }
         }
-        <span class="macro">trace!</span>(<span class="string">&quot;rename failed - {}&quot;</span>, <span class="ident">ret_error</span>);
-        <span class="prelude-val">Err</span>(<span class="ident">ret_error</span>)
+        <span class="macro">trace!</span>(<span class="string">&quot;rename failed - {}&quot;</span>, ret_error);
+        <span class="prelude-val">Err</span>(ret_error)
     }
-    <span class="kw">fn</span> <span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Metadata</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;metadata: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
+    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;metadata: path={}&quot;</span>, path.display());
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.metadata(Path::new(path.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist</span>
-                    <span class="comment">// on the x86 version of memfs</span>
-                    <span class="comment">// TODO: patch virtual-fs and remove</span>
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">FsError::NotAFile</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">err</span> {
-                        <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-                    } <span class="kw">else</span> {
-                        <span class="macro">debug!</span>(<span class="string">&quot;metadata failed: (path={}) - {}&quot;</span>, <span class="ident">path</span>, <span class="ident">err</span>);
-                        <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">err</span>;
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist
+                    // on the x86 version of memfs
+                    // TODO: patch virtual-fs and remove
+                    </span><span class="kw">if let </span>FsError::NotAFile = <span class="kw-2">&amp;</span>err {
+                        ret_error = FsError::EntryNotFound;
+                    } <span class="kw">else </span>{
+                        <span class="macro">debug!</span>(<span class="string">&quot;metadata failed: (path={}) - {}&quot;</span>, path, err);
+                        ret_error = err;
                     }
                 }
             }
         }
-        <span class="prelude-val">Err</span>(<span class="ident">ret_error</span>)
+        <span class="prelude-val">Err</span>(ret_error)
     }
-    <span class="kw">fn</span> <span class="ident">symlink_metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Metadata</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;symlink_metadata: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
-        <span class="kw">for</span> (<span class="ident">path_inner</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">symlink_metadata</span>(<span class="ident">Path::new</span>(<span class="ident">path_inner</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
+    <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;symlink_metadata: path={}&quot;</span>, path.display());
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">for </span>(path_inner, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.symlink_metadata(Path::new(path_inner.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist</span>
-                    <span class="comment">// on the x86 version of memfs</span>
-                    <span class="comment">// TODO: patch virtual-fs and remove</span>
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">FsError::NotAFile</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">err</span> {
-                        <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-                    } <span class="kw">else</span> {
-                        <span class="macro">debug!</span>(<span class="string">&quot;metadata failed: (path={}) - {}&quot;</span>, <span class="ident">path</span>, <span class="ident">err</span>);
-                        <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">err</span>;
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist
+                    // on the x86 version of memfs
+                    // TODO: patch virtual-fs and remove
+                    </span><span class="kw">if let </span>FsError::NotAFile = <span class="kw-2">&amp;</span>err {
+                        ret_error = FsError::EntryNotFound;
+                    } <span class="kw">else </span>{
+                        <span class="macro">debug!</span>(<span class="string">&quot;metadata failed: (path={}) - {}&quot;</span>, path, err);
+                        ret_error = err;
                     }
                 }
             }
         }
-        <span class="macro">debug!</span>(<span class="string">&quot;symlink_metadata: failed={}&quot;</span>, <span class="ident">ret_error</span>);
-        <span class="prelude-val">Err</span>(<span class="ident">ret_error</span>)
+        <span class="macro">debug!</span>(<span class="string">&quot;symlink_metadata: failed={}&quot;</span>, ret_error);
+        <span class="prelude-val">Err</span>(ret_error)
     }
-    <span class="kw">fn</span> <span class="ident">remove_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">println!</span>(<span class="string">&quot;remove_file: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>.<span class="ident">as_str</span>())) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
+    <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="macro">println!</span>(<span class="string">&quot;remove_file: path={}&quot;</span>, path.display());
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.remove_file(Path::new(path.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+                <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">println!</span>(<span class="string">&quot;returning error {err:?}&quot;</span>);
-                    <span class="ident">ret_error</span> <span class="op">=</span> <span class="ident">err</span>;
+                    ret_error = err;
                 }
             }
         }
-        <span class="prelude-val">Err</span>(<span class="ident">ret_error</span>)
+        <span class="prelude-val">Err</span>(ret_error)
     }
-    <span class="kw">fn</span> <span class="ident">new_open_options</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">OpenOptions</span> {
-        <span class="ident">OpenOptions::new</span>(<span class="self">self</span>)
+    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
+        OpenOptions::new(<span class="self">self</span>)
     }
 }
 
-<span class="kw">fn</span> <span class="ident">filter_mounts</span>(
-    <span class="ident">mounts</span>: <span class="kw-2">&amp;</span>[<span class="ident">MountPoint</span>],
-    <span class="kw-2">mut</span> <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="kw">impl</span> <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> (<span class="ident">String</span>, <span class="ident">StrongMountPoint</span>)<span class="op">&gt;</span> {
-    <span class="comment">// On Windows, Path might use \ instead of /, wich mill messup the matching of mount points</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">replace</span>(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
+<span class="kw">fn </span>filter_mounts(
+    mounts: <span class="kw-2">&amp;</span>[MountPoint],
+    <span class="kw-2">mut </span>target: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (String, StrongMountPoint)&gt; {
+    <span class="comment">// On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
+    </span><span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">let </span>target = target.replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">biggest_path</span> <span class="op">=</span> <span class="number">0usize</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="kw">for</span> <span class="ident">mount</span> <span class="kw">in</span> <span class="ident">mounts</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">test_mount_path1</span> <span class="op">=</span> <span class="ident">mount</span>.<span class="ident">path</span>.<span class="ident">clone</span>();
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">test_mount_path1</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">test_mount_path1</span>.<span class="ident">push</span>(<span class="string">&#39;/&#39;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>biggest_path = <span class="number">0usize</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::new();
+    <span class="kw">for </span>mount <span class="kw">in </span>mounts.iter().rev() {
+        <span class="kw">let </span><span class="kw-2">mut </span>test_mount_path1 = mount.path.clone();
+        <span class="kw">if </span>!test_mount_path1.ends_with(<span class="string">&#39;/&#39;</span>) {
+            test_mount_path1.push(<span class="string">&#39;/&#39;</span>);
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">test_mount_path2</span> <span class="op">=</span> <span class="ident">mount</span>.<span class="ident">path</span>.<span class="ident">clone</span>();
-        <span class="kw">if</span> <span class="ident">test_mount_path2</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="ident">test_mount_path2</span> <span class="op">=</span> <span class="ident">test_mount_path2</span>[..(<span class="ident">test_mount_path2</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span>)].<span class="ident">to_string</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>test_mount_path2 = mount.path.clone();
+        <span class="kw">if </span>test_mount_path2.ends_with(<span class="string">&#39;/&#39;</span>) {
+            test_mount_path2 = test_mount_path2[..(test_mount_path2.len() - <span class="number">1</span>)].to_string();
         }
 
-        <span class="kw">if</span> <span class="ident">target</span> <span class="op">==</span> <span class="ident">test_mount_path1</span> <span class="op">|</span><span class="op">|</span> <span class="ident">target</span> <span class="op">==</span> <span class="ident">test_mount_path2</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">mount</span>) <span class="op">=</span> <span class="ident">mount</span>.<span class="ident">strong</span>() {
-                <span class="ident">biggest_path</span> <span class="op">=</span> <span class="ident">biggest_path</span>.<span class="ident">max</span>(<span class="ident">mount</span>.<span class="ident">path</span>.<span class="ident">len</span>());
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="string">&quot;/&quot;</span>.<span class="ident">to_string</span>();
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">np</span>) <span class="op">=</span> <span class="ident">mount</span>.<span class="ident">new_path</span> {
-                    <span class="ident">path</span> <span class="op">=</span> <span class="ident">np</span>.<span class="ident">to_string</span>();
+        <span class="kw">if </span>target == test_mount_path1 || target == test_mount_path2 {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(mount) = mount.strong() {
+                biggest_path = biggest_path.max(mount.path.len());
+                <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="string">&quot;/&quot;</span>.to_string();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>np) = mount.new_path {
+                    path = np.to_string();
                 }
-                <span class="ident">ret</span>.<span class="ident">push</span>((<span class="ident">path</span>, <span class="ident">mount</span>));
+                ret.push((path, mount));
             }
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">target</span>.<span class="ident">starts_with</span>(<span class="ident">test_mount_path1</span>.<span class="ident">as_str</span>()) {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">mount</span>) <span class="op">=</span> <span class="ident">mount</span>.<span class="ident">strong</span>() {
-                <span class="ident">biggest_path</span> <span class="op">=</span> <span class="ident">biggest_path</span>.<span class="ident">max</span>(<span class="ident">mount</span>.<span class="ident">path</span>.<span class="ident">len</span>());
-                <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">target</span>[<span class="ident">test_mount_path2</span>.<span class="ident">len</span>()..];
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string</span>();
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">np</span>) <span class="op">=</span> <span class="ident">mount</span>.<span class="ident">new_path</span> {
-                    <span class="ident">path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, <span class="ident">np</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>[<span class="number">1</span>..]);
+        } <span class="kw">else if </span>target.starts_with(test_mount_path1.as_str()) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(mount) = mount.strong() {
+                biggest_path = biggest_path.max(mount.path.len());
+                <span class="kw">let </span>path = <span class="kw-2">&amp;</span>target[test_mount_path2.len()..];
+                <span class="kw">let </span><span class="kw-2">mut </span>path = path.to_string();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>np) = mount.new_path {
+                    path = <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, np, <span class="kw-2">&amp;</span>path[<span class="number">1</span>..]);
                 }
-                <span class="ident">ret</span>.<span class="ident">push</span>((<span class="ident">path</span>, <span class="ident">mount</span>));
+                ret.push((path, mount));
             }
         }
     }
-    <span class="ident">ret</span>.<span class="ident">retain</span>(<span class="op">|</span>(<span class="ident">a</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="ident">b</span>.<span class="ident">path</span>.<span class="ident">len</span>() <span class="op">&gt;</span><span class="op">=</span> <span class="ident">biggest_path</span>);
-    <span class="ident">ret</span>.<span class="ident">into_iter</span>()
+    ret.retain(|(a, b)| b.path.len() &gt;= biggest_path);
+    ret.into_iter()
 }
 
-<span class="kw">impl</span> <span class="ident">FileOpener</span> <span class="kw">for</span> <span class="ident">UnionFileSystem</span> {
-    <span class="kw">fn</span> <span class="ident">open</span>(
+<span class="kw">impl </span>FileOpener <span class="kw">for </span>UnionFileSystem {
+    <span class="kw">fn </span>open(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;open: path={}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret_err</span> <span class="op">=</span> <span class="ident">FsError::EntryNotFound</span>;
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string_lossy</span>();
+        path: <span class="kw-2">&amp;</span>Path,
+        conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;open: path={}&quot;</span>, path.display());
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_err = FsError::EntryNotFound;
+        <span class="kw">let </span>path = path.to_string_lossy();
 
-        <span class="kw">if</span> <span class="ident">conf</span>.<span class="ident">create</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">conf</span>.<span class="ident">create_new</span>() {
-            <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">ret</span>) <span class="op">=</span> <span class="ident">mount</span>
-                    .<span class="ident">fs</span>
-                    .<span class="ident">new_open_options</span>()
-                    .<span class="ident">truncate</span>(<span class="ident">conf</span>.<span class="ident">truncate</span>())
-                    .<span class="ident">append</span>(<span class="ident">conf</span>.<span class="ident">append</span>())
-                    .<span class="ident">read</span>(<span class="ident">conf</span>.<span class="ident">read</span>())
-                    .<span class="ident">write</span>(<span class="ident">conf</span>.<span class="ident">write</span>())
-                    .<span class="ident">open</span>(<span class="ident">path</span>)
+        <span class="kw">if </span>conf.create() || conf.create_new() {
+            <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = mount
+                    .fs
+                    .new_open_options()
+                    .truncate(conf.truncate())
+                    .append(conf.append())
+                    .read(conf.read())
+                    .write(conf.write())
+                    .open(path)
                 {
-                    <span class="kw">if</span> <span class="ident">conf</span>.<span class="ident">create_new</span>() {
-                        <span class="ident">ret</span>.<span class="ident">unlink</span>();
+                    <span class="kw">if </span>conf.create_new() {
+                        ret.unlink();
                         <span class="kw">continue</span>;
                     }
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
                 }
             }
         }
-        <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">mount</span>) <span class="kw">in</span> <span class="ident">filter_mounts</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mounts</span>, <span class="ident">path</span>.<span class="ident">as_ref</span>()) {
-            <span class="kw">match</span> <span class="ident">mount</span>.<span class="ident">fs</span>.<span class="ident">new_open_options</span>().<span class="ident">options</span>(<span class="ident">conf</span>.<span class="ident">clone</span>()).<span class="ident">open</span>(<span class="ident">path</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">ret</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">ret</span>),
-                <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="kw">if</span> <span class="ident">ret_err</span> <span class="op">==</span> <span class="ident">FsError::EntryNotFound</span> =&gt; {
-                    <span class="ident">ret_err</span> <span class="op">=</span> <span class="ident">err</span>;
+        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.new_open_options().options(conf.clone()).open(path) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ret),
+                <span class="prelude-val">Err</span>(err) <span class="kw">if </span>ret_err == FsError::EntryNotFound =&gt; {
+                    ret_err = err;
                 }
-                <span class="kw">_</span> =&gt; {}
+                <span class="kw">_ </span>=&gt; {}
             }
         }
-        <span class="prelude-val">Err</span>(<span class="ident">ret_err</span>)
+        <span class="prelude-val">Err</span>(ret_err)
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">path::Path</span>, <span class="ident">sync::Arc</span>};
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>std::{path::Path, sync::Arc};
 
-    <span class="kw">use</span> <span class="ident">tokio::io::AsyncWriteExt</span>;
+    <span class="kw">use </span>tokio::io::AsyncWriteExt;
 
-    <span class="kw">use</span> <span class="kw">crate</span>::{
-        <span class="ident">host_fs::FileSystem</span>, <span class="ident">mem_fs</span>, <span class="ident">ops</span>, <span class="ident">FileSystem</span> <span class="kw">as</span> <span class="ident">FileSystemTrait</span>, <span class="ident">FsError</span>, <span class="ident">UnionFileSystem</span>,
+    <span class="kw">use crate</span>::{
+        host_fs::FileSystem, mem_fs, ops, FileSystem <span class="kw">as </span>FileSystemTrait, FsError, UnionFileSystem,
     };
 
-    <span class="kw">fn</span> <span class="ident">gen_filesystem</span>() -&gt; <span class="ident">UnionFileSystem</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">union</span> <span class="op">=</span> <span class="ident">UnionFileSystem::new</span>();
-        <span class="comment">// fs.mount(&quot;/&quot;, Box::new(mem_fs::FileSystem::default()));</span>
-        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">c</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">d</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">g</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+    <span class="kw">fn </span>gen_filesystem() -&gt; UnionFileSystem {
+        <span class="kw">let </span><span class="kw-2">mut </span>union = UnionFileSystem::new();
+        <span class="comment">// fs.mount(&quot;/&quot;, Box::new(mem_fs::FileSystem::default()));
+        </span><span class="kw">let </span>a = mem_fs::FileSystem::default();
+        <span class="kw">let </span>b = mem_fs::FileSystem::default();
+        <span class="kw">let </span>c = mem_fs::FileSystem::default();
+        <span class="kw">let </span>d = mem_fs::FileSystem::default();
+        <span class="kw">let </span>e = mem_fs::FileSystem::default();
+        <span class="kw">let </span>f = mem_fs::FileSystem::default();
+        <span class="kw">let </span>g = mem_fs::FileSystem::default();
+        <span class="kw">let </span>h = mem_fs::FileSystem::default();
 
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_1&quot;</span>, <span class="string">&quot;/test_new_filesystem&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">a</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_2&quot;</span>, <span class="string">&quot;/test_create_dir&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">b</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_3&quot;</span>, <span class="string">&quot;/test_remove_dir&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">c</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_4&quot;</span>, <span class="string">&quot;/test_rename&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">d</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_5&quot;</span>, <span class="string">&quot;/test_metadata&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">e</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_remove_file&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">f</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_readdir&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">g</span>), <span class="prelude-val">None</span>);
-        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_canonicalize&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">h</span>), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_1&quot;</span>, <span class="string">&quot;/test_new_filesystem&quot;</span>, <span class="bool-val">false</span>, Box::new(a), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_2&quot;</span>, <span class="string">&quot;/test_create_dir&quot;</span>, <span class="bool-val">false</span>, Box::new(b), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_3&quot;</span>, <span class="string">&quot;/test_remove_dir&quot;</span>, <span class="bool-val">false</span>, Box::new(c), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_4&quot;</span>, <span class="string">&quot;/test_rename&quot;</span>, <span class="bool-val">false</span>, Box::new(d), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_5&quot;</span>, <span class="string">&quot;/test_metadata&quot;</span>, <span class="bool-val">false</span>, Box::new(e), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_remove_file&quot;</span>, <span class="bool-val">false</span>, Box::new(f), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_readdir&quot;</span>, <span class="bool-val">false</span>, Box::new(g), <span class="prelude-val">None</span>);
+        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_canonicalize&quot;</span>, <span class="bool-val">false</span>, Box::new(h), <span class="prelude-val">None</span>);
 
-        <span class="ident">union</span>
+        union
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_new_filesystem</span>() {
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_new_filesystem() {
+        <span class="kw">let </span>fs = gen_filesystem();
         <span class="macro">assert!</span>(
-            <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_new_filesystem&quot;</span>)).<span class="ident">is_ok</span>(),
-            <span class="string">&quot;hostfs can read root&quot;</span>
-        );
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file_write</span> <span class="op">=</span> <span class="ident">fs</span>
-            .<span class="ident">new_open_options</span>()
-            .<span class="ident">read</span>(<span class="bool-val">true</span>)
-            .<span class="ident">write</span>(<span class="bool-val">true</span>)
-            .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-            .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_new_filesystem/foo2.txt&quot;</span>))
-            .<span class="ident">unwrap</span>();
-        <span class="ident">file_write</span>.<span class="ident">write_all</span>(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="string">&quot;/test_new_filesystem/foo2.txt&quot;</span>);
+            fs.read_dir(Path::new(<span class="string">&quot;/test_new_filesystem&quot;</span>)).is_ok(),
+            <span class="string">&quot;hostfs can read root&quot;
+        </span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>file_write = fs
+            .new_open_options()
+            .read(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .create_new(<span class="bool-val">true</span>)
+            .open(Path::new(<span class="string">&quot;/test_new_filesystem/foo2.txt&quot;</span>))
+            .unwrap();
+        file_write.write_all(<span class="string">b&quot;hello&quot;</span>).<span class="kw">await</span>.unwrap();
+        <span class="kw">let _ </span>= std::fs::remove_file(<span class="string">&quot;/test_new_filesystem/foo2.txt&quot;</span>);
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_create_dir</span>() {
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_create_dir() {
+        <span class="kw">let </span>fs = gen_filesystem();
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>),
+            fs.create_dir(Path::new(<span class="string">&quot;/&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;creating a directory that has no parent&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_create_dir&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_create_dir&quot;</span>]);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_create_dir&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_create_dir&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_create_dir/foo&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_create_dir/foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_create_dir&quot;</span>);
+        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_create_dir&quot;</span>);
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()) {
-            <span class="macro">panic!</span>(<span class="string">&quot;cur_dir does not contain foo: {:#?}&quot;</span>, <span class="ident">cur_dir</span>);
+        <span class="kw">if </span>!cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()) {
+            <span class="macro">panic!</span>(<span class="string">&quot;cur_dir does not contain foo: {:#?}&quot;</span>, cur_dir);
         }
 
         <span class="macro">assert!</span>(
-            <span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the root is updated and well-defined&quot;</span>
-        );
+            cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
+            <span class="string">&quot;the root is updated and well-defined&quot;
+        </span>);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_create_dir/foo/bar&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_create_dir/foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a sub-directory&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">foo_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_create_dir/foo&quot;</span>);
+        <span class="kw">let </span>foo_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_create_dir/foo&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">foo_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the foo directory is updated and well-defined&quot;</span>
-        );
+            foo_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.to_string()),
+            <span class="string">&quot;the foo directory is updated and well-defined&quot;
+        </span>);
 
-        <span class="kw">let</span> <span class="ident">bar_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_create_dir/foo/bar&quot;</span>);
+        <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_create_dir/foo/bar&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">bar_dir</span>.<span class="ident">is_empty</span>(),
-            <span class="string">&quot;the foo directory is updated and well-defined&quot;</span>
-        );
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_create_dir&quot;</span>]);
+            bar_dir.is_empty(),
+            <span class="string">&quot;the foo directory is updated and well-defined&quot;
+        </span>);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_create_dir&quot;</span>]);
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_remove_dir</span>() {
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_remove_dir() {
+        <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_remove_dir&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_remove_dir&quot;</span>]);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>),
+            fs.remove_dir(Path::new(<span class="string">&quot;/&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;removing a directory that has no parent&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/foo&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>),
+            fs.remove_dir(Path::new(<span class="string">&quot;/foo&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;cannot remove a directory that doesn&#39;t exist&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_dir&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_remove_dir&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_dir/foo/bar&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_remove_dir/foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a sub-directory&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_remove_dir/foo&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;./foo/bar exists&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_remove_dir/foo&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.to_string()),
+            <span class="string">&quot;./foo/bar exists&quot;
+        </span>);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::DirectoryNotEmpty</span>),
+            fs.remove_dir(Path::new(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty),
             <span class="string">&quot;removing a directory that has children&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_dir/foo/bar&quot;</span>)),
+            fs.remove_dir(Path::new(<span class="string">&quot;/test_remove_dir/foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a sub-directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
+            fs.remove_dir(Path::new(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a directory&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_remove_dir&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the foo directory still exists&quot;</span>
-        );
+            !read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_remove_dir&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
+            <span class="string">&quot;the foo directory still exists&quot;
+        </span>);
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_remove_dir&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_remove_dir&quot;</span>]);
     }
 
-    <span class="kw">fn</span> <span class="ident">read_dir_names</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>))
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">file_name</span>().<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">to_string</span>()))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+    <span class="kw">fn </span>read_dir_names(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span><span class="kw">crate</span>::FileSystem, path: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
+        fs.read_dir(Path::new(path))
+            .unwrap()
+            .filter_map(|entry| <span class="prelude-val">Some</span>(entry.ok()<span class="question-mark">?</span>.file_name().to_str()<span class="question-mark">?</span>.to_string()))
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_rename</span>() {
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_rename() {
+        <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_rename&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_rename&quot;</span>]);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>), <span class="ident">Path::new</span>(<span class="string">&quot;/bar&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>),
+            fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming a directory that has no parent&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/foo&quot;</span>), <span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>),
+            fs.rename(Path::new(<span class="string">&quot;/foo&quot;</span>), Path::new(<span class="string">&quot;/&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
         );
 
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo/qux&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename/foo/qux&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/baz&quot;</span>)
+            fs.rename(
+                Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>),
+                Path::new(<span class="string">&quot;/test_rename/bar/baz&quot;</span>)
             ),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>),
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
         );
 
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo&quot;</span>), <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar&quot;</span>)),
+            fs.rename(Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>), Path::new(<span class="string">&quot;/test_rename/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming to a directory that has parent that exists&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>)),
+                fs.new_open_options()
+                    .write(<span class="bool-val">true</span>)
+                    .create_new(<span class="bool-val">true</span>)
+                    .open(Path::new(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
             ),
             <span class="string">&quot;creating a new file (`hello1.txt`)&quot;</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>)),
+                fs.new_open_options()
+                    .write(<span class="bool-val">true</span>)
+                    .create_new(<span class="bool-val">true</span>)
+                    .open(Path::new(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
             ),
             <span class="string">&quot;creating a new file (`hello2.txt`)&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename&quot;</span>);
+        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the foo directory still exists&quot;</span>
-        );
+            !cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
+            <span class="string">&quot;the foo directory still exists&quot;
+        </span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the bar directory still exists&quot;</span>
-        );
+            cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.to_string()),
+            <span class="string">&quot;the bar directory still exists&quot;
+        </span>);
 
-        <span class="kw">let</span> <span class="ident">bar_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>);
+        <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>);
 
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">bar_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;qux&quot;</span>.<span class="ident">to_string</span>()) {
-            <span class="macro">println!</span>(<span class="string">&quot;qux does not exist: {:?}&quot;</span>, <span class="ident">bar_dir</span>)
+        <span class="kw">if </span>!bar_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;qux&quot;</span>.to_string()) {
+            <span class="macro">println!</span>(<span class="string">&quot;qux does not exist: {:?}&quot;</span>, bar_dir)
         }
 
-        <span class="kw">let</span> <span class="ident">qux_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar/qux&quot;</span>);
+        <span class="kw">let </span>qux_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar/qux&quot;</span>);
 
-        <span class="macro">assert!</span>(<span class="ident">qux_dir</span>.<span class="ident">is_empty</span>(), <span class="string">&quot;the qux directory is empty&quot;</span>);
-
-        <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;hello1.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the /bar/hello1.txt file exists&quot;</span>
-        );
+        <span class="macro">assert!</span>(qux_dir.is_empty(), <span class="string">&quot;the qux directory is empty&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;hello2.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;the /bar/hello2.txt file exists&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;hello1.txt&quot;</span>.to_string()),
+            <span class="string">&quot;the /bar/hello1.txt file exists&quot;
+        </span>);
+
+        <span class="macro">assert!</span>(
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;hello2.txt&quot;</span>.to_string()),
+            <span class="string">&quot;the /bar/hello2.txt file exists&quot;
+        </span>);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;create ./foo again&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo/world2.txt&quot;</span>)
+            fs.rename(
+                Path::new(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>),
+                Path::new(<span class="string">&quot;/test_rename/foo/world2.txt&quot;</span>)
             ),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming (and moving) a file&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/baz&quot;</span>)
+            fs.rename(
+                Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>),
+                Path::new(<span class="string">&quot;/test_rename/bar/baz&quot;</span>)
             ),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_rename/bar/world1.txt&quot;</span>)
+            fs.rename(
+                Path::new(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>),
+                Path::new(<span class="string">&quot;/test_rename/bar/world1.txt&quot;</span>)
             ),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;./bar exists&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.to_string()),
+            <span class="string">&quot;./bar exists&quot;
+        </span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;baz&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;/bar/baz exists&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;baz&quot;</span>.to_string()),
+            <span class="string">&quot;/bar/baz exists&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;foo does not exist anymore&quot;</span>
-        );
+            !read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
+            <span class="string">&quot;foo does not exist anymore&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar/baz&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;world2.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;/bar/baz/world2.txt exists&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar/baz&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;world2.txt&quot;</span>.to_string()),
+            <span class="string">&quot;/bar/baz/world2.txt exists&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;world1.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;/bar/world1.txt (ex hello1.txt) exists&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;world1.txt&quot;</span>.to_string()),
+            <span class="string">&quot;/bar/world1.txt (ex hello1.txt) exists&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;hello1.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;hello1.txt was moved&quot;</span>
-        );
+            !read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;hello1.txt&quot;</span>.to_string()),
+            <span class="string">&quot;hello1.txt was moved&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;hello2.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;hello2.txt was moved&quot;</span>
-        );
+            !read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;hello2.txt&quot;</span>.to_string()),
+            <span class="string">&quot;hello2.txt was moved&quot;
+        </span>);
         <span class="macro">assert!</span>(
-            <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_rename/bar/baz&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;world2.txt&quot;</span>.<span class="ident">to_string</span>()),
-            <span class="string">&quot;world2.txt was moved to the correct place&quot;</span>
-        );
+            read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_rename/bar/baz&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;world2.txt&quot;</span>.to_string()),
+            <span class="string">&quot;world2.txt was moved to the correct place&quot;
+        </span>);
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_rename&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_rename&quot;</span>]);
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_metadata</span>() {
-        <span class="kw">use</span> <span class="ident">std::thread::sleep</span>;
-        <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_metadata() {
+        <span class="kw">use </span>std::thread::sleep;
+        <span class="kw">use </span>std::time::Duration;
 
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+        <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_metadata&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_metadata&quot;</span>]);
 
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_metadata&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
-        <span class="kw">let</span> <span class="ident">root_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>root_metadata = fs.metadata(Path::new(<span class="string">&quot;/test_metadata&quot;</span>)).unwrap();
 
-        <span class="macro">assert!</span>(<span class="ident">root_metadata</span>.<span class="ident">ft</span>.<span class="ident">dir</span>);
-        <span class="macro">assert!</span>(<span class="ident">root_metadata</span>.<span class="ident">accessed</span> <span class="op">==</span> <span class="ident">root_metadata</span>.<span class="ident">created</span>);
-        <span class="macro">assert!</span>(<span class="ident">root_metadata</span>.<span class="ident">modified</span> <span class="op">==</span> <span class="ident">root_metadata</span>.<span class="ident">created</span>);
-        <span class="macro">assert!</span>(<span class="ident">root_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="macro">assert!</span>(root_metadata.ft.dir);
+        <span class="macro">assert!</span>(root_metadata.accessed == root_metadata.created);
+        <span class="macro">assert!</span>(root_metadata.modified == root_metadata.created);
+        <span class="macro">assert!</span>(root_metadata.modified &gt; <span class="number">0</span>);
 
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_metadata/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
-        <span class="kw">let</span> <span class="ident">foo_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata/foo&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">foo_metadata</span>.<span class="ident">is_ok</span>());
-        <span class="kw">let</span> <span class="ident">foo_metadata</span> <span class="op">=</span> <span class="ident">foo_metadata</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let </span>foo_metadata = fs.metadata(Path::new(<span class="string">&quot;/test_metadata/foo&quot;</span>));
+        <span class="macro">assert!</span>(foo_metadata.is_ok());
+        <span class="kw">let </span>foo_metadata = foo_metadata.unwrap();
 
-        <span class="macro">assert!</span>(<span class="ident">foo_metadata</span>.<span class="ident">ft</span>.<span class="ident">dir</span>);
-        <span class="macro">assert!</span>(<span class="ident">foo_metadata</span>.<span class="ident">accessed</span> <span class="op">==</span> <span class="ident">foo_metadata</span>.<span class="ident">created</span>);
-        <span class="macro">assert!</span>(<span class="ident">foo_metadata</span>.<span class="ident">modified</span> <span class="op">==</span> <span class="ident">foo_metadata</span>.<span class="ident">created</span>);
-        <span class="macro">assert!</span>(<span class="ident">foo_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="number">0</span>);
+        <span class="macro">assert!</span>(foo_metadata.ft.dir);
+        <span class="macro">assert!</span>(foo_metadata.accessed == foo_metadata.created);
+        <span class="macro">assert!</span>(foo_metadata.modified == foo_metadata.created);
+        <span class="macro">assert!</span>(foo_metadata.modified &gt; <span class="number">0</span>);
 
-        <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">3</span>));
+        sleep(Duration::from_secs(<span class="number">3</span>));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata/bar&quot;</span>)
+            fs.rename(
+                Path::new(<span class="string">&quot;/test_metadata/foo&quot;</span>),
+                Path::new(<span class="string">&quot;/test_metadata/bar&quot;</span>)
             ),
             <span class="prelude-val">Ok</span>(())
         );
 
-        <span class="kw">let</span> <span class="ident">bar_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata/bar&quot;</span>)).<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">ft</span>.<span class="ident">dir</span>);
-        <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">accessed</span> <span class="op">==</span> <span class="ident">foo_metadata</span>.<span class="ident">accessed</span>);
-        <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">created</span> <span class="op">==</span> <span class="ident">foo_metadata</span>.<span class="ident">created</span>);
-        <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="ident">foo_metadata</span>.<span class="ident">modified</span>);
+        <span class="kw">let </span>bar_metadata = fs.metadata(Path::new(<span class="string">&quot;/test_metadata/bar&quot;</span>)).unwrap();
+        <span class="macro">assert!</span>(bar_metadata.ft.dir);
+        <span class="macro">assert!</span>(bar_metadata.accessed == foo_metadata.accessed);
+        <span class="macro">assert!</span>(bar_metadata.created == foo_metadata.created);
+        <span class="macro">assert!</span>(bar_metadata.modified &gt; foo_metadata.modified);
 
-        <span class="kw">let</span> <span class="ident">root_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_metadata/bar&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="kw">let </span>root_metadata = fs.metadata(Path::new(<span class="string">&quot;/test_metadata/bar&quot;</span>)).unwrap();
         <span class="macro">assert!</span>(
-            <span class="ident">root_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="ident">foo_metadata</span>.<span class="ident">modified</span>,
-            <span class="string">&quot;the parent modified time was updated&quot;</span>
-        );
+            root_metadata.modified &gt; foo_metadata.modified,
+            <span class="string">&quot;the parent modified time was updated&quot;
+        </span>);
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_metadata&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_metadata&quot;</span>]);
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_remove_file</span>() {
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_remove_file() {
+        <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
 
-        <span class="macro">assert!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_file&quot;</span>)).<span class="ident">is_ok</span>());
+        <span class="macro">assert!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_remove_file&quot;</span>)).is_ok());
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
+                fs.new_open_options()
+                    .write(<span class="bool-val">true</span>)
+                    .create_new(<span class="bool-val">true</span>)
+                    .open(Path::new(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_remove_file&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.<span class="ident">to_string</span>()));
+        <span class="macro">assert!</span>(read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_remove_file&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.to_string()));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
+            fs.remove_file(Path::new(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a file that exists&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/test_remove_file&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.<span class="ident">to_string</span>()));
+        <span class="macro">assert!</span>(!read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_remove_file&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.to_string()));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>),
+            fs.remove_file(Path::new(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;removing a file that doesn&#39;t exists&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
     }
 
-    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_readdir</span>() {
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">gen_filesystem</span>();
+    <span class="attribute">#[tokio::test]
+    </span><span class="kw">async fn </span>test_readdir() {
+        <span class="kw">let </span>fs = gen_filesystem();
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir/foo&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_readdir/foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `foo`&quot;</span>
-        );
+            <span class="string">&quot;creating `foo`&quot;
+        </span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir/foo/sub&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_readdir/foo/sub&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `sub`&quot;</span>
-        );
+            <span class="string">&quot;creating `sub`&quot;
+        </span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir/bar&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_readdir/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `bar`&quot;</span>
-        );
+            <span class="string">&quot;creating `bar`&quot;
+        </span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir/baz&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/test_readdir/baz&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `bar`&quot;</span>
-        );
+            <span class="string">&quot;creating `bar`&quot;
+        </span>);
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir/a.txt&quot;</span>)),
+                fs.new_open_options()
+                    .write(<span class="bool-val">true</span>)
+                    .create_new(<span class="bool-val">true</span>)
+                    .open(Path::new(<span class="string">&quot;/test_readdir/a.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating `a.txt`&quot;</span>,
         );
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
-                <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir/b.txt&quot;</span>)),
+                fs.new_open_options()
+                    .write(<span class="bool-val">true</span>)
+                    .create_new(<span class="bool-val">true</span>)
+                    .open(Path::new(<span class="string">&quot;/test_readdir/b.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating `b.txt`&quot;</span>,
         );
 
-        <span class="macro">println!</span>(<span class="string">&quot;fs: {:?}&quot;</span>, <span class="ident">fs</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;fs: {:?}&quot;</span>, fs);
 
-        <span class="kw">let</span> <span class="ident">readdir</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/test_readdir&quot;</span>));
+        <span class="kw">let </span>readdir = fs.read_dir(Path::new(<span class="string">&quot;/test_readdir&quot;</span>));
 
-        <span class="macro">assert!</span>(<span class="ident">readdir</span>.<span class="ident">is_ok</span>(), <span class="string">&quot;reading the directory `/test_readdir/`&quot;</span>);
+        <span class="macro">assert!</span>(readdir.is_ok(), <span class="string">&quot;reading the directory `/test_readdir/`&quot;</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">readdir</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">unwrap</span>();
+        <span class="kw">let </span><span class="kw-2">mut </span>readdir = readdir.unwrap();
 
-        <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&quot;foo&quot;</span>), <span class="string">&quot;checking entry #1&quot;</span>);
-        <span class="macro">println!</span>(<span class="string">&quot;entry 1: {:#?}&quot;</span>, <span class="ident">next</span>);
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">file_type</span>().<span class="ident">unwrap</span>().<span class="ident">is_dir</span>(), <span class="string">&quot;checking entry #1&quot;</span>);
+        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;foo&quot;</span>), <span class="string">&quot;checking entry #1&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;entry 1: {:#?}&quot;</span>, next);
+        <span class="macro">assert!</span>(next.file_type().unwrap().is_dir(), <span class="string">&quot;checking entry #1&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&quot;bar&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">file_type</span>().<span class="ident">unwrap</span>().<span class="ident">is_dir</span>(), <span class="string">&quot;checking entry #2&quot;</span>);
+        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;bar&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
+        <span class="macro">assert!</span>(next.file_type().unwrap().is_dir(), <span class="string">&quot;checking entry #2&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&quot;baz&quot;</span>), <span class="string">&quot;checking entry #3&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">file_type</span>().<span class="ident">unwrap</span>().<span class="ident">is_dir</span>(), <span class="string">&quot;checking entry #3&quot;</span>);
+        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;baz&quot;</span>), <span class="string">&quot;checking entry #3&quot;</span>);
+        <span class="macro">assert!</span>(next.file_type().unwrap().is_dir(), <span class="string">&quot;checking entry #3&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&quot;a.txt&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">file_type</span>().<span class="ident">unwrap</span>().<span class="ident">is_file</span>(), <span class="string">&quot;checking entry #4&quot;</span>);
+        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;a.txt&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
+        <span class="macro">assert!</span>(next.file_type().unwrap().is_file(), <span class="string">&quot;checking entry #4&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">next</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&quot;b.txt&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">next</span>.<span class="ident">file_type</span>().<span class="ident">unwrap</span>().<span class="ident">is_file</span>(), <span class="string">&quot;checking entry #5&quot;</span>);
+        <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
+        <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;b.txt&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
+        <span class="macro">assert!</span>(next.file_type().unwrap().is_file(), <span class="string">&quot;checking entry #5&quot;</span>);
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>() {
-            <span class="macro">panic!</span>(<span class="string">&quot;next: {:?}&quot;</span>, <span class="ident">s</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = readdir.next() {
+            <span class="macro">panic!</span>(<span class="string">&quot;next: {:?}&quot;</span>, s);
         }
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_readdir&quot;</span>]);
+        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_readdir&quot;</span>]);
     }
 
     <span class="comment">/*
@@ -2176,37 +2176,37 @@
 
         let _ = fs_extra::remove_items(&amp;[&quot;./test_canonicalize&quot;]);
     }
-    */</span>
+    */
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="attribute">#[<span class="ident">ignore</span> <span class="op">=</span> <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]</span>
-    <span class="kw">fn</span> <span class="ident">mount_to_overlapping_directories</span>() {
-        <span class="kw">let</span> <span class="ident">top_level</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">top_level</span>, <span class="string">&quot;/file.txt&quot;</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">nested</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
-        <span class="ident">ops::touch</span>(<span class="kw-2">&amp;</span><span class="ident">nested</span>, <span class="string">&quot;/another-file.txt&quot;</span>).<span class="ident">unwrap</span>();
+    </span><span class="attribute">#[test]
+    #[ignore = <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]
+    </span><span class="kw">fn </span>mount_to_overlapping_directories() {
+        <span class="kw">let </span>top_level = mem_fs::FileSystem::default();
+        ops::touch(<span class="kw-2">&amp;</span>top_level, <span class="string">&quot;/file.txt&quot;</span>).unwrap();
+        <span class="kw">let </span>nested = mem_fs::FileSystem::default();
+        ops::touch(<span class="kw-2">&amp;</span>nested, <span class="string">&quot;/another-file.txt&quot;</span>).unwrap();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">UnionFileSystem::default</span>();
-        <span class="ident">fs</span>.<span class="ident">mount</span>(
+        <span class="kw">let </span><span class="kw-2">mut </span>fs = UnionFileSystem::default();
+        fs.mount(
             <span class="string">&quot;top-level&quot;</span>,
             <span class="string">&quot;/&quot;</span>,
             <span class="bool-val">false</span>,
-            <span class="ident">Box::new</span>(<span class="ident">top_level</span>),
+            Box::new(top_level),
             <span class="prelude-val">Some</span>(<span class="string">&quot;/top-level&quot;</span>),
         );
-        <span class="ident">fs</span>.<span class="ident">mount</span>(
+        fs.mount(
             <span class="string">&quot;nested&quot;</span>,
             <span class="string">&quot;/&quot;</span>,
             <span class="bool-val">false</span>,
-            <span class="ident">Box::new</span>(<span class="ident">nested</span>),
+            Box::new(nested),
             <span class="prelude-val">Some</span>(<span class="string">&quot;/top-level/nested&quot;</span>),
         );
 
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_dir</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/nested&quot;</span>));
-        <span class="macro">assert!</span>(<span class="ident">ops::is_file</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;/top-level/nested/another-file.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/file.txt&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/nested&quot;</span>));
+        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/nested/another-file.txt&quot;</span>));
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

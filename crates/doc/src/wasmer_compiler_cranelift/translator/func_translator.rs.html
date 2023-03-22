@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_translator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>func_translator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/func_translator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>func_translator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -270,277 +270,277 @@
 <span id="270">270</span>
 <span id="271">271</span>
 <span id="272">272</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Standalone WebAssembly to Cranelift IR translator.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! This module defines the `FuncTranslator` type which can translate a single WebAssembly</span>
-<span class="doccomment">//! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the</span>
-<span class="doccomment">//! WebAssembly module and the runtime environment.</span>
+</span><span class="doccomment">//! Standalone WebAssembly to Cranelift IR translator.
+//!
+//! This module defines the `FuncTranslator` type which can translate a single WebAssembly
+//! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the
+//! WebAssembly module and the runtime environment.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::code_translator</span>::{<span class="ident">bitcast_arguments</span>, <span class="ident">translate_operator</span>, <span class="ident">wasm_param_types</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_environ</span>::{<span class="ident">FuncEnvironment</span>, <span class="ident">ReturnMode</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_state::FuncTranslationState</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::translation_utils::get_vmctx_value_label</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::entity::EntityRef</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="self">self</span>, <span class="ident">Block</span>, <span class="ident">InstBuilder</span>, <span class="ident">ValueLabel</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen::timing</span>;
-<span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>, <span class="ident">Variable</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">ModuleTranslationState</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">WasmResult</span>};
+</span><span class="kw">use </span><span class="kw">super</span>::code_translator::{bitcast_arguments, translate_operator, wasm_param_types};
+<span class="kw">use </span><span class="kw">super</span>::func_environ::{FuncEnvironment, ReturnMode};
+<span class="kw">use </span><span class="kw">super</span>::func_state::FuncTranslationState;
+<span class="kw">use </span><span class="kw">super</span>::translation_utils::get_vmctx_value_label;
+<span class="kw">use </span>cranelift_codegen::entity::EntityRef;
+<span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, Block, InstBuilder, ValueLabel};
+<span class="kw">use </span>cranelift_codegen::timing;
+<span class="kw">use </span>cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
+<span class="kw">use </span>wasmer_compiler::wasmparser;
+<span class="kw">use </span>wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
+<span class="kw">use </span>wasmer_types::{LocalFunctionIndex, WasmResult};
 
-<span class="doccomment">/// WebAssembly to Cranelift IR function translator.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// A `FuncTranslator` is used to translate a binary WebAssembly function into Cranelift IR guided</span>
-<span class="doccomment">/// by a `FuncEnvironment` object. A single translator instance can be reused to translate multiple</span>
-<span class="doccomment">/// functions which will reduce heap allocation traffic.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FuncTranslator</span> {
-    <span class="ident">func_ctx</span>: <span class="ident">FunctionBuilderContext</span>,
-    <span class="ident">state</span>: <span class="ident">FuncTranslationState</span>,
+<span class="doccomment">/// WebAssembly to Cranelift IR function translator.
+///
+/// A `FuncTranslator` is used to translate a binary WebAssembly function into Cranelift IR guided
+/// by a `FuncEnvironment` object. A single translator instance can be reused to translate multiple
+/// functions which will reduce heap allocation traffic.
+</span><span class="kw">pub struct </span>FuncTranslator {
+    func_ctx: FunctionBuilderContext,
+    state: FuncTranslationState,
 }
 
-<span class="kw">impl</span> <span class="ident">FuncTranslator</span> {
-    <span class="doccomment">/// Create a new translator.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">func_ctx</span>: <span class="ident">FunctionBuilderContext::new</span>(),
-            <span class="ident">state</span>: <span class="ident">FuncTranslationState::new</span>(),
+<span class="kw">impl </span>FuncTranslator {
+    <span class="doccomment">/// Create a new translator.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            func_ctx: FunctionBuilderContext::new(),
+            state: FuncTranslationState::new(),
         }
     }
 
-    <span class="doccomment">/// Translate a binary WebAssembly function.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The `code` slice contains the binary WebAssembly *function code* as it appears in the code</span>
-    <span class="doccomment">/// section of a WebAssembly module, not including the initial size of the function code. The</span>
-    <span class="doccomment">/// slice is expected to contain two parts:</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// - The declaration of *locals*, and</span>
-    <span class="doccomment">/// - The function *body* as an expression.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// See [the WebAssembly specification][wasm].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [wasm]: https://webassembly.github.io/spec/core/binary/modules.html#code-section</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The Cranelift IR function `func` should be completely empty except for the `func.signature`</span>
-    <span class="doccomment">/// and `func.name` fields. The signature may contain special-purpose arguments which are not</span>
-    <span class="doccomment">/// regarded as WebAssembly local variables. Any signature arguments marked as</span>
-    <span class="doccomment">/// `ArgumentPurpose::Normal` are made accessible as WebAssembly local variables.</span>
-    <span class="doccomment">///</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">translate</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">module_translation_state</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">FunctionBinaryReader</span>,
-        <span class="ident">func</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ir::Function</span>,
-        <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
-        <span class="ident">local_function_index</span>: <span class="ident">LocalFunctionIndex</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="ident">environ</span>.<span class="ident">push_params_on_stack</span>(<span class="ident">local_function_index</span>);
-        <span class="self">self</span>.<span class="ident">translate_from_reader</span>(<span class="ident">module_translation_state</span>, <span class="ident">reader</span>, <span class="ident">func</span>, <span class="ident">environ</span>)
+    <span class="doccomment">/// Translate a binary WebAssembly function.
+    ///
+    /// The `code` slice contains the binary WebAssembly *function code* as it appears in the code
+    /// section of a WebAssembly module, not including the initial size of the function code. The
+    /// slice is expected to contain two parts:
+    ///
+    /// - The declaration of *locals*, and
+    /// - The function *body* as an expression.
+    ///
+    /// See [the WebAssembly specification][wasm].
+    ///
+    /// [wasm]: https://webassembly.github.io/spec/core/binary/modules.html#code-section
+    ///
+    /// The Cranelift IR function `func` should be completely empty except for the `func.signature`
+    /// and `func.name` fields. The signature may contain special-purpose arguments which are not
+    /// regarded as WebAssembly local variables. Any signature arguments marked as
+    /// `ArgumentPurpose::Normal` are made accessible as WebAssembly local variables.
+    ///
+    </span><span class="kw">pub fn </span>translate&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+        reader: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionBinaryReader,
+        func: <span class="kw-2">&amp;mut </span>ir::Function,
+        environ: <span class="kw-2">&amp;mut </span>FE,
+        local_function_index: LocalFunctionIndex,
+    ) -&gt; WasmResult&lt;()&gt; {
+        environ.push_params_on_stack(local_function_index);
+        <span class="self">self</span>.translate_from_reader(module_translation_state, reader, func, environ)
     }
 
-    <span class="doccomment">/// Translate a binary WebAssembly function from a `FunctionBinaryReader`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">translate_from_reader</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">module_translation_state</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
-        <span class="ident">reader</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">FunctionBinaryReader</span>,
-        <span class="ident">func</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ir::Function</span>,
-        <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
-    ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_tt</span> <span class="op">=</span> <span class="ident">timing::wasm_translate_function</span>();
+    <span class="doccomment">/// Translate a binary WebAssembly function from a `FunctionBinaryReader`.
+    </span><span class="kw">pub fn </span>translate_from_reader&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+        reader: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionBinaryReader,
+        func: <span class="kw-2">&amp;mut </span>ir::Function,
+        environ: <span class="kw-2">&amp;mut </span>FE,
+    ) -&gt; WasmResult&lt;()&gt; {
+        <span class="kw">let </span>_tt = timing::wasm_translate_function();
         <span class="macro">tracing::trace!</span>(
             <span class="string">&quot;translate({} bytes, {}{})&quot;</span>,
-            <span class="ident">reader</span>.<span class="ident">bytes_remaining</span>(),
-            <span class="ident">func</span>.<span class="ident">name</span>,
-            <span class="ident">func</span>.<span class="ident">signature</span>
+            reader.bytes_remaining(),
+            func.name,
+            func.signature
         );
-        <span class="macro">debug_assert_eq!</span>(<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_blocks</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
-        <span class="macro">debug_assert_eq!</span>(<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">num_insts</span>(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
+        <span class="macro">debug_assert_eq!</span>(func.dfg.num_blocks(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
+        <span class="macro">debug_assert_eq!</span>(func.dfg.num_insts(), <span class="number">0</span>, <span class="string">&quot;Function must be empty&quot;</span>);
 
-        <span class="comment">// This clears the `FunctionBuilderContext`.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">FunctionBuilder::new</span>(<span class="ident">func</span>, <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">func_ctx</span>);
-        <span class="ident">builder</span>.<span class="ident">set_srcloc</span>(<span class="ident">cur_srcloc</span>(<span class="ident">reader</span>));
-        <span class="kw">let</span> <span class="ident">entry_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
-        <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_params</span>(<span class="ident">entry_block</span>);
-        <span class="ident">builder</span>.<span class="ident">switch_to_block</span>(<span class="ident">entry_block</span>); <span class="comment">// This also creates values for the arguments.</span>
-        <span class="ident">builder</span>.<span class="ident">seal_block</span>(<span class="ident">entry_block</span>); <span class="comment">// Declare all predecessors known.</span>
+        <span class="comment">// This clears the `FunctionBuilderContext`.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = FunctionBuilder::new(func, <span class="kw-2">&amp;mut </span><span class="self">self</span>.func_ctx);
+        builder.set_srcloc(cur_srcloc(reader));
+        <span class="kw">let </span>entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
+        builder.switch_to_block(entry_block); <span class="comment">// This also creates values for the arguments.
+        </span>builder.seal_block(entry_block); <span class="comment">// Declare all predecessors known.
 
-        <span class="comment">// Make sure the entry block is inserted in the layout before we make any callbacks to</span>
-        <span class="comment">// `environ`. The callback functions may need to insert things in the entry block.</span>
-        <span class="ident">builder</span>.<span class="ident">ensure_inserted_block</span>();
+        // Make sure the entry block is inserted in the layout before we make any callbacks to
+        // `environ`. The callback functions may need to insert things in the entry block.
+        </span>builder.ensure_inserted_block();
 
-        <span class="kw">let</span> <span class="ident">num_params</span> <span class="op">=</span> <span class="ident">declare_wasm_parameters</span>(<span class="kw-2">&amp;mut</span> <span class="ident">builder</span>, <span class="ident">entry_block</span>, <span class="ident">environ</span>);
+        <span class="kw">let </span>num_params = declare_wasm_parameters(<span class="kw-2">&amp;mut </span>builder, entry_block, environ);
 
-        <span class="comment">// Set up the translation state with a single pushed control block representing the whole</span>
-        <span class="comment">// function and its return values.</span>
-        <span class="kw">let</span> <span class="ident">exit_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
-        <span class="ident">builder</span>.<span class="ident">append_block_params_for_function_returns</span>(<span class="ident">exit_block</span>);
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">initialize</span>(<span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>, <span class="ident">exit_block</span>);
+        <span class="comment">// Set up the translation state with a single pushed control block representing the whole
+        // function and its return values.
+        </span><span class="kw">let </span>exit_block = builder.create_block();
+        builder.append_block_params_for_function_returns(exit_block);
+        <span class="self">self</span>.state.initialize(<span class="kw-2">&amp;</span>builder.func.signature, exit_block);
 
-        <span class="ident">parse_local_decls</span>(<span class="ident">reader</span>, <span class="kw-2">&amp;mut</span> <span class="ident">builder</span>, <span class="ident">num_params</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-        <span class="ident">parse_function_body</span>(
-            <span class="ident">module_translation_state</span>,
-            <span class="ident">reader</span>,
-            <span class="kw-2">&amp;mut</span> <span class="ident">builder</span>,
-            <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">state</span>,
-            <span class="ident">environ</span>,
+        parse_local_decls(reader, <span class="kw-2">&amp;mut </span>builder, num_params, environ)<span class="question-mark">?</span>;
+        parse_function_body(
+            module_translation_state,
+            reader,
+            <span class="kw-2">&amp;mut </span>builder,
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.state,
+            environ,
         )<span class="question-mark">?</span>;
 
-        <span class="ident">builder</span>.<span class="ident">finalize</span>();
+        builder.finalize();
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// Declare local variables for the signature parameters that correspond to WebAssembly locals.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Return the number of local variables declared.</span>
-<span class="kw">fn</span> <span class="ident">declare_wasm_parameters</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
-    <span class="ident">entry_block</span>: <span class="ident">Block</span>,
-    <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="ident">FE</span>,
-) -&gt; <span class="ident">usize</span> {
-    <span class="kw">let</span> <span class="ident">sig_len</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>.<span class="ident">params</span>.<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_local</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">sig_len</span> {
-        <span class="kw">let</span> <span class="ident">param_type</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>.<span class="ident">params</span>[<span class="ident">i</span>];
-        <span class="comment">// There may be additional special-purpose parameters in addition to the normal WebAssembly</span>
-        <span class="comment">// signature parameters. For example, a `vmctx` pointer.</span>
-        <span class="kw">if</span> <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>, <span class="ident">i</span>) {
-            <span class="comment">// This is a normal WebAssembly signature parameter, so create a local for it.</span>
-            <span class="kw">let</span> <span class="ident">local</span> <span class="op">=</span> <span class="ident">Variable::new</span>(<span class="ident">next_local</span>);
-            <span class="ident">builder</span>.<span class="ident">declare_var</span>(<span class="ident">local</span>, <span class="ident">param_type</span>.<span class="ident">value_type</span>);
-            <span class="ident">next_local</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+<span class="doccomment">/// Declare local variables for the signature parameters that correspond to WebAssembly locals.
+///
+/// Return the number of local variables declared.
+</span><span class="kw">fn </span>declare_wasm_parameters&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    entry_block: Block,
+    environ: <span class="kw-2">&amp;</span>FE,
+) -&gt; usize {
+    <span class="kw">let </span>sig_len = builder.func.signature.params.len();
+    <span class="kw">let </span><span class="kw-2">mut </span>next_local = <span class="number">0</span>;
+    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..sig_len {
+        <span class="kw">let </span>param_type = builder.func.signature.params[i];
+        <span class="comment">// There may be additional special-purpose parameters in addition to the normal WebAssembly
+        // signature parameters. For example, a `vmctx` pointer.
+        </span><span class="kw">if </span>environ.is_wasm_parameter(<span class="kw-2">&amp;</span>builder.func.signature, i) {
+            <span class="comment">// This is a normal WebAssembly signature parameter, so create a local for it.
+            </span><span class="kw">let </span>local = Variable::new(next_local);
+            builder.declare_var(local, param_type.value_type);
+            next_local += <span class="number">1</span>;
 
-            <span class="kw">let</span> <span class="ident">param_value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">block_params</span>(<span class="ident">entry_block</span>)[<span class="ident">i</span>];
-            <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">local</span>, <span class="ident">param_value</span>);
+            <span class="kw">let </span>param_value = builder.block_params(entry_block)[i];
+            builder.def_var(local, param_value);
         }
-        <span class="kw">if</span> <span class="ident">param_type</span>.<span class="ident">purpose</span> <span class="op">==</span> <span class="ident">ir::ArgumentPurpose::VMContext</span> {
-            <span class="kw">let</span> <span class="ident">param_value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">block_params</span>(<span class="ident">entry_block</span>)[<span class="ident">i</span>];
-            <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">param_value</span>, <span class="ident">get_vmctx_value_label</span>());
+        <span class="kw">if </span>param_type.purpose == ir::ArgumentPurpose::VMContext {
+            <span class="kw">let </span>param_value = builder.block_params(entry_block)[i];
+            builder.set_val_label(param_value, get_vmctx_value_label());
         }
     }
 
-    <span class="ident">next_local</span>
+    next_local
 }
 
-<span class="doccomment">/// Parse the local variable declarations that precede the function body.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Declare local variables, starting from `num_params`.</span>
-<span class="kw">fn</span> <span class="ident">parse_local_decls</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-    <span class="ident">reader</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">FunctionBinaryReader</span>,
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
-    <span class="ident">num_params</span>: <span class="ident">usize</span>,
-    <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
-) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">next_local</span> <span class="op">=</span> <span class="ident">num_params</span>;
-    <span class="kw">let</span> <span class="ident">local_count</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_local_count</span>()<span class="question-mark">?</span>;
+<span class="doccomment">/// Parse the local variable declarations that precede the function body.
+///
+/// Declare local variables, starting from `num_params`.
+</span><span class="kw">fn </span>parse_local_decls&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    reader: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionBinaryReader,
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    num_params: usize,
+    environ: <span class="kw-2">&amp;mut </span>FE,
+) -&gt; WasmResult&lt;()&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>next_local = num_params;
+    <span class="kw">let </span>local_count = reader.read_local_count()<span class="question-mark">?</span>;
 
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">local_count</span> {
-        <span class="ident">builder</span>.<span class="ident">set_srcloc</span>(<span class="ident">cur_srcloc</span>(<span class="ident">reader</span>));
-        <span class="kw">let</span> (<span class="ident">count</span>, <span class="ident">ty</span>) <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_local_decl</span>()<span class="question-mark">?</span>;
-        <span class="ident">declare_locals</span>(<span class="ident">builder</span>, <span class="ident">count</span>, <span class="ident">ty</span>, <span class="kw-2">&amp;mut</span> <span class="ident">next_local</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
+    <span class="kw">for _ in </span><span class="number">0</span>..local_count {
+        builder.set_srcloc(cur_srcloc(reader));
+        <span class="kw">let </span>(count, ty) = reader.read_local_decl()<span class="question-mark">?</span>;
+        declare_locals(builder, count, ty, <span class="kw-2">&amp;mut </span>next_local, environ)<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Declare `count` local variables of the same type, starting from `next_local`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Fail if the type is not valid for a local.</span>
-<span class="kw">fn</span> <span class="ident">declare_locals</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
-    <span class="ident">count</span>: <span class="ident">u32</span>,
-    <span class="ident">wasm_type</span>: <span class="ident">wasmparser::ValType</span>,
-    <span class="ident">next_local</span>: <span class="kw-2">&amp;mut</span> <span class="ident">usize</span>,
-    <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
-) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="comment">// All locals are initialized to 0.</span>
-    <span class="kw">use</span> <span class="ident">wasmparser::ValType</span>::<span class="kw-2">*</span>;
-    <span class="kw">let</span> <span class="ident">zeroval</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">wasm_type</span> {
-        <span class="ident">I32</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">iconst</span>(<span class="ident">ir::types::I32</span>, <span class="number">0</span>),
-        <span class="ident">I64</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">iconst</span>(<span class="ident">ir::types::I64</span>, <span class="number">0</span>),
-        <span class="ident">F32</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">f32const</span>(<span class="ident">ir::immediates::Ieee32::with_bits</span>(<span class="number">0</span>)),
-        <span class="ident">F64</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">f64const</span>(<span class="ident">ir::immediates::Ieee64::with_bits</span>(<span class="number">0</span>)),
-        <span class="ident">V128</span> =&gt; {
-            <span class="kw">let</span> <span class="ident">constant_handle</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">constants</span>.<span class="ident">insert</span>([<span class="number">0</span>; <span class="number">16</span>].<span class="ident">to_vec</span>().<span class="ident">into</span>());
-            <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">vconst</span>(<span class="ident">ir::types::I8X16</span>, <span class="ident">constant_handle</span>)
+<span class="doccomment">/// Declare `count` local variables of the same type, starting from `next_local`.
+///
+/// Fail if the type is not valid for a local.
+</span><span class="kw">fn </span>declare_locals&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    count: u32,
+    wasm_type: wasmparser::ValType,
+    next_local: <span class="kw-2">&amp;mut </span>usize,
+    environ: <span class="kw-2">&amp;mut </span>FE,
+) -&gt; WasmResult&lt;()&gt; {
+    <span class="comment">// All locals are initialized to 0.
+    </span><span class="kw">use </span>wasmparser::ValType::<span class="kw-2">*</span>;
+    <span class="kw">let </span>zeroval = <span class="kw">match </span>wasm_type {
+        I32 =&gt; builder.ins().iconst(ir::types::I32, <span class="number">0</span>),
+        I64 =&gt; builder.ins().iconst(ir::types::I64, <span class="number">0</span>),
+        F32 =&gt; builder.ins().f32const(ir::immediates::Ieee32::with_bits(<span class="number">0</span>)),
+        F64 =&gt; builder.ins().f64const(ir::immediates::Ieee64::with_bits(<span class="number">0</span>)),
+        V128 =&gt; {
+            <span class="kw">let </span>constant_handle = builder.func.dfg.constants.insert([<span class="number">0</span>; <span class="number">16</span>].to_vec().into());
+            builder.ins().vconst(ir::types::I8X16, constant_handle)
         }
-        <span class="ident">ExternRef</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="ident">environ</span>.<span class="ident">reference_type</span>()),
-        <span class="ident">FuncRef</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">null</span>(<span class="ident">environ</span>.<span class="ident">reference_type</span>()),
+        ExternRef =&gt; builder.ins().null(environ.reference_type()),
+        FuncRef =&gt; builder.ins().null(environ.reference_type()),
     };
 
-    <span class="kw">let</span> <span class="ident">wasmer_ty</span> <span class="op">=</span> <span class="ident">wptype_to_type</span>(<span class="ident">wasm_type</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">zeroval</span>);
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">count</span> {
-        <span class="kw">let</span> <span class="ident">local</span> <span class="op">=</span> <span class="ident">Variable::new</span>(<span class="kw-2">*</span><span class="ident">next_local</span>);
-        <span class="ident">builder</span>.<span class="ident">declare_var</span>(<span class="ident">local</span>, <span class="ident">ty</span>);
-        <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">local</span>, <span class="ident">zeroval</span>);
-        <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">zeroval</span>, <span class="ident">ValueLabel::new</span>(<span class="kw-2">*</span><span class="ident">next_local</span>));
-        <span class="ident">environ</span>.<span class="ident">push_local_decl_on_stack</span>(<span class="ident">wasmer_ty</span>);
-        <span class="kw-2">*</span><span class="ident">next_local</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">let </span>wasmer_ty = wptype_to_type(wasm_type).unwrap();
+    <span class="kw">let </span>ty = builder.func.dfg.value_type(zeroval);
+    <span class="kw">for _ in </span><span class="number">0</span>..count {
+        <span class="kw">let </span>local = Variable::new(<span class="kw-2">*</span>next_local);
+        builder.declare_var(local, ty);
+        builder.def_var(local, zeroval);
+        builder.set_val_label(zeroval, ValueLabel::new(<span class="kw-2">*</span>next_local));
+        environ.push_local_decl_on_stack(wasmer_ty);
+        <span class="kw-2">*</span>next_local += <span class="number">1</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Parse the function body in `reader`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This assumes that the local variable declarations have already been parsed and function</span>
-<span class="doccomment">/// arguments and locals are declared in the builder.</span>
-<span class="kw">fn</span> <span class="ident">parse_function_body</span><span class="op">&lt;</span><span class="ident">FE</span>: <span class="ident">FuncEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-    <span class="ident">module_translation_state</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
-    <span class="ident">reader</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">FunctionBinaryReader</span>,
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
-    <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FuncTranslationState</span>,
-    <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
-) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="comment">// The control stack is initialized with a single block representing the whole function.</span>
-    <span class="macro">debug_assert_eq!</span>(<span class="ident">state</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>(), <span class="number">1</span>, <span class="string">&quot;State not initialized&quot;</span>);
+<span class="doccomment">/// Parse the function body in `reader`.
+///
+/// This assumes that the local variable declarations have already been parsed and function
+/// arguments and locals are declared in the builder.
+</span><span class="kw">fn </span>parse_function_body&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+    reader: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionBinaryReader,
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+    environ: <span class="kw-2">&amp;mut </span>FE,
+) -&gt; WasmResult&lt;()&gt; {
+    <span class="comment">// The control stack is initialized with a single block representing the whole function.
+    </span><span class="macro">debug_assert_eq!</span>(state.control_stack.len(), <span class="number">1</span>, <span class="string">&quot;State not initialized&quot;</span>);
 
-    <span class="comment">// Keep going until the final `End` operator which pops the outermost block.</span>
-    <span class="kw">while</span> <span class="op">!</span><span class="ident">state</span>.<span class="ident">control_stack</span>.<span class="ident">is_empty</span>() {
-        <span class="ident">builder</span>.<span class="ident">set_srcloc</span>(<span class="ident">cur_srcloc</span>(<span class="ident">reader</span>));
-        <span class="kw">let</span> <span class="ident">op</span> <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span>;
-        <span class="ident">environ</span>.<span class="ident">before_translate_operator</span>(<span class="kw-2">&amp;</span><span class="ident">op</span>, <span class="ident">builder</span>, <span class="ident">state</span>)<span class="question-mark">?</span>;
-        <span class="ident">translate_operator</span>(<span class="ident">module_translation_state</span>, <span class="kw-2">&amp;</span><span class="ident">op</span>, <span class="ident">builder</span>, <span class="ident">state</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-        <span class="ident">environ</span>.<span class="ident">after_translate_operator</span>(<span class="kw-2">&amp;</span><span class="ident">op</span>, <span class="ident">builder</span>, <span class="ident">state</span>)<span class="question-mark">?</span>;
+    <span class="comment">// Keep going until the final `End` operator which pops the outermost block.
+    </span><span class="kw">while </span>!state.control_stack.is_empty() {
+        builder.set_srcloc(cur_srcloc(reader));
+        <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
+        environ.before_translate_operator(<span class="kw-2">&amp;</span>op, builder, state)<span class="question-mark">?</span>;
+        translate_operator(module_translation_state, <span class="kw-2">&amp;</span>op, builder, state, environ)<span class="question-mark">?</span>;
+        environ.after_translate_operator(<span class="kw-2">&amp;</span>op, builder, state)<span class="question-mark">?</span>;
     }
 
-    <span class="comment">// The final `End` operator left us in the exit block where we need to manually add a return</span>
-    <span class="comment">// instruction.</span>
-    <span class="comment">//</span>
-    <span class="comment">// If the exit block is unreachable, it may not have the correct arguments, so we would</span>
-    <span class="comment">// generate a return instruction that doesn&#39;t match the signature.</span>
-    <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">reachable</span> {
-        <span class="comment">//debug_assert!(builder.is_pristine());</span>
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_unreachable</span>() {
-            <span class="kw">match</span> <span class="ident">environ</span>.<span class="ident">return_mode</span>() {
-                <span class="ident">ReturnMode::NormalReturns</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">return_types</span> <span class="op">=</span> <span class="ident">wasm_param_types</span>(<span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>.<span class="ident">returns</span>, <span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
-                        <span class="ident">environ</span>.<span class="ident">is_wasm_return</span>(<span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>, <span class="ident">i</span>)
+    <span class="comment">// The final `End` operator left us in the exit block where we need to manually add a return
+    // instruction.
+    //
+    // If the exit block is unreachable, it may not have the correct arguments, so we would
+    // generate a return instruction that doesn&#39;t match the signature.
+    </span><span class="kw">if </span>state.reachable {
+        <span class="comment">//debug_assert!(builder.is_pristine());
+        </span><span class="kw">if </span>!builder.is_unreachable() {
+            <span class="kw">match </span>environ.return_mode() {
+                ReturnMode::NormalReturns =&gt; {
+                    <span class="kw">let </span>return_types = wasm_param_types(<span class="kw-2">&amp;</span>builder.func.signature.returns, |i| {
+                        environ.is_wasm_return(<span class="kw-2">&amp;</span>builder.func.signature, i)
                     });
-                    <span class="ident">bitcast_arguments</span>(<span class="kw-2">&amp;mut</span> <span class="ident">state</span>.<span class="ident">stack</span>, <span class="kw-2">&amp;</span><span class="ident">return_types</span>, <span class="ident">builder</span>);
-                    <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">return_</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">stack</span>)
+                    bitcast_arguments(<span class="kw-2">&amp;mut </span>state.stack, <span class="kw-2">&amp;</span>return_types, builder);
+                    builder.ins().return_(<span class="kw-2">&amp;</span>state.stack)
                 }
             };
         }
     }
 
-    <span class="comment">// Discard any remaining values on the stack. Either we just returned them,</span>
-    <span class="comment">// or the end of the function is unreachable.</span>
-    <span class="ident">state</span>.<span class="ident">stack</span>.<span class="ident">clear</span>();
-    <span class="comment">//state.metadata_stack.clear();</span>
+    <span class="comment">// Discard any remaining values on the stack. Either we just returned them,
+    // or the end of the function is unreachable.
+    </span>state.stack.clear();
+    <span class="comment">//state.metadata_stack.clear();
 
-    <span class="macro">debug_assert!</span>(<span class="ident">reader</span>.<span class="ident">eof</span>());
+    </span><span class="macro">debug_assert!</span>(reader.eof());
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Get the current source location from a reader.</span>
-<span class="kw">fn</span> <span class="ident">cur_srcloc</span>(<span class="ident">reader</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">FunctionBinaryReader</span>) -&gt; <span class="ident">ir::SourceLoc</span> {
-    <span class="comment">// We record source locations as byte code offsets relative to the beginning of the file.</span>
-    <span class="comment">// This will wrap around if byte code is larger than 4 GB.</span>
-    <span class="ident">ir::SourceLoc::new</span>(<span class="ident">reader</span>.<span class="ident">original_position</span>() <span class="kw">as</span> <span class="ident">u32</span>)
+<span class="doccomment">/// Get the current source location from a reader.
+</span><span class="kw">fn </span>cur_srcloc(reader: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FunctionBinaryReader) -&gt; ir::SourceLoc {
+    <span class="comment">// We record source locations as byte code offsets relative to the beginning of the file.
+    // This will wrap around if byte code is larger than 4 GB.
+    </span>ir::SourceLoc::new(reader.original_position() <span class="kw">as </span>u32)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

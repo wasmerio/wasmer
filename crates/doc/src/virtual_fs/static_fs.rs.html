@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/static_fs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>static_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/static_fs.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>static_fs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -387,256 +387,256 @@
 <span id="387">387</span>
 <span id="388">388</span>
 <span id="389">389</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::anyhow</span>;
-<span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncRead</span>, <span class="ident">AsyncSeek</span>, <span class="ident">AsyncWrite</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
+<span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
-<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">IoError</span>, <span class="ident">ErrorKind</span> <span class="kw">as</span> <span class="ident">IoErrorKind</span>, <span class="ident">SeekFrom</span>};
-<span class="kw">use</span> <span class="ident">std::path::Path</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>};
+<span class="kw">use </span>std::convert::TryInto;
+<span class="kw">use </span>std::io::{<span class="self">self</span>, Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind, SeekFrom};
+<span class="kw">use </span>std::path::Path;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::pin::Pin;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::task::{Context, Poll};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mem_fs::FileSystem</span> <span class="kw">as</span> <span class="ident">MemFileSystem</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">FileOpener</span>, <span class="ident">FileSystem</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>, <span class="ident">ReadDir</span>, <span class="ident">VirtualFile</span>,
+<span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFileSystem;
+<span class="kw">use crate</span>::{
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
-<span class="kw">use</span> <span class="ident">indexmap::IndexMap</span>;
-<span class="kw">use</span> <span class="ident">webc::v1</span>::{<span class="ident">FsEntry</span>, <span class="ident">FsEntryType</span>, <span class="ident">OwnedFsEntryFile</span>};
+<span class="kw">use </span>indexmap::IndexMap;
+<span class="kw">use </span>webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
-<span class="doccomment">/// Custom file system wrapper to map requested file paths</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticFileSystem</span> {
-    <span class="kw">pub</span> <span class="ident">package</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">volumes</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">webc::v1::Volume</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">memory</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MemFileSystem</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Custom file system wrapper to map requested file paths
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>StaticFileSystem {
+    <span class="kw">pub </span>package: String,
+    <span class="kw">pub </span>volumes: Arc&lt;IndexMap&lt;String, webc::v1::Volume&lt;<span class="lifetime">&#39;static</span>&gt;&gt;&gt;,
+    <span class="kw">pub </span>memory: Arc&lt;MemFileSystem&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">StaticFileSystem</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">init</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>], <span class="ident">package</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">volumes</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">webc::v1::WebC::parse_volumes_from_fileblock</span>(<span class="ident">bytes</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>);
-        <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="self">Self</span> {
-            <span class="ident">package</span>: <span class="ident">package</span>.<span class="ident">to_string</span>(),
-            <span class="ident">volumes</span>: <span class="ident">volumes</span>.<span class="ident">clone</span>(),
-            <span class="ident">memory</span>: <span class="ident">Arc::new</span>(<span class="ident">MemFileSystem::default</span>()),
+<span class="kw">impl </span>StaticFileSystem {
+    <span class="kw">pub fn </span>init(bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8], package: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>volumes = Arc::new(webc::v1::WebC::parse_volumes_from_fileblock(bytes).ok()<span class="question-mark">?</span>);
+        <span class="kw">let </span>fs = <span class="self">Self </span>{
+            package: package.to_string(),
+            volumes: volumes.clone(),
+            memory: Arc::new(MemFileSystem::default()),
         };
-        <span class="kw">let</span> <span class="ident">volume_names</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">volumes</span>.<span class="ident">keys</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="kw">for</span> <span class="ident">volume_name</span> <span class="kw">in</span> <span class="ident">volume_names</span> {
-            <span class="kw">let</span> <span class="ident">directories</span> <span class="op">=</span> <span class="ident">volumes</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">volume_name</span>).<span class="ident">unwrap</span>().<span class="ident">list_directories</span>();
-            <span class="kw">for</span> <span class="ident">directory</span> <span class="kw">in</span> <span class="ident">directories</span> {
-                <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">directory</span>));
+        <span class="kw">let </span>volume_names = fs.volumes.keys().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="kw">for </span>volume_name <span class="kw">in </span>volume_names {
+            <span class="kw">let </span>directories = volumes.get(<span class="kw-2">&amp;</span>volume_name).unwrap().list_directories();
+            <span class="kw">for </span>directory <span class="kw">in </span>directories {
+                <span class="kw">let _ </span>= fs.create_dir(Path::new(<span class="kw-2">&amp;</span>directory));
             }
         }
-        <span class="prelude-val">Some</span>(<span class="ident">fs</span>)
+        <span class="prelude-val">Some</span>(fs)
     }
 }
 
-<span class="doccomment">/// Custom file opener, returns a WebCFile</span>
-<span class="kw">impl</span> <span class="ident">FileOpener</span> <span class="kw">for</span> <span class="ident">StaticFileSystem</span> {
-    <span class="kw">fn</span> <span class="ident">open</span>(
+<span class="doccomment">/// Custom file opener, returns a WebCFile
+</span><span class="kw">impl </span>FileOpener <span class="kw">for </span>StaticFileSystem {
+    <span class="kw">fn </span>open(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">_conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">get_volume_name_opt</span>(<span class="ident">path</span>) {
-            <span class="prelude-val">Some</span>(<span class="ident">volume</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">volumes</span>)
-                    .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">volume</span>)
-                    .<span class="ident">ok_or</span>(<span class="ident">FsError::EntryNotFound</span>)<span class="question-mark">?</span>
-                    .<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="ident">FsError::EntryNotFound</span>)<span class="question-mark">?</span>;
+        path: <span class="kw-2">&amp;</span>Path,
+        _conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;, FsError&gt; {
+        <span class="kw">match </span>get_volume_name_opt(path) {
+            <span class="prelude-val">Some</span>(volume) =&gt; {
+                <span class="kw">let </span>file = (<span class="kw-2">*</span><span class="self">self</span>.volumes)
+                    .get(<span class="kw-2">&amp;</span>volume)
+                    .ok_or(FsError::EntryNotFound)<span class="question-mark">?
+                    </span>.get_file_entry(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display()))
+                    .map_err(|_e| FsError::EntryNotFound)<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">WebCFile</span> {
-                    <span class="ident">package</span>: <span class="self">self</span>.<span class="ident">package</span>.<span class="ident">clone</span>(),
-                    <span class="ident">volume</span>,
-                    <span class="ident">volumes</span>: <span class="self">self</span>.<span class="ident">volumes</span>.<span class="ident">clone</span>(),
-                    <span class="ident">path</span>: <span class="ident">path</span>.<span class="ident">to_path_buf</span>(),
-                    <span class="ident">entry</span>: <span class="ident">file</span>,
-                    <span class="ident">cursor</span>: <span class="number">0</span>,
+                <span class="prelude-val">Ok</span>(Box::new(WebCFile {
+                    package: <span class="self">self</span>.package.clone(),
+                    volume,
+                    volumes: <span class="self">self</span>.volumes.clone(),
+                    path: path.to_path_buf(),
+                    entry: file,
+                    cursor: <span class="number">0</span>,
                 }))
             }
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="kw">for</span> (<span class="ident">volume</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">volumes</span>.<span class="ident">iter</span>() {
-                    <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">v</span>.<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>())) {
-                        <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>, <span class="comment">// error</span>
-                    };
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">for </span>(volume, v) <span class="kw">in </span><span class="self">self</span>.volumes.iter() {
+                    <span class="kw">let </span>entry = <span class="kw">match </span>v.get_file_entry(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display())) {
+                        <span class="prelude-val">Ok</span>(s) =&gt; s,
+                        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>, <span class="comment">// error
+                    </span>};
 
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">WebCFile</span> {
-                        <span class="ident">package</span>: <span class="self">self</span>.<span class="ident">package</span>.<span class="ident">clone</span>(),
-                        <span class="ident">volume</span>: <span class="ident">volume</span>.<span class="ident">clone</span>(),
-                        <span class="ident">volumes</span>: <span class="self">self</span>.<span class="ident">volumes</span>.<span class="ident">clone</span>(),
-                        <span class="ident">path</span>: <span class="ident">path</span>.<span class="ident">to_path_buf</span>(),
-                        <span class="ident">entry</span>,
-                        <span class="ident">cursor</span>: <span class="number">0</span>,
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Box::new(WebCFile {
+                        package: <span class="self">self</span>.package.clone(),
+                        volume: volume.clone(),
+                        volumes: <span class="self">self</span>.volumes.clone(),
+                        path: path.to_path_buf(),
+                        entry,
+                        cursor: <span class="number">0</span>,
                     }));
                 }
-                <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">new_open_options</span>().<span class="ident">open</span>(<span class="ident">path</span>)
+                <span class="self">self</span>.memory.new_open_options().open(path)
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WebCFile</span> {
-    <span class="kw">pub</span> <span class="ident">volumes</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">webc::v1::Volume</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">package</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">volume</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-    <span class="kw">pub</span> <span class="ident">entry</span>: <span class="ident">OwnedFsEntryFile</span>,
-    <span class="kw">pub</span> <span class="ident">cursor</span>: <span class="ident">u64</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>WebCFile {
+    <span class="kw">pub </span>volumes: Arc&lt;IndexMap&lt;String, webc::v1::Volume&lt;<span class="lifetime">&#39;static</span>&gt;&gt;&gt;,
+    <span class="kw">pub </span>package: String,
+    <span class="kw">pub </span>volume: String,
+    <span class="kw">pub </span>path: PathBuf,
+    <span class="kw">pub </span>entry: OwnedFsEntryFile,
+    <span class="kw">pub </span>cursor: u64,
 }
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl </span>VirtualFile <span class="kw">for </span>WebCFile {
+    <span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
+    <span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
+    <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
+    <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.entry.get_len()
     }
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
-    }
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
-    }
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="self">self</span>.<span class="ident">entry</span>.<span class="ident">get_len</span>()
-    }
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">remaining</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">entry</span>.<span class="ident">get_len</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">cursor</span>;
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">remaining</span> <span class="kw">as</span> <span class="ident">usize</span>))
+    <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>remaining = <span class="self">self</span>.entry.get_len() - <span class="self">self</span>.cursor;
+        Poll::Ready(<span class="prelude-val">Ok</span>(remaining <span class="kw">as </span>usize))
     }
-    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+    <span class="kw">fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">poll_read</span>(
-        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tokio::io::ReadBuf</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">volume</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">IoError::new</span>(
-                    <span class="ident">IoErrorKind::NotFound</span>,
-                    <span class="macro">anyhow!</span>(<span class="string">&quot;Unknown volume {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">volume</span>),
+<span class="kw">impl </span>AsyncRead <span class="kw">for </span>WebCFile {
+    <span class="kw">fn </span>poll_read(
+        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>bytes = <span class="self">self
+            </span>.volumes
+            .get(<span class="kw-2">&amp;</span><span class="self">self</span>.volume)
+            .ok_or_else(|| {
+                IoError::new(
+                    IoErrorKind::NotFound,
+                    <span class="macro">anyhow!</span>(<span class="string">&quot;Unknown volume {:?}&quot;</span>, <span class="self">self</span>.volume),
                 )
-            })<span class="question-mark">?</span>
-            .<span class="ident">get_file_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">entry</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">IoError::new</span>(<span class="ident">IoErrorKind::NotFound</span>, <span class="ident">e</span>))<span class="question-mark">?</span>;
+            })<span class="question-mark">?
+            </span>.get_file_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.entry)
+            .map_err(|e| IoError::new(IoErrorKind::NotFound, e))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">cursor</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">cursor</span>.<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="ident">u32::MAX</span> <span class="kw">as</span> <span class="ident">usize</span>);
-        <span class="kw">let</span> <span class="ident">_start</span> <span class="op">=</span> <span class="ident">cursor</span>.<span class="ident">min</span>(<span class="ident">bytes</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">cursor</span>..];
+        <span class="kw">let </span>cursor: usize = <span class="self">self</span>.cursor.try_into().unwrap_or(u32::MAX <span class="kw">as </span>usize);
+        <span class="kw">let </span>_start = cursor.min(bytes.len());
+        <span class="kw">let </span>bytes = <span class="kw-2">&amp;</span>bytes[cursor..];
 
-        <span class="kw">if</span> <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">buf</span>.<span class="ident">remaining</span>() {
-            <span class="kw">let</span> <span class="ident">remaining</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">remaining</span>();
-            <span class="ident">buf</span>.<span class="ident">put_slice</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>[..<span class="ident">remaining</span>]);
-        } <span class="kw">else</span> {
-            <span class="ident">buf</span>.<span class="ident">put_slice</span>(<span class="ident">bytes</span>);
+        <span class="kw">if </span>bytes.len() &gt; buf.remaining() {
+            <span class="kw">let </span>remaining = buf.remaining();
+            buf.put_slice(<span class="kw-2">&amp;</span>bytes[..remaining]);
+        } <span class="kw">else </span>{
+            buf.put_slice(bytes);
         }
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+        Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 }
 
-<span class="comment">// WebC file is not writable, the FileOpener will return a MemoryFile for writing instead</span>
-<span class="comment">// This code should never be executed (since writes are redirected to memory instead).</span>
-<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">poll_write</span>(
-        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>()))
+<span class="comment">// WebC file is not writable, the FileOpener will return a MemoryFile for writing instead
+// This code should never be executed (since writes are redirected to memory instead).
+</span><span class="kw">impl </span>AsyncWrite <span class="kw">for </span>WebCFile {
+    <span class="kw">fn </span>poll_write(
+        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(buf.len()))
     }
-    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    <span class="kw">fn </span>poll_flush(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
-    <span class="kw">fn</span> <span class="ident">poll_shutdown</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    <span class="kw">fn </span>poll_shutdown(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">start_seek</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">pos</span>: <span class="ident">io::SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">self_size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>();
-        <span class="kw">match</span> <span class="ident">pos</span> {
-            <span class="ident">SeekFrom::Start</span>(<span class="ident">s</span>) =&gt; {
-                <span class="self">self</span>.<span class="ident">cursor</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">min</span>(<span class="ident">self_size</span>);
+<span class="kw">impl </span>AsyncSeek <span class="kw">for </span>WebCFile {
+    <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, pos: io::SeekFrom) -&gt; io::Result&lt;()&gt; {
+        <span class="kw">let </span>self_size = <span class="self">self</span>.size();
+        <span class="kw">match </span>pos {
+            SeekFrom::Start(s) =&gt; {
+                <span class="self">self</span>.cursor = s.min(self_size);
             }
-            <span class="ident">SeekFrom::End</span>(<span class="ident">e</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">self_size_i64</span> <span class="op">=</span> <span class="ident">self_size</span>.<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="ident">i64::MAX</span>);
-                <span class="self">self</span>.<span class="ident">cursor</span> <span class="op">=</span> ((<span class="ident">self_size_i64</span>).<span class="ident">saturating_add</span>(<span class="ident">e</span>))
-                    .<span class="ident">min</span>(<span class="ident">self_size_i64</span>)
-                    .<span class="ident">try_into</span>()
-                    .<span class="ident">unwrap_or</span>(<span class="ident">i64::MAX</span> <span class="kw">as</span> <span class="ident">u64</span>);
+            SeekFrom::End(e) =&gt; {
+                <span class="kw">let </span>self_size_i64 = self_size.try_into().unwrap_or(i64::MAX);
+                <span class="self">self</span>.cursor = ((self_size_i64).saturating_add(e))
+                    .min(self_size_i64)
+                    .try_into()
+                    .unwrap_or(i64::MAX <span class="kw">as </span>u64);
             }
-            <span class="ident">SeekFrom::Current</span>(<span class="ident">c</span>) =&gt; {
-                <span class="self">self</span>.<span class="ident">cursor</span> <span class="op">=</span> (<span class="self">self</span>
-                    .<span class="ident">cursor</span>
-                    .<span class="ident">saturating_add</span>(<span class="ident">c</span>.<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="ident">i64::MAX</span> <span class="kw">as</span> <span class="ident">u64</span>)))
-                .<span class="ident">min</span>(<span class="ident">self_size</span>);
+            SeekFrom::Current(c) =&gt; {
+                <span class="self">self</span>.cursor = (<span class="self">self
+                    </span>.cursor
+                    .saturating_add(c.try_into().unwrap_or(i64::MAX <span class="kw">as </span>u64)))
+                .min(self_size);
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">poll_complete</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">cursor</span>))
+    <span class="kw">fn </span>poll_complete(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.cursor))
     }
 }
 
-<span class="kw">fn</span> <span class="ident">get_volume_name_opt</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="ident">path</span>: <span class="ident">P</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">std::path::Component::Normal</span>;
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">Normal</span>(<span class="ident">n</span>)) <span class="op">=</span> <span class="ident">path</span>.<span class="ident">as_ref</span>().<span class="ident">components</span>().<span class="ident">next</span>() {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">n</span>.<span class="ident">to_str</span>() {
-            <span class="kw">if</span> <span class="ident">s</span>.<span class="ident">ends_with</span>(<span class="string">&#39;:&#39;</span>) {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>.<span class="ident">replace</span>(<span class="string">&#39;:&#39;</span>, <span class="string">&quot;&quot;</span>));
+<span class="kw">fn </span>get_volume_name_opt&lt;P: AsRef&lt;Path&gt;&gt;(path: P) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+    <span class="kw">use </span>std::path::Component::Normal;
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(Normal(n)) = path.as_ref().components().next() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = n.to_str() {
+            <span class="kw">if </span>s.ends_with(<span class="string">&#39;:&#39;</span>) {
+                <span class="kw">return </span><span class="prelude-val">Some</span>(s.replace(<span class="string">&#39;:&#39;</span>, <span class="string">&quot;&quot;</span>));
             }
         }
     }
-    <span class="prelude-val">None</span>
-}
+    <span class="prelude-val">None
+</span>}
 
-<span class="kw">fn</span> <span class="ident">transform_into_read_dir</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">fs_entries</span>: <span class="kw-2">&amp;</span>[<span class="ident">FsEntry</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>]) -&gt; <span class="ident"><span class="kw">crate</span>::ReadDir</span> {
-    <span class="kw">let</span> <span class="ident">entries</span> <span class="op">=</span> <span class="ident">fs_entries</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident"><span class="kw">crate</span>::DirEntry</span> {
-            <span class="ident">path</span>: <span class="ident">path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">e</span>.<span class="ident">text</span>),
-            <span class="ident">metadata</span>: <span class="prelude-val">Ok</span>(<span class="ident"><span class="kw">crate</span>::Metadata</span> {
-                <span class="ident">ft</span>: <span class="ident">translate_file_type</span>(<span class="ident">e</span>.<span class="ident">fs_type</span>),
-                <span class="ident">accessed</span>: <span class="number">0</span>,
-                <span class="ident">created</span>: <span class="number">0</span>,
-                <span class="ident">modified</span>: <span class="number">0</span>,
-                <span class="ident">len</span>: <span class="ident">e</span>.<span class="ident">get_len</span>(),
+<span class="kw">fn </span>transform_into_read_dir&lt;<span class="lifetime">&#39;a</span>&gt;(path: <span class="kw-2">&amp;</span>Path, fs_entries: <span class="kw-2">&amp;</span>[FsEntry&lt;<span class="lifetime">&#39;a</span>&gt;]) -&gt; <span class="kw">crate</span>::ReadDir {
+    <span class="kw">let </span>entries = fs_entries
+        .iter()
+        .map(|e| <span class="kw">crate</span>::DirEntry {
+            path: path.join(<span class="kw-2">&amp;*</span>e.text),
+            metadata: <span class="prelude-val">Ok</span>(<span class="kw">crate</span>::Metadata {
+                ft: translate_file_type(e.fs_type),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: e.get_len(),
             }),
         })
-        .<span class="ident">collect</span>();
+        .collect();
 
-    <span class="ident"><span class="kw">crate</span>::ReadDir::new</span>(<span class="ident">entries</span>)
+    <span class="kw">crate</span>::ReadDir::new(entries)
 }
 
-<span class="kw">impl</span> <span class="ident">FileSystem</span> <span class="kw">for</span> <span class="ident">StaticFileSystem</span> {
-    <span class="kw">fn</span> <span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ReadDir</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);
-        <span class="kw">for</span> <span class="ident">volume</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">volumes</span>.<span class="ident">values</span>() {
-            <span class="kw">let</span> <span class="ident">read_dir_result</span> <span class="op">=</span> <span class="ident">volume</span>
-                .<span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="ident">transform_into_read_dir</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>), <span class="ident">o</span>.<span class="ident">as_ref</span>()))
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::EntryNotFound</span>);
+<span class="kw">impl </span>FileSystem <span class="kw">for </span>StaticFileSystem {
+    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir, FsError&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">for </span>volume <span class="kw">in </span><span class="self">self</span>.volumes.values() {
+            <span class="kw">let </span>read_dir_result = volume
+                .read_dir(<span class="kw-2">&amp;</span>path)
+                .map(|o| transform_into_read_dir(Path::new(<span class="kw-2">&amp;</span>path), o.as_ref()))
+                .map_err(|<span class="kw">_</span>| FsError::EntryNotFound);
 
-            <span class="kw">match</span> <span class="ident">read_dir_result</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">o</span>);
+            <span class="kw">match </span>read_dir_result {
+                <span class="prelude-val">Ok</span>(o) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(o);
                 }
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="kw">continue</span>;
@@ -644,137 +644,137 @@
             }
         }
 
-        <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>))
+        <span class="self">self</span>.memory.read_dir(Path::new(<span class="kw-2">&amp;</span>path))
     }
-    <span class="kw">fn</span> <span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>));
-        <span class="ident">result</span>
+    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">let </span>result = <span class="self">self</span>.memory.create_dir(Path::new(<span class="kw-2">&amp;</span>path));
+        result
     }
-    <span class="kw">fn</span> <span class="ident">remove_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>));
-        <span class="kw">if</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">ok</span>())
-            .<span class="ident">is_some</span>()
+    <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">let </span>result = <span class="self">self</span>.memory.remove_dir(Path::new(<span class="kw-2">&amp;</span>path));
+        <span class="kw">if </span><span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>path).ok())
+            .is_some()
         {
             <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else</span> {
-            <span class="ident">result</span>
+        } <span class="kw">else </span>{
+            result
         }
     }
-    <span class="kw">fn</span> <span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">from</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">to</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">from</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">from</span>);
-        <span class="kw">let</span> <span class="ident">to</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">to</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">rename</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">from</span>), <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">to</span>));
-        <span class="kw">if</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="ident">from</span>).<span class="ident">ok</span>())
-            .<span class="ident">is_some</span>()
+    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">let </span>from = normalizes_path(from);
+        <span class="kw">let </span>to = normalizes_path(to);
+        <span class="kw">let </span>result = <span class="self">self</span>.memory.rename(Path::new(<span class="kw-2">&amp;</span>from), Path::new(<span class="kw-2">&amp;</span>to));
+        <span class="kw">if </span><span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>from).ok())
+            .is_some()
         {
             <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else</span> {
-            <span class="ident">result</span>
+        } <span class="kw">else </span>{
+            result
         }
     }
-    <span class="kw">fn</span> <span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Metadata</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">fs_entry</span>) <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">ok</span>())
+    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata, FsError&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fs_entry) = <span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>path).ok())
         {
-            <span class="prelude-val">Ok</span>(<span class="ident">Metadata</span> {
-                <span class="ident">ft</span>: <span class="ident">translate_file_type</span>(<span class="ident">FsEntryType::File</span>),
-                <span class="ident">accessed</span>: <span class="number">0</span>,
-                <span class="ident">created</span>: <span class="number">0</span>,
-                <span class="ident">modified</span>: <span class="number">0</span>,
-                <span class="ident">len</span>: <span class="ident">fs_entry</span>.<span class="ident">get_len</span>(),
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: translate_file_type(FsEntryType::File),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: fs_entry.get_len(),
             })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">_fs</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">volumes</span>.<span class="ident">values</span>().<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">ok</span>()) {
-            <span class="prelude-val">Ok</span>(<span class="ident">Metadata</span> {
-                <span class="ident">ft</span>: <span class="ident">translate_file_type</span>(<span class="ident">FsEntryType::Dir</span>),
-                <span class="ident">accessed</span>: <span class="number">0</span>,
-                <span class="ident">created</span>: <span class="number">0</span>,
-                <span class="ident">modified</span>: <span class="number">0</span>,
-                <span class="ident">len</span>: <span class="number">0</span>,
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(_fs) = <span class="self">self</span>.volumes.values().find_map(|v| v.read_dir(<span class="kw-2">&amp;</span>path).ok()) {
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: translate_file_type(FsEntryType::Dir),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: <span class="number">0</span>,
             })
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>))
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.memory.metadata(Path::new(<span class="kw-2">&amp;</span>path))
         }
     }
-    <span class="kw">fn</span> <span class="ident">remove_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">remove_file</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>));
-        <span class="kw">if</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">ok</span>())
-            .<span class="ident">is_some</span>()
+    <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">let </span>result = <span class="self">self</span>.memory.remove_file(Path::new(<span class="kw-2">&amp;</span>path));
+        <span class="kw">if </span><span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>path).ok())
+            .is_some()
         {
             <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else</span> {
-            <span class="ident">result</span>
+        } <span class="kw">else </span>{
+            result
         }
     }
-    <span class="kw">fn</span> <span class="ident">new_open_options</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">OpenOptions</span> {
-        <span class="ident">OpenOptions::new</span>(<span class="self">self</span>)
+    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
+        OpenOptions::new(<span class="self">self</span>)
     }
-    <span class="kw">fn</span> <span class="ident">symlink_metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Metadata</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">fs_entry</span>) <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">ok</span>())
+    <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata, FsError&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(fs_entry) = <span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>path).ok())
         {
-            <span class="prelude-val">Ok</span>(<span class="ident">Metadata</span> {
-                <span class="ident">ft</span>: <span class="ident">translate_file_type</span>(<span class="ident">FsEntryType::File</span>),
-                <span class="ident">accessed</span>: <span class="number">0</span>,
-                <span class="ident">created</span>: <span class="number">0</span>,
-                <span class="ident">modified</span>: <span class="number">0</span>,
-                <span class="ident">len</span>: <span class="ident">fs_entry</span>.<span class="ident">get_len</span>(),
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: translate_file_type(FsEntryType::File),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: fs_entry.get_len(),
             })
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>
-            .<span class="ident">volumes</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">find_map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">ok</span>())
-            .<span class="ident">is_some</span>()
+        } <span class="kw">else if </span><span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.read_dir(<span class="kw-2">&amp;</span>path).ok())
+            .is_some()
         {
-            <span class="prelude-val">Ok</span>(<span class="ident">Metadata</span> {
-                <span class="ident">ft</span>: <span class="ident">translate_file_type</span>(<span class="ident">FsEntryType::Dir</span>),
-                <span class="ident">accessed</span>: <span class="number">0</span>,
-                <span class="ident">created</span>: <span class="number">0</span>,
-                <span class="ident">modified</span>: <span class="number">0</span>,
-                <span class="ident">len</span>: <span class="number">0</span>,
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: translate_file_type(FsEntryType::Dir),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: <span class="number">0</span>,
             })
-        } <span class="kw">else</span> {
-            <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">symlink_metadata</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>))
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.memory.symlink_metadata(Path::new(<span class="kw-2">&amp;</span>path))
         }
     }
 }
 
-<span class="kw">fn</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">path</span>.<span class="ident">starts_with</span>(<span class="string">&#39;/&#39;</span>) {
+<span class="kw">fn </span>normalizes_path(path: <span class="kw-2">&amp;</span>Path) -&gt; String {
+    <span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display());
+    <span class="kw">if </span>!path.starts_with(<span class="string">&#39;/&#39;</span>) {
         <span class="macro">format!</span>(<span class="string">&quot;/{path}&quot;</span>)
-    } <span class="kw">else</span> {
-        <span class="ident">path</span>
+    } <span class="kw">else </span>{
+        path
     }
 }
 
-<span class="kw">fn</span> <span class="ident">translate_file_type</span>(<span class="ident">f</span>: <span class="ident">FsEntryType</span>) -&gt; <span class="ident"><span class="kw">crate</span>::FileType</span> {
-    <span class="ident"><span class="kw">crate</span>::FileType</span> {
-        <span class="ident">dir</span>: <span class="ident">f</span> <span class="op">==</span> <span class="ident">FsEntryType::Dir</span>,
-        <span class="ident">file</span>: <span class="ident">f</span> <span class="op">==</span> <span class="ident">FsEntryType::File</span>,
-        <span class="ident">symlink</span>: <span class="bool-val">false</span>,
-        <span class="ident">char_device</span>: <span class="bool-val">false</span>,
-        <span class="ident">block_device</span>: <span class="bool-val">false</span>,
-        <span class="ident">socket</span>: <span class="bool-val">false</span>,
-        <span class="ident">fifo</span>: <span class="bool-val">false</span>,
+<span class="kw">fn </span>translate_file_type(f: FsEntryType) -&gt; <span class="kw">crate</span>::FileType {
+    <span class="kw">crate</span>::FileType {
+        dir: f == FsEntryType::Dir,
+        file: f == FsEntryType::File,
+        symlink: <span class="bool-val">false</span>,
+        char_device: <span class="bool-val">false</span>,
+        block_device: <span class="bool-val">false</span>,
+        socket: <span class="bool-val">false</span>,
+        fifo: <span class="bool-val">false</span>,
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

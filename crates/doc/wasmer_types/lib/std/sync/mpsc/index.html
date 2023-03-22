@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Multi-producer, single-consumer FIFO queue communication primitives."><meta name="keywords" content="rust, rustlang, rust-lang, mpsc"><title>wasmer_types::lib::std::sync::mpsc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../../storage.js"></script><script defer src="../../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module mpsc</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div></section></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Module <a href="../../../../index.html">wasmer_types</a>::<wbr><a href="../../../index.html">lib</a>::<wbr><a href="../../index.html">std</a>::<wbr><a href="../index.html">sync</a>::<wbr><a class="mod" href="#">mpsc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.64.0/src/std/sync/mod.rs.html#180">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Multi-producer, single-consumer FIFO queue communication primitives.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Multi-producer, single-consumer FIFO queue communication primitives."><meta name="keywords" content="rust, rustlang, rust-lang, mpsc"><title>wasmer_types::lib::std::sync::mpsc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../../normalize.css"><link rel="stylesheet" href="../../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../../dark.css" disabled><link rel="stylesheet" href="../../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../../storage.js"></script><script defer src="../../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"><a href="#">Module mpsc</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div></section></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../../wasmer_types/index.html"><img class="rust-logo" src="../../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Module <a href="../../../../index.html">wasmer_types</a>::<wbr><a href="../../../index.html">lib</a>::<wbr><a href="../../index.html">std</a>::<wbr><a href="../index.html">sync</a>::<wbr><a class="mod" href="#">mpsc</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="srclink" href="https://doc.rust-lang.org/1.65.0/src/std/sync/mod.rs.html#180">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Multi-producer, single-consumer FIFO queue communication primitives.</p>
 <p>This module provides message-based communication over channels, concretely
 defined among three types:</p>
 <ul>
@@ -27,122 +27,109 @@ channel where each sender atomically hands off a message to a receiver.</p>
 </li>
 </ol>
 <h3 id="disconnection"><a href="#disconnection">Disconnection</a></h3>
-<p>The send and receive operations on channels will all return a <a href="https://doc.rust-lang.org/1.64.0/core/result/enum.Result.html" title="Result"><code>Result</code></a>
+<p>The send and receive operations on channels will all return a <a href="https://doc.rust-lang.org/1.65.0/core/result/enum.Result.html" title="Result"><code>Result</code></a>
 indicating whether the operation succeeded or not. An unsuccessful operation
 is normally indicative of the other half of a channel having “hung up” by
 being dropped in its corresponding thread.</p>
 <p>Once half of a channel has been deallocated, most operations can no longer
-continue to make progress, so <a href="https://doc.rust-lang.org/1.64.0/core/result/enum.Result.html#variant.Err" title="Err"><code>Err</code></a> will be returned. Many applications
-will continue to <a href="https://doc.rust-lang.org/1.64.0/core/result/enum.Result.html#method.unwrap"><code>unwrap</code></a> the results returned from this module,
+continue to make progress, so <a href="https://doc.rust-lang.org/1.65.0/core/result/enum.Result.html#variant.Err" title="Err"><code>Err</code></a> will be returned. Many applications
+will continue to <a href="https://doc.rust-lang.org/1.65.0/core/result/enum.Result.html#method.unwrap"><code>unwrap</code></a> the results returned from this module,
 instigating a propagation of failure among threads if one unexpectedly dies.</p>
 <h2 id="examples"><a href="#examples">Examples</a></h2>
 <p>Simple usage:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::thread</span>;
-<span class="kw">use</span> <span class="ident">std::sync::mpsc::channel</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::thread;
+<span class="kw">use </span>std::sync::mpsc::channel;
 
-<span class="comment">// Create a simple streaming channel</span>
-<span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">channel</span>();
-<span class="ident">thread::spawn</span>(<span class="kw">move</span><span class="op">|</span><span class="op">|</span> {
-    <span class="ident">tx</span>.<span class="ident">send</span>(<span class="number">10</span>).<span class="ident">unwrap</span>();
+<span class="comment">// Create a simple streaming channel
+</span><span class="kw">let </span>(tx, rx) = channel();
+thread::spawn(<span class="kw">move</span>|| {
+    tx.send(<span class="number">10</span>).unwrap();
 });
-<span class="macro">assert_eq!</span>(<span class="ident">rx</span>.<span class="ident">recv</span>().<span class="ident">unwrap</span>(), <span class="number">10</span>);</code></pre></div>
+<span class="macro">assert_eq!</span>(rx.recv().unwrap(), <span class="number">10</span>);</code></pre></div>
 <p>Shared usage:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::thread</span>;
-<span class="kw">use</span> <span class="ident">std::sync::mpsc::channel</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::thread;
+<span class="kw">use </span>std::sync::mpsc::channel;
 
-<span class="comment">// Create a shared channel that can be sent along from many threads</span>
-<span class="comment">// where tx is the sending half (tx for transmission), and rx is the receiving</span>
-<span class="comment">// half (rx for receiving).</span>
-<span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">channel</span>();
-<span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
-    <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="ident">tx</span>.<span class="ident">clone</span>();
-    <span class="ident">thread::spawn</span>(<span class="kw">move</span><span class="op">|</span><span class="op">|</span> {
-        <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">i</span>).<span class="ident">unwrap</span>();
+<span class="comment">// Create a shared channel that can be sent along from many threads
+// where tx is the sending half (tx for transmission), and rx is the receiving
+// half (rx for receiving).
+</span><span class="kw">let </span>(tx, rx) = channel();
+<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">10 </span>{
+    <span class="kw">let </span>tx = tx.clone();
+    thread::spawn(<span class="kw">move</span>|| {
+        tx.send(i).unwrap();
     });
 }
 
-<span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">10</span> {
-    <span class="kw">let</span> <span class="ident">j</span> <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">recv</span>().<span class="ident">unwrap</span>();
-    <span class="macro">assert!</span>(<span class="number">0</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">j</span> <span class="op">&amp;&amp;</span> <span class="ident">j</span> <span class="op">&lt;</span> <span class="number">10</span>);
+<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
+    <span class="kw">let </span>j = rx.recv().unwrap();
+    <span class="macro">assert!</span>(<span class="number">0 </span>&lt;= j &amp;&amp; j &lt; <span class="number">10</span>);
 }</code></pre></div>
 <p>Propagating panics:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::sync::mpsc::channel</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::sync::mpsc::channel;
 
-<span class="comment">// The call to recv() will return an error because the channel has already</span>
-<span class="comment">// hung up (or been deallocated)</span>
-<span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">channel</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>();
-<span class="ident">drop</span>(<span class="ident">tx</span>);
-<span class="macro">assert!</span>(<span class="ident">rx</span>.<span class="ident">recv</span>().<span class="ident">is_err</span>());</code></pre></div>
+<span class="comment">// The call to recv() will return an error because the channel has already
+// hung up (or been deallocated)
+</span><span class="kw">let </span>(tx, rx) = channel::&lt;i32&gt;();
+drop(tx);
+<span class="macro">assert!</span>(rx.recv().is_err());</code></pre></div>
 <p>Synchronous channels:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::thread</span>;
-<span class="kw">use</span> <span class="ident">std::sync::mpsc::sync_channel</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::thread;
+<span class="kw">use </span>std::sync::mpsc::sync_channel;
 
-<span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">sync_channel</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="number">0</span>);
-<span class="ident">thread::spawn</span>(<span class="kw">move</span><span class="op">|</span><span class="op">|</span> {
-    <span class="comment">// This will wait for the parent thread to start receiving</span>
-    <span class="ident">tx</span>.<span class="ident">send</span>(<span class="number">53</span>).<span class="ident">unwrap</span>();
+<span class="kw">let </span>(tx, rx) = sync_channel::&lt;i32&gt;(<span class="number">0</span>);
+thread::spawn(<span class="kw">move</span>|| {
+    <span class="comment">// This will wait for the parent thread to start receiving
+    </span>tx.send(<span class="number">53</span>).unwrap();
 });
-<span class="ident">rx</span>.<span class="ident">recv</span>().<span class="ident">unwrap</span>();</code></pre></div>
+rx.recv().unwrap();</code></pre></div>
 <p>Unbounded receive loop:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::sync::mpsc::sync_channel</span>;
-<span class="kw">use</span> <span class="ident">std::thread</span>;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::sync::mpsc::sync_channel;
+<span class="kw">use </span>std::thread;
 
-<span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">sync_channel</span>(<span class="number">3</span>);
+<span class="kw">let </span>(tx, rx) = sync_channel(<span class="number">3</span>);
 
-<span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">3</span> {
-    <span class="comment">// It would be the same without thread and clone here</span>
-    <span class="comment">// since there will still be one `tx` left.</span>
-    <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="ident">tx</span>.<span class="ident">clone</span>();
-    <span class="comment">// cloned tx dropped within thread</span>
-    <span class="ident">thread::spawn</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> <span class="ident">tx</span>.<span class="ident">send</span>(<span class="string">&quot;ok&quot;</span>).<span class="ident">unwrap</span>());
+<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">3 </span>{
+    <span class="comment">// It would be the same without thread and clone here
+    // since there will still be one `tx` left.
+    </span><span class="kw">let </span>tx = tx.clone();
+    <span class="comment">// cloned tx dropped within thread
+    </span>thread::spawn(<span class="kw">move </span>|| tx.send(<span class="string">&quot;ok&quot;</span>).unwrap());
 }
 
-<span class="comment">// Drop the last sender to stop `rx` waiting for message.</span>
-<span class="comment">// The program will not complete if we comment this out.</span>
-<span class="comment">// **All** `tx` needs to be dropped for `rx` to have `Err`.</span>
-<span class="ident">drop</span>(<span class="ident">tx</span>);
+<span class="comment">// Drop the last sender to stop `rx` waiting for message.
+// The program will not complete if we comment this out.
+// **All** `tx` needs to be dropped for `rx` to have `Err`.
+</span>drop(tx);
 
-<span class="comment">// Unbounded receiver waiting for all senders to complete.</span>
-<span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">recv</span>() {
+<span class="comment">// Unbounded receiver waiting for all senders to complete.
+</span><span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = rx.recv() {
     <span class="macro">println!</span>(<span class="string">&quot;{msg}&quot;</span>);
 }
 
 <span class="macro">println!</span>(<span class="string">&quot;completed&quot;</span>);</code></pre></div>
-</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.IntoIter.html" title="wasmer_types::lib::std::sync::mpsc::IntoIter struct">IntoIter</a></div><div class="item-right docblock-short"><p>An owning iterator over messages on a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>,
-created by <a href="struct.Receiver.html#method.into_iter"><code>into_iter</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Iter.html" title="wasmer_types::lib::std::sync::mpsc::Iter struct">Iter</a></div><div class="item-right docblock-short"><p>An iterator over messages on a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>, created by <a href="struct.Receiver.html#method.iter"><code>iter</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Receiver.html" title="wasmer_types::lib::std::sync::mpsc::Receiver struct">Receiver</a></div><div class="item-right docblock-short"><p>The receiving half of Rust’s <a href="fn.channel.html" title="channel"><code>channel</code></a> (or <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>) type.
-This half can only be owned by one thread.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.RecvError.html" title="wasmer_types::lib::std::sync::mpsc::RecvError struct">RecvError</a></div><div class="item-right docblock-short"><p>An error returned from the <a href="struct.Receiver.html#method.recv"><code>recv</code></a> function on a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SendError.html" title="wasmer_types::lib::std::sync::mpsc::SendError struct">SendError</a></div><div class="item-right docblock-short"><p>An error returned from the <a href="struct.Sender.html#method.send" title="Sender::send"><code>Sender::send</code></a> or <a href="struct.SyncSender.html#method.send" title="SyncSender::send"><code>SyncSender::send</code></a>
-function on <strong>channel</strong>s.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Sender.html" title="wasmer_types::lib::std::sync::mpsc::Sender struct">Sender</a></div><div class="item-right docblock-short"><p>The sending-half of Rust’s asynchronous <a href="fn.channel.html" title="channel"><code>channel</code></a> type. This half can only be
-owned by one thread, but it can be cloned to send to other threads.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SyncSender.html" title="wasmer_types::lib::std::sync::mpsc::SyncSender struct">SyncSender</a></div><div class="item-right docblock-short"><p>The sending-half of Rust’s synchronous <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a> type.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.TryIter.html" title="wasmer_types::lib::std::sync::mpsc::TryIter struct">TryIter</a></div><div class="item-right docblock-short"><p>An iterator that attempts to yield all pending values for a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>,
-created by <a href="struct.Receiver.html#method.try_iter"><code>try_iter</code></a>.</p>
-</div></div></div><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.RecvTimeoutError.html" title="wasmer_types::lib::std::sync::mpsc::RecvTimeoutError enum">RecvTimeoutError</a></div><div class="item-right docblock-short"><p>This enumeration is the list of possible errors that made <a href="struct.Receiver.html#method.recv_timeout"><code>recv_timeout</code></a>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.IntoIter.html" title="wasmer_types::lib::std::sync::mpsc::IntoIter struct">IntoIter</a></div><div class="item-right docblock-short">An owning iterator over messages on a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>,
+created by <a href="struct.Receiver.html#method.into_iter"><code>into_iter</code></a>.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Iter.html" title="wasmer_types::lib::std::sync::mpsc::Iter struct">Iter</a></div><div class="item-right docblock-short">An iterator over messages on a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>, created by <a href="struct.Receiver.html#method.iter"><code>iter</code></a>.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Receiver.html" title="wasmer_types::lib::std::sync::mpsc::Receiver struct">Receiver</a></div><div class="item-right docblock-short">The receiving half of Rust’s <a href="fn.channel.html" title="channel"><code>channel</code></a> (or <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>) type.
+This half can only be owned by one thread.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.RecvError.html" title="wasmer_types::lib::std::sync::mpsc::RecvError struct">RecvError</a></div><div class="item-right docblock-short">An error returned from the <a href="struct.Receiver.html#method.recv"><code>recv</code></a> function on a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SendError.html" title="wasmer_types::lib::std::sync::mpsc::SendError struct">SendError</a></div><div class="item-right docblock-short">An error returned from the <a href="struct.Sender.html#method.send" title="Sender::send"><code>Sender::send</code></a> or <a href="struct.SyncSender.html#method.send" title="SyncSender::send"><code>SyncSender::send</code></a>
+function on <strong>channel</strong>s.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Sender.html" title="wasmer_types::lib::std::sync::mpsc::Sender struct">Sender</a></div><div class="item-right docblock-short">The sending-half of Rust’s asynchronous <a href="fn.channel.html" title="channel"><code>channel</code></a> type. This half can only be
+owned by one thread, but it can be cloned to send to other threads.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SyncSender.html" title="wasmer_types::lib::std::sync::mpsc::SyncSender struct">SyncSender</a></div><div class="item-right docblock-short">The sending-half of Rust’s synchronous <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a> type.</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.TryIter.html" title="wasmer_types::lib::std::sync::mpsc::TryIter struct">TryIter</a></div><div class="item-right docblock-short">An iterator that attempts to yield all pending values for a <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>,
+created by <a href="struct.Receiver.html#method.try_iter"><code>try_iter</code></a>.</div></div></div><h2 id="enums" class="small-section-header"><a href="#enums">Enums</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.RecvTimeoutError.html" title="wasmer_types::lib::std::sync::mpsc::RecvTimeoutError enum">RecvTimeoutError</a></div><div class="item-right docblock-short">This enumeration is the list of possible errors that made <a href="struct.Receiver.html#method.recv_timeout"><code>recv_timeout</code></a>
 unable to return data when called. This can occur with both a <a href="fn.channel.html" title="channel"><code>channel</code></a> and
-a <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.TryRecvError.html" title="wasmer_types::lib::std::sync::mpsc::TryRecvError enum">TryRecvError</a></div><div class="item-right docblock-short"><p>This enumeration is the list of the possible reasons that <a href="struct.Receiver.html#method.try_recv"><code>try_recv</code></a> could
+a <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>.</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.TryRecvError.html" title="wasmer_types::lib::std::sync::mpsc::TryRecvError enum">TryRecvError</a></div><div class="item-right docblock-short">This enumeration is the list of the possible reasons that <a href="struct.Receiver.html#method.try_recv"><code>try_recv</code></a> could
 not return data when called. This can occur with both a <a href="fn.channel.html" title="channel"><code>channel</code></a> and
-a <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>.</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.TrySendError.html" title="wasmer_types::lib::std::sync::mpsc::TrySendError enum">TrySendError</a></div><div class="item-right docblock-short"><p>This enumeration is the list of the possible error outcomes for the
-<a href="struct.SyncSender.html#method.try_send"><code>try_send</code></a> method.</p>
-</div></div></div><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.channel.html" title="wasmer_types::lib::std::sync::mpsc::channel fn">channel</a></div><div class="item-right docblock-short"><p>Creates a new asynchronous channel, returning the sender/receiver halves.
+a <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>.</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.TrySendError.html" title="wasmer_types::lib::std::sync::mpsc::TrySendError enum">TrySendError</a></div><div class="item-right docblock-short">This enumeration is the list of the possible error outcomes for the
+<a href="struct.SyncSender.html#method.try_send"><code>try_send</code></a> method.</div></div></div><h2 id="functions" class="small-section-header"><a href="#functions">Functions</a></h2><div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.channel.html" title="wasmer_types::lib::std::sync::mpsc::channel fn">channel</a></div><div class="item-right docblock-short">Creates a new asynchronous channel, returning the sender/receiver halves.
 All data sent on the <a href="struct.Sender.html" title="Sender"><code>Sender</code></a> will become available on the <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a> in
 the same order as it was sent, and no <a href="struct.Sender.html#method.send"><code>send</code></a> will block the calling thread
 (this channel has an “infinite buffer”, unlike <a href="fn.sync_channel.html" title="sync_channel"><code>sync_channel</code></a>, which will
 block after its buffer limit is reached). <a href="struct.Receiver.html#method.recv"><code>recv</code></a> will block until a message
-is available while there is at least one <a href="struct.Sender.html" title="Sender"><code>Sender</code></a> alive (including clones).</p>
-</div></div><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.sync_channel.html" title="wasmer_types::lib::std::sync::mpsc::sync_channel fn">sync_channel</a></div><div class="item-right docblock-short"><p>Creates a new synchronous, bounded channel.
+is available while there is at least one <a href="struct.Sender.html" title="Sender"><code>Sender</code></a> alive (including clones).</div></div><div class="item-row"><div class="item-left module-item"><a class="fn" href="fn.sync_channel.html" title="wasmer_types::lib::std::sync::mpsc::sync_channel fn">sync_channel</a></div><div class="item-right docblock-short">Creates a new synchronous, bounded channel.
 All data sent on the <a href="struct.SyncSender.html" title="SyncSender"><code>SyncSender</code></a> will become available on the <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a>
 in the same order as it was sent. Like asynchronous <a href="fn.channel.html" title="channel"><code>channel</code></a>s, the
 <a href="struct.Receiver.html" title="Receiver"><code>Receiver</code></a> will block until a message becomes available. <code>sync_channel</code>
-differs greatly in the semantics of the sender, however.</p>
-</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+differs greatly in the semantics of the sender, however.</div></div></div></section></div></main><div id="rustdoc-vars" data-root-path="../../../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

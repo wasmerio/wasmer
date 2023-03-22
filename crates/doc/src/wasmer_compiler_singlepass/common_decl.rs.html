@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/common_decl.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>common_decl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/common_decl.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>common_decl.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -261,268 +261,268 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RegisterIndex</span>(<span class="kw">pub</span> <span class="ident">usize</span>);
+<span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+</span><span class="kw">pub struct </span>RegisterIndex(<span class="kw">pub </span>usize);
 
-<span class="doccomment">/// Whether a value is determined at compile-time or run-time.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WasmAbstractValue</span> {
-    <span class="doccomment">/// This value is only known at runtime.</span>
-    <span class="ident">Runtime</span>,
-    <span class="doccomment">/// A constant value.</span>
-    <span class="ident">Const</span>(<span class="ident">u64</span>),
+<span class="doccomment">/// Whether a value is determined at compile-time or run-time.
+</span><span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+</span><span class="kw">pub enum </span>WasmAbstractValue {
+    <span class="doccomment">/// This value is only known at runtime.
+    </span>Runtime,
+    <span class="doccomment">/// A constant value.
+    </span>Const(u64),
 }
 
-<span class="doccomment">/// A container for the state of a running wasm instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MachineState</span> {
-    <span class="doccomment">/// Stack values.</span>
-    <span class="kw">pub</span> <span class="ident">stack_values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Register values.</span>
-    <span class="kw">pub</span> <span class="ident">register_values</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Previous frame.</span>
-    <span class="kw">pub</span> <span class="ident">prev_frame</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">MachineValue</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Wasm stack.</span>
-    <span class="kw">pub</span> <span class="ident">wasm_stack</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Wasm instruction offset.</span>
-    <span class="kw">pub</span> <span class="ident">wasm_inst_offset</span>: <span class="ident">usize</span>,
+<span class="doccomment">/// A container for the state of a running wasm instance.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>MachineState {
+    <span class="doccomment">/// Stack values.
+    </span><span class="kw">pub </span>stack_values: Vec&lt;MachineValue&gt;,
+    <span class="doccomment">/// Register values.
+    </span><span class="kw">pub </span>register_values: Vec&lt;MachineValue&gt;,
+    <span class="doccomment">/// Previous frame.
+    </span><span class="kw">pub </span>prev_frame: BTreeMap&lt;usize, MachineValue&gt;,
+    <span class="doccomment">/// Wasm stack.
+    </span><span class="kw">pub </span>wasm_stack: Vec&lt;WasmAbstractValue&gt;,
+    <span class="doccomment">/// Wasm instruction offset.
+    </span><span class="kw">pub </span>wasm_inst_offset: usize,
 }
 
-<span class="doccomment">/// A diff of two `MachineState`s.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// A `MachineStateDiff` can only be applied after the `MachineStateDiff` its `last` field</span>
-<span class="doccomment">/// points to is already applied.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MachineStateDiff</span> {
-    <span class="doccomment">/// Link to the previous diff this diff is based on, or `None` if this is the first diff.</span>
-    <span class="kw">pub</span> <span class="ident">last</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A diff of two `MachineState`s.
+///
+/// A `MachineStateDiff` can only be applied after the `MachineStateDiff` its `last` field
+/// points to is already applied.
+</span><span class="attribute">#[derive(Clone, Debug, Default)]
+</span><span class="kw">pub struct </span>MachineStateDiff {
+    <span class="doccomment">/// Link to the previous diff this diff is based on, or `None` if this is the first diff.
+    </span><span class="kw">pub </span>last: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 
-    <span class="doccomment">/// What values are pushed onto the stack?</span>
-    <span class="kw">pub</span> <span class="ident">stack_push</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// What values are pushed onto the stack?
+    </span><span class="kw">pub </span>stack_push: Vec&lt;MachineValue&gt;,
 
-    <span class="doccomment">/// How many values are popped from the stack?</span>
-    <span class="kw">pub</span> <span class="ident">stack_pop</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// How many values are popped from the stack?
+    </span><span class="kw">pub </span>stack_pop: usize,
 
-    <span class="doccomment">/// Register diff.</span>
-    <span class="kw">pub</span> <span class="ident">reg_diff</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">RegisterIndex</span>, <span class="ident">MachineValue</span>)<span class="op">&gt;</span>,
+    <span class="doccomment">/// Register diff.
+    </span><span class="kw">pub </span>reg_diff: Vec&lt;(RegisterIndex, MachineValue)&gt;,
 
-    <span class="doccomment">/// Changes in the previous frame&#39;s data.</span>
-    <span class="kw">pub</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="comment">// None for removal</span>
+    <span class="doccomment">/// Changes in the previous frame&#39;s data.
+    </span><span class="kw">pub </span>prev_frame_diff: BTreeMap&lt;usize, <span class="prelude-ty">Option</span>&lt;MachineValue&gt;&gt;, <span class="comment">// None for removal
 
-    <span class="doccomment">/// Values pushed to the Wasm stack.</span>
-    <span class="kw">pub</span> <span class="ident">wasm_stack_push</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span>,
+    </span><span class="doccomment">/// Values pushed to the Wasm stack.
+    </span><span class="kw">pub </span>wasm_stack_push: Vec&lt;WasmAbstractValue&gt;,
 
-    <span class="doccomment">/// # of values popped from the Wasm stack.</span>
-    <span class="kw">pub</span> <span class="ident">wasm_stack_pop</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// # of values popped from the Wasm stack.
+    </span><span class="kw">pub </span>wasm_stack_pop: usize,
 
-    <span class="doccomment">/// Wasm instruction offset.</span>
-    <span class="kw">pub</span> <span class="ident">wasm_inst_offset</span>: <span class="ident">usize</span>, <span class="comment">// absolute value; not a diff.</span>
+    <span class="doccomment">/// Wasm instruction offset.
+    </span><span class="kw">pub </span>wasm_inst_offset: usize, <span class="comment">// absolute value; not a diff.
+</span>}
+
+<span class="doccomment">/// A kind of machine value.
+</span><span class="attribute">#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+</span><span class="kw">pub enum </span>MachineValue {
+    <span class="doccomment">/// Undefined.
+    </span>Undefined,
+    <span class="doccomment">/// Vmctx.
+    </span>Vmctx,
+    <span class="doccomment">/// Vmctx Deref.
+    </span>_VmctxDeref(Vec&lt;usize&gt;),
+    <span class="doccomment">/// Preserve Register.
+    </span>PreserveRegister(RegisterIndex),
+    <span class="doccomment">/// Copy Stack BP Relative.
+    </span>CopyStackBPRelative(i32), <span class="comment">// relative to Base Pointer, in byte offset
+    </span><span class="doccomment">/// Explicit Shadow.
+    </span>ExplicitShadow, <span class="comment">// indicates that all values above this are above the shadow region
+    </span><span class="doccomment">/// Wasm Stack.
+    </span>WasmStack(usize),
+    <span class="doccomment">/// Wasm Local.
+    </span>WasmLocal(usize),
+    <span class="doccomment">/// Two Halves.
+    </span>_TwoHalves(Box&lt;(MachineValue, MachineValue)&gt;), <span class="comment">// 32-bit values. TODO: optimize: add another type for inner &quot;half&quot; value to avoid boxing?
+</span>}
+
+<span class="doccomment">/// A map of function states.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>FunctionStateMap {
+    <span class="doccomment">/// Initial.
+    </span><span class="kw">pub </span>initial: MachineState,
+    <span class="doccomment">/// Local Function Id.
+    </span><span class="kw">pub </span>local_function_id: usize,
+    <span class="doccomment">/// Locals.
+    </span><span class="kw">pub </span>locals: Vec&lt;WasmAbstractValue&gt;,
+    <span class="doccomment">/// Shadow size.
+    </span><span class="kw">pub </span>shadow_size: usize, <span class="comment">// for single-pass backend, 32 bytes on x86-64
+    </span><span class="doccomment">/// Diffs.
+    </span><span class="kw">pub </span>diffs: Vec&lt;MachineStateDiff&gt;,
+    <span class="doccomment">/// Wasm Function Header target offset.
+    </span><span class="kw">pub </span>wasm_function_header_target_offset: <span class="prelude-ty">Option</span>&lt;SuspendOffset&gt;,
+    <span class="doccomment">/// Wasm offset to target offset
+    </span><span class="kw">pub </span>wasm_offset_to_target_offset: BTreeMap&lt;usize, SuspendOffset&gt;,
+    <span class="doccomment">/// Loop offsets.
+    </span><span class="kw">pub </span>loop_offsets: BTreeMap&lt;usize, OffsetInfo&gt;, <span class="comment">/* suspend_offset -&gt; info */
+    </span><span class="doccomment">/// Call offsets.
+    </span><span class="kw">pub </span>call_offsets: BTreeMap&lt;usize, OffsetInfo&gt;, <span class="comment">/* suspend_offset -&gt; info */
+    </span><span class="doccomment">/// Trappable offsets.
+    </span><span class="kw">pub </span>trappable_offsets: BTreeMap&lt;usize, OffsetInfo&gt;, <span class="comment">/* suspend_offset -&gt; info */
+</span>}
+
+<span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+</span><span class="kw">pub enum </span>Size {
+    S8,
+    S16,
+    S32,
+    S64,
 }
 
-<span class="doccomment">/// A kind of machine value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MachineValue</span> {
-    <span class="doccomment">/// Undefined.</span>
-    <span class="ident">Undefined</span>,
-    <span class="doccomment">/// Vmctx.</span>
-    <span class="ident">Vmctx</span>,
-    <span class="doccomment">/// Vmctx Deref.</span>
-    <span class="ident">_VmctxDeref</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// Preserve Register.</span>
-    <span class="ident">PreserveRegister</span>(<span class="ident">RegisterIndex</span>),
-    <span class="doccomment">/// Copy Stack BP Relative.</span>
-    <span class="ident">CopyStackBPRelative</span>(<span class="ident">i32</span>), <span class="comment">// relative to Base Pointer, in byte offset</span>
-    <span class="doccomment">/// Explicit Shadow.</span>
-    <span class="ident">ExplicitShadow</span>, <span class="comment">// indicates that all values above this are above the shadow region</span>
-    <span class="doccomment">/// Wasm Stack.</span>
-    <span class="ident">WasmStack</span>(<span class="ident">usize</span>),
-    <span class="doccomment">/// Wasm Local.</span>
-    <span class="ident">WasmLocal</span>(<span class="ident">usize</span>),
-    <span class="doccomment">/// Two Halves.</span>
-    <span class="ident">_TwoHalves</span>(<span class="ident">Box</span><span class="op">&lt;</span>(<span class="ident">MachineValue</span>, <span class="ident">MachineValue</span>)<span class="op">&gt;</span>), <span class="comment">// 32-bit values. TODO: optimize: add another type for inner &quot;half&quot; value to avoid boxing?</span>
+<span class="doccomment">/// A kind of suspend offset.
+</span><span class="attribute">#[derive(Clone, Copy, Debug)]
+</span><span class="kw">pub enum </span>SuspendOffset {
+    <span class="doccomment">/// A loop.
+    </span>_Loop(usize),
+    <span class="doccomment">/// A call.
+    </span>Call(usize),
+    <span class="doccomment">/// A trappable.
+    </span>Trappable(usize),
 }
 
-<span class="doccomment">/// A map of function states.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionStateMap</span> {
-    <span class="doccomment">/// Initial.</span>
-    <span class="kw">pub</span> <span class="ident">initial</span>: <span class="ident">MachineState</span>,
-    <span class="doccomment">/// Local Function Id.</span>
-    <span class="kw">pub</span> <span class="ident">local_function_id</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// Locals.</span>
-    <span class="kw">pub</span> <span class="ident">locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Shadow size.</span>
-    <span class="kw">pub</span> <span class="ident">shadow_size</span>: <span class="ident">usize</span>, <span class="comment">// for single-pass backend, 32 bytes on x86-64</span>
-    <span class="doccomment">/// Diffs.</span>
-    <span class="kw">pub</span> <span class="ident">diffs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">MachineStateDiff</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Wasm Function Header target offset.</span>
-    <span class="kw">pub</span> <span class="ident">wasm_function_header_target_offset</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SuspendOffset</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Wasm offset to target offset</span>
-    <span class="kw">pub</span> <span class="ident">wasm_offset_to_target_offset</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">SuspendOffset</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Loop offsets.</span>
-    <span class="kw">pub</span> <span class="ident">loop_offsets</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;</span>, <span class="comment">/* suspend_offset -&gt; info */</span>
-    <span class="doccomment">/// Call offsets.</span>
-    <span class="kw">pub</span> <span class="ident">call_offsets</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;</span>, <span class="comment">/* suspend_offset -&gt; info */</span>
-    <span class="doccomment">/// Trappable offsets.</span>
-    <span class="kw">pub</span> <span class="ident">trappable_offsets</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">OffsetInfo</span><span class="op">&gt;</span>, <span class="comment">/* suspend_offset -&gt; info */</span>
+<span class="doccomment">/// Description of a machine code range following an offset.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>OffsetInfo {
+    <span class="doccomment">/// Exclusive range-end offset.
+    </span><span class="kw">pub </span>end_offset: usize,
+    <span class="doccomment">/// Index pointing to the `MachineStateDiff` entry.
+    </span><span class="kw">pub </span>diff_id: usize,
+    <span class="doccomment">/// Offset at which execution can be continued.
+    </span><span class="kw">pub </span>activate_offset: usize,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Size</span> {
-    <span class="ident">S8</span>,
-    <span class="ident">S16</span>,
-    <span class="ident">S32</span>,
-    <span class="ident">S64</span>,
-}
-
-<span class="doccomment">/// A kind of suspend offset.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SuspendOffset</span> {
-    <span class="doccomment">/// A loop.</span>
-    <span class="ident">_Loop</span>(<span class="ident">usize</span>),
-    <span class="doccomment">/// A call.</span>
-    <span class="ident">Call</span>(<span class="ident">usize</span>),
-    <span class="doccomment">/// A trappable.</span>
-    <span class="ident">Trappable</span>(<span class="ident">usize</span>),
-}
-
-<span class="doccomment">/// Description of a machine code range following an offset.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OffsetInfo</span> {
-    <span class="doccomment">/// Exclusive range-end offset.</span>
-    <span class="kw">pub</span> <span class="ident">end_offset</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// Index pointing to the `MachineStateDiff` entry.</span>
-    <span class="kw">pub</span> <span class="ident">diff_id</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// Offset at which execution can be continued.</span>
-    <span class="kw">pub</span> <span class="ident">activate_offset</span>: <span class="ident">usize</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">FunctionStateMap</span> {
-    <span class="doccomment">/// Creates a new `FunctionStateMap` with the given parameters.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">initial</span>: <span class="ident">MachineState</span>,
-        <span class="ident">local_function_id</span>: <span class="ident">usize</span>,
-        <span class="ident">shadow_size</span>: <span class="ident">usize</span>,
-        <span class="ident">locals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasmAbstractValue</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">FunctionStateMap</span> {
-        <span class="ident">FunctionStateMap</span> {
-            <span class="ident">initial</span>,
-            <span class="ident">local_function_id</span>,
-            <span class="ident">shadow_size</span>,
-            <span class="ident">locals</span>,
-            <span class="ident">diffs</span>: <span class="macro">vec!</span>[],
-            <span class="ident">wasm_function_header_target_offset</span>: <span class="prelude-val">None</span>,
-            <span class="ident">wasm_offset_to_target_offset</span>: <span class="ident">BTreeMap::new</span>(),
-            <span class="ident">loop_offsets</span>: <span class="ident">BTreeMap::new</span>(),
-            <span class="ident">call_offsets</span>: <span class="ident">BTreeMap::new</span>(),
-            <span class="ident">trappable_offsets</span>: <span class="ident">BTreeMap::new</span>(),
+<span class="kw">impl </span>FunctionStateMap {
+    <span class="doccomment">/// Creates a new `FunctionStateMap` with the given parameters.
+    </span><span class="kw">pub fn </span>new(
+        initial: MachineState,
+        local_function_id: usize,
+        shadow_size: usize,
+        locals: Vec&lt;WasmAbstractValue&gt;,
+    ) -&gt; FunctionStateMap {
+        FunctionStateMap {
+            initial,
+            local_function_id,
+            shadow_size,
+            locals,
+            diffs: <span class="macro">vec!</span>[],
+            wasm_function_header_target_offset: <span class="prelude-val">None</span>,
+            wasm_offset_to_target_offset: BTreeMap::new(),
+            loop_offsets: BTreeMap::new(),
+            call_offsets: BTreeMap::new(),
+            trappable_offsets: BTreeMap::new(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MachineState</span> {
-    <span class="doccomment">/// Creates a `MachineStateDiff` from self and the given `&amp;MachineState`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">diff</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">old</span>: <span class="kw-2">&amp;</span><span class="ident">MachineState</span>) -&gt; <span class="ident">MachineStateDiff</span> {
-        <span class="kw">let</span> <span class="ident">first_diff_stack_depth</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">stack_values</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">zip</span>(<span class="ident">old</span>.<span class="ident">stack_values</span>.<span class="ident">iter</span>())
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">b</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">old</span>.<span class="ident">stack_values</span>.<span class="ident">len</span>().<span class="ident">min</span>(<span class="self">self</span>.<span class="ident">stack_values</span>.<span class="ident">len</span>()));
-        <span class="macro">assert_eq!</span>(<span class="self">self</span>.<span class="ident">register_values</span>.<span class="ident">len</span>(), <span class="ident">old</span>.<span class="ident">register_values</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> <span class="ident">reg_diff</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">register_values</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">zip</span>(<span class="ident">old</span>.<span class="ident">register_values</span>.<span class="ident">iter</span>())
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">b</span>)
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">i</span>, (<span class="ident">a</span>, <span class="kw">_</span>))<span class="op">|</span> (<span class="ident">RegisterIndex</span>(<span class="ident">i</span>), <span class="ident">a</span>.<span class="ident">clone</span>()))
-            .<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">prev_frame_diff</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">MachineValue</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">prev_frame</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">old_v</span>) <span class="op">=</span> <span class="ident">old</span>.<span class="ident">prev_frame</span>.<span class="ident">get</span>(<span class="ident">k</span>) {
-                    <span class="ident">v</span> <span class="op">!</span><span class="op">=</span> <span class="ident">old_v</span>
-                } <span class="kw">else</span> {
-                    <span class="bool-val">true</span>
-                }
+<span class="kw">impl </span>MachineState {
+    <span class="doccomment">/// Creates a `MachineStateDiff` from self and the given `&amp;MachineState`.
+    </span><span class="kw">pub fn </span>diff(<span class="kw-2">&amp;</span><span class="self">self</span>, old: <span class="kw-2">&amp;</span>MachineState) -&gt; MachineStateDiff {
+        <span class="kw">let </span>first_diff_stack_depth: usize = <span class="self">self
+            </span>.stack_values
+            .iter()
+            .zip(old.stack_values.iter())
+            .enumerate()
+            .find(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, (a, b))| a != b)
+            .map(|x| x.<span class="number">0</span>)
+            .unwrap_or_else(|| old.stack_values.len().min(<span class="self">self</span>.stack_values.len()));
+        <span class="macro">assert_eq!</span>(<span class="self">self</span>.register_values.len(), old.register_values.len());
+        <span class="kw">let </span>reg_diff: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
+            </span>.register_values
+            .iter()
+            .zip(old.register_values.iter())
+            .enumerate()
+            .filter(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, (a, b))| a != b)
+            .map(|(i, (a, <span class="kw">_</span>))| (RegisterIndex(i), a.clone()))
+            .collect();
+        <span class="kw">let </span>prev_frame_diff: BTreeMap&lt;usize, <span class="prelude-ty">Option</span>&lt;MachineValue&gt;&gt; = <span class="self">self
+            </span>.prev_frame
+            .iter()
+            .filter(|(k, v)| {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>old_v) = old.prev_frame.get(k) {
+                    v != old_v
+                } <span class="kw">else </span>{
+                    <span class="bool-val">true
+                </span>}
             })
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw-2">&amp;</span><span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> (<span class="ident">k</span>, <span class="prelude-val">Some</span>(<span class="ident">v</span>.<span class="ident">clone</span>())))
-            .<span class="ident">chain</span>(
-                <span class="ident">old</span>.<span class="ident">prev_frame</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">filter</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="self">self</span>.<span class="ident">prev_frame</span>.<span class="ident">get</span>(<span class="ident">k</span>).<span class="ident">is_none</span>())
-                    .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw-2">&amp;</span><span class="ident">k</span>, <span class="kw">_</span>)<span class="op">|</span> (<span class="ident">k</span>, <span class="prelude-val">None</span>)),
+            .map(|(<span class="kw-2">&amp;</span>k, v)| (k, <span class="prelude-val">Some</span>(v.clone())))
+            .chain(
+                old.prev_frame
+                    .iter()
+                    .filter(|(k, <span class="kw">_</span>)| <span class="self">self</span>.prev_frame.get(k).is_none())
+                    .map(|(<span class="kw-2">&amp;</span>k, <span class="kw">_</span>)| (k, <span class="prelude-val">None</span>)),
             )
-            .<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">first_diff_wasm_stack_depth</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">wasm_stack</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">zip</span>(<span class="ident">old</span>.<span class="ident">wasm_stack</span>.<span class="ident">iter</span>())
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">find</span>(<span class="op">|</span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, (<span class="ident">a</span>, <span class="ident">b</span>))<span class="op">|</span> <span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">b</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="number">0</span>)
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">old</span>.<span class="ident">wasm_stack</span>.<span class="ident">len</span>().<span class="ident">min</span>(<span class="self">self</span>.<span class="ident">wasm_stack</span>.<span class="ident">len</span>()));
-        <span class="ident">MachineStateDiff</span> {
-            <span class="ident">last</span>: <span class="prelude-val">None</span>,
-            <span class="ident">stack_push</span>: <span class="self">self</span>.<span class="ident">stack_values</span>[<span class="ident">first_diff_stack_depth</span>..].<span class="ident">to_vec</span>(),
-            <span class="ident">stack_pop</span>: <span class="ident">old</span>.<span class="ident">stack_values</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">first_diff_stack_depth</span>,
-            <span class="ident">reg_diff</span>,
+            .collect();
+        <span class="kw">let </span>first_diff_wasm_stack_depth: usize = <span class="self">self
+            </span>.wasm_stack
+            .iter()
+            .zip(old.wasm_stack.iter())
+            .enumerate()
+            .find(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, (a, b))| a != b)
+            .map(|x| x.<span class="number">0</span>)
+            .unwrap_or_else(|| old.wasm_stack.len().min(<span class="self">self</span>.wasm_stack.len()));
+        MachineStateDiff {
+            last: <span class="prelude-val">None</span>,
+            stack_push: <span class="self">self</span>.stack_values[first_diff_stack_depth..].to_vec(),
+            stack_pop: old.stack_values.len() - first_diff_stack_depth,
+            reg_diff,
 
-            <span class="ident">prev_frame_diff</span>,
+            prev_frame_diff,
 
-            <span class="ident">wasm_stack_push</span>: <span class="self">self</span>.<span class="ident">wasm_stack</span>[<span class="ident">first_diff_wasm_stack_depth</span>..].<span class="ident">to_vec</span>(),
-            <span class="ident">wasm_stack_pop</span>: <span class="ident">old</span>.<span class="ident">wasm_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">first_diff_wasm_stack_depth</span>,
+            wasm_stack_push: <span class="self">self</span>.wasm_stack[first_diff_wasm_stack_depth..].to_vec(),
+            wasm_stack_pop: old.wasm_stack.len() - first_diff_wasm_stack_depth,
 
-            <span class="ident">wasm_inst_offset</span>: <span class="self">self</span>.<span class="ident">wasm_inst_offset</span>,
+            wasm_inst_offset: <span class="self">self</span>.wasm_inst_offset,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">MachineStateDiff</span> {
-    <span class="doccomment">/// Creates a `MachineState` from the given `&amp;FunctionStateMap`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_build_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">m</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionStateMap</span>) -&gt; <span class="ident">MachineState</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">chain</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">MachineStateDiff</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="self">self</span>];
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">last</span>;
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">current</span> {
-            <span class="kw">let</span> <span class="ident">that</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">m</span>.<span class="ident">diffs</span>[<span class="ident">x</span>];
-            <span class="ident">current</span> <span class="op">=</span> <span class="ident">that</span>.<span class="ident">last</span>;
-            <span class="ident">chain</span>.<span class="ident">push</span>(<span class="ident">that</span>);
+<span class="kw">impl </span>MachineStateDiff {
+    <span class="doccomment">/// Creates a `MachineState` from the given `&amp;FunctionStateMap`.
+    </span><span class="kw">pub fn </span>_build_state(<span class="kw-2">&amp;</span><span class="self">self</span>, m: <span class="kw-2">&amp;</span>FunctionStateMap) -&gt; MachineState {
+        <span class="kw">let </span><span class="kw-2">mut </span>chain: Vec&lt;<span class="kw-2">&amp;</span>MachineStateDiff&gt; = <span class="macro">vec!</span>[<span class="self">self</span>];
+        <span class="kw">let </span><span class="kw-2">mut </span>current = <span class="self">self</span>.last;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(x) = current {
+            <span class="kw">let </span>that = <span class="kw-2">&amp;</span>m.diffs[x];
+            current = that.last;
+            chain.push(that);
         }
-        <span class="ident">chain</span>.<span class="ident">reverse</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">m</span>.<span class="ident">initial</span>.<span class="ident">clone</span>();
-        <span class="kw">for</span> <span class="ident">x</span> <span class="kw">in</span> <span class="ident">chain</span> {
-            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">x</span>.<span class="ident">stack_pop</span> {
-                <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
+        chain.reverse();
+        <span class="kw">let </span><span class="kw-2">mut </span>state = m.initial.clone();
+        <span class="kw">for </span>x <span class="kw">in </span>chain {
+            <span class="kw">for _ in </span><span class="number">0</span>..x.stack_pop {
+                state.stack_values.pop().unwrap();
             }
-            <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">stack_push</span> {
-                <span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">v</span>.<span class="ident">clone</span>());
+            <span class="kw">for </span>v <span class="kw">in </span><span class="kw-2">&amp;</span>x.stack_push {
+                state.stack_values.push(v.clone());
             }
-            <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">index</span>, <span class="kw-2">ref</span> <span class="ident">v</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">reg_diff</span> {
-                <span class="ident">state</span>.<span class="ident">register_values</span>[<span class="ident">index</span>.<span class="number">0</span>] <span class="op">=</span> <span class="ident">v</span>.<span class="ident">clone</span>();
+            <span class="kw">for </span><span class="kw-2">&amp;</span>(index, <span class="kw-2">ref </span>v) <span class="kw">in </span><span class="kw-2">&amp;</span>x.reg_diff {
+                state.register_values[index.<span class="number">0</span>] = v.clone();
             }
-            <span class="kw">for</span> (<span class="ident">index</span>, <span class="kw-2">ref</span> <span class="ident">v</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">prev_frame_diff</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) <span class="op">=</span> <span class="ident">v</span> {
-                    <span class="ident">state</span>.<span class="ident">prev_frame</span>.<span class="ident">insert</span>(<span class="kw-2">*</span><span class="ident">index</span>, <span class="ident">x</span>.<span class="ident">clone</span>());
-                } <span class="kw">else</span> {
-                    <span class="ident">state</span>.<span class="ident">prev_frame</span>.<span class="ident">remove</span>(<span class="ident">index</span>).<span class="ident">unwrap</span>();
+            <span class="kw">for </span>(index, <span class="kw-2">ref </span>v) <span class="kw">in </span><span class="kw-2">&amp;</span>x.prev_frame_diff {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>x) = v {
+                    state.prev_frame.insert(<span class="kw-2">*</span>index, x.clone());
+                } <span class="kw">else </span>{
+                    state.prev_frame.remove(index).unwrap();
                 }
             }
-            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">x</span>.<span class="ident">wasm_stack_pop</span> {
-                <span class="ident">state</span>.<span class="ident">wasm_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
+            <span class="kw">for _ in </span><span class="number">0</span>..x.wasm_stack_pop {
+                state.wasm_stack.pop().unwrap();
             }
-            <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">x</span>.<span class="ident">wasm_stack_push</span> {
-                <span class="ident">state</span>.<span class="ident">wasm_stack</span>.<span class="ident">push</span>(<span class="kw-2">*</span><span class="ident">v</span>);
+            <span class="kw">for </span>v <span class="kw">in </span><span class="kw-2">&amp;</span>x.wasm_stack_push {
+                state.wasm_stack.push(<span class="kw-2">*</span>v);
             }
         }
-        <span class="ident">state</span>.<span class="ident">wasm_inst_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">wasm_inst_offset</span>;
-        <span class="ident">state</span>
+        state.wasm_inst_offset = <span class="self">self</span>.wasm_inst_offset;
+        state
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

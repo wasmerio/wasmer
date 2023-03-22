@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/entity/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/entity/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -93,100 +93,100 @@
 <span id="93">93</span>
 <span id="94">94</span>
 <span id="95">95</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">/// A type wrapping a small integer index should implement `EntityRef` so it can be used as the key</span>
-<span class="doccomment">/// of an `SecondaryMap` or `SparseMap`.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">EntityRef</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Eq</span> {
-    <span class="doccomment">/// Create a new entity reference from a small integer.</span>
-    <span class="doccomment">/// This should crash if the requested index is not representable.</span>
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="kw">_</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span>;
+</span><span class="doccomment">/// A type wrapping a small integer index should implement `EntityRef` so it can be used as the key
+/// of an `SecondaryMap` or `SparseMap`.
+</span><span class="kw">pub trait </span>EntityRef: Copy + Eq {
+    <span class="doccomment">/// Create a new entity reference from a small integer.
+    /// This should crash if the requested index is not representable.
+    </span><span class="kw">fn </span>new(<span class="kw">_</span>: usize) -&gt; <span class="self">Self</span>;
 
-    <span class="doccomment">/// Get the index that was used to create this entity reference.</span>
-    <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span>;
+    <span class="doccomment">/// Get the index that was used to create this entity reference.
+    </span><span class="kw">fn </span>index(<span class="self">self</span>) -&gt; usize;
 }
 
-<span class="doccomment">/// Macro which provides the common implementation of a 32-bit entity reference.</span>
-<span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="macro">macro_rules!</span> <span class="ident">entity_impl</span> {
-    <span class="comment">// Basic traits.</span>
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::entity::EntityRef</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span> {
-            <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">index</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-                <span class="macro">debug_assert!</span>(<span class="ident">index</span> <span class="op">&lt;</span> (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::u32::MAX</span> <span class="kw">as</span> <span class="ident">usize</span>));
-                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">u32</span>)
+<span class="doccomment">/// Macro which provides the common implementation of a 32-bit entity reference.
+</span><span class="attribute">#[macro_export]
+</span><span class="macro">macro_rules! </span>entity_impl {
+    <span class="comment">// Basic traits.
+    </span>(<span class="macro-nonterminal">$entity</span>:ident) =&gt; {
+        <span class="kw">impl </span><span class="macro-nonterminal">$crate::entity::EntityRef </span><span class="kw">for </span><span class="macro-nonterminal">$entity </span>{
+            <span class="kw">fn </span>new(index: usize) -&gt; <span class="self">Self </span>{
+                <span class="macro">debug_assert!</span>(index &lt; (<span class="macro-nonterminal">$crate::lib::std::u32::MAX </span><span class="kw">as </span>usize));
+                <span class="macro-nonterminal">$entity</span>(index <span class="kw">as </span>u32)
             }
 
-            <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-                <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>
+            <span class="kw">fn </span>index(<span class="self">self</span>) -&gt; usize {
+                <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>usize
             }
         }
 
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::entity::packed_option::ReservedValue</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span> {
-            <span class="kw">fn</span> <span class="ident">reserved_value</span>() -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span> {
-                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::u32::MAX</span>)
+        <span class="kw">impl </span><span class="macro-nonterminal">$crate::entity::packed_option::ReservedValue </span><span class="kw">for </span><span class="macro-nonterminal">$entity </span>{
+            <span class="kw">fn </span>reserved_value() -&gt; <span class="macro-nonterminal">$entity </span>{
+                <span class="macro-nonterminal">$entity</span>(<span class="macro-nonterminal">$crate::lib::std::u32::MAX</span>)
             }
 
-            <span class="kw">fn</span> <span class="ident">is_reserved_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-                <span class="self">self</span>.<span class="number">0</span> <span class="op">==</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::u32::MAX</span>
-            }
+            <span class="kw">fn </span>is_reserved_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+                <span class="self">self</span>.<span class="number">0 </span>== <span class="macro-nonterminal">$crate::lib::std::u32::MAX
+            </span>}
         }
 
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span> {
-            <span class="doccomment">/// Create a new instance from a `u32`.</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_u32</span>(<span class="ident">x</span>: <span class="ident">u32</span>) -&gt; <span class="self">Self</span> {
-                <span class="macro">debug_assert!</span>(<span class="ident">x</span> <span class="op">&lt;</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::u32::MAX</span>);
-                <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span>(<span class="ident">x</span>)
+        <span class="kw">impl </span><span class="macro-nonterminal">$entity </span>{
+            <span class="doccomment">/// Create a new instance from a `u32`.
+            </span><span class="attribute">#[allow(dead_code)]
+            </span><span class="kw">pub fn </span>from_u32(x: u32) -&gt; <span class="self">Self </span>{
+                <span class="macro">debug_assert!</span>(x &lt; <span class="macro-nonterminal">$crate::lib::std::u32::MAX</span>);
+                <span class="macro-nonterminal">$entity</span>(x)
             }
 
-            <span class="doccomment">/// Return the underlying index value as a `u32`.</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_u32</span>(<span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-                <span class="self">self</span>.<span class="number">0</span>
-            }
+            <span class="doccomment">/// Return the underlying index value as a `u32`.
+            </span><span class="attribute">#[allow(dead_code)]
+            </span><span class="kw">pub fn </span>as_u32(<span class="self">self</span>) -&gt; u32 {
+                <span class="self">self</span>.<span class="number">0
+            </span>}
         }
     };
 
-    <span class="comment">// Include basic `Display` impl using the given display prefix.</span>
-    <span class="comment">// Display a `Block` reference as &quot;block12&quot;.</span>
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">display_prefix</span>:<span class="ident">expr</span>) =&gt; {
-        <span class="macro">entity_impl!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span>);
+    <span class="comment">// Include basic `Display` impl using the given display prefix.
+    // Display a `Block` reference as &quot;block12&quot;.
+    </span>(<span class="macro-nonterminal">$entity</span>:ident, <span class="macro-nonterminal">$display_prefix</span>:expr) =&gt; {
+        <span class="macro">entity_impl!</span>(<span class="macro-nonterminal">$entity</span>);
 
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Display</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span> {
-            <span class="kw">fn</span> <span class="ident">fmt</span>(
+        <span class="kw">impl </span><span class="macro-nonterminal">$crate::lib::std::fmt::Display </span><span class="kw">for </span><span class="macro-nonterminal">$entity </span>{
+            <span class="kw">fn </span>fmt(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
-                <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Formatter</span>,
-            ) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Result</span> {
-                <span class="macro">write!</span>(<span class="ident">f</span>, <span class="macro">concat!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">display_prefix</span>, <span class="string">&quot;{}&quot;</span>), <span class="self">self</span>.<span class="number">0</span>)
+                f: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$crate::lib::std::fmt::Formatter</span>,
+            ) -&gt; <span class="macro-nonterminal">$crate::lib::std::fmt::Result </span>{
+                <span class="macro">write!</span>(f, <span class="macro">concat!</span>(<span class="macro-nonterminal">$display_prefix</span>, <span class="string">&quot;{}&quot;</span>), <span class="self">self</span>.<span class="number">0</span>)
             }
         }
 
-        <span class="kw">impl</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Debug</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">entity</span> {
-            <span class="kw">fn</span> <span class="ident">fmt</span>(
+        <span class="kw">impl </span><span class="macro-nonterminal">$crate::lib::std::fmt::Debug </span><span class="kw">for </span><span class="macro-nonterminal">$entity </span>{
+            <span class="kw">fn </span>fmt(
                 <span class="kw-2">&amp;</span><span class="self">self</span>,
-                <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Formatter</span>,
-            ) -&gt; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Result</span> {
-                (<span class="self">self</span> <span class="kw">as</span> <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">crate::lib::std::fmt::Display</span>).<span class="ident">fmt</span>(<span class="ident">f</span>)
+                f: <span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$crate::lib::std::fmt::Formatter</span>,
+            ) -&gt; <span class="macro-nonterminal">$crate::lib::std::fmt::Result </span>{
+                (<span class="self">self </span><span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span><span class="macro-nonterminal">$crate::lib::std::fmt::Display</span>).fmt(f)
             }
         }
     };
 }
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">packed_option</span>;
+<span class="kw">pub mod </span>packed_option;
 
-<span class="kw">mod</span> <span class="ident">boxed_slice</span>;
-<span class="kw">mod</span> <span class="ident">iter</span>;
-<span class="kw">mod</span> <span class="ident">keys</span>;
-<span class="kw">mod</span> <span class="ident">primary_map</span>;
-<span class="kw">mod</span> <span class="ident">secondary_map</span>;
+<span class="kw">mod </span>boxed_slice;
+<span class="kw">mod </span>iter;
+<span class="kw">mod </span>keys;
+<span class="kw">mod </span>primary_map;
+<span class="kw">mod </span>secondary_map;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity_impl</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">boxed_slice::BoxedSlice</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">iter</span>::{<span class="ident">Iter</span>, <span class="ident">IterMut</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">keys::Keys</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">primary_map::PrimaryMap</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">secondary_map::SecondaryMap</span>;
+<span class="kw">pub use </span><span class="kw">crate</span>::entity_impl;
+<span class="kw">pub use </span>boxed_slice::BoxedSlice;
+<span class="kw">pub use </span>iter::{Iter, IterMut};
+<span class="kw">pub use </span>keys::Keys;
+<span class="kw">pub use </span>primary_map::PrimaryMap;
+<span class="kw">pub use </span>secondary_map::SecondaryMap;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

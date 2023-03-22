@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/graphql/proxy.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>proxy.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_registry/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/graphql/proxy.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>proxy.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_registry/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -84,91 +84,91 @@
 <span id="84">84</span>
 <span id="85">85</span>
 <span id="86">86</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Code for dealing with setting things up to proxy network requests</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Code for dealing with setting things up to proxy network requests
 
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+</span><span class="kw">use </span>thiserror::Error;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Error</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ProxyError</span> {
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Failed to parse URL from {}: {}&quot;</span>, <span class="ident">url_location</span>, <span class="ident">error_message</span>)]</span>
-    <span class="ident">UrlParseError</span> {
-        <span class="ident">url_location</span>: <span class="ident">String</span>,
-        <span class="ident">error_message</span>: <span class="ident">String</span>,
+<span class="attribute">#[derive(Debug, Error)]
+</span><span class="kw">pub enum </span>ProxyError {
+    <span class="attribute">#[error(<span class="string">&quot;Failed to parse URL from {}: {}&quot;</span>, url_location, error_message)]
+    </span>UrlParseError {
+        url_location: String,
+        error_message: String,
     },
 
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Could not connect to proxy: {0}&quot;</span>)]</span>
-    <span class="ident">ConnectionError</span>(<span class="ident">String</span>),
+    <span class="attribute">#[error(<span class="string">&quot;Could not connect to proxy: {0}&quot;</span>)]
+    </span>ConnectionError(String),
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">maybe_set_up_proxy_blocking</span>(
-    <span class="ident">builder</span>: <span class="ident">reqwest::blocking::ClientBuilder</span>,
-) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">reqwest::blocking::ClientBuilder</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">proxy</span>) <span class="op">=</span> <span class="ident">maybe_set_up_proxy_inner</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?</span>
-    {
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">builder</span>.<span class="ident">proxy</span>(<span class="ident">proxy</span>));
+<span class="kw">pub fn </span>maybe_set_up_proxy_blocking(
+    builder: reqwest::blocking::ClientBuilder,
+) -&gt; anyhow::Result&lt;reqwest::blocking::ClientBuilder&gt; {
+    <span class="kw">use </span>anyhow::Context;
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = maybe_set_up_proxy_inner()
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?
+    </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(builder.proxy(proxy));
     }
-    <span class="prelude-val">Ok</span>(<span class="ident">builder</span>)
+    <span class="prelude-val">Ok</span>(builder)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">maybe_set_up_proxy</span>(
-    <span class="ident">builder</span>: <span class="ident">reqwest::ClientBuilder</span>,
-) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">reqwest::ClientBuilder</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">proxy</span>) <span class="op">=</span> <span class="ident">maybe_set_up_proxy_inner</span>()
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .<span class="ident">context</span>(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?</span>
-    {
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">builder</span>.<span class="ident">proxy</span>(<span class="ident">proxy</span>));
+<span class="kw">pub fn </span>maybe_set_up_proxy(
+    builder: reqwest::ClientBuilder,
+) -&gt; anyhow::Result&lt;reqwest::ClientBuilder&gt; {
+    <span class="kw">use </span>anyhow::Context;
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = maybe_set_up_proxy_inner()
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .context(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?
+    </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(builder.proxy(proxy));
     }
-    <span class="prelude-val">Ok</span>(<span class="ident">builder</span>)
+    <span class="prelude-val">Ok</span>(builder)
 }
 
-<span class="doccomment">/// Tries to set up a proxy</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function reads from wapm config&#39;s `proxy.url` first, then checks</span>
-<span class="doccomment">/// `ALL_PROXY`, `HTTPS_PROXY`, and `HTTP_PROXY` environment variables, in both</span>
-<span class="doccomment">/// upper case and lower case, in that order.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// If a proxy is specified in wapm config&#39;s `proxy.url`, it is assumed</span>
-<span class="doccomment">/// to be a general proxy</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// A return value of `Ok(None)` means that there was no attempt to set up a proxy,</span>
-<span class="doccomment">/// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that</span>
-<span class="doccomment">/// there was a failure while attempting to set up the proxy.</span>
-<span class="kw">fn</span> <span class="ident">maybe_set_up_proxy_inner</span>() -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">reqwest::Proxy</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">std::env</span>;
-    <span class="kw">let</span> <span class="ident">proxy</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">proxy_url</span>) <span class="op">=</span> <span class="ident">env::var</span>(<span class="string">&quot;ALL_PROXY&quot;</span>).<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">env::var</span>(<span class="string">&quot;all_proxy&quot;</span>)) {
-        <span class="ident">reqwest::Proxy::all</span>(<span class="kw-2">&amp;</span><span class="ident">proxy_url</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">proxy</span><span class="op">|</span> (<span class="ident">proxy_url</span>, <span class="ident">proxy</span>, <span class="string">&quot;ALL_PROXY&quot;</span>))
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">https_proxy_url</span>) <span class="op">=</span> <span class="ident">env::var</span>(<span class="string">&quot;HTTPS_PROXY&quot;</span>).<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">env::var</span>(<span class="string">&quot;https_proxy&quot;</span>))
+<span class="doccomment">/// Tries to set up a proxy
+///
+/// This function reads from wapm config&#39;s `proxy.url` first, then checks
+/// `ALL_PROXY`, `HTTPS_PROXY`, and `HTTP_PROXY` environment variables, in both
+/// upper case and lower case, in that order.
+///
+/// If a proxy is specified in wapm config&#39;s `proxy.url`, it is assumed
+/// to be a general proxy
+///
+/// A return value of `Ok(None)` means that there was no attempt to set up a proxy,
+/// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that
+/// there was a failure while attempting to set up the proxy.
+</span><span class="kw">fn </span>maybe_set_up_proxy_inner() -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;reqwest::Proxy&gt;&gt; {
+    <span class="kw">use </span>std::env;
+    <span class="kw">let </span>proxy = <span class="kw">if let </span><span class="prelude-val">Ok</span>(proxy_url) = env::var(<span class="string">&quot;ALL_PROXY&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;all_proxy&quot;</span>)) {
+        reqwest::Proxy::all(<span class="kw-2">&amp;</span>proxy_url).map(|proxy| (proxy_url, proxy, <span class="string">&quot;ALL_PROXY&quot;</span>))
+    } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(https_proxy_url) = env::var(<span class="string">&quot;HTTPS_PROXY&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;https_proxy&quot;</span>))
     {
-        <span class="ident">reqwest::Proxy::https</span>(<span class="kw-2">&amp;</span><span class="ident">https_proxy_url</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">proxy</span><span class="op">|</span> (<span class="ident">https_proxy_url</span>, <span class="ident">proxy</span>, <span class="string">&quot;HTTPS_PROXY&quot;</span>))
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">http_proxy_url</span>) <span class="op">=</span> <span class="ident">env::var</span>(<span class="string">&quot;HTTP_PROXY&quot;</span>).<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">env::var</span>(<span class="string">&quot;http_proxy&quot;</span>)) {
-        <span class="ident">reqwest::Proxy::http</span>(<span class="kw-2">&amp;</span><span class="ident">http_proxy_url</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">proxy</span><span class="op">|</span> (<span class="ident">http_proxy_url</span>, <span class="ident">proxy</span>, <span class="string">&quot;http_proxy&quot;</span>))
-    } <span class="kw">else</span> {
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        reqwest::Proxy::https(<span class="kw-2">&amp;</span>https_proxy_url).map(|proxy| (https_proxy_url, proxy, <span class="string">&quot;HTTPS_PROXY&quot;</span>))
+    } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(http_proxy_url) = env::var(<span class="string">&quot;HTTP_PROXY&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;http_proxy&quot;</span>)) {
+        reqwest::Proxy::http(<span class="kw-2">&amp;</span>http_proxy_url).map(|proxy| (http_proxy_url, proxy, <span class="string">&quot;http_proxy&quot;</span>))
+    } <span class="kw">else </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
     }
-    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ProxyError::ConnectionError</span>(<span class="ident">e</span>.<span class="ident">to_string</span>()))
-    .<span class="ident">and_then</span>(
-        <span class="op">|</span>(<span class="ident">proxy_url_str</span>, <span class="ident">proxy</span>, <span class="ident">url_location</span>): (<span class="ident">String</span>, <span class="kw">_</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>)<span class="op">|</span> {
-            <span class="ident">url::Url::parse</span>(<span class="kw-2">&amp;</span><span class="ident">proxy_url_str</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">ProxyError::UrlParseError</span> {
-                    <span class="ident">url_location</span>: <span class="ident">url_location</span>.<span class="ident">to_string</span>(),
-                    <span class="ident">error_message</span>: <span class="ident">e</span>.<span class="ident">to_string</span>(),
+    .map_err(|e| ProxyError::ConnectionError(e.to_string()))
+    .and_then(
+        |(proxy_url_str, proxy, url_location): (String, <span class="kw">_</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str)| {
+            url::Url::parse(<span class="kw-2">&amp;</span>proxy_url_str)
+                .map_err(|e| ProxyError::UrlParseError {
+                    url_location: url_location.to_string(),
+                    error_message: e.to_string(),
                 })
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">url</span><span class="op">|</span> {
-                    <span class="kw">if</span> <span class="op">!</span>(<span class="ident">url</span>.<span class="ident">username</span>().<span class="ident">is_empty</span>()) <span class="op">&amp;&amp;</span> <span class="ident">url</span>.<span class="ident">password</span>().<span class="ident">is_some</span>() {
-                        <span class="ident">proxy</span>.<span class="ident">basic_auth</span>(<span class="ident">url</span>.<span class="ident">username</span>(), <span class="ident">url</span>.<span class="ident">password</span>().<span class="ident">unwrap_or_default</span>())
-                    } <span class="kw">else</span> {
-                        <span class="ident">proxy</span>
+                .map(|url| {
+                    <span class="kw">if </span>!(url.username().is_empty()) &amp;&amp; url.password().is_some() {
+                        proxy.basic_auth(url.username(), url.password().unwrap_or_default())
+                    } <span class="kw">else </span>{
+                        proxy
                     }
                 })
         },
     )<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">proxy</span>))
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proxy))
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

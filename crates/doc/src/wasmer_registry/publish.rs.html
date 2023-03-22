@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/publish.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>publish.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/publish.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>publish.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -243,250 +243,250 @@
 <span id="243">243</span>
 <span id="244">244</span>
 <span id="245">245</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Write</span>;
-<span class="kw">use</span> <span class="ident">std::io::BufRead</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
+<span class="kw">use </span>std::fmt::Write;
+<span class="kw">use </span>std::io::BufRead;
+<span class="kw">use </span>std::path::PathBuf;
 
-<span class="kw">use</span> <span class="ident">console</span>::{<span class="ident">style</span>, <span class="ident">Emoji</span>};
-<span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
-<span class="kw">use</span> <span class="ident">indicatif</span>::{<span class="ident">ProgressBar</span>, <span class="ident">ProgressState</span>, <span class="ident">ProgressStyle</span>};
+<span class="kw">use </span>console::{style, Emoji};
+<span class="kw">use </span>graphql_client::GraphQLQuery;
+<span class="kw">use </span>indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
-    <span class="ident">execute_query_modifier_inner</span>,
-    <span class="ident">mutations</span>::{<span class="ident">publish_package_mutation_chunked</span>, <span class="ident">PublishPackageMutationChunked</span>},
-    <span class="ident">queries</span>::{<span class="ident">get_signed_url</span>, <span class="ident">GetSignedUrl</span>},
+<span class="kw">use </span><span class="kw">crate</span>::graphql::{
+    execute_query_modifier_inner,
+    mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
+    queries::{get_signed_url, GetSignedUrl},
 };
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">format_graphql</span>, <span class="ident">WasmerConfig</span>};
+<span class="kw">use crate</span>::{format_graphql, WasmerConfig};
 
-<span class="kw">static</span> <span class="ident">UPLOAD</span>: <span class="ident">Emoji</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Emoji</span>(<span class="string">&quot;⬆️  &quot;</span>, <span class="string">&quot;&quot;</span>);
-<span class="kw">static</span> <span class="ident">PACKAGE</span>: <span class="ident">Emoji</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Emoji</span>(<span class="string">&quot;📦  &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>UPLOAD: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;⬆️  &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>PACKAGE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦  &quot;</span>, <span class="string">&quot;&quot;</span>);
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SignArchiveResult</span> {
-    <span class="prelude-val">Ok</span> {
-        <span class="ident">public_key_id</span>: <span class="ident">String</span>,
-        <span class="ident">signature</span>: <span class="ident">String</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub enum </span>SignArchiveResult {
+    <span class="prelude-val">Ok </span>{
+        public_key_id: String,
+        signature: String,
     },
-    <span class="ident">NoKeyRegistered</span>,
+    NoKeyRegistered,
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_chunked_uploading</span>(
-    <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">package</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_toml::Package</span>,
-    <span class="ident">manifest_string</span>: <span class="kw-2">&amp;</span><span class="ident">String</span>,
-    <span class="ident">license_file</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">readme</span>: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">archive_name</span>: <span class="kw-2">&amp;</span><span class="ident">String</span>,
-    <span class="ident">archive_path</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>,
-    <span class="ident">maybe_signature_data</span>: <span class="kw-2">&amp;</span><span class="ident">SignArchiveResult</span>,
-    <span class="ident">archived_data_size</span>: <span class="ident">u64</span>,
-    <span class="ident">quiet</span>: <span class="ident">bool</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">registry</span>.<span class="ident">as_ref</span>() {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">format_graphql</span>(<span class="ident">s</span>),
-        <span class="prelude-val">None</span> =&gt; {
-            <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>try_chunked_uploading(
+    registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    token: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    package: <span class="kw-2">&amp;</span>wasmer_toml::Package,
+    manifest_string: <span class="kw-2">&amp;</span>String,
+    license_file: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
+    readme: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
+    archive_name: <span class="kw-2">&amp;</span>String,
+    archive_path: <span class="kw-2">&amp;</span>PathBuf,
+    maybe_signature_data: <span class="kw-2">&amp;</span>SignArchiveResult,
+    archived_data_size: u64,
+    quiet: bool,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">let </span>registry = <span class="kw">match </span>registry.as_ref() {
+        <span class="prelude-val">Some</span>(s) =&gt; format_graphql(s),
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>);
+            <span class="kw">let </span>config = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir);
 
-            <span class="ident">config</span>
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>
-                .<span class="ident">registry</span>
-                .<span class="ident">get_current_registry</span>()
+            config
+                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?
+                </span>.registry
+                .get_current_registry()
         }
     };
 
-    <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">token</span>.<span class="ident">as_ref</span>() {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>.<span class="ident">to_string</span>(),
-        <span class="prelude-val">None</span> =&gt; {
-            <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>token = <span class="kw">match </span>token.as_ref() {
+        <span class="prelude-val">Some</span>(s) =&gt; s.to_string(),
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>);
+            <span class="kw">let </span>config = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir);
 
-            <span class="ident">config</span>
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>
-                .<span class="ident">registry</span>
-                .<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            config
+                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?
+                </span>.registry
+                .get_login_token_for_registry(<span class="kw-2">&amp;</span>registry)
+                .ok_or_else(|| {
                     <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot publish package: not logged into registry {registry:?}&quot;</span>)
-                })<span class="question-mark">?</span>
-        }
+                })<span class="question-mark">?
+        </span>}
     };
 
-    <span class="kw">let</span> <span class="ident">maybe_signature_data</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">maybe_signature_data</span> {
-        <span class="ident">SignArchiveResult::Ok</span> {
-            <span class="ident">public_key_id</span>,
-            <span class="ident">signature</span>,
+    <span class="kw">let </span>maybe_signature_data = <span class="kw">match </span>maybe_signature_data {
+        SignArchiveResult::Ok {
+            public_key_id,
+            signature,
         } =&gt; {
             <span class="macro">log::info!</span>(
                 <span class="string">&quot;Package successfully signed with public key: \&quot;{}\&quot;!&quot;</span>,
-                <span class="kw-2">&amp;</span><span class="ident">public_key_id</span>
+                <span class="kw-2">&amp;</span>public_key_id
             );
-            <span class="prelude-val">Some</span>(<span class="ident">publish_package_mutation_chunked::InputSignature</span> {
-                <span class="ident">public_key_key_id</span>: <span class="ident">public_key_id</span>.<span class="ident">to_string</span>(),
-                <span class="ident">data</span>: <span class="ident">signature</span>.<span class="ident">to_string</span>(),
+            <span class="prelude-val">Some</span>(publish_package_mutation_chunked::InputSignature {
+                public_key_key_id: public_key_id.to_string(),
+                data: signature.to_string(),
             })
         }
-        <span class="ident">SignArchiveResult::NoKeyRegistered</span> =&gt; {
-            <span class="comment">// TODO: uncomment this when we actually want users to start using it</span>
-            <span class="comment">//warn!(&quot;Publishing package without a verifying signature. Consider registering a key pair with wapm&quot;);</span>
-            <span class="prelude-val">None</span>
-        }
+        SignArchiveResult::NoKeyRegistered =&gt; {
+            <span class="comment">// TODO: uncomment this when we actually want users to start using it
+            //warn!(&quot;Publishing package without a verifying signature. Consider registering a key pair with wapm&quot;);
+            </span><span class="prelude-val">None
+        </span>}
     };
 
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">quiet</span> {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {} Uploading...&quot;</span>, <span class="ident">style</span>(<span class="string">&quot;[1/2]&quot;</span>).<span class="ident">bold</span>().<span class="ident">dim</span>(), <span class="ident">UPLOAD</span>);
+    <span class="kw">if </span>!quiet {
+        <span class="macro">println!</span>(<span class="string">&quot;{} {} Uploading...&quot;</span>, style(<span class="string">&quot;[1/2]&quot;</span>).bold().dim(), UPLOAD);
     }
 
-    <span class="kw">let</span> <span class="ident">get_google_signed_url</span> <span class="op">=</span> <span class="ident">GetSignedUrl::build_query</span>(<span class="ident">get_signed_url::Variables</span> {
-        <span class="ident">name</span>: <span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">to_string</span>(),
-        <span class="ident">version</span>: <span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">to_string</span>(),
-        <span class="ident">expires_after_seconds</span>: <span class="prelude-val">Some</span>(<span class="number">60</span> <span class="op">*</span> <span class="number">30</span>),
+    <span class="kw">let </span>get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
+        name: package.name.to_string(),
+        version: package.version.to_string(),
+        expires_after_seconds: <span class="prelude-val">Some</span>(<span class="number">60 </span>* <span class="number">30</span>),
     });
 
-    <span class="kw">let</span> <span class="ident">_response</span>: <span class="ident">get_signed_url::ResponseData</span> <span class="op">=</span>
-        <span class="ident">execute_query_modifier_inner</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>, <span class="kw-2">&amp;</span><span class="ident">get_google_signed_url</span>, <span class="prelude-val">None</span>, <span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>_response: get_signed_url::ResponseData =
+        execute_query_modifier_inner(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, <span class="kw-2">&amp;</span>get_google_signed_url, <span class="prelude-val">None</span>, |f| f)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">_response</span>.<span class="ident">url</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+    <span class="kw">let </span>url = _response.url.ok_or_else(|| {
         <span class="macro">anyhow::anyhow!</span>(
             <span class="string">&quot;could not get signed url for package {}@{}&quot;</span>,
-            <span class="ident">package</span>.<span class="ident">name</span>,
-            <span class="ident">package</span>.<span class="ident">version</span>
+            package.name,
+            package.version
         )
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">signed_url</span> <span class="op">=</span> <span class="ident">url</span>.<span class="ident">url</span>;
-    <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">url::Url::parse</span>(<span class="kw-2">&amp;</span><span class="ident">signed_url</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">reqwest::blocking::Client::builder</span>()
-        .<span class="ident">default_headers</span>(<span class="ident">reqwest::header::HeaderMap::default</span>())
-        .<span class="ident">build</span>()
-        .<span class="ident">unwrap</span>();
+    <span class="kw">let </span>signed_url = url.url;
+    <span class="kw">let </span>url = url::Url::parse(<span class="kw-2">&amp;</span>signed_url).unwrap();
+    <span class="kw">let </span>client = reqwest::blocking::Client::builder()
+        .default_headers(reqwest::header::HeaderMap::default())
+        .build()
+        .unwrap();
 
-    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">client</span>
-        .<span class="ident">post</span>(<span class="ident">url</span>)
-        .<span class="ident">header</span>(<span class="ident">reqwest::header::CONTENT_LENGTH</span>, <span class="string">&quot;0&quot;</span>)
-        .<span class="ident">header</span>(<span class="ident">reqwest::header::CONTENT_TYPE</span>, <span class="string">&quot;application/octet-stream&quot;</span>)
-        .<span class="ident">header</span>(<span class="string">&quot;x-goog-resumable&quot;</span>, <span class="string">&quot;start&quot;</span>);
+    <span class="kw">let </span>res = client
+        .post(url)
+        .header(reqwest::header::CONTENT_LENGTH, <span class="string">&quot;0&quot;</span>)
+        .header(reqwest::header::CONTENT_TYPE, <span class="string">&quot;application/octet-stream&quot;</span>)
+        .header(<span class="string">&quot;x-goog-resumable&quot;</span>, <span class="string">&quot;start&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">res</span>.<span class="ident">send</span>().<span class="ident">unwrap</span>();
+    <span class="kw">let </span>result = res.send().unwrap();
 
-    <span class="kw">if</span> <span class="ident">result</span>.<span class="ident">status</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">reqwest::StatusCode::from_u16</span>(<span class="number">201</span>).<span class="ident">unwrap</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+    <span class="kw">if </span>result.status() != reqwest::StatusCode::from_u16(<span class="number">201</span>).unwrap() {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
             <span class="string">&quot;Uploading package failed: got HTTP {:?} when uploading&quot;</span>,
-            <span class="ident">result</span>.<span class="ident">status</span>()
+            result.status()
         ));
     }
 
-    <span class="kw">let</span> <span class="ident">headers</span> <span class="op">=</span> <span class="ident">result</span>
-        .<span class="ident">headers</span>()
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">k</span> <span class="op">=</span> <span class="ident">k</span>.<span class="ident">to_string</span>();
-            <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">v</span>.<span class="ident">to_str</span>().<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">to_string</span>();
-            <span class="prelude-val">Some</span>((<span class="ident">k</span>.<span class="ident">to_lowercase</span>(), <span class="ident">v</span>))
+    <span class="kw">let </span>headers = result
+        .headers()
+        .into_iter()
+        .filter_map(|(k, v)| {
+            <span class="kw">let </span>k = k.to_string();
+            <span class="kw">let </span>v = v.to_str().ok()<span class="question-mark">?</span>.to_string();
+            <span class="prelude-val">Some</span>((k.to_lowercase(), v))
         })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        .collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">let</span> <span class="ident">session_uri</span> <span class="op">=</span> <span class="ident">headers</span>.<span class="ident">get</span>(<span class="string">&quot;location&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">clone</span>();
+    <span class="kw">let </span>session_uri = headers.get(<span class="string">&quot;location&quot;</span>).unwrap().clone();
 
-    <span class="kw">let</span> <span class="ident">total</span> <span class="op">=</span> <span class="ident">archived_data_size</span>;
+    <span class="kw">let </span>total = archived_data_size;
 
-    <span class="comment">// archive_path</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::OpenOptions::new</span>()
-        .<span class="ident">read</span>(<span class="bool-val">true</span>)
-        .<span class="ident">open</span>(<span class="ident">archive_path</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot open archive {}: {e}&quot;</span>, <span class="ident">archive_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+    <span class="comment">// archive_path
+    </span><span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::OpenOptions::new()
+        .read(<span class="bool-val">true</span>)
+        .open(archive_path)
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot open archive {}: {e}&quot;</span>, archive_path.display()))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">ProgressBar::new</span>(<span class="ident">archived_data_size</span>);
-    <span class="ident">pb</span>.<span class="ident">set_style</span>(<span class="ident">ProgressStyle::with_template</span>(<span class="string">&quot;{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})&quot;</span>)
-    .<span class="ident">unwrap</span>()
-    .<span class="ident">with_key</span>(<span class="string">&quot;eta&quot;</span>, <span class="op">|</span><span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="ident">ProgressState</span>, <span class="ident">w</span>: <span class="kw-2">&amp;mut</span> <span class="kw">dyn</span> <span class="ident">Write</span><span class="op">|</span> {
-        <span class="macro">write!</span>(<span class="ident">w</span>, <span class="string">&quot;{:.1}s&quot;</span>, <span class="ident">state</span>.<span class="ident">eta</span>().<span class="ident">as_secs_f64</span>()).<span class="ident">unwrap</span>()
+    <span class="kw">let </span>pb = ProgressBar::new(archived_data_size);
+    pb.set_style(ProgressStyle::with_template(<span class="string">&quot;{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})&quot;</span>)
+    .unwrap()
+    .with_key(<span class="string">&quot;eta&quot;</span>, |state: <span class="kw-2">&amp;</span>ProgressState, w: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Write| {
+        <span class="macro">write!</span>(w, <span class="string">&quot;{:.1}s&quot;</span>, state.eta().as_secs_f64()).unwrap()
     })
-    .<span class="ident">progress_chars</span>(<span class="string">&quot;#&gt;-&quot;</span>));
+    .progress_chars(<span class="string">&quot;#&gt;-&quot;</span>));
 
-    <span class="kw">let</span> <span class="ident">chunk_size</span> <span class="op">=</span> <span class="number">1_048_576</span>; <span class="comment">// 1MB - 315s / 100MB</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file_pointer</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">let </span>chunk_size = <span class="number">1_048_576</span>; <span class="comment">// 1MB - 315s / 100MB
+    </span><span class="kw">let </span><span class="kw-2">mut </span>file_pointer = <span class="number">0</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">reader</span> <span class="op">=</span> <span class="ident">std::io::BufReader::with_capacity</span>(<span class="ident">chunk_size</span>, <span class="kw-2">&amp;mut</span> <span class="ident">file</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>reader = std::io::BufReader::with_capacity(chunk_size, <span class="kw-2">&amp;mut </span>file);
 
-    <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">reqwest::blocking::Client::builder</span>()
-        .<span class="ident">default_headers</span>(<span class="ident">reqwest::header::HeaderMap::default</span>())
-        .<span class="ident">build</span>()
-        .<span class="ident">unwrap</span>();
+    <span class="kw">let </span>client = reqwest::blocking::Client::builder()
+        .default_headers(reqwest::header::HeaderMap::default())
+        .build()
+        .unwrap();
 
-    <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chunk</span>) <span class="op">=</span> <span class="ident">reader</span>.<span class="ident">fill_buf</span>().<span class="ident">ok</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_vec</span>()) {
-        <span class="kw">let</span> <span class="ident">n</span> <span class="op">=</span> <span class="ident">chunk</span>.<span class="ident">len</span>();
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(chunk) = reader.fill_buf().ok().map(|s| s.to_vec()) {
+        <span class="kw">let </span>n = chunk.len();
 
-        <span class="kw">if</span> <span class="ident">chunk</span>.<span class="ident">is_empty</span>() {
+        <span class="kw">if </span>chunk.is_empty() {
             <span class="kw">break</span>;
         }
 
-        <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">file_pointer</span>;
-        <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">file_pointer</span> <span class="op">+</span> <span class="ident">chunk</span>.<span class="ident">len</span>().<span class="ident">saturating_sub</span>(<span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">content_range</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;bytes {start}-{end}/{total}&quot;</span>);
+        <span class="kw">let </span>start = file_pointer;
+        <span class="kw">let </span>end = file_pointer + chunk.len().saturating_sub(<span class="number">1</span>);
+        <span class="kw">let </span>content_range = <span class="macro">format!</span>(<span class="string">&quot;bytes {start}-{end}/{total}&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">client</span>
-            .<span class="ident">put</span>(<span class="kw-2">&amp;</span><span class="ident">session_uri</span>)
-            .<span class="ident">header</span>(<span class="ident">reqwest::header::CONTENT_TYPE</span>, <span class="string">&quot;application/octet-stream&quot;</span>)
-            .<span class="ident">header</span>(<span class="ident">reqwest::header::CONTENT_LENGTH</span>, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">chunk</span>.<span class="ident">len</span>()))
-            .<span class="ident">header</span>(<span class="string">&quot;Content-Range&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">content_range</span>)
-            .<span class="ident">body</span>(<span class="ident">chunk</span>.<span class="ident">to_vec</span>());
+        <span class="kw">let </span>res = client
+            .put(<span class="kw-2">&amp;</span>session_uri)
+            .header(reqwest::header::CONTENT_TYPE, <span class="string">&quot;application/octet-stream&quot;</span>)
+            .header(reqwest::header::CONTENT_LENGTH, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, chunk.len()))
+            .header(<span class="string">&quot;Content-Range&quot;</span>.to_string(), content_range)
+            .body(chunk.to_vec());
 
-        <span class="ident">pb</span>.<span class="ident">set_position</span>(<span class="ident">file_pointer</span> <span class="kw">as</span> <span class="ident">u64</span>);
+        pb.set_position(file_pointer <span class="kw">as </span>u64);
 
-        <span class="ident">res</span>.<span class="ident">send</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">response</span><span class="op">|</span> <span class="ident">response</span>.<span class="ident">error_for_status</span>())
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        res.send()
+            .map(|response| response.error_for_status())
+            .map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;cannot send request to {session_uri} (chunk {}..{}): {e}&quot;</span>,
-                    <span class="ident">file_pointer</span>,
-                    <span class="ident">file_pointer</span> <span class="op">+</span> <span class="ident">chunk_size</span>
+                    file_pointer,
+                    file_pointer + chunk_size
                 )
-            })<span class="question-mark">?</span><span class="question-mark">?</span>;
+            })<span class="question-mark">??</span>;
 
-        <span class="kw">if</span> <span class="ident">n</span> <span class="op">&lt;</span> <span class="ident">chunk_size</span> {
+        <span class="kw">if </span>n &lt; chunk_size {
             <span class="kw">break</span>;
         }
 
-        <span class="ident">reader</span>.<span class="ident">consume</span>(<span class="ident">n</span>);
-        <span class="ident">file_pointer</span> <span class="op">+</span><span class="op">=</span> <span class="ident">n</span>;
+        reader.consume(n);
+        file_pointer += n;
     }
 
-    <span class="ident">pb</span>.<span class="ident">finish_and_clear</span>();
+    pb.finish_and_clear();
 
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">quiet</span> {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {}Publishing...&quot;</span>, <span class="ident">style</span>(<span class="string">&quot;[2/2]&quot;</span>).<span class="ident">bold</span>().<span class="ident">dim</span>(), <span class="ident">PACKAGE</span>);
+    <span class="kw">if </span>!quiet {
+        <span class="macro">println!</span>(<span class="string">&quot;{} {}Publishing...&quot;</span>, style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(), PACKAGE);
     }
 
-    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span>
-        <span class="ident">PublishPackageMutationChunked::build_query</span>(<span class="ident">publish_package_mutation_chunked::Variables</span> {
-            <span class="ident">name</span>: <span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">to_string</span>(),
-            <span class="ident">version</span>: <span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">to_string</span>(),
-            <span class="ident">description</span>: <span class="ident">package</span>.<span class="ident">description</span>.<span class="ident">clone</span>(),
-            <span class="ident">manifest</span>: <span class="ident">manifest_string</span>.<span class="ident">to_string</span>(),
-            <span class="ident">license</span>: <span class="ident">package</span>.<span class="ident">license</span>.<span class="ident">clone</span>(),
-            <span class="ident">license_file</span>: <span class="ident">license_file</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">readme</span>: <span class="ident">readme</span>.<span class="ident">to_owned</span>(),
-            <span class="ident">repository</span>: <span class="ident">package</span>.<span class="ident">repository</span>.<span class="ident">clone</span>(),
-            <span class="ident">homepage</span>: <span class="ident">package</span>.<span class="ident">homepage</span>.<span class="ident">clone</span>(),
-            <span class="ident">file_name</span>: <span class="prelude-val">Some</span>(<span class="ident">archive_name</span>.<span class="ident">to_string</span>()),
-            <span class="ident">signature</span>: <span class="ident">maybe_signature_data</span>,
-            <span class="ident">signed_url</span>: <span class="prelude-val">Some</span>(<span class="ident">signed_url</span>),
+    <span class="kw">let </span>q =
+        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
+            name: package.name.to_string(),
+            version: package.version.to_string(),
+            description: package.description.clone(),
+            manifest: manifest_string.to_string(),
+            license: package.license.clone(),
+            license_file: license_file.to_owned(),
+            readme: readme.to_owned(),
+            repository: package.repository.clone(),
+            homepage: package.homepage.clone(),
+            file_name: <span class="prelude-val">Some</span>(archive_name.to_string()),
+            signature: maybe_signature_data,
+            signed_url: <span class="prelude-val">Some</span>(signed_url),
         });
 
-    <span class="kw">let</span> <span class="ident">_response</span>: <span class="ident">publish_package_mutation_chunked::ResponseData</span> <span class="op">=</span>
-        <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>_response: publish_package_mutation_chunked::ResponseData =
+        <span class="kw">crate</span>::graphql::execute_query(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, <span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
 
     <span class="macro">println!</span>(
         <span class="string">&quot;Successfully published package `{}@{}`&quot;</span>,
-        <span class="ident">package</span>.<span class="ident">name</span>, <span class="ident">package</span>.<span class="ident">version</span>
+        package.name, package.version
     );
 
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

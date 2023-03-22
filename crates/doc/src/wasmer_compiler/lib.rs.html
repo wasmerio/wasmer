@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -86,93 +86,93 @@
 <span id="86">86</span>
 <span id="87">87</span>
 <span id="88">88</span>
-</pre><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions</span>
-<span class="doccomment">//! to create a compiler.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! It provides an universal way of parsing a module via `wasmparser`,</span>
-<span class="doccomment">//! while giving the responsibility of compiling specific function</span>
-<span class="doccomment">//! WebAssembly bodies to the `Compiler` implementation.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions
+//! to create a compiler.
+//!
+//! It provides an universal way of parsing a module via `wasmparser`,
+//! while giving the responsibility of compiling specific function
+//! WebAssembly bodies to the `Compiler` implementation.
 
-<span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
-<span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_import_braces</span>)]</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>, <span class="ident">deny</span>(<span class="ident">unstable_features</span>))]</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>), <span class="ident">no_std</span>)]</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(
-    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
-    <span class="ident">allow</span>(<span class="ident">clippy::new_without_default</span>, <span class="ident">clippy::upper_case_acronyms</span>)
-)]</span>
-<span class="attribute">#![<span class="ident">cfg_attr</span>(
-    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
-    <span class="ident">warn</span>(
-        <span class="ident">clippy::float_arithmetic</span>,
-        <span class="ident">clippy::mut_mut</span>,
-        <span class="ident">clippy::nonminimal_bool</span>,
-        <span class="ident">clippy::map_unwrap_or</span>,
-        <span class="ident">clippy::print_stdout</span>,
-        <span class="ident">clippy::unicode_not_nfc</span>,
-        <span class="ident">clippy::use_self</span>
+</span><span class="attribute">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
+#![warn(unused_import_braces)]
+#![cfg_attr(feature = <span class="string">&quot;std&quot;</span>, deny(unstable_features))]
+#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(
+    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
+    allow(clippy::new_without_default, clippy::upper_case_acronyms)
+)]
+#![cfg_attr(
+    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
+    warn(
+        clippy::float_arithmetic,
+        clippy::mut_mut,
+        clippy::nonminimal_bool,
+        clippy::map_unwrap_or,
+        clippy::print_stdout,
+        clippy::unicode_not_nfc,
+        clippy::use_self
     )
-)]</span>
+)]
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>))]</span>
-<span class="macro">compile_error!</span>(
-    <span class="string">&quot;The `std` and `core` features are both enabled, which is an error. Please enable only once.&quot;</span>
-);
+#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;core&quot;</span>))]
+</span><span class="macro">compile_error!</span>(
+    <span class="string">&quot;The `std` and `core` features are both enabled, which is an error. Please enable only once.&quot;
+</span>);
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>), <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)))]</span>
-<span class="macro">compile_error!</span>(<span class="string">&quot;Both the `std` and `core` features are disabled. Please enable one of them.&quot;</span>);
+<span class="attribute">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;core&quot;</span>)))]
+</span><span class="macro">compile_error!</span>(<span class="string">&quot;Both the `std` and `core` features are disabled. Please enable one of them.&quot;</span>);
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
-<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">alloc</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
+</span><span class="kw">extern crate </span>alloc;
 
-<span class="kw">mod</span> <span class="ident">lib</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">std</span> {
-        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">alloc</span>::{<span class="ident">borrow</span>, <span class="ident">boxed</span>, <span class="ident">str</span>, <span class="ident">string</span>, <span class="ident">sync</span>, <span class="ident">vec</span>};
-        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">core::fmt</span>;
-        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hashbrown</span> <span class="kw">as</span> <span class="ident">collections</span>;
+<span class="kw">mod </span>lib {
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
+    </span><span class="kw">pub mod </span>std {
+        <span class="kw">pub use </span>alloc::{borrow, boxed, str, string, sync, vec};
+        <span class="kw">pub use </span>core::fmt;
+        <span class="kw">pub use </span>hashbrown <span class="kw">as </span>collections;
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">std</span> {
-        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">borrow</span>, <span class="ident">boxed</span>, <span class="ident">collections</span>, <span class="ident">fmt</span>, <span class="ident">str</span>, <span class="ident">string</span>, <span class="ident">sync</span>, <span class="ident">vec</span>};
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span><span class="kw">pub mod </span>std {
+        <span class="kw">pub use </span>std::{borrow, boxed, collections, fmt, str, string, sync, vec};
     }
 }
 
-<span class="kw">mod</span> <span class="ident">engine</span>;
-<span class="kw">mod</span> <span class="ident">traits</span>;
+<span class="kw">mod </span>engine;
+<span class="kw">mod </span>traits;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::<span class="kw-2">*</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits</span>::<span class="kw-2">*</span>;
+<span class="kw">pub use </span><span class="kw">crate</span>::engine::<span class="kw-2">*</span>;
+<span class="kw">pub use </span><span class="kw">crate</span>::traits::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">mod</span> <span class="ident">artifact_builders</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+</span><span class="kw">mod </span>artifact_builders;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::artifact_builders</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+</span><span class="kw">pub use </span><span class="self">self</span>::artifact_builders::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">mod</span> <span class="ident">compiler</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+</span><span class="kw">mod </span>compiler;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">mod</span> <span class="ident">translator</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator</span>::{
-    <span class="ident">from_binaryreadererror_wasmerror</span>, <span class="ident">translate_module</span>, <span class="ident">wptype_to_type</span>, <span class="ident">FunctionBinaryReader</span>,
-    <span class="ident">FunctionBodyData</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">MiddlewareReaderState</span>,
-    <span class="ident">ModuleEnvironment</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>,
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+#[macro_use]
+</span><span class="kw">mod </span>translator;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::compiler::{Compiler, CompilerConfig};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::translator::{
+    from_binaryreadererror_wasmerror, translate_module, wptype_to_type, FunctionBinaryReader,
+    FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState,
+    ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Addend</span>, <span class="ident">CodeOffset</span>, <span class="ident">Features</span>};
+<span class="kw">pub use </span>wasmer_types::{Addend, CodeOffset, Features};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;translator&quot;</span>)]</span>
-<span class="doccomment">/// wasmparser is exported as a module to slim compiler dependencies</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmparser</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
+</span><span class="doccomment">/// wasmparser is exported as a module to slim compiler dependencies
+</span><span class="kw">pub use </span>wasmparser;
 
-<span class="doccomment">/// Version number of this crate.</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
+<span class="doccomment">/// Version number of this crate.
+</span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

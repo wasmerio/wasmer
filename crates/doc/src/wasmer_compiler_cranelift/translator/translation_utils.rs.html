@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/translation_utils.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>translation_utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/translation_utils.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>translation_utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -135,142 +135,144 @@
 <span id="135">135</span>
 <span id="136">136</span>
 <span id="137">137</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.</span>
+<span id="138">138</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::func_environ::TargetEnvironment</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::std::string::ToString</span>;
-<span class="kw">use</span> <span class="ident">core::u32</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::binemit::Reloc</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="self">self</span>, <span class="ident">AbiParam</span>};
-<span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetFrontendConfig</span>;
-<span class="kw">use</span> <span class="ident">cranelift_frontend::FunctionBuilder</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">LibCall</span>, <span class="ident">RelocationKind</span>, <span class="ident">Type</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>};
+</span><span class="kw">use </span><span class="kw">super</span>::func_environ::TargetEnvironment;
+<span class="kw">use </span><span class="kw">crate</span>::std::string::ToString;
+<span class="kw">use </span>core::u32;
+<span class="kw">use </span>cranelift_codegen::binemit::Reloc;
+<span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, AbiParam};
+<span class="kw">use </span>cranelift_codegen::isa::TargetFrontendConfig;
+<span class="kw">use </span>cranelift_frontend::FunctionBuilder;
+<span class="kw">use </span>wasmer_compiler::wasmparser;
+<span class="kw">use </span>wasmer_types::{FunctionType, LibCall, RelocationKind, Type, WasmError, WasmResult};
 
-<span class="doccomment">/// Helper function translate a Function signature into Cranelift Ir</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signature_to_cranelift_ir</span>(
-    <span class="ident">signature</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
-    <span class="ident">target_config</span>: <span class="ident">TargetFrontendConfig</span>,
-) -&gt; <span class="ident">ir::Signature</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sig</span> <span class="op">=</span> <span class="ident">ir::Signature::new</span>(<span class="ident">target_config</span>.<span class="ident">default_call_conv</span>);
-    <span class="ident">sig</span>.<span class="ident">params</span>.<span class="ident">extend</span>(<span class="ident">signature</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">ty</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">cret_arg</span>: <span class="ident">ir::Type</span> <span class="op">=</span> <span class="ident">type_to_irtype</span>(<span class="ident">ty</span>, <span class="ident">target_config</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;only numeric types are supported in function signatures&quot;</span>);
-        <span class="ident">AbiParam::new</span>(<span class="ident">cret_arg</span>)
+<span class="doccomment">/// Helper function translate a Function signature into Cranelift Ir
+</span><span class="kw">pub fn </span>signature_to_cranelift_ir(
+    signature: <span class="kw-2">&amp;</span>FunctionType,
+    target_config: TargetFrontendConfig,
+) -&gt; ir::Signature {
+    <span class="kw">let </span><span class="kw-2">mut </span>sig = ir::Signature::new(target_config.default_call_conv);
+    sig.params.extend(signature.params().iter().map(|<span class="kw-2">&amp;</span>ty| {
+        <span class="kw">let </span>cret_arg: ir::Type = type_to_irtype(ty, target_config)
+            .expect(<span class="string">&quot;only numeric types are supported in function signatures&quot;</span>);
+        AbiParam::new(cret_arg)
     }));
-    <span class="ident">sig</span>.<span class="ident">returns</span>.<span class="ident">extend</span>(<span class="ident">signature</span>.<span class="ident">results</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">ty</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">cret_arg</span>: <span class="ident">ir::Type</span> <span class="op">=</span> <span class="ident">type_to_irtype</span>(<span class="ident">ty</span>, <span class="ident">target_config</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;only numeric types are supported in function signatures&quot;</span>);
-        <span class="ident">AbiParam::new</span>(<span class="ident">cret_arg</span>)
+    sig.returns.extend(signature.results().iter().map(|<span class="kw-2">&amp;</span>ty| {
+        <span class="kw">let </span>cret_arg: ir::Type = type_to_irtype(ty, target_config)
+            .expect(<span class="string">&quot;only numeric types are supported in function signatures&quot;</span>);
+        AbiParam::new(cret_arg)
     }));
-    <span class="comment">// The Vmctx signature</span>
-    <span class="ident">sig</span>.<span class="ident">params</span>.<span class="ident">insert</span>(
+    <span class="comment">// The Vmctx signature
+    </span>sig.params.insert(
         <span class="number">0</span>,
-        <span class="ident">AbiParam::special</span>(<span class="ident">target_config</span>.<span class="ident">pointer_type</span>(), <span class="ident">ir::ArgumentPurpose::VMContext</span>),
+        AbiParam::special(target_config.pointer_type(), ir::ArgumentPurpose::VMContext),
     );
-    <span class="ident">sig</span>
+    sig
 }
 
-<span class="doccomment">/// Helper function translating wasmparser types to Cranelift types when possible.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reference_type</span>(<span class="ident">target_config</span>: <span class="ident">TargetFrontendConfig</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Type</span><span class="op">&gt;</span> {
-    <span class="kw">match</span> <span class="ident">target_config</span>.<span class="ident">pointer_type</span>() {
-        <span class="ident">ir::types::I32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::R32</span>),
-        <span class="ident">ir::types::I64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::R64</span>),
-        <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">WasmError::Unsupported</span>(
-            <span class="string">&quot;unsupported pointer type&quot;</span>.<span class="ident">to_string</span>(),
+<span class="doccomment">/// Helper function translating wasmparser types to Cranelift types when possible.
+</span><span class="kw">pub fn </span>reference_type(target_config: TargetFrontendConfig) -&gt; WasmResult&lt;ir::Type&gt; {
+    <span class="kw">match </span>target_config.pointer_type() {
+        ir::types::I32 =&gt; <span class="prelude-val">Ok</span>(ir::types::R32),
+        ir::types::I64 =&gt; <span class="prelude-val">Ok</span>(ir::types::R64),
+        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(WasmError::Unsupported(
+            <span class="string">&quot;unsupported pointer type&quot;</span>.to_string(),
         )),
     }
 }
 
-<span class="doccomment">/// Helper function translating wasmparser types to Cranelift types when possible.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">type_to_irtype</span>(<span class="ident">ty</span>: <span class="ident">Type</span>, <span class="ident">target_config</span>: <span class="ident">TargetFrontendConfig</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Type</span><span class="op">&gt;</span> {
-    <span class="kw">match</span> <span class="ident">ty</span> {
-        <span class="ident">Type::I32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::I32</span>),
-        <span class="ident">Type::I64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::I64</span>),
-        <span class="ident">Type::F32</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::F32</span>),
-        <span class="ident">Type::F64</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::F64</span>),
-        <span class="ident">Type::V128</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ir::types::I8X16</span>),
-        <span class="ident">Type::ExternRef</span> <span class="op">|</span> <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">reference_type</span>(<span class="ident">target_config</span>),
-        <span class="comment">// ty =&gt; Err(wasm_unsupported!(&quot;type_to_type: wasm type {:?}&quot;, ty)),</span>
+<span class="doccomment">/// Helper function translating wasmparser types to Cranelift types when possible.
+</span><span class="kw">pub fn </span>type_to_irtype(ty: Type, target_config: TargetFrontendConfig) -&gt; WasmResult&lt;ir::Type&gt; {
+    <span class="kw">match </span>ty {
+        Type::I32 =&gt; <span class="prelude-val">Ok</span>(ir::types::I32),
+        Type::I64 =&gt; <span class="prelude-val">Ok</span>(ir::types::I64),
+        Type::F32 =&gt; <span class="prelude-val">Ok</span>(ir::types::F32),
+        Type::F64 =&gt; <span class="prelude-val">Ok</span>(ir::types::F64),
+        Type::V128 =&gt; <span class="prelude-val">Ok</span>(ir::types::I8X16),
+        Type::ExternRef | Type::FuncRef =&gt; reference_type(target_config),
+        <span class="comment">// ty =&gt; Err(wasm_unsupported!(&quot;type_to_type: wasm type {:?}&quot;, ty)),
+    </span>}
+}
+
+<span class="doccomment">/// Transform Cranelift LibCall into runtime LibCall
+</span><span class="kw">pub fn </span>irlibcall_to_libcall(libcall: ir::LibCall) -&gt; LibCall {
+    <span class="kw">match </span>libcall {
+        ir::LibCall::Probestack =&gt; LibCall::Probestack,
+        ir::LibCall::CeilF32 =&gt; LibCall::CeilF32,
+        ir::LibCall::CeilF64 =&gt; LibCall::CeilF64,
+        ir::LibCall::FloorF32 =&gt; LibCall::FloorF32,
+        ir::LibCall::FloorF64 =&gt; LibCall::FloorF64,
+        ir::LibCall::TruncF32 =&gt; LibCall::TruncF32,
+        ir::LibCall::TruncF64 =&gt; LibCall::TruncF64,
+        ir::LibCall::NearestF32 =&gt; LibCall::NearestF32,
+        ir::LibCall::NearestF64 =&gt; LibCall::NearestF64,
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported libcall&quot;</span>),
     }
 }
 
-<span class="doccomment">/// Transform Cranelift LibCall into runtime LibCall</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">irlibcall_to_libcall</span>(<span class="ident">libcall</span>: <span class="ident">ir::LibCall</span>) -&gt; <span class="ident">LibCall</span> {
-    <span class="kw">match</span> <span class="ident">libcall</span> {
-        <span class="ident">ir::LibCall::Probestack</span> =&gt; <span class="ident">LibCall::Probestack</span>,
-        <span class="ident">ir::LibCall::CeilF32</span> =&gt; <span class="ident">LibCall::CeilF32</span>,
-        <span class="ident">ir::LibCall::CeilF64</span> =&gt; <span class="ident">LibCall::CeilF64</span>,
-        <span class="ident">ir::LibCall::FloorF32</span> =&gt; <span class="ident">LibCall::FloorF32</span>,
-        <span class="ident">ir::LibCall::FloorF64</span> =&gt; <span class="ident">LibCall::FloorF64</span>,
-        <span class="ident">ir::LibCall::TruncF32</span> =&gt; <span class="ident">LibCall::TruncF32</span>,
-        <span class="ident">ir::LibCall::TruncF64</span> =&gt; <span class="ident">LibCall::TruncF64</span>,
-        <span class="ident">ir::LibCall::NearestF32</span> =&gt; <span class="ident">LibCall::NearestF32</span>,
-        <span class="ident">ir::LibCall::NearestF64</span> =&gt; <span class="ident">LibCall::NearestF64</span>,
-        <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported libcall&quot;</span>),
+<span class="doccomment">/// Transform Cranelift Reloc to compiler Relocation
+</span><span class="kw">pub fn </span>irreloc_to_relocationkind(reloc: Reloc) -&gt; RelocationKind {
+    <span class="kw">match </span>reloc {
+        Reloc::Abs4 =&gt; RelocationKind::Abs4,
+        Reloc::Abs8 =&gt; RelocationKind::Abs8,
+        Reloc::X86PCRel4 =&gt; RelocationKind::X86PCRel4,
+        Reloc::X86CallPCRel4 =&gt; RelocationKind::X86CallPCRel4,
+        Reloc::X86CallPLTRel4 =&gt; RelocationKind::X86CallPLTRel4,
+        Reloc::X86GOTPCRel4 =&gt; RelocationKind::X86GOTPCRel4,
+        Reloc::Arm64Call =&gt; RelocationKind::Arm64Call,
+        Reloc::RiscvCall =&gt; RelocationKind::RiscvCall,
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;The relocation {} is not yet supported.&quot;</span>, reloc),
     }
 }
 
-<span class="doccomment">/// Transform Cranelift Reloc to compiler Relocation</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">irreloc_to_relocationkind</span>(<span class="ident">reloc</span>: <span class="ident">Reloc</span>) -&gt; <span class="ident">RelocationKind</span> {
-    <span class="kw">match</span> <span class="ident">reloc</span> {
-        <span class="ident">Reloc::Abs4</span> =&gt; <span class="ident">RelocationKind::Abs4</span>,
-        <span class="ident">Reloc::Abs8</span> =&gt; <span class="ident">RelocationKind::Abs8</span>,
-        <span class="ident">Reloc::X86PCRel4</span> =&gt; <span class="ident">RelocationKind::X86PCRel4</span>,
-        <span class="ident">Reloc::X86CallPCRel4</span> =&gt; <span class="ident">RelocationKind::X86CallPCRel4</span>,
-        <span class="ident">Reloc::X86CallPLTRel4</span> =&gt; <span class="ident">RelocationKind::X86CallPLTRel4</span>,
-        <span class="ident">Reloc::X86GOTPCRel4</span> =&gt; <span class="ident">RelocationKind::X86GOTPCRel4</span>,
-        <span class="ident">Reloc::Arm64Call</span> =&gt; <span class="ident">RelocationKind::Arm64Call</span>,
-        <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;The relocation {} is not yet supported.&quot;</span>, <span class="ident">reloc</span>),
-    }
-}
-
-<span class="doccomment">/// Create a `Block` with the given Wasm parameters.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">block_with_params</span><span class="op">&lt;</span><span class="ident">PE</span>: <span class="ident">TargetEnvironment</span> <span class="op">+</span> <span class="question-mark">?</span><span class="ident">Sized</span><span class="op">&gt;</span>(
-    <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
-    <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">wasmparser::ValType</span>],
-    <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="ident">PE</span>,
-) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Block</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
-    <span class="kw">for</span> <span class="ident">ty</span> <span class="kw">in</span> <span class="ident">params</span>.<span class="ident">iter</span>() {
-        <span class="kw">match</span> <span class="ident">ty</span> {
-            <span class="ident">wasmparser::ValType::I32</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">append_block_param</span>(<span class="ident">block</span>, <span class="ident">ir::types::I32</span>);
+<span class="doccomment">/// Create a `Block` with the given Wasm parameters.
+</span><span class="kw">pub fn </span>block_with_params&lt;PE: TargetEnvironment + <span class="question-mark">?</span>Sized&gt;(
+    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+    params: <span class="kw-2">&amp;</span>[wasmparser::ValType],
+    environ: <span class="kw-2">&amp;</span>PE,
+) -&gt; WasmResult&lt;ir::Block&gt; {
+    <span class="kw">let </span>block = builder.create_block();
+    <span class="kw">for </span>ty <span class="kw">in </span>params.iter() {
+        <span class="kw">match </span>ty {
+            wasmparser::ValType::I32 =&gt; {
+                builder.append_block_param(block, ir::types::I32);
             }
-            <span class="ident">wasmparser::ValType::I64</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">append_block_param</span>(<span class="ident">block</span>, <span class="ident">ir::types::I64</span>);
+            wasmparser::ValType::I64 =&gt; {
+                builder.append_block_param(block, ir::types::I64);
             }
-            <span class="ident">wasmparser::ValType::F32</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">append_block_param</span>(<span class="ident">block</span>, <span class="ident">ir::types::F32</span>);
+            wasmparser::ValType::F32 =&gt; {
+                builder.append_block_param(block, ir::types::F32);
             }
-            <span class="ident">wasmparser::ValType::F64</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">append_block_param</span>(<span class="ident">block</span>, <span class="ident">ir::types::F64</span>);
+            wasmparser::ValType::F64 =&gt; {
+                builder.append_block_param(block, ir::types::F64);
             }
-            <span class="ident">wasmparser::ValType::ExternRef</span> <span class="op">|</span> <span class="ident">wasmparser::ValType::FuncRef</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">append_block_param</span>(<span class="ident">block</span>, <span class="ident">environ</span>.<span class="ident">reference_type</span>());
+            wasmparser::ValType::ExternRef | wasmparser::ValType::FuncRef =&gt; {
+                builder.append_block_param(block, environ.reference_type());
             }
-            <span class="ident">wasmparser::ValType::V128</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">append_block_param</span>(<span class="ident">block</span>, <span class="ident">ir::types::I8X16</span>);
+            wasmparser::ValType::V128 =&gt; {
+                builder.append_block_param(block, ir::types::I8X16);
             }
         }
     }
-    <span class="prelude-val">Ok</span>(<span class="ident">block</span>)
+    <span class="prelude-val">Ok</span>(block)
 }
 
-<span class="doccomment">/// Turns a `wasmparser` `f32` into a `Cranelift` one.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">f32_translation</span>(<span class="ident">x</span>: <span class="ident">wasmparser::Ieee32</span>) -&gt; <span class="ident">ir::immediates::Ieee32</span> {
-    <span class="ident">ir::immediates::Ieee32::with_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>())
+<span class="doccomment">/// Turns a `wasmparser` `f32` into a `Cranelift` one.
+</span><span class="kw">pub fn </span>f32_translation(x: wasmparser::Ieee32) -&gt; ir::immediates::Ieee32 {
+    ir::immediates::Ieee32::with_bits(x.bits())
 }
 
-<span class="doccomment">/// Turns a `wasmparser` `f64` into a `Cranelift` one.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">f64_translation</span>(<span class="ident">x</span>: <span class="ident">wasmparser::Ieee64</span>) -&gt; <span class="ident">ir::immediates::Ieee64</span> {
-    <span class="ident">ir::immediates::Ieee64::with_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>())
+<span class="doccomment">/// Turns a `wasmparser` `f64` into a `Cranelift` one.
+</span><span class="kw">pub fn </span>f64_translation(x: wasmparser::Ieee64) -&gt; ir::immediates::Ieee64 {
+    ir::immediates::Ieee64::with_bits(x.bits())
 }
 
-<span class="doccomment">/// Special VMContext value label. It is tracked as 0xffff_fffe label.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_vmctx_value_label</span>() -&gt; <span class="ident">ir::ValueLabel</span> {
-    <span class="kw">const</span> <span class="ident">VMCTX_LABEL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0xffff_fffe</span>;
-    <span class="ident">ir::ValueLabel::from_u32</span>(<span class="ident">VMCTX_LABEL</span>)
+<span class="doccomment">/// Special VMContext value label. It is tracked as 0xffff_fffe label.
+</span><span class="kw">pub fn </span>get_vmctx_value_label() -&gt; ir::ValueLabel {
+    <span class="kw">const </span>VMCTX_LABEL: u32 = <span class="number">0xffff_fffe</span>;
+    ir::ValueLabel::from_u32(VMCTX_LABEL)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

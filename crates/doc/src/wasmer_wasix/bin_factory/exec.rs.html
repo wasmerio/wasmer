@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bin_factory/exec.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>exec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bin_factory/exec.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>exec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -247,252 +247,252 @@
 <span id="245">245</span>
 <span id="246">246</span>
 <span id="247">247</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">pin::Pin</span>, <span class="ident">sync::Arc</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">os::task</span>::{<span class="ident">thread::WasiThreadRunGuard</span>, <span class="ident">TaskJoinHandle</span>},
-    <span class="ident">VirtualBusError</span>, <span class="ident">WasiRuntimeError</span>,
+<span class="kw">use crate</span>::{
+    os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
+    VirtualBusError, WasiRuntimeError,
 };
-<span class="kw">use</span> <span class="ident">futures::Future</span>;
-<span class="kw">use</span> <span class="ident">tracing</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi::Errno</span>;
+<span class="kw">use </span>futures::Future;
+<span class="kw">use </span>tracing::<span class="kw-2">*</span>;
+<span class="kw">use </span>wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
+<span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">BinFactory</span>, <span class="ident">BinaryPackage</span>, <span class="ident">ModuleCache</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">import_object_for_all_wasi_versions</span>, <span class="ident">runtime::SpawnType</span>, <span class="ident">SpawnedMemory</span>, <span class="ident">WasiEnv</span>,
-    <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiRuntime</span>,
+<span class="kw">use super</span>::{BinFactory, BinaryPackage, ModuleCache};
+<span class="kw">use crate</span>::{
+    import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory, WasiEnv,
+    WasiFunctionEnv, WasiRuntime,
 };
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spawn_exec</span>(
-    <span class="ident">binary</span>: <span class="ident">BinaryPackage</span>,
-    <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">store</span>: <span class="ident">Store</span>,
-    <span class="ident">env</span>: <span class="ident">WasiEnv</span>,
-    <span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-    <span class="ident">compiled_modules</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleCache</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
-    <span class="comment">// The deterministic id for this engine</span>
-    <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">deterministic_id</span>();
+<span class="kw">pub fn </span>spawn_exec(
+    binary: BinaryPackage,
+    name: <span class="kw-2">&amp;</span>str,
+    store: Store,
+    env: WasiEnv,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    compiled_modules: <span class="kw-2">&amp;</span>ModuleCache,
+) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+    <span class="comment">// The deterministic id for this engine
+    </span><span class="kw">let </span>compiler = store.engine().deterministic_id();
 
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">compiled_modules</span>.<span class="ident">get_compiled_module</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">binary</span>.<span class="ident">hash</span>().<span class="ident">as_str</span>(), <span class="ident">compiler</span>);
-    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">match</span> (<span class="ident">module</span>, <span class="ident">binary</span>.<span class="ident">entry</span>.<span class="ident">as_ref</span>()) {
-        (<span class="prelude-val">Some</span>(<span class="ident">a</span>), <span class="kw">_</span>) =&gt; <span class="ident">a</span>,
-        (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="ident">entry</span>)) =&gt; {
-            <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">entry</span>[..]).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
+    <span class="kw">let </span>module = compiled_modules.get_compiled_module(<span class="kw-2">&amp;</span>store, binary.hash().as_str(), compiler);
+    <span class="kw">let </span>module = <span class="kw">match </span>(module, binary.entry.as_ref()) {
+        (<span class="prelude-val">Some</span>(a), <span class="kw">_</span>) =&gt; a,
+        (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(entry)) =&gt; {
+            <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>entry[..]).map_err(|err| {
                 <span class="macro">error!</span>(
                     <span class="string">&quot;failed to compile module [{}, len={}] - {}&quot;</span>,
-                    <span class="ident">name</span>,
-                    <span class="ident">entry</span>.<span class="ident">len</span>(),
-                    <span class="ident">err</span>
+                    name,
+                    entry.len(),
+                    err
                 );
-                <span class="ident">VirtualBusError::CompileError</span>
+                VirtualBusError::CompileError
             });
-            <span class="kw">if</span> <span class="ident">module</span>.<span class="ident">is_err</span>() {
-                <span class="ident">env</span>.<span class="ident">blocking_cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">Errno::Noexec</span>.<span class="ident">into</span>()));
+            <span class="kw">if </span>module.is_err() {
+                env.blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
             }
-            <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">module</span><span class="question-mark">?</span>;
-            <span class="ident">compiled_modules</span>.<span class="ident">set_compiled_module</span>(<span class="ident">binary</span>.<span class="ident">hash</span>().<span class="ident">as_str</span>(), <span class="ident">compiler</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>);
-            <span class="ident">module</span>
+            <span class="kw">let </span>module = module<span class="question-mark">?</span>;
+            compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, <span class="kw-2">&amp;</span>module);
+            module
         }
         (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
-            <span class="macro">error!</span>(<span class="string">&quot;package has no entry [{}]&quot;</span>, <span class="ident">name</span>,);
-            <span class="ident">env</span>.<span class="ident">blocking_cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">Errno::Noexec</span>.<span class="ident">into</span>()));
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">VirtualBusError::CompileError</span>);
+            <span class="macro">error!</span>(<span class="string">&quot;package has no entry [{}]&quot;</span>, name,);
+            env.blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(VirtualBusError::CompileError);
         }
     };
 
-    <span class="comment">// If the file system has not already been union&#39;ed then do so</span>
-    <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">conditional_union</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>);
-    <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">fs</span>);
+    <span class="comment">// If the file system has not already been union&#39;ed then do so
+    </span>env.state.fs.conditional_union(<span class="kw-2">&amp;</span>binary);
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:?}&quot;</span>, env.state.fs);
 
-    <span class="comment">// Now run the module</span>
-    <span class="ident">spawn_exec_module</span>(<span class="ident">module</span>, <span class="ident">store</span>, <span class="ident">env</span>, <span class="ident">runtime</span>)
+    <span class="comment">// Now run the module
+    </span>spawn_exec_module(module, store, env, runtime)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spawn_exec_module</span>(
-    <span class="ident">module</span>: <span class="ident">Module</span>,
-    <span class="ident">store</span>: <span class="ident">Store</span>,
-    <span class="ident">env</span>: <span class="ident">WasiEnv</span>,
-    <span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
-    <span class="comment">// Create a new task manager</span>
-    <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">task_manager</span>();
+<span class="kw">pub fn </span>spawn_exec_module(
+    module: Module,
+    store: Store,
+    env: WasiEnv,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+    <span class="comment">// Create a new task manager
+    </span><span class="kw">let </span>tasks = runtime.task_manager();
 
-    <span class="comment">// Create the signaler</span>
-    <span class="kw">let</span> <span class="ident">pid</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">pid</span>();
+    <span class="comment">// Create the signaler
+    </span><span class="kw">let </span>pid = env.pid();
 
-    <span class="kw">let</span> <span class="ident">join_handle</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">thread</span>.<span class="ident">join_handle</span>();
+    <span class="kw">let </span>join_handle = env.thread.join_handle();
     {
-        <span class="comment">// Determine if shared memory needs to be created and imported</span>
-        <span class="kw">let</span> <span class="ident">shared_memory</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">imports</span>().<span class="ident">memories</span>().<span class="ident">next</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">a</span>.<span class="ident">ty</span>());
+        <span class="comment">// Determine if shared memory needs to be created and imported
+        </span><span class="kw">let </span>shared_memory = module.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
 
-        <span class="comment">// Determine if we are going to create memory and import it or just rely on self creation of memory</span>
-        <span class="kw">let</span> <span class="ident">memory_spawn</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">shared_memory</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">ty</span>) =&gt; {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-                <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">tunables</span>().<span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>);
-                <span class="ident">SpawnType::CreateWithType</span>(<span class="ident">SpawnedMemory</span> {
-                    <span class="ident">ty</span>,
-                    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-                    <span class="ident">style</span>,
+        <span class="comment">// Determine if we are going to create memory and import it or just rely on self creation of memory
+        </span><span class="kw">let </span>memory_spawn = <span class="kw">match </span>shared_memory {
+            <span class="prelude-val">Some</span>(ty) =&gt; {
+                <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+                </span><span class="kw">let </span>style = store.engine().tunables().memory_style(<span class="kw-2">&amp;</span>ty);
+                SpawnType::CreateWithType(SpawnedMemory {
+                    ty,
+                    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+                    </span>style,
                 })
             }
-            <span class="prelude-val">None</span> =&gt; <span class="ident">SpawnType::Create</span>,
+            <span class="prelude-val">None </span>=&gt; SpawnType::Create,
         };
 
-        <span class="comment">// Create a thread that will run this process</span>
-        <span class="kw">let</span> <span class="ident">runtime</span> <span class="op">=</span> <span class="ident">runtime</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">tasks_outer</span> <span class="op">=</span> <span class="ident">tasks</span>.<span class="ident">clone</span>();
+        <span class="comment">// Create a thread that will run this process
+        </span><span class="kw">let </span>runtime = runtime.clone();
+        <span class="kw">let </span>tasks_outer = tasks.clone();
 
-        <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> {
-            <span class="kw">move</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">store</span>, <span class="ident">module</span>, <span class="ident">memory</span><span class="op">|</span> {
-                <span class="comment">// Create the WasiFunctionEnv</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">env</span>;
-                <span class="ident">wasi_env</span>.<span class="ident">runtime</span> <span class="op">=</span> <span class="ident">runtime</span>;
-                <span class="kw">let</span> <span class="ident">thread</span> <span class="op">=</span> <span class="ident">WasiThreadRunGuard::new</span>(<span class="ident">wasi_env</span>.<span class="ident">thread</span>.<span class="ident">clone</span>());
+        <span class="kw">let </span>task = {
+            <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory| {
+                <span class="comment">// Create the WasiFunctionEnv
+                </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_env = env;
+                wasi_env.runtime = runtime;
+                <span class="kw">let </span>thread = WasiThreadRunGuard::new(wasi_env.thread.clone());
 
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">WasiFunctionEnv::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">wasi_env</span>);
+                <span class="kw">let </span><span class="kw-2">mut </span>wasi_env = WasiFunctionEnv::new(<span class="kw-2">&amp;mut </span>store, wasi_env);
 
-                <span class="comment">// Let&#39;s instantiate the module with the imports.</span>
-                <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">import_object</span>, <span class="ident">init</span>) <span class="op">=</span>
-                    <span class="ident">import_object_for_all_wasi_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasi_env</span>.<span class="ident">env</span>);
-                <span class="kw">let</span> <span class="ident">imported_memory</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">memory</span>) <span class="op">=</span> <span class="ident">memory</span> {
-                    <span class="kw">let</span> <span class="ident">imported_memory</span> <span class="op">=</span> <span class="ident">Memory::new_from_existing</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">memory</span>);
-                    <span class="ident">import_object</span>.<span class="ident">define</span>(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, <span class="ident">imported_memory</span>.<span class="ident">clone</span>());
-                    <span class="prelude-val">Some</span>(<span class="ident">imported_memory</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">None</span>
-                };
+                <span class="comment">// Let&#39;s instantiate the module with the imports.
+                </span><span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
+                    import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>wasi_env.env);
+                <span class="kw">let </span>imported_memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
+                    <span class="kw">let </span>imported_memory = Memory::new_from_existing(<span class="kw-2">&amp;mut </span>store, memory);
+                    import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, imported_memory.clone());
+                    <span class="prelude-val">Some</span>(imported_memory)
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">None
+                </span>};
 
-                <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>) {
-                    <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::wasm instantiate error ({})&quot;</span>, <span class="ident">pid</span>, <span class="ident">err</span>);
-                        <span class="ident">wasi_env</span>
-                            .<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
-                            .<span class="ident">blocking_cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">Errno::Noexec</span>.<span class="ident">into</span>()));
+                <span class="kw">let </span>instance = <span class="kw">match </span>Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object) {
+                    <span class="prelude-val">Ok</span>(a) =&gt; a,
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::wasm instantiate error ({})&quot;</span>, pid, err);
+                        wasi_env
+                            .data(<span class="kw-2">&amp;</span>store)
+                            .blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
                         <span class="kw">return</span>;
                     }
                 };
 
-                <span class="ident">init</span>(<span class="kw-2">&amp;</span><span class="ident">instance</span>, <span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">unwrap</span>();
+                init(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>store).unwrap();
 
-                <span class="comment">// Initialize the WASI environment</span>
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span>
-                    <span class="ident">wasi_env</span>.<span class="ident">initialize_with_memory</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">instance</span>.<span class="ident">clone</span>(), <span class="ident">imported_memory</span>)
+                <span class="comment">// Initialize the WASI environment
+                </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+                    wasi_env.initialize_with_memory(<span class="kw-2">&amp;mut </span>store, instance.clone(), imported_memory)
                 {
-                    <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::wasi initialize error ({})&quot;</span>, <span class="ident">pid</span>, <span class="ident">err</span>);
-                    <span class="ident">wasi_env</span>
-                        .<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
-                        .<span class="ident">blocking_cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">Errno::Noexec</span>.<span class="ident">into</span>()));
+                    <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::wasi initialize error ({})&quot;</span>, pid, err);
+                    wasi_env
+                        .data(<span class="kw-2">&amp;</span>store)
+                        .blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
                     <span class="kw">return</span>;
                 }
 
-                <span class="comment">// If this module exports an _initialize function, run that first.</span>
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">initialize</span>) <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_initialize&quot;</span>) {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">initialize</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span>[]) {
-                        <span class="ident">thread</span>.<span class="ident">thread</span>.<span class="ident">set_status_finished</span>(<span class="prelude-val">Err</span>(<span class="ident">err</span>.<span class="ident">into</span>()));
-                        <span class="ident">wasi_env</span>
-                            .<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>)
-                            .<span class="ident">blocking_cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">Errno::Noexec</span>.<span class="ident">into</span>()));
+                <span class="comment">// If this module exports an _initialize function, run that first.
+                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = instance.exports.get_function(<span class="string">&quot;_initialize&quot;</span>) {
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = initialize.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]) {
+                        thread.thread.set_status_finished(<span class="prelude-val">Err</span>(err.into()));
+                        wasi_env
+                            .data(<span class="kw-2">&amp;</span>store)
+                            .blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
                         <span class="kw">return</span>;
                     }
                 }
 
-                <span class="comment">// Let&#39;s call the `_start` function, which is our `main` function in Rust.</span>
-                <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>).<span class="ident">ok</span>();
+                <span class="comment">// Let&#39;s call the `_start` function, which is our `main` function in Rust.
+                </span><span class="kw">let </span>start = instance.exports.get_function(<span class="string">&quot;_start&quot;</span>).ok();
 
-                <span class="comment">// If there is a start function</span>
-                <span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::called main()&quot;</span>, <span class="ident">pid</span>);
-                <span class="comment">// TODO: rewrite to use crate::run_wasi_func</span>
+                <span class="comment">// If there is a start function
+                </span><span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::called main()&quot;</span>, pid);
+                <span class="comment">// TODO: rewrite to use crate::run_wasi_func
 
-                <span class="ident">thread</span>.<span class="ident">thread</span>.<span class="ident">set_status_running</span>();
+                </span>thread.thread.set_status_running();
 
-                <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">start</span>) <span class="op">=</span> <span class="ident">start</span> {
-                    <span class="ident">start</span>
-                        .<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span>[])
-                        .<span class="ident">map_err</span>(<span class="ident">WasiRuntimeError::from</span>)
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Success</span>)
-                } <span class="kw">else</span> {
-                    <span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::exec-failed: missing _start function&quot;</span>, <span class="ident">pid</span>);
-                    <span class="prelude-val">Ok</span>(<span class="ident">Errno::Noexec</span>)
+                <span class="kw">let </span>ret = <span class="kw">if let </span><span class="prelude-val">Some</span>(start) = start {
+                    start
+                        .call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[])
+                        .map_err(WasiRuntimeError::from)
+                        .map(|<span class="kw">_</span>| Errno::Success)
+                } <span class="kw">else </span>{
+                    <span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::exec-failed: missing _start function&quot;</span>, pid);
+                    <span class="prelude-val">Ok</span>(Errno::Noexec)
                 };
 
-                <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">ret</span> {
-                    <span class="ident">err</span>.<span class="ident">as_exit_code</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Errno::Noexec</span>.<span class="ident">into</span>())
-                } <span class="kw">else</span> {
-                    <span class="ident">Errno::Success</span>.<span class="ident">into</span>()
+                <span class="kw">let </span>code = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw-2">&amp;</span>ret {
+                    err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into())
+                } <span class="kw">else </span>{
+                    Errno::Success.into()
                 };
 
-                <span class="comment">// Cleanup the environment</span>
-                <span class="ident">wasi_env</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">blocking_cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">code</span>));
+                <span class="comment">// Cleanup the environment
+                </span>wasi_env.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(code));
 
                 <span class="macro">debug!</span>(<span class="string">&quot;wasi[{pid}]::main() has exited with {code}&quot;</span>);
-                <span class="ident">thread</span>.<span class="ident">thread</span>.<span class="ident">set_status_finished</span>(<span class="ident">ret</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">into</span>()));
+                thread.thread.set_status_finished(ret.map(|a| a.into()));
             }
         };
 
-        <span class="ident">tasks_outer</span>
-            .<span class="ident">task_wasm</span>(<span class="ident">Box::new</span>(<span class="ident">task</span>), <span class="ident">store</span>, <span class="ident">module</span>, <span class="ident">memory_spawn</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
-                <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::failed to launch module - {}&quot;</span>, <span class="ident">pid</span>, <span class="ident">err</span>);
-                <span class="ident">VirtualBusError::UnknownError</span>
-            })<span class="question-mark">?</span>
-    };
+        tasks_outer
+            .task_wasm(Box::new(task), store, module, memory_spawn)
+            .map_err(|err| {
+                <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::failed to launch module - {}&quot;</span>, pid, err);
+                VirtualBusError::UnknownError
+            })<span class="question-mark">?
+    </span>};
 
-    <span class="prelude-val">Ok</span>(<span class="ident">join_handle</span>)
+    <span class="prelude-val">Ok</span>(join_handle)
 }
 
-<span class="kw">impl</span> <span class="ident">BinFactory</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spawn</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">store</span>: <span class="ident">Store</span>,
-        <span class="ident">env</span>: <span class="ident">WasiEnv</span>,
-    ) -&gt; <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="comment">// Find the binary (or die trying) and make the spawn type</span>
-            <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">get_binary</span>(<span class="ident">name</span>.<span class="ident">as_str</span>(), <span class="prelude-val">Some</span>(<span class="ident">env</span>.<span class="ident">fs_root</span>()))
-                .<span class="kw">await</span>
-                .<span class="ident">ok_or</span>(<span class="ident">VirtualBusError::NotFound</span>);
-            <span class="kw">if</span> <span class="ident">binary</span>.<span class="ident">is_err</span>() {
-                <span class="ident">env</span>.<span class="ident">cleanup</span>(<span class="prelude-val">Some</span>(<span class="ident">Errno::Noent</span>.<span class="ident">into</span>())).<span class="kw">await</span>;
+<span class="kw">impl </span>BinFactory {
+    <span class="kw">pub fn </span>spawn&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+        name: String,
+        store: Store,
+        env: WasiEnv,
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt;&gt; + <span class="lifetime">&#39;a</span>&gt;&gt; {
+        Box::pin(<span class="kw">async move </span>{
+            <span class="comment">// Find the binary (or die trying) and make the spawn type
+            </span><span class="kw">let </span>binary = <span class="self">self
+                </span>.get_binary(name.as_str(), <span class="prelude-val">Some</span>(env.fs_root()))
+                .<span class="kw">await
+                </span>.ok_or(VirtualBusError::NotFound);
+            <span class="kw">if </span>binary.is_err() {
+                env.cleanup(<span class="prelude-val">Some</span>(Errno::Noent.into())).<span class="kw">await</span>;
             }
-            <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span> <span class="ident">binary</span><span class="question-mark">?</span>;
+            <span class="kw">let </span>binary = binary<span class="question-mark">?</span>;
 
-            <span class="comment">// Execute</span>
-            <span class="ident">spawn_exec</span>(
-                <span class="ident">binary</span>,
-                <span class="ident">name</span>.<span class="ident">as_str</span>(),
-                <span class="ident">store</span>,
-                <span class="ident">env</span>,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">runtime</span>,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cache</span>,
+            <span class="comment">// Execute
+            </span>spawn_exec(
+                binary,
+                name.as_str(),
+                store,
+                env,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.runtime,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.cache,
             )
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_built_in</span>(
+    <span class="kw">pub fn </span>try_built_in(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">parent_ctx</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
-        <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
-        <span class="comment">// We check for built in commands</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">parent_ctx</span>) <span class="op">=</span> <span class="ident">parent_ctx</span> {
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">exists</span>(<span class="ident">name</span>.<span class="ident">as_str</span>()) {
-                <span class="kw">return</span> <span class="self">self</span>
-                    .<span class="ident">commands</span>
-                    .<span class="ident">exec</span>(<span class="ident">parent_ctx</span>, <span class="ident">name</span>.<span class="ident">as_str</span>(), <span class="ident">store</span>, <span class="ident">builder</span>);
+        name: String,
+        parent_ctx: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;&gt;,
+        store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
+        builder: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+        <span class="comment">// We check for built in commands
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_ctx) = parent_ctx {
+            <span class="kw">if </span><span class="self">self</span>.commands.exists(name.as_str()) {
+                <span class="kw">return </span><span class="self">self
+                    </span>.commands
+                    .exec(parent_ctx, name.as_str(), store, builder);
             }
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">exists</span>(<span class="ident">name</span>.<span class="ident">as_str</span>()) {
-            <span class="macro">tracing::warn!</span>(<span class="string">&quot;builtin command without a parent ctx - {}&quot;</span>, <span class="ident">name</span>);
+        } <span class="kw">else if </span><span class="self">self</span>.commands.exists(name.as_str()) {
+            <span class="macro">tracing::warn!</span>(<span class="string">&quot;builtin command without a parent ctx - {}&quot;</span>, name);
         }
-        <span class="prelude-val">Err</span>(<span class="ident">VirtualBusError::NotFound</span>)
+        <span class="prelude-val">Err</span>(VirtualBusError::NotFound)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

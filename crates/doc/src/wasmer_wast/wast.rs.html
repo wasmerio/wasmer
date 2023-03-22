@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/wast/src/wast.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wast.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wast/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wast/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_wast/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/wast/src/wast.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wast.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wast/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wast/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_wast/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -653,260 +653,260 @@
 <span id="653">653</span>
 <span id="654">654</span>
 <span id="655">655</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::{<span class="ident">DirectiveError</span>, <span class="ident">DirectiveErrors</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::spectest::spectest_importobject</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">bail</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
-<span class="kw">use</span> <span class="ident">std::path::Path</span>;
-<span class="kw">use</span> <span class="ident">std::str</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::{DirectiveError, DirectiveErrors};
+<span class="kw">use </span><span class="kw">crate</span>::spectest::spectest_importobject;
+<span class="kw">use </span>anyhow::{anyhow, bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>std::collections::{HashMap, HashSet};
+<span class="kw">use </span>std::path::Path;
+<span class="kw">use </span>std::str;
+<span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// The wast test script language allows modules to be defined and actions</span>
-<span class="doccomment">/// to be performed on them.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Wast</span> {
-    <span class="doccomment">/// Wast files have a concept of a &quot;current&quot; module, which is the most</span>
-    <span class="doccomment">/// recently defined.</span>
-    <span class="ident">current</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The Import Object that all wast tests will have</span>
-    <span class="ident">import_object</span>: <span class="ident">Imports</span>,
-    <span class="doccomment">/// The instances in the test</span>
-    <span class="ident">instances</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Instance</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Allowed failures (ideally this should be empty)</span>
-    <span class="ident">allowed_instantiation_failures</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// If the (expected from .wast, actual) message pair is in this list,</span>
-    <span class="doccomment">/// treat the strings as matching.</span>
-    <span class="ident">match_trap_messages</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// If the current module was an allowed failure, we allow test to fail</span>
-    <span class="ident">current_is_allowed_failure</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// The store in which the tests are executing.</span>
-    <span class="ident">store</span>: <span class="ident">Store</span>,
-    <span class="doccomment">/// A flag indicating if Wast tests should stop as soon as one test fails.</span>
-    <span class="kw">pub</span> <span class="ident">fail_fast</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// A flag indicating that assert_trap and assert_exhaustion should be skipped.</span>
-    <span class="doccomment">/// See https://github.com/wasmerio/wasmer/issues/1550 for more info</span>
-    <span class="ident">disable_assert_trap_exhaustion</span>: <span class="ident">bool</span>,
+<span class="doccomment">/// The wast test script language allows modules to be defined and actions
+/// to be performed on them.
+</span><span class="attribute">#[allow(dead_code)]
+</span><span class="kw">pub struct </span>Wast {
+    <span class="doccomment">/// Wast files have a concept of a &quot;current&quot; module, which is the most
+    /// recently defined.
+    </span>current: <span class="prelude-ty">Option</span>&lt;Instance&gt;,
+    <span class="doccomment">/// The Import Object that all wast tests will have
+    </span>import_object: Imports,
+    <span class="doccomment">/// The instances in the test
+    </span>instances: HashMap&lt;String, Instance&gt;,
+    <span class="doccomment">/// Allowed failures (ideally this should be empty)
+    </span>allowed_instantiation_failures: HashSet&lt;String&gt;,
+    <span class="doccomment">/// If the (expected from .wast, actual) message pair is in this list,
+    /// treat the strings as matching.
+    </span>match_trap_messages: HashMap&lt;String, String&gt;,
+    <span class="doccomment">/// If the current module was an allowed failure, we allow test to fail
+    </span>current_is_allowed_failure: bool,
+    <span class="doccomment">/// The store in which the tests are executing.
+    </span>store: Store,
+    <span class="doccomment">/// A flag indicating if Wast tests should stop as soon as one test fails.
+    </span><span class="kw">pub </span>fail_fast: bool,
+    <span class="doccomment">/// A flag indicating that assert_trap and assert_exhaustion should be skipped.
+    /// See https://github.com/wasmerio/wasmer/issues/1550 for more info
+    </span>disable_assert_trap_exhaustion: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">Wast</span> {
-    <span class="doccomment">/// Construct a new instance of `Wast` with a given imports.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">store</span>: <span class="ident">Store</span>, <span class="ident">import_object</span>: <span class="ident">Imports</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">current</span>: <span class="prelude-val">None</span>,
-            <span class="ident">store</span>,
-            <span class="ident">import_object</span>,
-            <span class="ident">allowed_instantiation_failures</span>: <span class="ident">HashSet::new</span>(),
-            <span class="ident">match_trap_messages</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">current_is_allowed_failure</span>: <span class="bool-val">false</span>,
-            <span class="ident">instances</span>: <span class="ident">HashMap::new</span>(),
-            <span class="ident">fail_fast</span>: <span class="bool-val">true</span>,
-            <span class="ident">disable_assert_trap_exhaustion</span>: <span class="bool-val">false</span>,
+<span class="kw">impl </span>Wast {
+    <span class="doccomment">/// Construct a new instance of `Wast` with a given imports.
+    </span><span class="kw">pub fn </span>new(store: Store, import_object: Imports) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            current: <span class="prelude-val">None</span>,
+            store,
+            import_object,
+            allowed_instantiation_failures: HashSet::new(),
+            match_trap_messages: HashMap::new(),
+            current_is_allowed_failure: <span class="bool-val">false</span>,
+            instances: HashMap::new(),
+            fail_fast: <span class="bool-val">true</span>,
+            disable_assert_trap_exhaustion: <span class="bool-val">false</span>,
         }
     }
 
-    <span class="doccomment">/// A list of instantiation failures to allow.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allow_instantiation_failures</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">failures</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>]) {
-        <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">failure_str</span> <span class="kw">in</span> <span class="ident">failures</span>.<span class="ident">iter</span>() {
-            <span class="self">self</span>.<span class="ident">allowed_instantiation_failures</span>
-                .<span class="ident">insert</span>(<span class="ident">failure_str</span>.<span class="ident">to_string</span>());
+    <span class="doccomment">/// A list of instantiation failures to allow.
+    </span><span class="kw">pub fn </span>allow_instantiation_failures(<span class="kw-2">&amp;mut </span><span class="self">self</span>, failures: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) {
+        <span class="kw">for </span><span class="kw-2">&amp;</span>failure_str <span class="kw">in </span>failures.iter() {
+            <span class="self">self</span>.allowed_instantiation_failures
+                .insert(failure_str.to_string());
         }
     }
 
-    <span class="doccomment">/// A list of alternative messages to permit for a trap failure.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allow_trap_message</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">allowed</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="self">self</span>.<span class="ident">match_trap_messages</span>
-            .<span class="ident">insert</span>(<span class="ident">expected</span>.<span class="ident">into</span>(), <span class="ident">allowed</span>.<span class="ident">into</span>());
+    <span class="doccomment">/// A list of alternative messages to permit for a trap failure.
+    </span><span class="kw">pub fn </span>allow_trap_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, expected: <span class="kw-2">&amp;</span>str, allowed: <span class="kw-2">&amp;</span>str) {
+        <span class="self">self</span>.match_trap_messages
+            .insert(expected.into(), allowed.into());
     }
 
-    <span class="doccomment">/// Do not run any code in assert_trap or assert_exhaustion.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">disable_assert_and_exhaustion</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">disable_assert_trap_exhaustion</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="doccomment">/// Do not run any code in assert_trap or assert_exhaustion.
+    </span><span class="kw">pub fn </span>disable_assert_and_exhaustion(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.disable_assert_trap_exhaustion = <span class="bool-val">true</span>;
     }
 
-    <span class="doccomment">/// Construct a new instance of `Wast` with the spectests imports.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_spectest</span>(<span class="kw-2">mut</span> <span class="ident">store</span>: <span class="ident">Store</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="ident">spectest_importobject</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>);
-        <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">store</span>, <span class="ident">import_object</span>)
+    <span class="doccomment">/// Construct a new instance of `Wast` with the spectests imports.
+    </span><span class="kw">pub fn </span>new_with_spectest(<span class="kw-2">mut </span>store: Store) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>import_object = spectest_importobject(<span class="kw-2">&amp;mut </span>store);
+        <span class="self">Self</span>::new(store, import_object)
     }
 
-    <span class="kw">fn</span> <span class="ident">get_instance</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">instance_name</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">name</span>) =&gt; <span class="self">self</span>
-                .<span class="ident">instances</span>
-                .<span class="ident">get</span>(<span class="ident">name</span>)
-                .<span class="ident">cloned</span>()
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;failed to find instance named `{}`&quot;</span>, <span class="ident">name</span>)),
-            <span class="prelude-val">None</span> =&gt; <span class="self">self</span>
-                .<span class="ident">current</span>
-                .<span class="ident">clone</span>()
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;no previous instance found&quot;</span>)),
+    <span class="kw">fn </span>get_instance(<span class="kw-2">&amp;</span><span class="self">self</span>, instance_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Instance&gt; {
+        <span class="kw">match </span>instance_name {
+            <span class="prelude-val">Some</span>(name) =&gt; <span class="self">self
+                </span>.instances
+                .get(name)
+                .cloned()
+                .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;failed to find instance named `{}`&quot;</span>, name)),
+            <span class="prelude-val">None </span>=&gt; <span class="self">self
+                </span>.current
+                .clone()
+                .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;no previous instance found&quot;</span>)),
         }
     }
 
-    <span class="doccomment">/// Perform the action portion of a command.</span>
-    <span class="kw">fn</span> <span class="ident">perform_execute</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">exec</span>: <span class="ident">wast::WastExecute</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">exec</span> {
-            <span class="ident">wast::WastExecute::Invoke</span>(<span class="ident">invoke</span>) =&gt; <span class="self">self</span>.<span class="ident">perform_invoke</span>(<span class="ident">invoke</span>),
-            <span class="ident">wast::WastExecute::Module</span>(<span class="kw-2">mut</span> <span class="ident">module</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instantiate</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>);
-                <span class="ident">result</span>.<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Vec::new</span>())
+    <span class="doccomment">/// Perform the action portion of a command.
+    </span><span class="kw">fn </span>perform_execute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, exec: wast::WastExecute&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt; {
+        <span class="kw">match </span>exec {
+            wast::WastExecute::Invoke(invoke) =&gt; <span class="self">self</span>.perform_invoke(invoke),
+            wast::WastExecute::Module(<span class="kw-2">mut </span>module) =&gt; {
+                <span class="kw">let </span>binary = module.encode()<span class="question-mark">?</span>;
+                <span class="kw">let </span>result = <span class="self">self</span>.instantiate(<span class="kw-2">&amp;</span>binary);
+                result.map(|<span class="kw">_</span>| Vec::new())
             }
-            <span class="ident">wast::WastExecute::Get</span> { <span class="ident">module</span>, <span class="ident">global</span> } =&gt; <span class="self">self</span>.<span class="ident">get</span>(<span class="ident">module</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">name</span>()), <span class="ident">global</span>),
+            wast::WastExecute::Get { module, global } =&gt; <span class="self">self</span>.get(module.map(|s| s.name()), global),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">perform_invoke</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">exec</span>: <span class="ident">wast::WastInvoke</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">exec</span>
-            .<span class="ident">args</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">runtime_value</span>(<span class="ident">a</span>))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">invoke</span>(<span class="ident">exec</span>.<span class="ident">module</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">i</span><span class="op">|</span> <span class="ident">i</span>.<span class="ident">name</span>()), <span class="ident">exec</span>.<span class="ident">name</span>, <span class="kw-2">&amp;</span><span class="ident">values</span>)
+    <span class="kw">fn </span>perform_invoke(<span class="kw-2">&amp;mut </span><span class="self">self</span>, exec: wast::WastInvoke&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt; {
+        <span class="kw">let </span>values = exec
+            .args
+            .iter()
+            .map(|a| <span class="self">self</span>.runtime_value(a))
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
+        <span class="self">self</span>.invoke(exec.module.map(|i| i.name()), exec.name, <span class="kw-2">&amp;</span>values)
     }
 
-    <span class="kw">fn</span> <span class="ident">assert_return</span>(
+    <span class="kw">fn </span>assert_return(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">results</span>: <span class="kw-2">&amp;</span>[<span class="ident">wast::AssertExpression</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">values</span> <span class="op">=</span> <span class="ident">result</span><span class="question-mark">?</span>;
-        <span class="kw">for</span> (<span class="ident">v</span>, <span class="ident">e</span>) <span class="kw">in</span> <span class="ident">values</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">results</span>) {
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">val_matches</span>(<span class="ident">v</span>, <span class="ident">e</span>)<span class="question-mark">?</span> {
+        result: <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;,
+        results: <span class="kw-2">&amp;</span>[wast::AssertExpression],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>values = result<span class="question-mark">?</span>;
+        <span class="kw">for </span>(v, e) <span class="kw">in </span>values.iter().zip(results) {
+            <span class="kw">if </span><span class="self">self</span>.val_matches(v, e)<span class="question-mark">? </span>{
                 <span class="kw">continue</span>;
             }
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Value::V128</span>(<span class="ident">bits</span>) <span class="op">=</span> <span class="ident">v</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">wast::AssertExpression::V128</span>(<span class="ident">pattern</span>) <span class="op">=</span> <span class="ident">e</span> {
+            <span class="kw">if let </span>Value::V128(bits) = v {
+                <span class="kw">if let </span>wast::AssertExpression::V128(pattern) = e {
                     <span class="macro">bail!</span>(
                         <span class="string">&quot;expected {:?}, got {:?} (v128 bits: {})&quot;</span>,
-                        <span class="ident">e</span>,
-                        <span class="ident">v128_format</span>(<span class="kw-2">*</span><span class="ident">bits</span>, <span class="ident">pattern</span>),
-                        <span class="ident">bits</span>
+                        e,
+                        v128_format(<span class="kw-2">*</span>bits, pattern),
+                        bits
                     );
                 }
             }
-            <span class="macro">bail!</span>(<span class="string">&quot;expected {:?}, got {:?}&quot;</span>, <span class="ident">e</span>, <span class="ident">v</span>)
+            <span class="macro">bail!</span>(<span class="string">&quot;expected {:?}, got {:?}&quot;</span>, e, v)
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">assert_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">actual</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">values</span>) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;expected trap, got {:?}&quot;</span>, <span class="ident">values</span>),
-            <span class="prelude-val">Err</span>(<span class="ident">t</span>) =&gt; <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">t</span>),
+    <span class="kw">fn </span>assert_trap(<span class="kw-2">&amp;</span><span class="self">self</span>, result: <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt;, expected: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>actual = <span class="kw">match </span>result {
+            <span class="prelude-val">Ok</span>(values) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;expected trap, got {:?}&quot;</span>, values),
+            <span class="prelude-val">Err</span>(t) =&gt; <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, t),
         };
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">matches_message_assert_trap</span>(<span class="ident">expected</span>, <span class="kw-2">&amp;</span><span class="ident">actual</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+        <span class="kw">if </span><span class="self">self</span>.matches_message_assert_trap(expected, <span class="kw-2">&amp;</span>actual) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
-        <span class="macro">bail!</span>(<span class="string">&quot;expected &#39;{}&#39;, got &#39;{}&#39;&quot;</span>, <span class="ident">expected</span>, <span class="ident">actual</span>)
+        <span class="macro">bail!</span>(<span class="string">&quot;expected &#39;{}&#39;, got &#39;{}&#39;&quot;</span>, expected, actual)
     }
 
-    <span class="kw">fn</span> <span class="ident">run_directive</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">test</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">directive</span>: <span class="ident">wast::WastDirective</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">wast::WastDirective</span>::<span class="kw-2">*</span>;
+    <span class="kw">fn </span>run_directive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, test: <span class="kw-2">&amp;</span>Path, directive: wast::WastDirective) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">use </span>wast::WastDirective::<span class="kw-2">*</span>;
 
-        <span class="kw">match</span> <span class="ident">directive</span> {
-            <span class="ident">Module</span>(<span class="kw-2">mut</span> <span class="ident">module</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">module</span>(<span class="ident">module</span>.<span class="ident">id</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">name</span>()), <span class="kw-2">&amp;</span><span class="ident">binary</span>)<span class="question-mark">?</span>;
+        <span class="kw">match </span>directive {
+            Module(<span class="kw-2">mut </span>module) =&gt; {
+                <span class="kw">let </span>binary = module.encode()<span class="question-mark">?</span>;
+                <span class="self">self</span>.module(module.id.map(|s| s.name()), <span class="kw-2">&amp;</span>binary)<span class="question-mark">?</span>;
             }
-            <span class="ident">Register</span> {
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="ident">name</span>,
-                <span class="ident">module</span>,
+            Register {
+                span: <span class="kw">_</span>,
+                name,
+                module,
             } =&gt; {
-                <span class="self">self</span>.<span class="ident">register</span>(<span class="ident">module</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">name</span>()), <span class="ident">name</span>)<span class="question-mark">?</span>;
+                <span class="self">self</span>.register(module.map(|s| s.name()), name)<span class="question-mark">?</span>;
             }
-            <span class="ident">Invoke</span>(<span class="ident">i</span>) =&gt; {
-                <span class="self">self</span>.<span class="ident">perform_invoke</span>(<span class="ident">i</span>)<span class="question-mark">?</span>;
+            Invoke(i) =&gt; {
+                <span class="self">self</span>.perform_invoke(i)<span class="question-mark">?</span>;
             }
-            <span class="ident">AssertReturn</span> {
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="ident">exec</span>,
-                <span class="ident">results</span>,
+            AssertReturn {
+                span: <span class="kw">_</span>,
+                exec,
+                results,
             } =&gt; {
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">perform_execute</span>(<span class="ident">exec</span>);
-                <span class="self">self</span>.<span class="ident">assert_return</span>(<span class="ident">result</span>, <span class="kw-2">&amp;</span><span class="ident">results</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>result = <span class="self">self</span>.perform_execute(exec);
+                <span class="self">self</span>.assert_return(result, <span class="kw-2">&amp;</span>results)<span class="question-mark">?</span>;
             }
-            <span class="ident">AssertTrap</span> {
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="ident">exec</span>,
-                <span class="ident">message</span>,
+            AssertTrap {
+                span: <span class="kw">_</span>,
+                exec,
+                message,
             } =&gt; {
-                <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">disable_assert_trap_exhaustion</span> {
-                    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">perform_execute</span>(<span class="ident">exec</span>);
-                    <span class="self">self</span>.<span class="ident">assert_trap</span>(<span class="ident">result</span>, <span class="ident">message</span>)<span class="question-mark">?</span>;
+                <span class="kw">if </span>!<span class="self">self</span>.disable_assert_trap_exhaustion {
+                    <span class="kw">let </span>result = <span class="self">self</span>.perform_execute(exec);
+                    <span class="self">self</span>.assert_trap(result, message)<span class="question-mark">?</span>;
                 }
             }
-            <span class="ident">AssertExhaustion</span> {
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="ident">call</span>,
-                <span class="ident">message</span>,
+            AssertExhaustion {
+                span: <span class="kw">_</span>,
+                call,
+                message,
             } =&gt; {
-                <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">disable_assert_trap_exhaustion</span> {
-                    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">perform_invoke</span>(<span class="ident">call</span>);
-                    <span class="self">self</span>.<span class="ident">assert_trap</span>(<span class="ident">result</span>, <span class="ident">message</span>)<span class="question-mark">?</span>;
+                <span class="kw">if </span>!<span class="self">self</span>.disable_assert_trap_exhaustion {
+                    <span class="kw">let </span>result = <span class="self">self</span>.perform_invoke(call);
+                    <span class="self">self</span>.assert_trap(result, message)<span class="question-mark">?</span>;
                 }
             }
-            <span class="ident">AssertInvalid</span> {
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="ident">module</span>,
-                <span class="ident">message</span>,
+            AssertInvalid {
+                span: <span class="kw">_</span>,
+                module,
+                message,
             } =&gt; {
-                <span class="kw">let</span> <span class="ident">wasm</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">module</span> {
-                    <span class="ident">wast::QuoteModule::Module</span>(<span class="kw-2">mut</span> <span class="ident">m</span>) =&gt; <span class="ident">m</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>,
-                    <span class="ident">wast::QuoteModule::Quote</span>(<span class="ident">list</span>) =&gt; <span class="self">self</span>.<span class="ident">parse_quote_module</span>(<span class="ident">test</span>, <span class="kw-2">&amp;</span><span class="ident">list</span>)<span class="question-mark">?</span>,
+                <span class="kw">let </span>wasm = <span class="kw">match </span>module {
+                    wast::QuoteModule::Module(<span class="kw-2">mut </span>m) =&gt; m.encode()<span class="question-mark">?</span>,
+                    wast::QuoteModule::Quote(list) =&gt; <span class="self">self</span>.parse_quote_module(test, <span class="kw-2">&amp;</span>list)<span class="question-mark">?</span>,
                 };
-                <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>) {
+                <span class="kw">let </span>err = <span class="kw">match </span><span class="self">self</span>.module(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>wasm) {
                     <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;expected module to fail to build&quot;</span>),
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">e</span>,
+                    <span class="prelude-val">Err</span>(e) =&gt; e,
                 };
-                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::matches_message_assert_invalid</span>(<span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
+                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err);
+                <span class="kw">if </span>!<span class="self">Self</span>::matches_message_assert_invalid(message, <span class="kw-2">&amp;</span>error_message) {
                     <span class="macro">bail!</span>(
                         <span class="string">&quot;assert_invalid: expected \&quot;{}\&quot;, got \&quot;{}\&quot;&quot;</span>,
-                        <span class="ident">message</span>,
-                        <span class="ident">error_message</span>
+                        message,
+                        error_message
                     )
                 }
             }
-            <span class="ident">QuoteModule</span> { .. } =&gt; {
-                <span class="comment">// Do nothing</span>
-            }
-            <span class="ident">AssertException</span> { .. } =&gt; {
-                <span class="comment">// Do nothing for now</span>
-            }
-            <span class="ident">AssertMalformed</span> {
-                <span class="ident">module</span>,
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="ident">message</span>: <span class="kw">_</span>,
+            QuoteModule { .. } =&gt; {
+                <span class="comment">// Do nothing
+            </span>}
+            AssertException { .. } =&gt; {
+                <span class="comment">// Do nothing for now
+            </span>}
+            AssertMalformed {
+                module,
+                span: <span class="kw">_</span>,
+                message: <span class="kw">_</span>,
             } =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">module</span> {
-                    <span class="ident">wast::QuoteModule::Module</span>(<span class="ident">m</span>) =&gt; <span class="ident">m</span>,
-                    <span class="comment">// This is a `*.wat` parser test which we&#39;re not</span>
-                    <span class="comment">// interested in.</span>
-                    <span class="ident">wast::QuoteModule::Quote</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Ok</span>(()),
+                <span class="kw">let </span><span class="kw-2">mut </span>module = <span class="kw">match </span>module {
+                    wast::QuoteModule::Module(m) =&gt; m,
+                    <span class="comment">// This is a `*.wat` parser test which we&#39;re not
+                    // interested in.
+                    </span>wast::QuoteModule::Quote(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
                 };
-                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>).<span class="ident">is_ok</span>() {
+                <span class="kw">let </span>bytes = module.encode()<span class="question-mark">?</span>;
+                <span class="kw">if </span><span class="self">self</span>.module(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>bytes).is_ok() {
                     <span class="macro">bail!</span>(<span class="string">&quot;expected malformed module to fail to instantiate&quot;</span>);
                 }
             }
-            <span class="ident">AssertUnlinkable</span> {
-                <span class="ident">span</span>: <span class="kw">_</span>,
-                <span class="kw-2">mut</span> <span class="ident">module</span>,
-                <span class="ident">message</span>,
+            AssertUnlinkable {
+                span: <span class="kw">_</span>,
+                <span class="kw-2">mut </span>module,
+                message,
             } =&gt; {
-                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">err</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">module</span>(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>) {
+                <span class="kw">let </span>bytes = module.encode()<span class="question-mark">?</span>;
+                <span class="kw">let </span>err = <span class="kw">match </span><span class="self">self</span>.module(<span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>bytes) {
                     <span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;expected module to fail to link&quot;</span>),
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="ident">e</span>,
+                    <span class="prelude-val">Err</span>(e) =&gt; e,
                 };
-                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
-                <span class="kw">if</span> <span class="op">!</span><span class="ident"><span class="self">Self</span>::matches_message_assert_unlinkable</span>(<span class="ident">message</span>, <span class="kw-2">&amp;</span><span class="ident">error_message</span>) {
+                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err);
+                <span class="kw">if </span>!<span class="self">Self</span>::matches_message_assert_unlinkable(message, <span class="kw-2">&amp;</span>error_message) {
                     <span class="macro">bail!</span>(
                         <span class="string">&quot;assert_unlinkable: expected {}, got {}&quot;</span>,
-                        <span class="ident">message</span>,
-                        <span class="ident">error_message</span>
+                        message,
+                        error_message
                     )
                 }
             }
@@ -915,398 +915,398 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Run a wast script from a byte buffer.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_buffer</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">test</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">wast</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">wast</span> <span class="op">=</span> <span class="ident">str::from_utf8</span>(<span class="ident">wast</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">test</span>.<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">adjust_wast</span> <span class="op">=</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">err</span>: <span class="ident">wast::Error</span><span class="op">|</span> {
-            <span class="ident">err</span>.<span class="ident">set_path</span>(<span class="ident">filename</span>.<span class="ident">as_ref</span>());
-            <span class="ident">err</span>.<span class="ident">set_text</span>(<span class="ident">wast</span>);
-            <span class="ident">err</span>
+    <span class="doccomment">/// Run a wast script from a byte buffer.
+    </span><span class="kw">pub fn </span>run_buffer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, test: <span class="kw-2">&amp;</span>Path, wast: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>wast = str::from_utf8(wast)<span class="question-mark">?</span>;
+        <span class="kw">let </span>filename = test.to_str().unwrap();
+        <span class="kw">let </span>adjust_wast = |<span class="kw-2">mut </span>err: wast::Error| {
+            err.set_path(filename.as_ref());
+            err.set_text(wast);
+            err
         };
 
-        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(<span class="ident">wast</span>).<span class="ident">map_err</span>(<span class="ident">adjust_wast</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">ast</span> <span class="op">=</span> <span class="ident">wast::parser::parse</span>::<span class="op">&lt;</span><span class="ident">wast::Wast</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>).<span class="ident">map_err</span>(<span class="ident">adjust_wast</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">errors</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">ast</span>.<span class="ident">directives</span>.<span class="ident">len</span>());
-        <span class="kw">for</span> <span class="ident">directive</span> <span class="kw">in</span> <span class="ident">ast</span>.<span class="ident">directives</span> {
-            <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">directive</span>.<span class="ident">span</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">run_directive</span>(<span class="ident">test</span>, <span class="ident">directive</span>) {
-                <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
-                <span class="comment">// If depends on an instance that doesn&#39;t exist</span>
-                <span class="kw">if</span> <span class="ident">message</span>.<span class="ident">contains</span>(<span class="string">&quot;no previous instance found&quot;</span>) {
+        <span class="kw">let </span>buf = wast::parser::ParseBuffer::new(wast).map_err(adjust_wast)<span class="question-mark">?</span>;
+        <span class="kw">let </span>ast = wast::parser::parse::&lt;wast::Wast&gt;(<span class="kw-2">&amp;</span>buf).map_err(adjust_wast)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>errors = Vec::with_capacity(ast.directives.len());
+        <span class="kw">for </span>directive <span class="kw">in </span>ast.directives {
+            <span class="kw">let </span>sp = directive.span();
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.run_directive(test, directive) {
+                <span class="kw">let </span>message = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e);
+                <span class="comment">// If depends on an instance that doesn&#39;t exist
+                </span><span class="kw">if </span>message.contains(<span class="string">&quot;no previous instance found&quot;</span>) {
                     <span class="kw">continue</span>;
                 }
-                <span class="comment">// We don&#39;t compute it, comes from instantiating an instance</span>
-                <span class="comment">// that we expected to fail.</span>
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">current</span>.<span class="ident">is_none</span>() <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">current_is_allowed_failure</span> {
+                <span class="comment">// We don&#39;t compute it, comes from instantiating an instance
+                // that we expected to fail.
+                </span><span class="kw">if </span><span class="self">self</span>.current.is_none() &amp;&amp; <span class="self">self</span>.current_is_allowed_failure {
                     <span class="kw">continue</span>;
                 }
-                <span class="kw">let</span> (<span class="ident">line</span>, <span class="ident">col</span>) <span class="op">=</span> <span class="ident">sp</span>.<span class="ident">linecol_in</span>(<span class="ident">wast</span>);
-                <span class="ident">errors</span>.<span class="ident">push</span>(<span class="ident">DirectiveError</span> {
-                    <span class="ident">line</span>: <span class="ident">line</span> <span class="op">+</span> <span class="number">1</span>,
-                    <span class="ident">col</span>,
-                    <span class="ident">message</span>,
+                <span class="kw">let </span>(line, col) = sp.linecol_in(wast);
+                errors.push(DirectiveError {
+                    line: line + <span class="number">1</span>,
+                    col,
+                    message,
                 });
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">fail_fast</span> {
+                <span class="kw">if </span><span class="self">self</span>.fail_fast {
                     <span class="kw">break</span>;
                 }
             }
         }
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">errors</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DirectiveErrors</span> {
-                <span class="ident">filename</span>: <span class="ident">filename</span>.<span class="ident">to_string</span>(),
-                <span class="ident">errors</span>,
+        <span class="kw">if </span>!errors.is_empty() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DirectiveErrors {
+                filename: filename.to_string(),
+                errors,
             }
-            .<span class="ident">into</span>());
+            .into());
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">parse_quote_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">test</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">source</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[<span class="ident">u8</span>]]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">String::new</span>();
-        <span class="kw">for</span> <span class="ident">src</span> <span class="kw">in</span> <span class="ident">source</span> {
-            <span class="kw">match</span> <span class="ident">str::from_utf8</span>(<span class="ident">src</span>) {
-                <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">ret</span>.<span class="ident">push_str</span>(<span class="ident">s</span>),
+    <span class="kw">fn </span>parse_quote_module(<span class="kw-2">&amp;</span><span class="self">self</span>, test: <span class="kw-2">&amp;</span>Path, source: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[u8]]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>ret = String::new();
+        <span class="kw">for </span>src <span class="kw">in </span>source {
+            <span class="kw">match </span>str::from_utf8(src) {
+                <span class="prelude-val">Ok</span>(s) =&gt; ret.push_str(s),
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;malformed UTF-8 encoding&quot;</span>),
             }
-            <span class="ident">ret</span>.<span class="ident">push</span>(<span class="string">&#39; &#39;</span>);
+            ret.push(<span class="string">&#39; &#39;</span>);
         }
-        <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(<span class="kw-2">&amp;</span><span class="ident">ret</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wat</span> <span class="op">=</span> <span class="ident">wast::parser::parse</span>::<span class="op">&lt;</span><span class="ident">wast::Wat</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>buf = wast::parser::ParseBuffer::new(<span class="kw-2">&amp;</span>ret)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>wat = wast::parser::parse::&lt;wast::Wat&gt;(<span class="kw-2">&amp;</span>buf)<span class="question-mark">?</span>;
 
-        <span class="comment">// TODO: when memory64 merges into the proper spec then this should be</span>
-        <span class="comment">// removed since it will presumably no longer be a text-format error but</span>
-        <span class="comment">// rather a validation error. Currently all non-memory64 proposals</span>
-        <span class="comment">// assert that this offset is a text-parser error, whereas with memory64</span>
-        <span class="comment">// support that error is deferred until later.</span>
-        <span class="kw">if</span> <span class="ident">ret</span>.<span class="ident">contains</span>(<span class="string">&quot;offset=4294967296&quot;</span>) <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">test</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span> <span class="op">==</span> <span class="string">&quot;memory64&quot;</span>) {
+        <span class="comment">// TODO: when memory64 merges into the proper spec then this should be
+        // removed since it will presumably no longer be a text-format error but
+        // rather a validation error. Currently all non-memory64 proposals
+        // assert that this offset is a text-parser error, whereas with memory64
+        // support that error is deferred until later.
+        </span><span class="kw">if </span>ret.contains(<span class="string">&quot;offset=4294967296&quot;</span>) &amp;&amp; !test.iter().any(|t| t == <span class="string">&quot;memory64&quot;</span>) {
             <span class="macro">bail!</span>(<span class="string">&quot;i32 constant out of bounds&quot;</span>);
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">wat</span>.<span class="ident">module</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>)
+        <span class="prelude-val">Ok</span>(wat.module.encode()<span class="question-mark">?</span>)
     }
 
-    <span class="doccomment">/// Run a wast script from a file.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">run_file</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">run_buffer</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>)
+    <span class="doccomment">/// Run a wast script from a file.
+    </span><span class="kw">pub fn </span>run_file(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>bytes = std::fs::read(path)<span class="question-mark">?</span>;
+        <span class="self">self</span>.run_buffer(path, <span class="kw-2">&amp;</span>bytes)
     }
 }
 
-<span class="comment">// This is the implementation specific to the Runtime</span>
-<span class="kw">impl</span> <span class="ident">Wast</span> {
-    <span class="doccomment">/// Define a module and register it.</span>
-    <span class="kw">fn</span> <span class="ident">module</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">instantiate</span>(<span class="ident">module</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">i</span>) =&gt; <span class="ident">i</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="comment">// We set the current to None to allow running other</span>
-                <span class="comment">// spectests when `fail_fast` is `false`.</span>
-                <span class="self">self</span>.<span class="ident">current</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-                <span class="kw">let</span> <span class="ident">error_message</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>);
-                <span class="self">self</span>.<span class="ident">current_is_allowed_failure</span> <span class="op">=</span> <span class="bool-val">false</span>;
-                <span class="kw">for</span> <span class="ident">allowed_failure</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">allowed_instantiation_failures</span>.<span class="ident">iter</span>() {
-                    <span class="kw">if</span> <span class="ident">error_message</span>.<span class="ident">contains</span>(<span class="ident">allowed_failure</span>) {
-                        <span class="self">self</span>.<span class="ident">current_is_allowed_failure</span> <span class="op">=</span> <span class="bool-val">true</span>;
+<span class="comment">// This is the implementation specific to the Runtime
+</span><span class="kw">impl </span>Wast {
+    <span class="doccomment">/// Define a module and register it.
+    </span><span class="kw">fn </span>module(<span class="kw-2">&amp;mut </span><span class="self">self</span>, instance_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, module: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>instance = <span class="kw">match </span><span class="self">self</span>.instantiate(module) {
+            <span class="prelude-val">Ok</span>(i) =&gt; i,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="comment">// We set the current to None to allow running other
+                // spectests when `fail_fast` is `false`.
+                </span><span class="self">self</span>.current = <span class="prelude-val">None</span>;
+                <span class="kw">let </span>error_message = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e);
+                <span class="self">self</span>.current_is_allowed_failure = <span class="bool-val">false</span>;
+                <span class="kw">for </span>allowed_failure <span class="kw">in </span><span class="self">self</span>.allowed_instantiation_failures.iter() {
+                    <span class="kw">if </span>error_message.contains(allowed_failure) {
+                        <span class="self">self</span>.current_is_allowed_failure = <span class="bool-val">true</span>;
                         <span class="kw">break</span>;
                     }
                 }
-                <span class="macro">bail!</span>(<span class="string">&quot;instantiation failed with: {}&quot;</span>, <span class="ident">e</span>)
+                <span class="macro">bail!</span>(<span class="string">&quot;instantiation failed with: {}&quot;</span>, e)
             }
         };
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">instance_name</span> {
-            <span class="self">self</span>.<span class="ident">instances</span>.<span class="ident">insert</span>(<span class="ident">name</span>.<span class="ident">to_string</span>(), <span class="ident">instance</span>.<span class="ident">clone</span>());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = instance_name {
+            <span class="self">self</span>.instances.insert(name.to_string(), instance.clone());
         }
-        <span class="self">self</span>.<span class="ident">current</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">instance</span>);
-        <span class="self">self</span>.<span class="ident">current_is_allowed_failure</span> <span class="op">=</span> <span class="bool-val">false</span>;
+        <span class="self">self</span>.current = <span class="prelude-val">Some</span>(instance);
+        <span class="self">self</span>.current_is_allowed_failure = <span class="bool-val">false</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">instantiate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>, <span class="ident">module</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">imports</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">import_object</span>.<span class="ident">clone</span>();
+    <span class="kw">fn </span>instantiate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, module: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Instance&gt; {
+        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span><span class="self">self</span>.store, module)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>imports = <span class="self">self</span>.import_object.clone();
 
-        <span class="kw">for</span> <span class="ident">import</span> <span class="kw">in</span> <span class="ident">module</span>.<span class="ident">imports</span>() {
-            <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">import</span>.<span class="ident">module</span>();
-            <span class="kw">if</span> <span class="ident">imports</span>.<span class="ident">contains_namespace</span>(<span class="ident">module_name</span>) {
+        <span class="kw">for </span>import <span class="kw">in </span>module.imports() {
+            <span class="kw">let </span>module_name = import.module();
+            <span class="kw">if </span>imports.contains_namespace(module_name) {
                 <span class="kw">continue</span>;
             }
-            <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">instances</span>
-                .<span class="ident">get</span>(<span class="ident">module_name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;constant expression required&quot;</span>))<span class="question-mark">?</span>;
-            <span class="ident">imports</span>.<span class="ident">register_namespace</span>(<span class="ident">module_name</span>, <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">clone</span>());
+            <span class="kw">let </span>instance = <span class="self">self
+                </span>.instances
+                .get(module_name)
+                .ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;constant expression required&quot;</span>))<span class="question-mark">?</span>;
+            imports.register_namespace(module_name, instance.exports.clone());
         }
 
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">instance</span>)
+        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>imports)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(instance)
     }
 
-    <span class="doccomment">/// Register an instance to make it available for performing actions.</span>
-    <span class="kw">fn</span> <span class="ident">register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">as_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">name</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">instances</span>.<span class="ident">insert</span>(<span class="ident">as_name</span>.<span class="ident">to_string</span>(), <span class="ident">instance</span>);
+    <span class="doccomment">/// Register an instance to make it available for performing actions.
+    </span><span class="kw">fn </span>register(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, as_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>instance = <span class="self">self</span>.get_instance(name)<span class="question-mark">?</span>;
+        <span class="self">self</span>.instances.insert(as_name.to_string(), instance);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Invoke an exported function from an instance.</span>
-    <span class="kw">fn</span> <span class="ident">invoke</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-        <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">Function</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">field</span>)<span class="question-mark">?</span>;
-        <span class="kw">match</span> <span class="ident">func</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">store</span>, <span class="ident">args</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>.<span class="ident">into</span>()),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">e</span>.<span class="ident">into</span>()),
+    <span class="doccomment">/// Invoke an exported function from an instance.
+    </span><span class="kw">fn </span>invoke(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        instance_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+        field: <span class="kw-2">&amp;</span>str,
+        args: <span class="kw-2">&amp;</span>[Value],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt; {
+        <span class="kw">let </span>instance = <span class="self">self</span>.get_instance(instance_name)<span class="question-mark">?</span>;
+        <span class="kw">let </span>func: <span class="kw-2">&amp;</span>Function = instance.exports.get(field)<span class="question-mark">?</span>;
+        <span class="kw">match </span>func.call(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, args) {
+            <span class="prelude-val">Ok</span>(result) =&gt; <span class="prelude-val">Ok</span>(result.into()),
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
         }
     }
 
-    <span class="doccomment">/// Get the value of an exported global from an instance.</span>
-    <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">instance_name</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>, <span class="ident">field</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_instance</span>(<span class="ident">instance_name</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">global</span>: <span class="kw-2">&amp;</span><span class="ident">Global</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="ident">field</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[<span class="ident">global</span>.<span class="ident">get</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">store</span>)])
+    <span class="doccomment">/// Get the value of an exported global from an instance.
+    </span><span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, instance_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, field: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;&gt; {
+        <span class="kw">let </span>instance = <span class="self">self</span>.get_instance(instance_name)<span class="question-mark">?</span>;
+        <span class="kw">let </span>global: <span class="kw-2">&amp;</span>Global = instance.exports.get(field)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[global.get(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store)])
     }
 
-    <span class="doccomment">/// Translate from a `script::Value` to a `Value`.</span>
-    <span class="kw">fn</span> <span class="ident">runtime_value</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="ident">wast::Expression</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">wast::Instruction</span>::<span class="kw-2">*</span>;
+    <span class="doccomment">/// Translate from a `script::Value` to a `Value`.
+    </span><span class="kw">fn </span>runtime_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: <span class="kw-2">&amp;</span>wast::Expression&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Value&gt; {
+        <span class="kw">use </span>wast::Instruction::<span class="kw-2">*</span>;
 
-        <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">instrs</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-            <span class="macro">bail!</span>(<span class="string">&quot;too many instructions in {:?}&quot;</span>, <span class="ident">v</span>);
+        <span class="kw">if </span>v.instrs.len() != <span class="number">1 </span>{
+            <span class="macro">bail!</span>(<span class="string">&quot;too many instructions in {:?}&quot;</span>, v);
         }
-        <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">instrs</span>[<span class="number">0</span>] {
-            <span class="ident">I32Const</span>(<span class="ident">x</span>) =&gt; <span class="ident">Value::I32</span>(<span class="kw-2">*</span><span class="ident">x</span>),
-            <span class="ident">I64Const</span>(<span class="ident">x</span>) =&gt; <span class="ident">Value::I64</span>(<span class="kw-2">*</span><span class="ident">x</span>),
-            <span class="ident">F32Const</span>(<span class="ident">x</span>) =&gt; <span class="ident">Value::F32</span>(<span class="ident">f32::from_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>)),
-            <span class="ident">F64Const</span>(<span class="ident">x</span>) =&gt; <span class="ident">Value::F64</span>(<span class="ident">f64::from_bits</span>(<span class="ident">x</span>.<span class="ident">bits</span>)),
-            <span class="ident">V128Const</span>(<span class="ident">x</span>) =&gt; <span class="ident">Value::V128</span>(<span class="ident">u128::from_le_bytes</span>(<span class="ident">x</span>.<span class="ident">to_le_bytes</span>())),
-            <span class="ident">RefNull</span>(<span class="ident">wast::HeapType::Func</span>) =&gt; <span class="ident">Value::FuncRef</span>(<span class="prelude-val">None</span>),
-            <span class="ident">RefNull</span>(<span class="ident">wast::HeapType::Extern</span>) =&gt; <span class="ident">Value::null</span>(),
-            <span class="ident">RefExtern</span>(<span class="ident">number</span>) =&gt; <span class="ident">Value::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">ExternRef::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">store</span>, <span class="kw-2">*</span><span class="ident">number</span>))),
-            <span class="ident">other</span> =&gt; <span class="macro">bail!</span>(<span class="string">&quot;couldn&#39;t convert {:?} to a runtime value&quot;</span>, <span class="ident">other</span>),
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="kw-2">&amp;</span>v.instrs[<span class="number">0</span>] {
+            I32Const(x) =&gt; Value::I32(<span class="kw-2">*</span>x),
+            I64Const(x) =&gt; Value::I64(<span class="kw-2">*</span>x),
+            F32Const(x) =&gt; Value::F32(f32::from_bits(x.bits)),
+            F64Const(x) =&gt; Value::F64(f64::from_bits(x.bits)),
+            V128Const(x) =&gt; Value::V128(u128::from_le_bytes(x.to_le_bytes())),
+            RefNull(wast::HeapType::Func) =&gt; Value::FuncRef(<span class="prelude-val">None</span>),
+            RefNull(wast::HeapType::Extern) =&gt; Value::null(),
+            RefExtern(number) =&gt; Value::ExternRef(<span class="prelude-val">Some</span>(ExternRef::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="kw-2">*</span>number))),
+            other =&gt; <span class="macro">bail!</span>(<span class="string">&quot;couldn&#39;t convert {:?} to a runtime value&quot;</span>, other),
         })
     }
 
-    <span class="comment">// Checks if the `assert_unlinkable` message matches the expected one</span>
-    <span class="kw">fn</span> <span class="ident">matches_message_assert_unlinkable</span>(<span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">expected</span>)
+    <span class="comment">// Checks if the `assert_unlinkable` message matches the expected one
+    </span><span class="kw">fn </span>matches_message_assert_unlinkable(expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        actual.contains(expected)
     }
 
-    <span class="comment">// Checks if the `assert_invalid` message matches the expected one</span>
-    <span class="kw">fn</span> <span class="ident">matches_message_assert_invalid</span>(<span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="ident">expected</span>)
-            <span class="comment">// Waiting on https://github.com/WebAssembly/bulk-memory-operations/pull/137</span>
-            <span class="comment">// to propagate to WebAssembly/testsuite.</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown table&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown elem&quot;</span>))
-            <span class="comment">// wasmparser return the wrong message</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;no linear memories are present&quot;</span>))
-            <span class="comment">// `elem.wast` and `proposals/bulk-memory-operations/elem.wast` disagree</span>
-            <span class="comment">// on the expected error message for the same error.</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;out of bounds&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;does not fit&quot;</span>))
-            <span class="comment">// handle `unknown global $NUM` error messages that wasmparser doesn&#39;t return yet</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown global&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown global&quot;</span>))
-            <span class="comment">// handle `unknown memory $NUM` error messages that wasmparser doesn&#39;t return yet</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>))
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;Data segment extends past end of the data section&quot;</span>))
+    <span class="comment">// Checks if the `assert_invalid` message matches the expected one
+    </span><span class="kw">fn </span>matches_message_assert_invalid(expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        actual.contains(expected)
+            <span class="comment">// Waiting on https://github.com/WebAssembly/bulk-memory-operations/pull/137
+            // to propagate to WebAssembly/testsuite.
+            </span>|| (expected.contains(<span class="string">&quot;unknown table&quot;</span>) &amp;&amp; actual.contains(<span class="string">&quot;unknown elem&quot;</span>))
+            <span class="comment">// wasmparser return the wrong message
+            </span>|| (expected.contains(<span class="string">&quot;unknown memory&quot;</span>) &amp;&amp; actual.contains(<span class="string">&quot;no linear memories are present&quot;</span>))
+            <span class="comment">// `elem.wast` and `proposals/bulk-memory-operations/elem.wast` disagree
+            // on the expected error message for the same error.
+            </span>|| (expected.contains(<span class="string">&quot;out of bounds&quot;</span>) &amp;&amp; actual.contains(<span class="string">&quot;does not fit&quot;</span>))
+            <span class="comment">// handle `unknown global $NUM` error messages that wasmparser doesn&#39;t return yet
+            </span>|| (expected.contains(<span class="string">&quot;unknown global&quot;</span>) &amp;&amp; actual.contains(<span class="string">&quot;unknown global&quot;</span>))
+            <span class="comment">// handle `unknown memory $NUM` error messages that wasmparser doesn&#39;t return yet
+            </span>|| (expected.contains(<span class="string">&quot;unknown memory&quot;</span>) &amp;&amp; actual.contains(<span class="string">&quot;unknown memory&quot;</span>))
+            || (expected.contains(<span class="string">&quot;unknown memory&quot;</span>) &amp;&amp; actual.contains(<span class="string">&quot;Data segment extends past end of the data section&quot;</span>))
     }
 
-    <span class="comment">// Checks if the `assert_trap` message matches the expected one</span>
-    <span class="kw">fn</span> <span class="ident">matches_message_assert_trap</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">bool</span> {
-        <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="ident">expected</span>)
-            <span class="op">|</span><span class="op">|</span> <span class="self">self</span>
-                .<span class="ident">match_trap_messages</span>
-                .<span class="ident">get</span>(<span class="ident">expected</span>)
-                .<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">alternative</span><span class="op">|</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="ident">alternative</span>))
+    <span class="comment">// Checks if the `assert_trap` message matches the expected one
+    </span><span class="kw">fn </span>matches_message_assert_trap(<span class="kw-2">&amp;</span><span class="self">self</span>, expected: <span class="kw-2">&amp;</span>str, actual: <span class="kw-2">&amp;</span>str) -&gt; bool {
+        actual.contains(expected)
+            || <span class="self">self
+                </span>.match_trap_messages
+                .get(expected)
+                .map_or(<span class="bool-val">false</span>, |alternative| actual.contains(alternative))
     }
 
-    <span class="kw">fn</span> <span class="ident">val_matches</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">actual</span>: <span class="kw-2">&amp;</span><span class="ident">Value</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::AssertExpression</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">match</span> (<span class="ident">actual</span>, <span class="ident">expected</span>) {
-            (<span class="ident">Value::I32</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::I32</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            (<span class="ident">Value::I64</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::I64</span>(<span class="ident">b</span>)) =&gt; <span class="ident">a</span> <span class="op">==</span> <span class="ident">b</span>,
-            <span class="comment">// Note that these float comparisons are comparing bits, not float</span>
-            <span class="comment">// values, so we&#39;re testing for bit-for-bit equivalence</span>
-            (<span class="ident">Value::F32</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::F32</span>(<span class="ident">b</span>)) =&gt; <span class="ident">f32_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="ident">Value::F64</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::F64</span>(<span class="ident">b</span>)) =&gt; <span class="ident">f64_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="ident">Value::V128</span>(<span class="ident">a</span>), <span class="ident">wast::AssertExpression::V128</span>(<span class="ident">b</span>)) =&gt; <span class="ident">v128_matches</span>(<span class="kw-2">*</span><span class="ident">a</span>, <span class="ident">b</span>),
-            (<span class="ident">Value::FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefNull</span>(<span class="prelude-val">Some</span>(<span class="ident">wast::HeapType::Func</span>))) =&gt; {
-                <span class="bool-val">true</span>
-            }
-            (<span class="ident">Value::FuncRef</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), <span class="ident">wast::AssertExpression::RefNull</span>(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-            (<span class="ident">Value::FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefFunc</span>(<span class="prelude-val">None</span>)) =&gt; <span class="bool-val">true</span>,
-            (<span class="ident">Value::FuncRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefFunc</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>))) =&gt; <span class="bool-val">false</span>,
+    <span class="kw">fn </span>val_matches(<span class="kw-2">&amp;</span><span class="self">self</span>, actual: <span class="kw-2">&amp;</span>Value, expected: <span class="kw-2">&amp;</span>wast::AssertExpression) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span>(actual, expected) {
+            (Value::I32(a), wast::AssertExpression::I32(b)) =&gt; a == b,
+            (Value::I64(a), wast::AssertExpression::I64(b)) =&gt; a == b,
+            <span class="comment">// Note that these float comparisons are comparing bits, not float
+            // values, so we&#39;re testing for bit-for-bit equivalence
+            </span>(Value::F32(a), wast::AssertExpression::F32(b)) =&gt; f32_matches(<span class="kw-2">*</span>a, b),
+            (Value::F64(a), wast::AssertExpression::F64(b)) =&gt; f64_matches(<span class="kw-2">*</span>a, b),
+            (Value::V128(a), wast::AssertExpression::V128(b)) =&gt; v128_matches(<span class="kw-2">*</span>a, b),
+            (Value::FuncRef(<span class="prelude-val">None</span>), wast::AssertExpression::RefNull(<span class="prelude-val">Some</span>(wast::HeapType::Func))) =&gt; {
+                <span class="bool-val">true
+            </span>}
+            (Value::FuncRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), wast::AssertExpression::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+            (Value::FuncRef(<span class="prelude-val">None</span>), wast::AssertExpression::RefFunc(<span class="prelude-val">None</span>)) =&gt; <span class="bool-val">true</span>,
+            (Value::FuncRef(<span class="prelude-val">None</span>), wast::AssertExpression::RefFunc(<span class="prelude-val">Some</span>(<span class="kw">_</span>))) =&gt; <span class="bool-val">false</span>,
             (
-                <span class="ident">Value::ExternRef</span>(<span class="prelude-val">None</span>),
-                <span class="ident">wast::AssertExpression::RefNull</span>(<span class="prelude-val">Some</span>(<span class="ident">wast::HeapType::Extern</span>)),
+                Value::ExternRef(<span class="prelude-val">None</span>),
+                wast::AssertExpression::RefNull(<span class="prelude-val">Some</span>(wast::HeapType::Extern)),
             ) =&gt; <span class="bool-val">true</span>,
-            (<span class="ident">Value::ExternRef</span>(<span class="prelude-val">None</span>), <span class="ident">wast::AssertExpression::RefExtern</span>(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+            (Value::ExternRef(<span class="prelude-val">None</span>), wast::AssertExpression::RefExtern(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
 
-            (<span class="ident">Value::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), <span class="ident">wast::AssertExpression::RefNull</span>(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-            (<span class="ident">Value::ExternRef</span>(<span class="prelude-val">Some</span>(<span class="ident">extern_ref</span>)), <span class="ident">wast::AssertExpression::RefExtern</span>(<span class="ident">num</span>)) =&gt; {
-                <span class="ident">extern_ref</span>.<span class="ident">downcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>) <span class="op">==</span> <span class="prelude-val">Some</span>(<span class="ident">num</span>)
+            (Value::ExternRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)), wast::AssertExpression::RefNull(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+            (Value::ExternRef(<span class="prelude-val">Some</span>(extern_ref)), wast::AssertExpression::RefExtern(num)) =&gt; {
+                extern_ref.downcast(<span class="kw-2">&amp;</span><span class="self">self</span>.store) == <span class="prelude-val">Some</span>(num)
             }
-            <span class="kw">_</span> =&gt; <span class="macro">bail!</span>(
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(
                 <span class="string">&quot;don&#39;t know how to compare {:?} and {:?} yet&quot;</span>,
-                <span class="ident">actual</span>,
-                <span class="ident">expected</span>
+                actual,
+                expected
             ),
         })
     }
 }
 
-<span class="kw">fn</span> <span class="ident">extract_lane_as_i8</span>(<span class="ident">bytes</span>: <span class="ident">u128</span>, <span class="ident">lane</span>: <span class="ident">usize</span>) -&gt; <span class="ident">i8</span> {
-    (<span class="ident">bytes</span> <span class="op">&gt;</span><span class="op">&gt;</span> (<span class="ident">lane</span> <span class="op">*</span> <span class="number">8</span>)) <span class="kw">as</span> <span class="ident">i8</span>
+<span class="kw">fn </span>extract_lane_as_i8(bytes: u128, lane: usize) -&gt; i8 {
+    (bytes &gt;&gt; (lane * <span class="number">8</span>)) <span class="kw">as </span>i8
 }
 
-<span class="kw">fn</span> <span class="ident">extract_lane_as_i16</span>(<span class="ident">bytes</span>: <span class="ident">u128</span>, <span class="ident">lane</span>: <span class="ident">usize</span>) -&gt; <span class="ident">i16</span> {
-    (<span class="ident">bytes</span> <span class="op">&gt;</span><span class="op">&gt;</span> (<span class="ident">lane</span> <span class="op">*</span> <span class="number">16</span>)) <span class="kw">as</span> <span class="ident">i16</span>
+<span class="kw">fn </span>extract_lane_as_i16(bytes: u128, lane: usize) -&gt; i16 {
+    (bytes &gt;&gt; (lane * <span class="number">16</span>)) <span class="kw">as </span>i16
 }
 
-<span class="kw">fn</span> <span class="ident">extract_lane_as_i32</span>(<span class="ident">bytes</span>: <span class="ident">u128</span>, <span class="ident">lane</span>: <span class="ident">usize</span>) -&gt; <span class="ident">i32</span> {
-    (<span class="ident">bytes</span> <span class="op">&gt;</span><span class="op">&gt;</span> (<span class="ident">lane</span> <span class="op">*</span> <span class="number">32</span>)) <span class="kw">as</span> <span class="ident">i32</span>
+<span class="kw">fn </span>extract_lane_as_i32(bytes: u128, lane: usize) -&gt; i32 {
+    (bytes &gt;&gt; (lane * <span class="number">32</span>)) <span class="kw">as </span>i32
 }
 
-<span class="kw">fn</span> <span class="ident">extract_lane_as_i64</span>(<span class="ident">bytes</span>: <span class="ident">u128</span>, <span class="ident">lane</span>: <span class="ident">usize</span>) -&gt; <span class="ident">i64</span> {
-    (<span class="ident">bytes</span> <span class="op">&gt;</span><span class="op">&gt;</span> (<span class="ident">lane</span> <span class="op">*</span> <span class="number">64</span>)) <span class="kw">as</span> <span class="ident">i64</span>
+<span class="kw">fn </span>extract_lane_as_i64(bytes: u128, lane: usize) -&gt; i64 {
+    (bytes &gt;&gt; (lane * <span class="number">64</span>)) <span class="kw">as </span>i64
 }
 
-<span class="kw">fn</span> <span class="ident">f32_matches</span>(<span class="ident">actual</span>: <span class="ident">f32</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::NanPattern</span><span class="op">&lt;</span><span class="ident">wast::Float32</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast::NanPattern::CanonicalNan</span> =&gt; <span class="ident">actual</span>.<span class="ident">is_canonical_nan</span>(),
-        <span class="ident">wast::NanPattern::ArithmeticNan</span> =&gt; <span class="ident">actual</span>.<span class="ident">is_arithmetic_nan</span>(),
-        <span class="ident">wast::NanPattern::Value</span>(<span class="ident">expected_value</span>) =&gt; <span class="ident">actual</span>.<span class="ident">to_bits</span>() <span class="op">==</span> <span class="ident">expected_value</span>.<span class="ident">bits</span>,
+<span class="kw">fn </span>f32_matches(actual: f32, expected: <span class="kw-2">&amp;</span>wast::NanPattern&lt;wast::Float32&gt;) -&gt; bool {
+    <span class="kw">match </span>expected {
+        wast::NanPattern::CanonicalNan =&gt; actual.is_canonical_nan(),
+        wast::NanPattern::ArithmeticNan =&gt; actual.is_arithmetic_nan(),
+        wast::NanPattern::Value(expected_value) =&gt; actual.to_bits() == expected_value.bits,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">f64_matches</span>(<span class="ident">actual</span>: <span class="ident">f64</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::NanPattern</span><span class="op">&lt;</span><span class="ident">wast::Float64</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast::NanPattern::CanonicalNan</span> =&gt; <span class="ident">actual</span>.<span class="ident">is_canonical_nan</span>(),
-        <span class="ident">wast::NanPattern::ArithmeticNan</span> =&gt; <span class="ident">actual</span>.<span class="ident">is_arithmetic_nan</span>(),
-        <span class="ident">wast::NanPattern::Value</span>(<span class="ident">expected_value</span>) =&gt; <span class="ident">actual</span>.<span class="ident">to_bits</span>() <span class="op">==</span> <span class="ident">expected_value</span>.<span class="ident">bits</span>,
+<span class="kw">fn </span>f64_matches(actual: f64, expected: <span class="kw-2">&amp;</span>wast::NanPattern&lt;wast::Float64&gt;) -&gt; bool {
+    <span class="kw">match </span>expected {
+        wast::NanPattern::CanonicalNan =&gt; actual.is_canonical_nan(),
+        wast::NanPattern::ArithmeticNan =&gt; actual.is_arithmetic_nan(),
+        wast::NanPattern::Value(expected_value) =&gt; actual.to_bits() == expected_value.bits,
     }
 }
 
-<span class="kw">fn</span> <span class="ident">v128_matches</span>(<span class="ident">actual</span>: <span class="ident">u128</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::V128Pattern</span>) -&gt; <span class="ident">bool</span> {
-    <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast::V128Pattern::I8x16</span>(<span class="ident">b</span>) =&gt; <span class="ident">b</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">==</span> <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast::V128Pattern::I16x8</span>(<span class="ident">b</span>) =&gt; <span class="ident">b</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">==</span> <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast::V128Pattern::I32x4</span>(<span class="ident">b</span>) =&gt; <span class="ident">b</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">==</span> <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast::V128Pattern::I64x2</span>(<span class="ident">b</span>) =&gt; <span class="ident">b</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">b</span> <span class="op">==</span> <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="ident">i</span>)),
-        <span class="ident">wast::V128Pattern::F32x4</span>(<span class="ident">b</span>) =&gt; <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="ident">i</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-            <span class="ident">f32_matches</span>(<span class="ident">f32::from_bits</span>(<span class="ident">a</span>), <span class="ident">b</span>)
+<span class="kw">fn </span>v128_matches(actual: u128, expected: <span class="kw-2">&amp;</span>wast::V128Pattern) -&gt; bool {
+    <span class="kw">match </span>expected {
+        wast::V128Pattern::I8x16(b) =&gt; b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i8(actual, i)),
+        wast::V128Pattern::I16x8(b) =&gt; b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i16(actual, i)),
+        wast::V128Pattern::I32x4(b) =&gt; b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i32(actual, i)),
+        wast::V128Pattern::I64x2(b) =&gt; b
+            .iter()
+            .enumerate()
+            .all(|(i, b)| <span class="kw-2">*</span>b == extract_lane_as_i64(actual, i)),
+        wast::V128Pattern::F32x4(b) =&gt; b.iter().enumerate().all(|(i, b)| {
+            <span class="kw">let </span>a = extract_lane_as_i32(actual, i) <span class="kw">as </span>u32;
+            f32_matches(f32::from_bits(a), b)
         }),
-        <span class="ident">wast::V128Pattern::F64x2</span>(<span class="ident">b</span>) =&gt; <span class="ident">b</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">all</span>(<span class="op">|</span>(<span class="ident">i</span>, <span class="ident">b</span>)<span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="ident">i</span>) <span class="kw">as</span> <span class="ident">u64</span>;
-            <span class="ident">f64_matches</span>(<span class="ident">f64::from_bits</span>(<span class="ident">a</span>), <span class="ident">b</span>)
+        wast::V128Pattern::F64x2(b) =&gt; b.iter().enumerate().all(|(i, b)| {
+            <span class="kw">let </span>a = extract_lane_as_i64(actual, i) <span class="kw">as </span>u64;
+            f64_matches(f64::from_bits(a), b)
         }),
     }
 }
 
-<span class="kw">fn</span> <span class="ident">v128_format</span>(<span class="ident">actual</span>: <span class="ident">u128</span>, <span class="ident">expected</span>: <span class="kw-2">&amp;</span><span class="ident">wast::V128Pattern</span>) -&gt; <span class="ident">wast::V128Pattern</span> {
-    <span class="kw">match</span> <span class="ident">expected</span> {
-        <span class="ident">wast::V128Pattern::I8x16</span>(<span class="kw">_</span>) =&gt; <span class="ident">wast::V128Pattern::I8x16</span>([
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">0</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">1</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">2</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">3</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">4</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">5</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">6</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">7</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">8</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">9</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">10</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">11</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">12</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">13</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">14</span>),
-            <span class="ident">extract_lane_as_i8</span>(<span class="ident">actual</span>, <span class="number">15</span>),
+<span class="kw">fn </span>v128_format(actual: u128, expected: <span class="kw-2">&amp;</span>wast::V128Pattern) -&gt; wast::V128Pattern {
+    <span class="kw">match </span>expected {
+        wast::V128Pattern::I8x16(<span class="kw">_</span>) =&gt; wast::V128Pattern::I8x16([
+            extract_lane_as_i8(actual, <span class="number">0</span>),
+            extract_lane_as_i8(actual, <span class="number">1</span>),
+            extract_lane_as_i8(actual, <span class="number">2</span>),
+            extract_lane_as_i8(actual, <span class="number">3</span>),
+            extract_lane_as_i8(actual, <span class="number">4</span>),
+            extract_lane_as_i8(actual, <span class="number">5</span>),
+            extract_lane_as_i8(actual, <span class="number">6</span>),
+            extract_lane_as_i8(actual, <span class="number">7</span>),
+            extract_lane_as_i8(actual, <span class="number">8</span>),
+            extract_lane_as_i8(actual, <span class="number">9</span>),
+            extract_lane_as_i8(actual, <span class="number">10</span>),
+            extract_lane_as_i8(actual, <span class="number">11</span>),
+            extract_lane_as_i8(actual, <span class="number">12</span>),
+            extract_lane_as_i8(actual, <span class="number">13</span>),
+            extract_lane_as_i8(actual, <span class="number">14</span>),
+            extract_lane_as_i8(actual, <span class="number">15</span>),
         ]),
-        <span class="ident">wast::V128Pattern::I16x8</span>(<span class="kw">_</span>) =&gt; <span class="ident">wast::V128Pattern::I16x8</span>([
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">0</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">1</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">2</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">3</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">4</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">5</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">6</span>),
-            <span class="ident">extract_lane_as_i16</span>(<span class="ident">actual</span>, <span class="number">7</span>),
+        wast::V128Pattern::I16x8(<span class="kw">_</span>) =&gt; wast::V128Pattern::I16x8([
+            extract_lane_as_i16(actual, <span class="number">0</span>),
+            extract_lane_as_i16(actual, <span class="number">1</span>),
+            extract_lane_as_i16(actual, <span class="number">2</span>),
+            extract_lane_as_i16(actual, <span class="number">3</span>),
+            extract_lane_as_i16(actual, <span class="number">4</span>),
+            extract_lane_as_i16(actual, <span class="number">5</span>),
+            extract_lane_as_i16(actual, <span class="number">6</span>),
+            extract_lane_as_i16(actual, <span class="number">7</span>),
         ]),
-        <span class="ident">wast::V128Pattern::I32x4</span>(<span class="kw">_</span>) =&gt; <span class="ident">wast::V128Pattern::I32x4</span>([
-            <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">0</span>),
-            <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">1</span>),
-            <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">2</span>),
-            <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">3</span>),
+        wast::V128Pattern::I32x4(<span class="kw">_</span>) =&gt; wast::V128Pattern::I32x4([
+            extract_lane_as_i32(actual, <span class="number">0</span>),
+            extract_lane_as_i32(actual, <span class="number">1</span>),
+            extract_lane_as_i32(actual, <span class="number">2</span>),
+            extract_lane_as_i32(actual, <span class="number">3</span>),
         ]),
-        <span class="ident">wast::V128Pattern::I64x2</span>(<span class="kw">_</span>) =&gt; <span class="ident">wast::V128Pattern::I64x2</span>([
-            <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">0</span>),
-            <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">1</span>),
+        wast::V128Pattern::I64x2(<span class="kw">_</span>) =&gt; wast::V128Pattern::I64x2([
+            extract_lane_as_i64(actual, <span class="number">0</span>),
+            extract_lane_as_i64(actual, <span class="number">1</span>),
         ]),
-        <span class="ident">wast::V128Pattern::F32x4</span>(<span class="kw">_</span>) =&gt; <span class="ident">wast::V128Pattern::F32x4</span>([
-            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
-                <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">0</span>) <span class="kw">as</span> <span class="kw">_</span>,
+        wast::V128Pattern::F32x4(<span class="kw">_</span>) =&gt; wast::V128Pattern::F32x4([
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, <span class="number">0</span>) <span class="kw">as _</span>,
             }),
-            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
-                <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">1</span>) <span class="kw">as</span> <span class="kw">_</span>,
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, <span class="number">1</span>) <span class="kw">as _</span>,
             }),
-            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
-                <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">2</span>) <span class="kw">as</span> <span class="kw">_</span>,
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, <span class="number">2</span>) <span class="kw">as _</span>,
             }),
-            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float32</span> {
-                <span class="ident">bits</span>: <span class="ident">extract_lane_as_i32</span>(<span class="ident">actual</span>, <span class="number">3</span>) <span class="kw">as</span> <span class="kw">_</span>,
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, <span class="number">3</span>) <span class="kw">as _</span>,
             }),
         ]),
-        <span class="ident">wast::V128Pattern::F64x2</span>(<span class="kw">_</span>) =&gt; <span class="ident">wast::V128Pattern::F64x2</span>([
-            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float64</span> {
-                <span class="ident">bits</span>: <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">0</span>) <span class="kw">as</span> <span class="kw">_</span>,
+        wast::V128Pattern::F64x2(<span class="kw">_</span>) =&gt; wast::V128Pattern::F64x2([
+            wast::NanPattern::Value(wast::Float64 {
+                bits: extract_lane_as_i64(actual, <span class="number">0</span>) <span class="kw">as _</span>,
             }),
-            <span class="ident">wast::NanPattern::Value</span>(<span class="ident">wast::Float64</span> {
-                <span class="ident">bits</span>: <span class="ident">extract_lane_as_i64</span>(<span class="ident">actual</span>, <span class="number">1</span>) <span class="kw">as</span> <span class="kw">_</span>,
+            wast::NanPattern::Value(wast::Float64 {
+                bits: extract_lane_as_i64(actual, <span class="number">1</span>) <span class="kw">as _</span>,
             }),
         ]),
     }
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">NaNCheck</span> {
-    <span class="kw">fn</span> <span class="ident">is_arithmetic_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span>;
-    <span class="kw">fn</span> <span class="ident">is_canonical_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span>;
+<span class="kw">pub trait </span>NaNCheck {
+    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
+    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 }
 
-<span class="kw">impl</span> <span class="ident">NaNCheck</span> <span class="kw">for</span> <span class="ident">f32</span> {
-    <span class="kw">fn</span> <span class="ident">is_arithmetic_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">const</span> <span class="ident">AF32_NAN</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0x0040_0000</span>;
-        (<span class="self">self</span>.<span class="ident">to_bits</span>() <span class="op">&amp;</span> <span class="ident">AF32_NAN</span>) <span class="op">==</span> <span class="ident">AF32_NAN</span>
+<span class="kw">impl </span>NaNCheck <span class="kw">for </span>f32 {
+    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">const </span>AF32_NAN: u32 = <span class="number">0x0040_0000</span>;
+        (<span class="self">self</span>.to_bits() &amp; AF32_NAN) == AF32_NAN
     }
 
-    <span class="kw">fn</span> <span class="ident">is_canonical_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        (<span class="self">self</span>.<span class="ident">to_bits</span>() <span class="op">&amp;</span> <span class="number">0x7fff_ffff</span>) <span class="op">==</span> <span class="number">0x7fc0_0000</span>
-    }
+    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        (<span class="self">self</span>.to_bits() &amp; <span class="number">0x7fff_ffff</span>) == <span class="number">0x7fc0_0000
+    </span>}
 }
 
-<span class="kw">impl</span> <span class="ident">NaNCheck</span> <span class="kw">for</span> <span class="ident">f64</span> {
-    <span class="kw">fn</span> <span class="ident">is_arithmetic_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">const</span> <span class="ident">AF64_NAN</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x0008_0000_0000_0000</span>;
-        (<span class="self">self</span>.<span class="ident">to_bits</span>() <span class="op">&amp;</span> <span class="ident">AF64_NAN</span>) <span class="op">==</span> <span class="ident">AF64_NAN</span>
+<span class="kw">impl </span>NaNCheck <span class="kw">for </span>f64 {
+    <span class="kw">fn </span>is_arithmetic_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">const </span>AF64_NAN: u64 = <span class="number">0x0008_0000_0000_0000</span>;
+        (<span class="self">self</span>.to_bits() &amp; AF64_NAN) == AF64_NAN
     }
 
-    <span class="kw">fn</span> <span class="ident">is_canonical_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        (<span class="self">self</span>.<span class="ident">to_bits</span>() <span class="op">&amp;</span> <span class="number">0x7fff_ffff_ffff_ffff</span>) <span class="op">==</span> <span class="number">0x7ff8_0000_0000_0000</span>
-    }
+    <span class="kw">fn </span>is_canonical_nan(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        (<span class="self">self</span>.to_bits() &amp; <span class="number">0x7fff_ffff_ffff_ffff</span>) == <span class="number">0x7ff8_0000_0000_0000
+    </span>}
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

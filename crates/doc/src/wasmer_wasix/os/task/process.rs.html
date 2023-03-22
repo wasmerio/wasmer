@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/task/process.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>process.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/task/process.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>process.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -395,400 +395,400 @@
 <span id="393">393</span>
 <span id="394">394</span>
 <span id="395">395</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">convert::TryInto</span>,
-    <span class="ident">sync</span>::{
-        <span class="ident">atomic</span>::{<span class="ident">AtomicU32</span>, <span class="ident">Ordering</span>},
-        <span class="ident">Arc</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockReadGuard</span>, <span class="ident">RwLockWriteGuard</span>, <span class="ident">Weak</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    convert::TryInto,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak,
     },
-    <span class="ident">time::Duration</span>,
+    time::Duration,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::WasiRuntimeError</span>;
-<span class="kw">use</span> <span class="ident">tracing::trace</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types</span>::{
-    <span class="ident">types::Signal</span>,
-    <span class="ident">wasi</span>::{<span class="ident">Errno</span>, <span class="ident">ExitCode</span>, <span class="ident">Snapshot0Clockid</span>, <span class="ident">TlKey</span>, <span class="ident">TlUser</span>, <span class="ident">TlVal</span>},
+<span class="kw">use </span><span class="kw">crate</span>::WasiRuntimeError;
+<span class="kw">use </span>tracing::trace;
+<span class="kw">use </span>wasmer_wasix_types::{
+    types::Signal,
+    wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal},
 };
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">os::task::signal::WasiSignalInterval</span>, <span class="ident">syscalls::platform_clock_time_get</span>, <span class="ident">WasiThread</span>,
-    <span class="ident">WasiThreadHandle</span>, <span class="ident">WasiThreadId</span>,
+<span class="kw">use crate</span>::{
+    os::task::signal::WasiSignalInterval, syscalls::platform_clock_time_get, WasiThread,
+    WasiThreadHandle, WasiThreadId,
 };
 
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">control_plane</span>::{<span class="ident">ControlPlaneError</span>, <span class="ident">WasiControlPlaneHandle</span>},
-    <span class="ident">signal</span>::{<span class="ident">SignalDeliveryError</span>, <span class="ident">SignalHandlerAbi</span>},
-    <span class="ident">task_join_handle::OwnedTaskStatus</span>,
+<span class="kw">use super</span>::{
+    control_plane::{ControlPlaneError, WasiControlPlaneHandle},
+    signal::{SignalDeliveryError, SignalHandlerAbi},
+    task_join_handle::OwnedTaskStatus,
 };
 
-<span class="doccomment">/// Represents the ID of a sub-process</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiProcessId</span>(<span class="ident">u32</span>);
+<span class="doccomment">/// Represents the ID of a sub-process
+</span><span class="attribute">#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+</span><span class="kw">pub struct </span>WasiProcessId(u32);
 
-<span class="kw">impl</span> <span class="ident">WasiProcessId</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="number">0</span>
+<span class="kw">impl </span>WasiProcessId {
+    <span class="kw">pub fn </span>raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
+}
+
+<span class="kw">impl </span>From&lt;i32&gt; <span class="kw">for </span>WasiProcessId {
+    <span class="kw">fn </span>from(id: i32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(id <span class="kw">as </span>u32)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WasiProcessId</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">id</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">id</span> <span class="kw">as</span> <span class="ident">u32</span>)
+<span class="kw">impl </span>From&lt;WasiProcessId&gt; <span class="kw">for </span>i32 {
+    <span class="kw">fn </span>from(val: WasiProcessId) -&gt; <span class="self">Self </span>{
+        val.<span class="number">0 </span><span class="kw">as </span>i32
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WasiProcessId</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">i32</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">WasiProcessId</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">val</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>
+<span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>WasiProcessId {
+    <span class="kw">fn </span>from(id: u32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(id)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">WasiProcessId</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">id</span>: <span class="ident">u32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">id</span>)
+<span class="kw">impl </span>From&lt;WasiProcessId&gt; <span class="kw">for </span>u32 {
+    <span class="kw">fn </span>from(val: WasiProcessId) -&gt; <span class="self">Self </span>{
+        val.<span class="number">0 </span><span class="kw">as </span>u32
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WasiProcessId</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">u32</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">WasiProcessId</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">val</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>WasiProcessId {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::fmt::Display</span> <span class="kw">for</span> <span class="ident">WasiProcessId</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>WasiProcessId {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">WasiProcessId</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
-    }
+<span class="doccomment">/// Represents a process running within the compute state
+</span><span class="comment">// TODO: fields should be private and only accessed via methods.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>WasiProcess {
+    <span class="doccomment">/// Unique ID of this process
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) pid: WasiProcessId,
+    <span class="doccomment">/// List of all the children spawned from this thread
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) parent: <span class="prelude-ty">Option</span>&lt;Weak&lt;RwLock&lt;WasiProcessInner&gt;&gt;&gt;,
+    <span class="doccomment">/// The inner protected region of the process
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) inner: Arc&lt;RwLock&lt;WasiProcessInner&gt;&gt;,
+    <span class="doccomment">/// Reference back to the compute engine
+    </span><span class="comment">// TODO: remove this reference, access should happen via separate state instead
+    // (we don&#39;t want cyclical references)
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) compute: WasiControlPlaneHandle,
+    <span class="doccomment">/// Reference to the exit code for the main thread
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) finished: Arc&lt;OwnedTaskStatus&gt;,
+    <span class="doccomment">/// Number of threads waiting for children to exit
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) waiting: Arc&lt;AtomicU32&gt;,
 }
 
-<span class="doccomment">/// Represents a process running within the compute state</span>
-<span class="comment">// TODO: fields should be private and only accessed via methods.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiProcess</span> {
-    <span class="doccomment">/// Unique ID of this process</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">pid</span>: <span class="ident">WasiProcessId</span>,
-    <span class="doccomment">/// List of all the children spawned from this thread</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">parent</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Weak</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">WasiProcessInner</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The inner protected region of the process</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">WasiProcessInner</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Reference back to the compute engine</span>
-    <span class="comment">// TODO: remove this reference, access should happen via separate state instead</span>
-    <span class="comment">// (we don&#39;t want cyclical references)</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">compute</span>: <span class="ident">WasiControlPlaneHandle</span>,
-    <span class="doccomment">/// Reference to the exit code for the main thread</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">finished</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">OwnedTaskStatus</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Number of threads waiting for children to exit</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">waiting</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicU32</span><span class="op">&gt;</span>,
+<span class="comment">// TODO: fields should be private and only accessed via methods.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>WasiProcessInner {
+    <span class="doccomment">/// Unique ID of this process
+    </span><span class="kw">pub </span>pid: WasiProcessId,
+    <span class="doccomment">/// The threads that make up this process
+    </span><span class="kw">pub </span>threads: HashMap&lt;WasiThreadId, WasiThread&gt;,
+    <span class="doccomment">/// Number of threads running for this process
+    </span><span class="kw">pub </span>thread_count: u32,
+    <span class="doccomment">/// All the thread local variables
+    </span><span class="kw">pub </span>thread_local: HashMap&lt;(WasiThreadId, TlKey), TlVal&gt;,
+    <span class="doccomment">/// User data associated with thread local data
+    </span><span class="kw">pub </span>thread_local_user_data: HashMap&lt;TlKey, TlUser&gt;,
+    <span class="doccomment">/// Seed used to generate thread local keys
+    </span><span class="kw">pub </span>thread_local_seed: TlKey,
+    <span class="doccomment">/// Signals that will be triggered at specific intervals
+    </span><span class="kw">pub </span>signal_intervals: HashMap&lt;Signal, WasiSignalInterval&gt;,
+    <span class="doccomment">/// List of all the children spawned from this thread
+    </span><span class="kw">pub </span>children: Vec&lt;WasiProcess&gt;,
 }
 
-<span class="comment">// TODO: fields should be private and only accessed via methods.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiProcessInner</span> {
-    <span class="doccomment">/// Unique ID of this process</span>
-    <span class="kw">pub</span> <span class="ident">pid</span>: <span class="ident">WasiProcessId</span>,
-    <span class="doccomment">/// The threads that make up this process</span>
-    <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">WasiThreadId</span>, <span class="ident">WasiThread</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Number of threads running for this process</span>
-    <span class="kw">pub</span> <span class="ident">thread_count</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// All the thread local variables</span>
-    <span class="kw">pub</span> <span class="ident">thread_local</span>: <span class="ident">HashMap</span><span class="op">&lt;</span>(<span class="ident">WasiThreadId</span>, <span class="ident">TlKey</span>), <span class="ident">TlVal</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// User data associated with thread local data</span>
-    <span class="kw">pub</span> <span class="ident">thread_local_user_data</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">TlKey</span>, <span class="ident">TlUser</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Seed used to generate thread local keys</span>
-    <span class="kw">pub</span> <span class="ident">thread_local_seed</span>: <span class="ident">TlKey</span>,
-    <span class="doccomment">/// Signals that will be triggered at specific intervals</span>
-    <span class="kw">pub</span> <span class="ident">signal_intervals</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Signal</span>, <span class="ident">WasiSignalInterval</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// List of all the children spawned from this thread</span>
-    <span class="kw">pub</span> <span class="ident">children</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">WasiProcess</span><span class="op">&gt;</span>,
+<span class="comment">// TODO: why do we need this, how is it used?
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiProcessWait {
+    waiting: Arc&lt;AtomicU32&gt;,
 }
 
-<span class="comment">// TODO: why do we need this, how is it used?</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WasiProcessWait</span> {
-    <span class="ident">waiting</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicU32</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">WasiProcessWait</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">process</span>: <span class="kw-2">&amp;</span><span class="ident">WasiProcess</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">process</span>.<span class="ident">waiting</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">Ordering::AcqRel</span>);
-        <span class="self">Self</span> {
-            <span class="ident">waiting</span>: <span class="ident">process</span>.<span class="ident">waiting</span>.<span class="ident">clone</span>(),
+<span class="kw">impl </span>WasiProcessWait {
+    <span class="kw">pub fn </span>new(process: <span class="kw-2">&amp;</span>WasiProcess) -&gt; <span class="self">Self </span>{
+        process.waiting.fetch_add(<span class="number">1</span>, Ordering::AcqRel);
+        <span class="self">Self </span>{
+            waiting: process.waiting.clone(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">WasiProcessWait</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">waiting</span>.<span class="ident">fetch_sub</span>(<span class="number">1</span>, <span class="ident">Ordering::AcqRel</span>);
+<span class="kw">impl </span>Drop <span class="kw">for </span>WasiProcessWait {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.waiting.fetch_sub(<span class="number">1</span>, Ordering::AcqRel);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">WasiProcess</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">pid</span>: <span class="ident">WasiProcessId</span>, <span class="ident">plane</span>: <span class="ident">WasiControlPlaneHandle</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">WasiProcess</span> {
-            <span class="ident">pid</span>,
-            <span class="ident">parent</span>: <span class="prelude-val">None</span>,
-            <span class="ident">compute</span>: <span class="ident">plane</span>,
-            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">WasiProcessInner</span> {
-                <span class="ident">pid</span>,
-                <span class="ident">threads</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">thread_count</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">thread_local</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">thread_local_user_data</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">thread_local_seed</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">signal_intervals</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">children</span>: <span class="ident">Default::default</span>(),
+<span class="kw">impl </span>WasiProcess {
+    <span class="kw">pub fn </span>new(pid: WasiProcessId, plane: WasiControlPlaneHandle) -&gt; <span class="self">Self </span>{
+        WasiProcess {
+            pid,
+            parent: <span class="prelude-val">None</span>,
+            compute: plane,
+            inner: Arc::new(RwLock::new(WasiProcessInner {
+                pid,
+                threads: Default::default(),
+                thread_count: Default::default(),
+                thread_local: Default::default(),
+                thread_local_user_data: Default::default(),
+                thread_local_seed: Default::default(),
+                signal_intervals: Default::default(),
+                children: Default::default(),
             })),
-            <span class="ident">finished</span>: <span class="ident">Arc::new</span>(<span class="ident">OwnedTaskStatus::default</span>()),
-            <span class="ident">waiting</span>: <span class="ident">Arc::new</span>(<span class="ident">AtomicU32::new</span>(<span class="number">0</span>)),
+            finished: Arc::new(OwnedTaskStatus::default()),
+            waiting: Arc::new(AtomicU32::new(<span class="number">0</span>)),
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">set_pid</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">pid</span>: <span class="ident">WasiProcessId</span>) {
-        <span class="self">self</span>.<span class="ident">pid</span> <span class="op">=</span> <span class="ident">pid</span>;
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>set_pid(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pid: WasiProcessId) {
+        <span class="self">self</span>.pid = pid;
     }
 
-    <span class="doccomment">/// Gets the process ID of this process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pid</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiProcessId</span> {
-        <span class="self">self</span>.<span class="ident">pid</span>
+    <span class="doccomment">/// Gets the process ID of this process
+    </span><span class="kw">pub fn </span>pid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiProcessId {
+        <span class="self">self</span>.pid
     }
 
-    <span class="doccomment">/// Gets the process ID of the parent process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ppid</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiProcessId</span> {
-        <span class="self">self</span>.<span class="ident">parent</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="ident">parent</span>.<span class="ident">upgrade</span>())
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="ident">parent</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>().<span class="ident">pid</span>)
-            .<span class="ident">next</span>()
-            .<span class="ident">unwrap_or</span>(<span class="ident">WasiProcessId</span>(<span class="number">0</span>))
+    <span class="doccomment">/// Gets the process ID of the parent process
+    </span><span class="kw">pub fn </span>ppid(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiProcessId {
+        <span class="self">self</span>.parent
+            .iter()
+            .filter_map(|parent| parent.upgrade())
+            .map(|parent| parent.read().unwrap().pid)
+            .next()
+            .unwrap_or(WasiProcessId(<span class="number">0</span>))
     }
 
-    <span class="doccomment">/// Gains write access to the process internals</span>
-    <span class="comment">// TODO: Make this private, all inner access should be exposed with methods.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">RwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">WasiProcessInner</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>()
+    <span class="doccomment">/// Gains write access to the process internals
+    </span><span class="comment">// TODO: Make this private, all inner access should be exposed with methods.
+    </span><span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RwLockWriteGuard&lt;WasiProcessInner&gt; {
+        <span class="self">self</span>.inner.write().unwrap()
     }
 
-    <span class="doccomment">/// Gains read access to the process internals</span>
-    <span class="comment">// TODO: Make this private, all inner access should be exposed with methods.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">RwLockReadGuard</span><span class="op">&lt;</span><span class="ident">WasiProcessInner</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()
+    <span class="doccomment">/// Gains read access to the process internals
+    </span><span class="comment">// TODO: Make this private, all inner access should be exposed with methods.
+    </span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RwLockReadGuard&lt;WasiProcessInner&gt; {
+        <span class="self">self</span>.inner.read().unwrap()
     }
 
-    <span class="doccomment">/// Creates a a thread and returns it</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_thread</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiThreadHandle</span>, <span class="ident">ControlPlaneError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">control_plane</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">compute</span>.<span class="ident">must_upgrade</span>();
-        <span class="kw">let</span> <span class="ident">task_count_guard</span> <span class="op">=</span> <span class="ident">control_plane</span>.<span class="ident">register_task</span>()<span class="question-mark">?</span>;
+    <span class="doccomment">/// Creates a a thread and returns it
+    </span><span class="kw">pub fn </span>new_thread(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiThreadHandle, ControlPlaneError&gt; {
+        <span class="kw">let </span>control_plane = <span class="self">self</span>.compute.must_upgrade();
+        <span class="kw">let </span>task_count_guard = control_plane.register_task()<span class="question-mark">?</span>;
 
-        <span class="comment">// Determine if its the main thread or not</span>
-        <span class="kw">let</span> <span class="ident">is_main</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="ident">inner</span>.<span class="ident">thread_count</span> <span class="op">==</span> <span class="number">0</span>
+        <span class="comment">// Determine if its the main thread or not
+        </span><span class="kw">let </span>is_main = {
+            <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+            inner.thread_count == <span class="number">0
+        </span>};
+
+        <span class="comment">// Generate a new process ID (this is because the process ID and thread ID
+        // address space must not overlap in libc). For the main proecess the TID=PID
+        </span><span class="kw">let </span>tid: WasiThreadId = <span class="kw">if </span>is_main {
+            <span class="self">self</span>.pid().raw().into()
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>tid: u32 = control_plane.generate_id()<span class="question-mark">?</span>.into();
+            tid.into()
         };
 
-        <span class="comment">// Generate a new process ID (this is because the process ID and thread ID</span>
-        <span class="comment">// address space must not overlap in libc). For the main proecess the TID=PID</span>
-        <span class="kw">let</span> <span class="ident">tid</span>: <span class="ident">WasiThreadId</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_main</span> {
-            <span class="self">self</span>.<span class="ident">pid</span>().<span class="ident">raw</span>().<span class="ident">into</span>()
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">tid</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">control_plane</span>.<span class="ident">generate_id</span>()<span class="question-mark">?</span>.<span class="ident">into</span>();
-            <span class="ident">tid</span>.<span class="ident">into</span>()
+        <span class="comment">// The wait finished should be the process version if its the main thread
+        </span><span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().unwrap();
+        <span class="kw">let </span>finished = <span class="kw">if </span>is_main {
+            <span class="self">self</span>.finished.clone()
+        } <span class="kw">else </span>{
+            Arc::new(OwnedTaskStatus::default())
         };
 
-        <span class="comment">// The wait finished should be the process version if its the main thread</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">finished</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_main</span> {
-            <span class="self">self</span>.<span class="ident">finished</span>.<span class="ident">clone</span>()
-        } <span class="kw">else</span> {
-            <span class="ident">Arc::new</span>(<span class="ident">OwnedTaskStatus::default</span>())
-        };
+        <span class="comment">// Insert the thread into the pool
+        </span><span class="kw">let </span>ctrl = WasiThread::new(<span class="self">self</span>.pid(), tid, is_main, finished, task_count_guard);
+        inner.threads.insert(tid, ctrl.clone());
+        inner.thread_count += <span class="number">1</span>;
 
-        <span class="comment">// Insert the thread into the pool</span>
-        <span class="kw">let</span> <span class="ident">ctrl</span> <span class="op">=</span> <span class="ident">WasiThread::new</span>(<span class="self">self</span>.<span class="ident">pid</span>(), <span class="ident">tid</span>, <span class="ident">is_main</span>, <span class="ident">finished</span>, <span class="ident">task_count_guard</span>);
-        <span class="ident">inner</span>.<span class="ident">threads</span>.<span class="ident">insert</span>(<span class="ident">tid</span>, <span class="ident">ctrl</span>.<span class="ident">clone</span>());
-        <span class="ident">inner</span>.<span class="ident">thread_count</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-
-        <span class="prelude-val">Ok</span>(<span class="ident">WasiThreadHandle::new</span>(<span class="ident">ctrl</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>))
+        <span class="prelude-val">Ok</span>(WasiThreadHandle::new(ctrl, <span class="kw-2">&amp;</span><span class="self">self</span>.inner))
     }
 
-    <span class="doccomment">/// Gets a reference to a particular thread</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_thread</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tid</span>: <span class="kw-2">&amp;</span><span class="ident">WasiThreadId</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiThread</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">threads</span>.<span class="ident">get</span>(<span class="ident">tid</span>).<span class="ident">cloned</span>()
+    <span class="doccomment">/// Gets a reference to a particular thread
+    </span><span class="kw">pub fn </span>get_thread(<span class="kw-2">&amp;</span><span class="self">self</span>, tid: <span class="kw-2">&amp;</span>WasiThreadId) -&gt; <span class="prelude-ty">Option</span>&lt;WasiThread&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+        inner.threads.get(tid).cloned()
     }
 
-    <span class="doccomment">/// Signals a particular thread in the process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signal_thread</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tid</span>: <span class="kw-2">&amp;</span><span class="ident">WasiThreadId</span>, <span class="ident">signal</span>: <span class="ident">Signal</span>) {
-        <span class="comment">// Sometimes we will signal the process rather than the thread hence this libc hardcoded value</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tid</span> <span class="op">=</span> <span class="ident">tid</span>.<span class="ident">raw</span>();
-        <span class="kw">if</span> <span class="ident">tid</span> <span class="op">==</span> <span class="number">1073741823</span> {
-            <span class="ident">tid</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pid</span>().<span class="ident">raw</span>();
+    <span class="doccomment">/// Signals a particular thread in the process
+    </span><span class="kw">pub fn </span>signal_thread(<span class="kw-2">&amp;</span><span class="self">self</span>, tid: <span class="kw-2">&amp;</span>WasiThreadId, signal: Signal) {
+        <span class="comment">// Sometimes we will signal the process rather than the thread hence this libc hardcoded value
+        </span><span class="kw">let </span><span class="kw-2">mut </span>tid = tid.raw();
+        <span class="kw">if </span>tid == <span class="number">1073741823 </span>{
+            tid = <span class="self">self</span>.pid().raw();
         }
-        <span class="kw">let</span> <span class="ident">tid</span>: <span class="ident">WasiThreadId</span> <span class="op">=</span> <span class="ident">tid</span>.<span class="ident">into</span>();
+        <span class="kw">let </span>tid: WasiThreadId = tid.into();
 
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">thread</span>) <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">threads</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">tid</span>) {
-            <span class="ident">thread</span>.<span class="ident">signal</span>(<span class="ident">signal</span>);
-        } <span class="kw">else</span> {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(thread) = inner.threads.get(<span class="kw-2">&amp;</span>tid) {
+            thread.signal(signal);
+        } <span class="kw">else </span>{
             <span class="macro">trace!</span>(
                 <span class="string">&quot;wasi[{}]::lost-signal(tid={}, sig={:?})&quot;</span>,
-                <span class="self">self</span>.<span class="ident">pid</span>(),
-                <span class="ident">tid</span>,
-                <span class="ident">signal</span>
+                <span class="self">self</span>.pid(),
+                tid,
+                signal
             );
         }
     }
 
-    <span class="doccomment">/// Signals all the threads in this process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signal_process</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">signal</span>: <span class="ident">Signal</span>) {
+    <span class="doccomment">/// Signals all the threads in this process
+    </span><span class="kw">pub fn </span>signal_process(<span class="kw-2">&amp;</span><span class="self">self</span>, signal: Signal) {
         {
-            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">waiting</span>.<span class="ident">load</span>(<span class="ident">Ordering::Acquire</span>) <span class="op">&gt;</span> <span class="number">0</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">triggered</span> <span class="op">=</span> <span class="bool-val">false</span>;
-                <span class="kw">for</span> <span class="ident">child</span> <span class="kw">in</span> <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">iter</span>() {
-                    <span class="ident">child</span>.<span class="ident">signal_process</span>(<span class="ident">signal</span>);
-                    <span class="ident">triggered</span> <span class="op">=</span> <span class="bool-val">true</span>;
+            <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+            <span class="kw">if </span><span class="self">self</span>.waiting.load(Ordering::Acquire) &gt; <span class="number">0 </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>triggered = <span class="bool-val">false</span>;
+                <span class="kw">for </span>child <span class="kw">in </span>inner.children.iter() {
+                    child.signal_process(signal);
+                    triggered = <span class="bool-val">true</span>;
                 }
-                <span class="kw">if</span> <span class="ident">triggered</span> {
+                <span class="kw">if </span>triggered {
                     <span class="kw">return</span>;
                 }
             }
         }
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="kw">for</span> <span class="ident">thread</span> <span class="kw">in</span> <span class="ident">inner</span>.<span class="ident">threads</span>.<span class="ident">values</span>() {
-            <span class="ident">thread</span>.<span class="ident">signal</span>(<span class="ident">signal</span>);
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+        <span class="kw">for </span>thread <span class="kw">in </span>inner.threads.values() {
+            thread.signal(signal);
         }
     }
 
-    <span class="doccomment">/// Signals one of the threads every interval</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signal_interval</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">signal</span>: <span class="ident">Signal</span>, <span class="ident">interval</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>, <span class="ident">repeat</span>: <span class="ident">bool</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+    <span class="doccomment">/// Signals one of the threads every interval
+    </span><span class="kw">pub fn </span>signal_interval(<span class="kw-2">&amp;</span><span class="self">self</span>, signal: Signal, interval: <span class="prelude-ty">Option</span>&lt;Duration&gt;, repeat: bool) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().unwrap();
 
-        <span class="kw">let</span> <span class="ident">interval</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">interval</span> {
-            <span class="prelude-val">None</span> =&gt; {
-                <span class="ident">inner</span>.<span class="ident">signal_intervals</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">signal</span>);
+        <span class="kw">let </span>interval = <span class="kw">match </span>interval {
+            <span class="prelude-val">None </span>=&gt; {
+                inner.signal_intervals.remove(<span class="kw-2">&amp;</span>signal);
                 <span class="kw">return</span>;
             }
-            <span class="prelude-val">Some</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
+            <span class="prelude-val">Some</span>(a) =&gt; a,
         };
 
-        <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">Snapshot0Clockid::Monotonic</span>, <span class="number">1_000_000</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
-        <span class="ident">inner</span>.<span class="ident">signal_intervals</span>.<span class="ident">insert</span>(
-            <span class="ident">signal</span>,
-            <span class="ident">WasiSignalInterval</span> {
-                <span class="ident">signal</span>,
-                <span class="ident">interval</span>,
-                <span class="ident">last_signal</span>: <span class="ident">now</span>,
-                <span class="ident">repeat</span>,
+        <span class="kw">let </span>now = platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>).unwrap() <span class="kw">as </span>u128;
+        inner.signal_intervals.insert(
+            signal,
+            WasiSignalInterval {
+                signal,
+                interval,
+                last_signal: now,
+                repeat,
             },
         );
     }
 
-    <span class="doccomment">/// Returns the number of active threads for this process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">active_threads</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="ident">inner</span>.<span class="ident">thread_count</span>
+    <span class="doccomment">/// Returns the number of active threads for this process
+    </span><span class="kw">pub fn </span>active_threads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+        inner.thread_count
     }
 
-    <span class="doccomment">/// Waits until the process is finished.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">WasiProcessWait::new</span>(<span class="self">self</span>);
-        <span class="self">self</span>.<span class="ident">finished</span>.<span class="ident">await_termination</span>().<span class="kw">await</span>
+    <span class="doccomment">/// Waits until the process is finished.
+    </span><span class="kw">pub async fn </span>join(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt; {
+        <span class="kw">let </span>_guard = WasiProcessWait::new(<span class="self">self</span>);
+        <span class="self">self</span>.finished.await_termination().<span class="kw">await
+    </span>}
+
+    <span class="doccomment">/// Attempts to join on the process
+    </span><span class="kw">pub fn </span>try_join(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt;&gt; {
+        <span class="self">self</span>.finished.status().into_finished()
     }
 
-    <span class="doccomment">/// Attempts to join on the process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">finished</span>.<span class="ident">status</span>().<span class="ident">into_finished</span>()
-    }
-
-    <span class="doccomment">/// Waits for all the children to be finished</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">join_children</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">WasiProcessWait::new</span>(<span class="self">self</span>);
-        <span class="kw">let</span> <span class="ident">children</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// Waits for all the children to be finished
+    </span><span class="kw">pub async fn </span>join_children(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;ExitCode, Arc&lt;WasiRuntimeError&gt;&gt;&gt; {
+        <span class="kw">let </span>_guard = WasiProcessWait::new(<span class="self">self</span>);
+        <span class="kw">let </span>children: Vec&lt;<span class="kw">_</span>&gt; = {
+            <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+            inner.children.clone()
         };
-        <span class="kw">if</span> <span class="ident">children</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        <span class="kw">if </span>children.is_empty() {
+            <span class="kw">return </span><span class="prelude-val">None</span>;
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">waits</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> <span class="ident">child</span> <span class="kw">in</span> <span class="ident">children</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">process</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">compute</span>.<span class="ident">must_upgrade</span>().<span class="ident">get_process</span>(<span class="ident">child</span>.<span class="ident">pid</span>) {
-                <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
-                <span class="ident">waits</span>.<span class="ident">push</span>(<span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">let</span> <span class="ident">join</span> <span class="op">=</span> <span class="ident">process</span>.<span class="ident">join</span>().<span class="kw">await</span>;
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">pid</span> <span class="op">!</span><span class="op">=</span> <span class="ident">child</span>.<span class="ident">pid</span>);
-                    <span class="ident">join</span>
+        <span class="kw">let </span><span class="kw-2">mut </span>waits = Vec::new();
+        <span class="kw">for </span>child <span class="kw">in </span>children {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(process) = <span class="self">self</span>.compute.must_upgrade().get_process(child.pid) {
+                <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+                waits.push(<span class="kw">async move </span>{
+                    <span class="kw">let </span>join = process.join().<span class="kw">await</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.write().unwrap();
+                    inner.children.retain(|a| a.pid != child.pid);
+                    join
                 })
             }
         }
-        <span class="ident">futures::future::join_all</span>(<span class="ident">waits</span>.<span class="ident">into_iter</span>())
-            .<span class="kw">await</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">next</span>()
+        futures::future::join_all(waits.into_iter())
+            .<span class="kw">await
+            </span>.into_iter()
+            .next()
     }
 
-    <span class="doccomment">/// Waits for any of the children to finished</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">join_any_child</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">WasiProcessId</span>, <span class="ident">ExitCode</span>)<span class="op">&gt;</span>, <span class="ident">Errno</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">WasiProcessWait::new</span>(<span class="self">self</span>);
-        <span class="kw">let</span> <span class="ident">children</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// Waits for any of the children to finished
+    </span><span class="kw">pub async fn </span>join_any_child(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(WasiProcessId, ExitCode)&gt;, Errno&gt; {
+        <span class="kw">let </span>_guard = WasiProcessWait::new(<span class="self">self</span>);
+        <span class="kw">let </span>children: Vec&lt;<span class="kw">_</span>&gt; = {
+            <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
+            inner.children.clone()
         };
-        <span class="kw">if</span> <span class="ident">children</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Child</span>);
+        <span class="kw">if </span>children.is_empty() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Child);
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">waits</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> <span class="ident">child</span> <span class="kw">in</span> <span class="ident">children</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">process</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">compute</span>.<span class="ident">must_upgrade</span>().<span class="ident">get_process</span>(<span class="ident">child</span>.<span class="ident">pid</span>) {
-                <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
-                <span class="ident">waits</span>.<span class="ident">push</span>(<span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">let</span> <span class="ident">join</span> <span class="op">=</span> <span class="ident">process</span>.<span class="ident">join</span>().<span class="kw">await</span>;
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">inner</span>.<span class="ident">children</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">pid</span> <span class="op">!</span><span class="op">=</span> <span class="ident">child</span>.<span class="ident">pid</span>);
-                    (<span class="ident">child</span>, <span class="ident">join</span>)
+        <span class="kw">let </span><span class="kw-2">mut </span>waits = Vec::new();
+        <span class="kw">for </span>child <span class="kw">in </span>children {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(process) = <span class="self">self</span>.compute.must_upgrade().get_process(child.pid) {
+                <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+                waits.push(<span class="kw">async move </span>{
+                    <span class="kw">let </span>join = process.join().<span class="kw">await</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.write().unwrap();
+                    inner.children.retain(|a| a.pid != child.pid);
+                    (child, join)
                 })
             }
         }
-        <span class="kw">let</span> (<span class="ident">child</span>, <span class="ident">res</span>) <span class="op">=</span> <span class="ident">futures::future::select_all</span>(<span class="ident">waits</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">Box::pin</span>(<span class="ident">a</span>)))
-            .<span class="kw">await</span>
-            .<span class="number">0</span>;
+        <span class="kw">let </span>(child, res) = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
+            .<span class="kw">await
+            </span>.<span class="number">0</span>;
 
-        <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span>
-            <span class="ident">res</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">as_exit_code</span>().<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Errno::Canceled</span>.<span class="ident">into</span>()));
+        <span class="kw">let </span>code =
+            res.unwrap_or_else(|e| e.as_exit_code().unwrap_or_else(|| Errno::Canceled.into()));
 
-        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((<span class="ident">child</span>.<span class="ident">pid</span>, <span class="ident">code</span>)))
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((child.pid, code)))
     }
 
-    <span class="doccomment">/// Terminate the process and all its threads</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">terminate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">exit_code</span>: <span class="ident">ExitCode</span>) {
-        <span class="comment">// FIXME: this is wrong, threads might still be running!</span>
-        <span class="comment">// Need special logic for the main thread.</span>
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="kw">for</span> <span class="ident">thread</span> <span class="kw">in</span> <span class="ident">guard</span>.<span class="ident">threads</span>.<span class="ident">values</span>() {
-            <span class="ident">thread</span>.<span class="ident">set_status_finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">exit_code</span>))
+    <span class="doccomment">/// Terminate the process and all its threads
+    </span><span class="kw">pub fn </span>terminate(<span class="kw-2">&amp;</span><span class="self">self</span>, exit_code: ExitCode) {
+        <span class="comment">// FIXME: this is wrong, threads might still be running!
+        // Need special logic for the main thread.
+        </span><span class="kw">let </span>guard = <span class="self">self</span>.inner.read().unwrap();
+        <span class="kw">for </span>thread <span class="kw">in </span>guard.threads.values() {
+            thread.set_status_finished(<span class="prelude-val">Ok</span>(exit_code))
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">SignalHandlerAbi</span> <span class="kw">for</span> <span class="ident">WasiProcess</span> {
-    <span class="kw">fn</span> <span class="ident">signal</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig</span>: <span class="ident">u8</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SignalDeliveryError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">sig</span>) <span class="op">=</span> <span class="ident">sig</span>.<span class="ident">try_into</span>() {
-            <span class="self">self</span>.<span class="ident">signal_process</span>(<span class="ident">sig</span>);
+<span class="kw">impl </span>SignalHandlerAbi <span class="kw">for </span>WasiProcess {
+    <span class="kw">fn </span>signal(<span class="kw-2">&amp;</span><span class="self">self</span>, sig: u8) -&gt; <span class="prelude-ty">Result</span>&lt;(), SignalDeliveryError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(sig) = sig.try_into() {
+            <span class="self">self</span>.signal_process(sig);
             <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else</span> {
-            <span class="prelude-val">Err</span>(<span class="ident">SignalDeliveryError</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(SignalDeliveryError)
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

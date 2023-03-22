@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/trapcode.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>trapcode.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/trapcode.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>trapcode.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -167,174 +167,174 @@
 <span id="167">167</span>
 <span id="168">168</span>
 <span id="169">169</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Trap codes describing the reason for a trap.</span>
+</span><span class="doccomment">//! Trap codes describing the reason for a trap.
 
-<span class="kw">use</span> <span class="ident">core::fmt</span>::{<span class="self">self</span>, <span class="ident">Display</span>, <span class="ident">Formatter</span>};
-<span class="kw">use</span> <span class="ident">core::str::FromStr</span>;
-<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+</span><span class="kw">use </span>core::fmt::{<span class="self">self</span>, Display, Formatter};
+<span class="kw">use </span>core::str::FromStr;
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>thiserror::Error;
 
-<span class="doccomment">/// A trap code describing the reason for a trap.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// All trap instructions have an explicit trap code.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">Error</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u32</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TrapCode</span> {
-    <span class="doccomment">/// The current stack space was exhausted.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// On some platforms, a stack overflow may also be indicated by a segmentation fault from the</span>
-    <span class="doccomment">/// stack guard page.</span>
-    <span class="ident">StackOverflow</span> <span class="op">=</span> <span class="number">0</span>,
+<span class="doccomment">/// A trap code describing the reason for a trap.
+///
+/// All trap instructions have an explicit trap code.
+</span><span class="attribute">#[derive(
+    Clone, Copy, PartialEq, Eq, Debug, Hash, Error, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[repr(u32)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>TrapCode {
+    <span class="doccomment">/// The current stack space was exhausted.
+    ///
+    /// On some platforms, a stack overflow may also be indicated by a segmentation fault from the
+    /// stack guard page.
+    </span>StackOverflow = <span class="number">0</span>,
 
-    <span class="doccomment">/// A `heap_addr` instruction detected an out-of-bounds error.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note that not all out-of-bounds heap accesses are reported this way;</span>
-    <span class="doccomment">/// some are detected by a segmentation fault on the heap unmapped or</span>
-    <span class="doccomment">/// offset-guard pages.</span>
-    <span class="ident">HeapAccessOutOfBounds</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="doccomment">/// A `heap_addr` instruction detected an out-of-bounds error.
+    ///
+    /// Note that not all out-of-bounds heap accesses are reported this way;
+    /// some are detected by a segmentation fault on the heap unmapped or
+    /// offset-guard pages.
+    </span>HeapAccessOutOfBounds = <span class="number">1</span>,
 
-    <span class="doccomment">/// A `heap_addr` instruction was misaligned.</span>
-    <span class="ident">HeapMisaligned</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="doccomment">/// A `heap_addr` instruction was misaligned.
+    </span>HeapMisaligned = <span class="number">2</span>,
 
-    <span class="doccomment">/// A `table_addr` instruction detected an out-of-bounds error.</span>
-    <span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span> <span class="number">3</span>,
+    <span class="doccomment">/// A `table_addr` instruction detected an out-of-bounds error.
+    </span>TableAccessOutOfBounds = <span class="number">3</span>,
 
-    <span class="doccomment">/// Indirect call to a null table entry.</span>
-    <span class="ident">IndirectCallToNull</span> <span class="op">=</span> <span class="number">4</span>,
+    <span class="doccomment">/// Indirect call to a null table entry.
+    </span>IndirectCallToNull = <span class="number">4</span>,
 
-    <span class="doccomment">/// Signature mismatch on indirect call.</span>
-    <span class="ident">BadSignature</span> <span class="op">=</span> <span class="number">5</span>,
+    <span class="doccomment">/// Signature mismatch on indirect call.
+    </span>BadSignature = <span class="number">5</span>,
 
-    <span class="doccomment">/// An integer arithmetic operation caused an overflow.</span>
-    <span class="ident">IntegerOverflow</span> <span class="op">=</span> <span class="number">6</span>,
+    <span class="doccomment">/// An integer arithmetic operation caused an overflow.
+    </span>IntegerOverflow = <span class="number">6</span>,
 
-    <span class="doccomment">/// An integer division by zero.</span>
-    <span class="ident">IntegerDivisionByZero</span> <span class="op">=</span> <span class="number">7</span>,
+    <span class="doccomment">/// An integer division by zero.
+    </span>IntegerDivisionByZero = <span class="number">7</span>,
 
-    <span class="doccomment">/// Failed float-to-int conversion.</span>
-    <span class="ident">BadConversionToInteger</span> <span class="op">=</span> <span class="number">8</span>,
+    <span class="doccomment">/// Failed float-to-int conversion.
+    </span>BadConversionToInteger = <span class="number">8</span>,
 
-    <span class="doccomment">/// Code that was supposed to have been unreachable was reached.</span>
-    <span class="ident">UnreachableCodeReached</span> <span class="op">=</span> <span class="number">9</span>,
+    <span class="doccomment">/// Code that was supposed to have been unreachable was reached.
+    </span>UnreachableCodeReached = <span class="number">9</span>,
 
-    <span class="doccomment">/// An atomic memory access was attempted with an unaligned pointer.</span>
-    <span class="ident">UnalignedAtomic</span> <span class="op">=</span> <span class="number">10</span>,
+    <span class="doccomment">/// An atomic memory access was attempted with an unaligned pointer.
+    </span>UnalignedAtomic = <span class="number">10</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">TrapCode</span> {
-    <span class="doccomment">/// Gets the message for this trap code</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::StackOverflow</span> =&gt; <span class="string">&quot;call stack exhausted&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span> =&gt; <span class="string">&quot;out of bounds memory access&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::HeapMisaligned</span> =&gt; <span class="string">&quot;misaligned heap&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span> =&gt; <span class="string">&quot;undefined element: out of bounds table access&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::IndirectCallToNull</span> =&gt; <span class="string">&quot;uninitialized element&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::BadSignature</span> =&gt; <span class="string">&quot;indirect call type mismatch&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::IntegerOverflow</span> =&gt; <span class="string">&quot;integer overflow&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::IntegerDivisionByZero</span> =&gt; <span class="string">&quot;integer divide by zero&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::BadConversionToInteger</span> =&gt; <span class="string">&quot;invalid conversion to integer&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::UnreachableCodeReached</span> =&gt; <span class="string">&quot;unreachable&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::UnalignedAtomic</span> =&gt; <span class="string">&quot;unaligned atomic access&quot;</span>,
+<span class="kw">impl </span>TrapCode {
+    <span class="doccomment">/// Gets the message for this trap code
+    </span><span class="kw">pub fn </span>message(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::StackOverflow =&gt; <span class="string">&quot;call stack exhausted&quot;</span>,
+            <span class="self">Self</span>::HeapAccessOutOfBounds =&gt; <span class="string">&quot;out of bounds memory access&quot;</span>,
+            <span class="self">Self</span>::HeapMisaligned =&gt; <span class="string">&quot;misaligned heap&quot;</span>,
+            <span class="self">Self</span>::TableAccessOutOfBounds =&gt; <span class="string">&quot;undefined element: out of bounds table access&quot;</span>,
+            <span class="self">Self</span>::IndirectCallToNull =&gt; <span class="string">&quot;uninitialized element&quot;</span>,
+            <span class="self">Self</span>::BadSignature =&gt; <span class="string">&quot;indirect call type mismatch&quot;</span>,
+            <span class="self">Self</span>::IntegerOverflow =&gt; <span class="string">&quot;integer overflow&quot;</span>,
+            <span class="self">Self</span>::IntegerDivisionByZero =&gt; <span class="string">&quot;integer divide by zero&quot;</span>,
+            <span class="self">Self</span>::BadConversionToInteger =&gt; <span class="string">&quot;invalid conversion to integer&quot;</span>,
+            <span class="self">Self</span>::UnreachableCodeReached =&gt; <span class="string">&quot;unreachable&quot;</span>,
+            <span class="self">Self</span>::UnalignedAtomic =&gt; <span class="string">&quot;unaligned atomic access&quot;</span>,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Display</span> <span class="kw">for</span> <span class="ident">TrapCode</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">let</span> <span class="ident">identifier</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::StackOverflow</span> =&gt; <span class="string">&quot;stk_ovf&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span> =&gt; <span class="string">&quot;heap_get_oob&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::HeapMisaligned</span> =&gt; <span class="string">&quot;heap_misaligned&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span> =&gt; <span class="string">&quot;table_get_oob&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::IndirectCallToNull</span> =&gt; <span class="string">&quot;icall_null&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::BadSignature</span> =&gt; <span class="string">&quot;bad_sig&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::IntegerOverflow</span> =&gt; <span class="string">&quot;int_ovf&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::IntegerDivisionByZero</span> =&gt; <span class="string">&quot;int_divz&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::BadConversionToInteger</span> =&gt; <span class="string">&quot;bad_toint&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::UnreachableCodeReached</span> =&gt; <span class="string">&quot;unreachable&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::UnalignedAtomic</span> =&gt; <span class="string">&quot;unalign_atom&quot;</span>,
+<span class="kw">impl </span>Display <span class="kw">for </span>TrapCode {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter) -&gt; fmt::Result {
+        <span class="kw">let </span>identifier = <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+            <span class="self">Self</span>::StackOverflow =&gt; <span class="string">&quot;stk_ovf&quot;</span>,
+            <span class="self">Self</span>::HeapAccessOutOfBounds =&gt; <span class="string">&quot;heap_get_oob&quot;</span>,
+            <span class="self">Self</span>::HeapMisaligned =&gt; <span class="string">&quot;heap_misaligned&quot;</span>,
+            <span class="self">Self</span>::TableAccessOutOfBounds =&gt; <span class="string">&quot;table_get_oob&quot;</span>,
+            <span class="self">Self</span>::IndirectCallToNull =&gt; <span class="string">&quot;icall_null&quot;</span>,
+            <span class="self">Self</span>::BadSignature =&gt; <span class="string">&quot;bad_sig&quot;</span>,
+            <span class="self">Self</span>::IntegerOverflow =&gt; <span class="string">&quot;int_ovf&quot;</span>,
+            <span class="self">Self</span>::IntegerDivisionByZero =&gt; <span class="string">&quot;int_divz&quot;</span>,
+            <span class="self">Self</span>::BadConversionToInteger =&gt; <span class="string">&quot;bad_toint&quot;</span>,
+            <span class="self">Self</span>::UnreachableCodeReached =&gt; <span class="string">&quot;unreachable&quot;</span>,
+            <span class="self">Self</span>::UnalignedAtomic =&gt; <span class="string">&quot;unalign_atom&quot;</span>,
         };
-        <span class="ident">f</span>.<span class="ident">write_str</span>(<span class="ident">identifier</span>)
+        f.write_str(identifier)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">TrapCode</span> {
-    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> ();
+<span class="kw">impl </span>FromStr <span class="kw">for </span>TrapCode {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= ();
 
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">s</span> {
-            <span class="string">&quot;stk_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::StackOverflow</span>),
-            <span class="string">&quot;heap_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::HeapAccessOutOfBounds</span>),
-            <span class="string">&quot;heap_misaligned&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::HeapMisaligned</span>),
-            <span class="string">&quot;table_get_oob&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::TableAccessOutOfBounds</span>),
-            <span class="string">&quot;icall_null&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IndirectCallToNull</span>),
-            <span class="string">&quot;bad_sig&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BadSignature</span>),
-            <span class="string">&quot;int_ovf&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IntegerOverflow</span>),
-            <span class="string">&quot;int_divz&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::IntegerDivisionByZero</span>),
-            <span class="string">&quot;bad_toint&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BadConversionToInteger</span>),
-            <span class="string">&quot;unreachable&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::UnreachableCodeReached</span>),
-            <span class="string">&quot;unalign_atom&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::UnalignedAtomic</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(()),
+    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">match </span>s {
+            <span class="string">&quot;stk_ovf&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::StackOverflow),
+            <span class="string">&quot;heap_get_oob&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::HeapAccessOutOfBounds),
+            <span class="string">&quot;heap_misaligned&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::HeapMisaligned),
+            <span class="string">&quot;table_get_oob&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::TableAccessOutOfBounds),
+            <span class="string">&quot;icall_null&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::IndirectCallToNull),
+            <span class="string">&quot;bad_sig&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BadSignature),
+            <span class="string">&quot;int_ovf&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::IntegerOverflow),
+            <span class="string">&quot;int_divz&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::IntegerDivisionByZero),
+            <span class="string">&quot;bad_toint&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BadConversionToInteger),
+            <span class="string">&quot;unreachable&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::UnreachableCodeReached),
+            <span class="string">&quot;unalign_atom&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::UnalignedAtomic),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
         }
     }
 }
 
-<span class="comment">// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451</span>
-<span class="doccomment">/// After the stack is unwound via asyncify what</span>
-<span class="doccomment">/// should the call loop do next</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">OnCalledAction</span> {
-    <span class="doccomment">/// Will call the function again</span>
-    <span class="ident">InvokeAgain</span>,
-    <span class="doccomment">/// Will return the result of the invocation</span>
-    <span class="ident">Finish</span>,
-    <span class="doccomment">/// Traps with an error</span>
-    <span class="ident">Trap</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>),
+<span class="comment">// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+</span><span class="doccomment">/// After the stack is unwound via asyncify what
+/// should the call loop do next
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>OnCalledAction {
+    <span class="doccomment">/// Will call the function again
+    </span>InvokeAgain,
+    <span class="doccomment">/// Will return the result of the invocation
+    </span>Finish,
+    <span class="doccomment">/// Traps with an error
+    </span>Trap(Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="comment">// Everything but user-defined codes.</span>
-    <span class="kw">const</span> <span class="ident">CODES</span>: [<span class="ident">TrapCode</span>; <span class="number">11</span>] <span class="op">=</span> [
-        <span class="ident">TrapCode::StackOverflow</span>,
-        <span class="ident">TrapCode::HeapAccessOutOfBounds</span>,
-        <span class="ident">TrapCode::HeapMisaligned</span>,
-        <span class="ident">TrapCode::TableAccessOutOfBounds</span>,
-        <span class="ident">TrapCode::IndirectCallToNull</span>,
-        <span class="ident">TrapCode::BadSignature</span>,
-        <span class="ident">TrapCode::IntegerOverflow</span>,
-        <span class="ident">TrapCode::IntegerDivisionByZero</span>,
-        <span class="ident">TrapCode::BadConversionToInteger</span>,
-        <span class="ident">TrapCode::UnreachableCodeReached</span>,
-        <span class="ident">TrapCode::UnalignedAtomic</span>,
+    <span class="comment">// Everything but user-defined codes.
+    </span><span class="kw">const </span>CODES: [TrapCode; <span class="number">11</span>] = [
+        TrapCode::StackOverflow,
+        TrapCode::HeapAccessOutOfBounds,
+        TrapCode::HeapMisaligned,
+        TrapCode::TableAccessOutOfBounds,
+        TrapCode::IndirectCallToNull,
+        TrapCode::BadSignature,
+        TrapCode::IntegerOverflow,
+        TrapCode::IntegerDivisionByZero,
+        TrapCode::BadConversionToInteger,
+        TrapCode::UnreachableCodeReached,
+        TrapCode::UnalignedAtomic,
     ];
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">display</span>() {
-        <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">CODES</span> {
-            <span class="kw">let</span> <span class="ident">tc</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">r</span>;
-            <span class="macro">assert_eq!</span>(<span class="ident">tc</span>.<span class="ident">to_string</span>().<span class="ident">parse</span>(), <span class="prelude-val">Ok</span>(<span class="ident">tc</span>));
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>display() {
+        <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;</span>CODES {
+            <span class="kw">let </span>tc = <span class="kw-2">*</span>r;
+            <span class="macro">assert_eq!</span>(tc.to_string().parse(), <span class="prelude-val">Ok</span>(tc));
         }
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;bogus&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>(), <span class="prelude-val">Err</span>(()));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;bogus&quot;</span>.parse::&lt;TrapCode&gt;(), <span class="prelude-val">Err</span>(()));
 
-        <span class="comment">// assert_eq!(TrapCode::User(17).to_string(), &quot;user17&quot;);</span>
-        <span class="comment">// assert_eq!(&quot;user22&quot;.parse(), Ok(TrapCode::User(22)));</span>
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;user&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>(), <span class="prelude-val">Err</span>(()));
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;user-1&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>(), <span class="prelude-val">Err</span>(()));
-        <span class="macro">assert_eq!</span>(<span class="string">&quot;users&quot;</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">TrapCode</span><span class="op">&gt;</span>(), <span class="prelude-val">Err</span>(()));
+        <span class="comment">// assert_eq!(TrapCode::User(17).to_string(), &quot;user17&quot;);
+        // assert_eq!(&quot;user22&quot;.parse(), Ok(TrapCode::User(22)));
+        </span><span class="macro">assert_eq!</span>(<span class="string">&quot;user&quot;</span>.parse::&lt;TrapCode&gt;(), <span class="prelude-val">Err</span>(()));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;user-1&quot;</span>.parse::&lt;TrapCode&gt;(), <span class="prelude-val">Err</span>(()));
+        <span class="macro">assert_eq!</span>(<span class="string">&quot;users&quot;</span>.parse::&lt;TrapCode&gt;(), <span class="prelude-val">Err</span>(()));
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/dwarf.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dwarf.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/dwarf.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dwarf.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cranelift/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -102,109 +102,109 @@
 <span id="102">102</span>
 <span id="103">103</span>
 <span id="104">104</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">Address</span>, <span class="ident">EndianVec</span>, <span class="prelude-ty">Result</span>, <span class="ident">Writer</span>};
-<span class="kw">use</span> <span class="ident">gimli</span>::{<span class="ident">RunTimeEndian</span>, <span class="ident">SectionId</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::entity::EntityRef</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::LocalFunctionIndex</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">Endianness</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>,
-    <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>gimli::write::{Address, EndianVec, <span class="prelude-ty">Result</span>, Writer};
+<span class="kw">use </span>gimli::{RunTimeEndian, SectionId};
+<span class="kw">use </span>wasmer_types::entity::EntityRef;
+<span class="kw">use </span>wasmer_types::LocalFunctionIndex;
+<span class="kw">use </span>wasmer_types::{
+    CustomSection, CustomSectionProtection, Endianness, Relocation, RelocationKind,
+    RelocationTarget, SectionBody,
 };
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WriterRelocate</span> {
-    <span class="kw">pub</span> <span class="ident">relocs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>,
-    <span class="ident">writer</span>: <span class="ident">EndianVec</span><span class="op">&lt;</span><span class="ident">RunTimeEndian</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>WriterRelocate {
+    <span class="kw">pub </span>relocs: Vec&lt;Relocation&gt;,
+    writer: EndianVec&lt;RunTimeEndian&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">WriterRelocate</span> {
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">FUNCTION_SYMBOL</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">endianness</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Endianness</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">endianness</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">endianness</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">Endianness::Little</span>) =&gt; <span class="ident">RunTimeEndian::Little</span>,
-            <span class="prelude-val">Some</span>(<span class="ident">Endianness::Big</span>) =&gt; <span class="ident">RunTimeEndian::Big</span>,
-            <span class="comment">// We autodetect it, based on the host</span>
-            <span class="prelude-val">None</span> =&gt; <span class="ident">RunTimeEndian::default</span>(),
+<span class="kw">impl </span>WriterRelocate {
+    <span class="kw">pub const </span>FUNCTION_SYMBOL: usize = <span class="number">0</span>;
+    <span class="kw">pub fn </span>new(endianness: <span class="prelude-ty">Option</span>&lt;Endianness&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>endianness = <span class="kw">match </span>endianness {
+            <span class="prelude-val">Some</span>(Endianness::Little) =&gt; RunTimeEndian::Little,
+            <span class="prelude-val">Some</span>(Endianness::Big) =&gt; RunTimeEndian::Big,
+            <span class="comment">// We autodetect it, based on the host
+            </span><span class="prelude-val">None </span>=&gt; RunTimeEndian::default(),
         };
-        <span class="self">Self</span> {
-            <span class="ident">relocs</span>: <span class="ident">Vec::new</span>(),
-            <span class="ident">writer</span>: <span class="ident">EndianVec::new</span>(<span class="ident">endianness</span>),
+        <span class="self">Self </span>{
+            relocs: Vec::new(),
+            writer: EndianVec::new(endianness),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_section</span>(<span class="kw-2">mut</span> <span class="self">self</span>) -&gt; <span class="ident">CustomSection</span> {
-        <span class="comment">// GCC expects a terminating &quot;empty&quot; length, so write a 0 length at the end of the table.</span>
-        <span class="self">self</span>.<span class="ident">writer</span>.<span class="ident">write_u32</span>(<span class="number">0</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">writer</span>.<span class="ident">into_vec</span>();
-        <span class="ident">CustomSection</span> {
-            <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::Read</span>,
-            <span class="ident">bytes</span>: <span class="ident">SectionBody::new_with_vec</span>(<span class="ident">data</span>),
-            <span class="ident">relocations</span>: <span class="self">self</span>.<span class="ident">relocs</span>,
+    <span class="kw">pub fn </span>into_section(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; CustomSection {
+        <span class="comment">// GCC expects a terminating &quot;empty&quot; length, so write a 0 length at the end of the table.
+        </span><span class="self">self</span>.writer.write_u32(<span class="number">0</span>).unwrap();
+        <span class="kw">let </span>data = <span class="self">self</span>.writer.into_vec();
+        CustomSection {
+            protection: CustomSectionProtection::Read,
+            bytes: SectionBody::new_with_vec(data),
+            relocations: <span class="self">self</span>.relocs,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Writer</span> <span class="kw">for</span> <span class="ident">WriterRelocate</span> {
-    <span class="kw">type</span> <span class="ident">Endian</span> <span class="op">=</span> <span class="ident">RunTimeEndian</span>;
+<span class="kw">impl </span>Writer <span class="kw">for </span>WriterRelocate {
+    <span class="kw">type </span>Endian = RunTimeEndian;
 
-    <span class="kw">fn</span> <span class="ident">endian</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Endian</span> {
-        <span class="self">self</span>.<span class="ident">writer</span>.<span class="ident">endian</span>()
+    <span class="kw">fn </span>endian(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Endian {
+        <span class="self">self</span>.writer.endian()
     }
 
-    <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">writer</span>.<span class="ident">len</span>()
+    <span class="kw">fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.writer.len()
     }
 
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">writer</span>.<span class="ident">write</span>(<span class="ident">bytes</span>)
+    <span class="kw">fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.writer.write(bytes)
     }
 
-    <span class="kw">fn</span> <span class="ident">write_at</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">offset</span>: <span class="ident">usize</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">writer</span>.<span class="ident">write_at</span>(<span class="ident">offset</span>, <span class="ident">bytes</span>)
+    <span class="kw">fn </span>write_at(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.writer.write_at(offset, bytes)
     }
 
-    <span class="kw">fn</span> <span class="ident">write_address</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">address</span>: <span class="ident">Address</span>, <span class="ident">size</span>: <span class="ident">u8</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">address</span> {
-            <span class="ident">Address::Constant</span>(<span class="ident">val</span>) =&gt; <span class="self">self</span>.<span class="ident">write_udata</span>(<span class="ident">val</span>, <span class="ident">size</span>),
-            <span class="ident">Address::Symbol</span> { <span class="ident">symbol</span>, <span class="ident">addend</span> } =&gt; {
-                <span class="comment">// Is a function relocation</span>
-                <span class="kw">if</span> <span class="ident">symbol</span> <span class="op">==</span> <span class="ident"><span class="self">Self</span>::FUNCTION_SYMBOL</span> {
-                    <span class="comment">// We use the addend to detect the function index</span>
-                    <span class="kw">let</span> <span class="ident">function_index</span> <span class="op">=</span> <span class="ident">LocalFunctionIndex::new</span>(<span class="ident">addend</span> <span class="kw">as</span> <span class="kw">_</span>);
-                    <span class="kw">let</span> <span class="ident">reloc_target</span> <span class="op">=</span> <span class="ident">RelocationTarget::LocalFunc</span>(<span class="ident">function_index</span>);
-                    <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                    <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">size</span> {
-                        <span class="number">8</span> =&gt; <span class="ident">RelocationKind::Abs8</span>,
-                        <span class="kw">_</span> =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;dwarf relocation size not yet supported: {}&quot;</span>, <span class="ident">size</span>),
+    <span class="kw">fn </span>write_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: Address, size: u8) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">match </span>address {
+            Address::Constant(val) =&gt; <span class="self">self</span>.write_udata(val, size),
+            Address::Symbol { symbol, addend } =&gt; {
+                <span class="comment">// Is a function relocation
+                </span><span class="kw">if </span>symbol == <span class="self">Self</span>::FUNCTION_SYMBOL {
+                    <span class="comment">// We use the addend to detect the function index
+                    </span><span class="kw">let </span>function_index = LocalFunctionIndex::new(addend <span class="kw">as _</span>);
+                    <span class="kw">let </span>reloc_target = RelocationTarget::LocalFunc(function_index);
+                    <span class="kw">let </span>offset = <span class="self">self</span>.len() <span class="kw">as </span>u32;
+                    <span class="kw">let </span>kind = <span class="kw">match </span>size {
+                        <span class="number">8 </span>=&gt; RelocationKind::Abs8,
+                        <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;dwarf relocation size not yet supported: {}&quot;</span>, size),
                     };
-                    <span class="kw">let</span> <span class="ident">addend</span> <span class="op">=</span> <span class="number">0</span>;
-                    <span class="self">self</span>.<span class="ident">relocs</span>.<span class="ident">push</span>(<span class="ident">Relocation</span> {
-                        <span class="ident">kind</span>,
-                        <span class="ident">reloc_target</span>,
-                        <span class="ident">offset</span>,
-                        <span class="ident">addend</span>,
+                    <span class="kw">let </span>addend = <span class="number">0</span>;
+                    <span class="self">self</span>.relocs.push(Relocation {
+                        kind,
+                        reloc_target,
+                        offset,
+                        addend,
                     });
-                    <span class="self">self</span>.<span class="ident">write_udata</span>(<span class="ident">addend</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">size</span>)
-                } <span class="kw">else</span> {
-                    <span class="macro">unreachable!</span>(<span class="string">&quot;Symbol {} in DWARF not recognized&quot;</span>, <span class="ident">symbol</span>);
+                    <span class="self">self</span>.write_udata(addend <span class="kw">as _</span>, size)
+                } <span class="kw">else </span>{
+                    <span class="macro">unreachable!</span>(<span class="string">&quot;Symbol {} in DWARF not recognized&quot;</span>, symbol);
                 }
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">write_offset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_val</span>: <span class="ident">usize</span>, <span class="ident">_section</span>: <span class="ident">SectionId</span>, <span class="ident">_size</span>: <span class="ident">u8</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn </span>write_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _val: usize, _section: SectionId, _size: u8) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">unimplemented!</span>(<span class="string">&quot;write_offset not yet implemented&quot;</span>);
     }
 
-    <span class="kw">fn</span> <span class="ident">write_offset_at</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">_offset</span>: <span class="ident">usize</span>,
-        <span class="ident">_val</span>: <span class="ident">usize</span>,
-        <span class="ident">_section</span>: <span class="ident">SectionId</span>,
-        <span class="ident">_size</span>: <span class="ident">u8</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn </span>write_offset_at(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _offset: usize,
+        _val: usize,
+        _section: SectionId,
+        _size: u8,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="macro">unimplemented!</span>(<span class="string">&quot;write_offset_at not yet implemented&quot;</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cranelift" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

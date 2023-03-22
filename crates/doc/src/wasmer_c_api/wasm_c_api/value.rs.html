@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/value.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/value.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>value.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -239,244 +239,244 @@
 <span id="237">237</span>
 <span id="238">238</span>
 <span id="239">239</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::{<span class="ident">wasm_ref_t</span>, <span class="ident">wasm_valkind_enum</span>};
-<span class="kw">use</span> <span class="ident">std::convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
-<span class="kw">use</span> <span class="ident">wasmer_api::Value</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::types::{wasm_ref_t, wasm_valkind_enum};
+<span class="kw">use </span>std::convert::{TryFrom, TryInto};
+<span class="kw">use </span>wasmer_api::Value;
 
-<span class="doccomment">/// Represents the kind of values. The variants of this C enum is</span>
-<span class="doccomment">/// defined in `wasm.h` to list the following:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// * `WASM_I32`, a 32-bit integer,</span>
-<span class="doccomment">/// * `WASM_I64`, a 64-bit integer,</span>
-<span class="doccomment">/// * `WASM_F32`, a 32-bit float,</span>
-<span class="doccomment">/// * `WASM_F64`, a 64-bit float,</span>
-<span class="doccomment">/// * `WASM_ANYREF`, a WebAssembly reference,</span>
-<span class="doccomment">/// * `WASM_FUNCREF`, a WebAssembly reference.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">wasm_valkind_t</span> <span class="op">=</span> <span class="ident">u8</span>;
+<span class="doccomment">/// Represents the kind of values. The variants of this C enum is
+/// defined in `wasm.h` to list the following:
+///
+/// * `WASM_I32`, a 32-bit integer,
+/// * `WASM_I64`, a 64-bit integer,
+/// * `WASM_F32`, a 32-bit float,
+/// * `WASM_F64`, a 64-bit float,
+/// * `WASM_ANYREF`, a WebAssembly reference,
+/// * `WASM_FUNCREF`, a WebAssembly reference.
+</span><span class="attribute">#[allow(non_camel_case_types)]
+</span><span class="kw">pub type </span>wasm_valkind_t = u8;
 
-<span class="doccomment">/// A Rust union, compatible with C, that holds a value of kind</span>
-<span class="doccomment">/// [`wasm_valkind_t`] (see [`wasm_val_t`] to get the complete</span>
-<span class="doccomment">/// picture). Members of the union are:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// * `int32_t` if the value is a 32-bit integer,</span>
-<span class="doccomment">/// * `int64_t` if the value is a 64-bit integer,</span>
-<span class="doccomment">/// * `float32_t` if the value is a 32-bit float,</span>
-<span class="doccomment">/// * `float64_t` if the value is a 64-bit float,</span>
-<span class="doccomment">/// * `wref` (`wasm_ref_t`) if the value is a WebAssembly reference.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">union</span> <span class="ident">wasm_val_inner</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">int32_t</span>: <span class="ident">i32</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">int64_t</span>: <span class="ident">i64</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">float32_t</span>: <span class="ident">f32</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">float64_t</span>: <span class="ident">f64</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wref</span>: <span class="kw-2">*mut</span> <span class="ident">wasm_ref_t</span>,
+<span class="doccomment">/// A Rust union, compatible with C, that holds a value of kind
+/// [`wasm_valkind_t`] (see [`wasm_val_t`] to get the complete
+/// picture). Members of the union are:
+///
+/// * `int32_t` if the value is a 32-bit integer,
+/// * `int64_t` if the value is a 64-bit integer,
+/// * `float32_t` if the value is a 32-bit float,
+/// * `float64_t` if the value is a 64-bit float,
+/// * `wref` (`wasm_ref_t`) if the value is a WebAssembly reference.
+</span><span class="attribute">#[allow(non_camel_case_types)]
+#[derive(Clone, Copy)]
+</span><span class="kw">pub union </span>wasm_val_inner {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) int32_t: i32,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) int64_t: i64,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) float32_t: f32,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) float64_t: f64,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) wref: <span class="kw-2">*mut </span>wasm_ref_t,
 }
 
-<span class="doccomment">/// A WebAssembly value composed of its type and its value.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Note that `wasm.h` defines macros to create Wasm values more</span>
-<span class="doccomment">/// easily: `WASM_I32_VAL`, `WASM_I64_VAL`, `WASM_F32_VAL`,</span>
-<span class="doccomment">/// `WASM_F64_VAL`, and `WASM_REF_VAL`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create a 32-bit integer Wasm value.</span>
-<span class="doccomment">///     wasm_val_t value1 = {</span>
-<span class="doccomment">///         .kind = WASM_I32,</span>
-<span class="doccomment">///         .of = { .i32 = 7 },</span>
-<span class="doccomment">///     };</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the same value with the `wasm.h` macro.</span>
-<span class="doccomment">///     wasm_val_t value2 = WASM_I32_VAL(7);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     assert(value2.kind == WASM_I32);</span>
-<span class="doccomment">///     assert(value1.of.i32 == value2.of.i32);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_val_t</span> {
-    <span class="doccomment">/// The kind of the value.</span>
-    <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">wasm_valkind_t</span>,
+<span class="doccomment">/// A WebAssembly value composed of its type and its value.
+///
+/// Note that `wasm.h` defines macros to create Wasm values more
+/// easily: `WASM_I32_VAL`, `WASM_I64_VAL`, `WASM_F32_VAL`,
+/// `WASM_F64_VAL`, and `WASM_REF_VAL`.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create a 32-bit integer Wasm value.
+///     wasm_val_t value1 = {
+///         .kind = WASM_I32,
+///         .of = { .i32 = 7 },
+///     };
+///
+///     // Create the same value with the `wasm.h` macro.
+///     wasm_val_t value2 = WASM_I32_VAL(7);
+///
+///     assert(value2.kind == WASM_I32);
+///     assert(value1.of.i32 == value2.of.i32);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[allow(non_camel_case_types)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>wasm_val_t {
+    <span class="doccomment">/// The kind of the value.
+    </span><span class="kw">pub </span>kind: wasm_valkind_t,
 
-    <span class="doccomment">/// The real value.</span>
-    <span class="kw">pub</span> <span class="ident">of</span>: <span class="ident">wasm_val_inner</span>,
+    <span class="doccomment">/// The real value.
+    </span><span class="kw">pub </span>of: wasm_val_inner,
 }
 
-<span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">wasm_val_t</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span>) -&gt; <span class="ident">std::fmt::Result</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ds</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;wasm_val_t&quot;</span>);
-        <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;kind&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">kind</span>);
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>wasm_val_t {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
+        <span class="kw">let </span><span class="kw-2">mut </span>ds = f.debug_struct(<span class="string">&quot;wasm_val_t&quot;</span>);
+        ds.field(<span class="string">&quot;kind&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.kind);
 
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kind</span>.<span class="ident">try_into</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">wasm_valkind_enum::WASM_I32</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;i32&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">of</span>.<span class="ident">int32_t</span> });
+        <span class="kw">match </span><span class="self">self</span>.kind.try_into() {
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_I32) =&gt; {
+                ds.field(<span class="string">&quot;i32&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.int32_t });
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">wasm_valkind_enum::WASM_I64</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;i64&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">of</span>.<span class="ident">int64_t</span> });
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_I64) =&gt; {
+                ds.field(<span class="string">&quot;i64&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.int64_t });
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">wasm_valkind_enum::WASM_F32</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;f32&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">of</span>.<span class="ident">float32_t</span> });
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_F32) =&gt; {
+                ds.field(<span class="string">&quot;f32&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.float32_t });
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">wasm_valkind_enum::WASM_F64</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;f64&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">of</span>.<span class="ident">float64_t</span> });
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_F64) =&gt; {
+                ds.field(<span class="string">&quot;f64&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.float64_t });
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">wasm_valkind_enum::WASM_ANYREF</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;anyref&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">of</span>.<span class="ident">wref</span> });
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_ANYREF) =&gt; {
+                ds.field(<span class="string">&quot;anyref&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.wref });
             }
 
-            <span class="prelude-val">Ok</span>(<span class="ident">wasm_valkind_enum::WASM_FUNCREF</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;funcref&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe</span> { <span class="self">self</span>.<span class="ident">of</span>.<span class="ident">wref</span> });
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_FUNCREF) =&gt; {
+                ds.field(<span class="string">&quot;funcref&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.wref });
             }
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                <span class="ident">ds</span>.<span class="ident">field</span>(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;Invalid value type&quot;</span>);
+                ds.field(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;Invalid value type&quot;</span>);
             }
         }
-        <span class="ident">ds</span>.<span class="ident">finish</span>()
+        ds.finish()
     }
 }
 
-<span class="macro">wasm_declare_vec!</span>(<span class="ident">val</span>);
+<span class="macro">wasm_declare_vec!</span>(val);
 
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">wasm_val_t</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">wasm_val_t</span> {
-            <span class="ident">kind</span>: <span class="self">self</span>.<span class="ident">kind</span>,
-            <span class="ident">of</span>: <span class="self">self</span>.<span class="ident">of</span>,
+<span class="kw">impl </span>Clone <span class="kw">for </span>wasm_val_t {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        wasm_val_t {
+            kind: <span class="self">self</span>.kind,
+            of: <span class="self">self</span>.of,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasm_val_t</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">kind</span>: <span class="ident">wasm_valkind_enum::WASM_I64</span> <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="ident">of</span>: <span class="ident">wasm_val_inner</span> { <span class="ident">int64_t</span>: <span class="number">0</span> },
+<span class="kw">impl </span>Default <span class="kw">for </span>wasm_val_t {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            kind: wasm_valkind_enum::WASM_I64 <span class="kw">as _</span>,
+            of: wasm_val_inner { int64_t: <span class="number">0 </span>},
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_val_copy</span>(
-    <span class="comment">// own</span>
-    <span class="ident">out</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_val_t</span>,
-    <span class="ident">val</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_val_t</span>,
+<span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_val_copy(
+    <span class="comment">// own
+    </span>out: <span class="kw-2">&amp;mut </span>wasm_val_t,
+    val: <span class="kw-2">&amp;</span>wasm_val_t,
 ) {
-    <span class="ident">out</span>.<span class="ident">kind</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">kind</span>;
-    <span class="ident">out</span>.<span class="ident">of</span> <span class="op">=</span> <span class="macro">c_try!</span>(<span class="ident">val</span>.<span class="ident">kind</span>.<span class="ident">try_into</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">kind</span><span class="op">|</span> {
-        <span class="kw">match</span> <span class="ident">kind</span> {
-            <span class="ident">wasm_valkind_enum::WASM_I32</span> =&gt; <span class="ident">wasm_val_inner</span> {
-                <span class="ident">int32_t</span>: <span class="ident">val</span>.<span class="ident">of</span>.<span class="ident">int32_t</span>,
+    out.kind = val.kind;
+    out.of = <span class="macro">c_try!</span>(val.kind.try_into().map(|kind| {
+        <span class="kw">match </span>kind {
+            wasm_valkind_enum::WASM_I32 =&gt; wasm_val_inner {
+                int32_t: val.of.int32_t,
             },
-            <span class="ident">wasm_valkind_enum::WASM_I64</span> =&gt; <span class="ident">wasm_val_inner</span> {
-                <span class="ident">int64_t</span>: <span class="ident">val</span>.<span class="ident">of</span>.<span class="ident">int64_t</span>,
+            wasm_valkind_enum::WASM_I64 =&gt; wasm_val_inner {
+                int64_t: val.of.int64_t,
             },
-            <span class="ident">wasm_valkind_enum::WASM_F32</span> =&gt; <span class="ident">wasm_val_inner</span> {
-                <span class="ident">float32_t</span>: <span class="ident">val</span>.<span class="ident">of</span>.<span class="ident">float32_t</span>,
+            wasm_valkind_enum::WASM_F32 =&gt; wasm_val_inner {
+                float32_t: val.of.float32_t,
             },
-            <span class="ident">wasm_valkind_enum::WASM_F64</span> =&gt; <span class="ident">wasm_val_inner</span> {
-                <span class="ident">float64_t</span>: <span class="ident">val</span>.<span class="ident">of</span>.<span class="ident">float64_t</span>,
+            wasm_valkind_enum::WASM_F64 =&gt; wasm_val_inner {
+                float64_t: val.of.float64_t,
             },
-            <span class="ident">wasm_valkind_enum::WASM_ANYREF</span> =&gt; <span class="ident">wasm_val_inner</span> { <span class="ident">wref</span>: <span class="ident">val</span>.<span class="ident">of</span>.<span class="ident">wref</span> },
-            <span class="ident">wasm_valkind_enum::WASM_FUNCREF</span> =&gt; <span class="ident">wasm_val_inner</span> { <span class="ident">wref</span>: <span class="ident">val</span>.<span class="ident">of</span>.<span class="ident">wref</span> },
+            wasm_valkind_enum::WASM_ANYREF =&gt; wasm_val_inner { wref: val.of.wref },
+            wasm_valkind_enum::WASM_FUNCREF =&gt; wasm_val_inner { wref: val.of.wref },
         }
-    }); <span class="ident">otherwise</span> ());
+    }); otherwise ());
 }
 
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_val_delete</span>(<span class="ident">val</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_val_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">val</span>) <span class="op">=</span> <span class="ident">val</span> {
-        <span class="comment">// TODO: figure out where wasm_val is allocated first...</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">val</span>;
+<span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_val_delete(val: <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_val_t&gt;&gt;) {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(val) = val {
+        <span class="comment">// TODO: figure out where wasm_val is allocated first...
+        </span><span class="kw">let _ </span>= val;
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">wasm_valkind_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_valkind_enum</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
+<span class="kw">impl </span>TryFrom&lt;wasm_valkind_t&gt; <span class="kw">for </span>wasm_valkind_enum {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">item</span>: <span class="ident">wasm_valkind_t</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">item</span> {
-            <span class="number">0</span> =&gt; <span class="ident">wasm_valkind_enum::WASM_I32</span>,
-            <span class="number">1</span> =&gt; <span class="ident">wasm_valkind_enum::WASM_I64</span>,
-            <span class="number">2</span> =&gt; <span class="ident">wasm_valkind_enum::WASM_F32</span>,
-            <span class="number">3</span> =&gt; <span class="ident">wasm_valkind_enum::WASM_F64</span>,
-            <span class="number">128</span> =&gt; <span class="ident">wasm_valkind_enum::WASM_ANYREF</span>,
-            <span class="number">129</span> =&gt; <span class="ident">wasm_valkind_enum::WASM_FUNCREF</span>,
-            <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;valkind value out of bounds&quot;</span>),
+    <span class="kw">fn </span>try_from(item: wasm_valkind_t) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span>item {
+            <span class="number">0 </span>=&gt; wasm_valkind_enum::WASM_I32,
+            <span class="number">1 </span>=&gt; wasm_valkind_enum::WASM_I64,
+            <span class="number">2 </span>=&gt; wasm_valkind_enum::WASM_F32,
+            <span class="number">3 </span>=&gt; wasm_valkind_enum::WASM_F64,
+            <span class="number">128 </span>=&gt; wasm_valkind_enum::WASM_ANYREF,
+            <span class="number">129 </span>=&gt; wasm_valkind_enum::WASM_FUNCREF,
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;valkind value out of bounds&quot;</span>),
         })
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">wasm_val_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
+<span class="kw">impl </span>TryFrom&lt;wasm_val_t&gt; <span class="kw">for </span>Value {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">item</span>: <span class="ident">wasm_val_t</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        (<span class="kw-2">&amp;</span><span class="ident">item</span>).<span class="ident">try_into</span>()
+    <span class="kw">fn </span>try_from(item: wasm_val_t) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        (<span class="kw-2">&amp;</span>item).try_into()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_val_t</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Value</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
+<span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span>wasm_val_t&gt; <span class="kw">for </span>Value {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">item</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_val_t</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">item</span>.<span class="ident">kind</span>.<span class="ident">try_into</span>()<span class="question-mark">?</span> {
-            <span class="ident">wasm_valkind_enum::WASM_I32</span> =&gt; <span class="ident">Value::I32</span>(<span class="kw">unsafe</span> { <span class="ident">item</span>.<span class="ident">of</span>.<span class="ident">int32_t</span> }),
-            <span class="ident">wasm_valkind_enum::WASM_I64</span> =&gt; <span class="ident">Value::I64</span>(<span class="kw">unsafe</span> { <span class="ident">item</span>.<span class="ident">of</span>.<span class="ident">int64_t</span> }),
-            <span class="ident">wasm_valkind_enum::WASM_F32</span> =&gt; <span class="ident">Value::F32</span>(<span class="kw">unsafe</span> { <span class="ident">item</span>.<span class="ident">of</span>.<span class="ident">float32_t</span> }),
-            <span class="ident">wasm_valkind_enum::WASM_F64</span> =&gt; <span class="ident">Value::F64</span>(<span class="kw">unsafe</span> { <span class="ident">item</span>.<span class="ident">of</span>.<span class="ident">float64_t</span> }),
-            <span class="ident">wasm_valkind_enum::WASM_ANYREF</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;ANYREF not supported at this time&quot;</span>),
-            <span class="ident">wasm_valkind_enum::WASM_FUNCREF</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;FUNCREF not supported at this time&quot;</span>),
+    <span class="kw">fn </span>try_from(item: <span class="kw-2">&amp;</span>wasm_val_t) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span>item.kind.try_into()<span class="question-mark">? </span>{
+            wasm_valkind_enum::WASM_I32 =&gt; Value::I32(<span class="kw">unsafe </span>{ item.of.int32_t }),
+            wasm_valkind_enum::WASM_I64 =&gt; Value::I64(<span class="kw">unsafe </span>{ item.of.int64_t }),
+            wasm_valkind_enum::WASM_F32 =&gt; Value::F32(<span class="kw">unsafe </span>{ item.of.float32_t }),
+            wasm_valkind_enum::WASM_F64 =&gt; Value::F64(<span class="kw">unsafe </span>{ item.of.float64_t }),
+            wasm_valkind_enum::WASM_ANYREF =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;ANYREF not supported at this time&quot;</span>),
+            wasm_valkind_enum::WASM_FUNCREF =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;FUNCREF not supported at this time&quot;</span>),
         })
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_val_t</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
+<span class="kw">impl </span>TryFrom&lt;Value&gt; <span class="kw">for </span>wasm_val_t {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">item</span>: <span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="ident">wasm_val_t::try_from</span>(<span class="kw-2">&amp;</span><span class="ident">item</span>)
+    <span class="kw">fn </span>try_from(item: Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        wasm_val_t::try_from(<span class="kw-2">&amp;</span>item)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">TryFrom</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Value</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasm_val_t</span> {
-    <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>;
+<span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span>Value&gt; <span class="kw">for </span>wasm_val_t {
+    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
 
-    <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">item</span>: <span class="kw-2">&amp;</span><span class="ident">Value</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Error</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="kw-2">*</span><span class="ident">item</span> {
-            <span class="ident">Value::I32</span>(<span class="ident">v</span>) =&gt; <span class="ident">wasm_val_t</span> {
-                <span class="ident">of</span>: <span class="ident">wasm_val_inner</span> { <span class="ident">int32_t</span>: <span class="ident">v</span> },
-                <span class="ident">kind</span>: <span class="ident">wasm_valkind_enum::WASM_I32</span> <span class="kw">as</span> <span class="kw">_</span>,
+    <span class="kw">fn </span>try_from(item: <span class="kw-2">&amp;</span>Value) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="kw-2">*</span>item {
+            Value::I32(v) =&gt; wasm_val_t {
+                of: wasm_val_inner { int32_t: v },
+                kind: wasm_valkind_enum::WASM_I32 <span class="kw">as _</span>,
             },
-            <span class="ident">Value::I64</span>(<span class="ident">v</span>) =&gt; <span class="ident">wasm_val_t</span> {
-                <span class="ident">of</span>: <span class="ident">wasm_val_inner</span> { <span class="ident">int64_t</span>: <span class="ident">v</span> },
-                <span class="ident">kind</span>: <span class="ident">wasm_valkind_enum::WASM_I64</span> <span class="kw">as</span> <span class="kw">_</span>,
+            Value::I64(v) =&gt; wasm_val_t {
+                of: wasm_val_inner { int64_t: v },
+                kind: wasm_valkind_enum::WASM_I64 <span class="kw">as _</span>,
             },
-            <span class="ident">Value::F32</span>(<span class="ident">v</span>) =&gt; <span class="ident">wasm_val_t</span> {
-                <span class="ident">of</span>: <span class="ident">wasm_val_inner</span> { <span class="ident">float32_t</span>: <span class="ident">v</span> },
-                <span class="ident">kind</span>: <span class="ident">wasm_valkind_enum::WASM_F32</span> <span class="kw">as</span> <span class="kw">_</span>,
+            Value::F32(v) =&gt; wasm_val_t {
+                of: wasm_val_inner { float32_t: v },
+                kind: wasm_valkind_enum::WASM_F32 <span class="kw">as _</span>,
             },
-            <span class="ident">Value::F64</span>(<span class="ident">v</span>) =&gt; <span class="ident">wasm_val_t</span> {
-                <span class="ident">of</span>: <span class="ident">wasm_val_inner</span> { <span class="ident">float64_t</span>: <span class="ident">v</span> },
-                <span class="ident">kind</span>: <span class="ident">wasm_valkind_enum::WASM_F64</span> <span class="kw">as</span> <span class="kw">_</span>,
+            Value::F64(v) =&gt; wasm_val_t {
+                of: wasm_val_inner { float64_t: v },
+                kind: wasm_valkind_enum::WASM_F64 <span class="kw">as _</span>,
             },
-            <span class="ident">Value::V128</span>(<span class="kw">_</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;128bit SIMD types not yet supported in Wasm C API&quot;</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">todo!</span>(<span class="string">&quot;Handle these values in TryFrom&lt;Value&gt; for wasm_val_t&quot;</span>),
+            Value::V128(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;128bit SIMD types not yet supported in Wasm C API&quot;</span>),
+            <span class="kw">_ </span>=&gt; <span class="macro">todo!</span>(<span class="string">&quot;Handle these values in TryFrom&lt;Value&gt; for wasm_val_t&quot;</span>),
         })
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

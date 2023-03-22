@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/target.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>target.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/target.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>target.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -210,217 +210,217 @@
 <span id="210">210</span>
 <span id="211">211</span>
 <span id="212">212</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Target configuration</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Target configuration
 
-<span class="comment">// The clippy::use_self exception is due to a false positive indicating that</span>
-<span class="comment">// `CpuFeature` should be replaced by `Self`. Attaching the allowance to the</span>
-<span class="comment">// type itself has no effect, therefore it&#39;s disabled for the whole module.</span>
-<span class="comment">// Feel free to remove this allow attribute once the bug is fixed.</span>
-<span class="comment">// See https://github.com/rust-lang/rust-clippy/issues/6902</span>
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::use_self</span>)]</span>
+</span><span class="comment">// The clippy::use_self exception is due to a false positive indicating that
+// `CpuFeature` should be replaced by `Self`. Attaching the allowance to the
+// type itself has no effect, therefore it&#39;s disabled for the whole module.
+// Feel free to remove this allow attribute once the bug is fixed.
+// See https://github.com/rust-lang/rust-clippy/issues/6902
+</span><span class="attribute">#![allow(clippy::use_self)]
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ParseCpuFeatureError</span>;
-<span class="kw">use</span> <span class="ident">enumset</span>::{<span class="ident">EnumSet</span>, <span class="ident">EnumSetType</span>};
-<span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
-<span class="kw">use</span> <span class="ident">std::string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">target_lexicon</span>::{
-    <span class="ident">Aarch64Architecture</span>, <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">CallingConvention</span>, <span class="ident">Endianness</span>, <span class="ident">Environment</span>,
-    <span class="ident">OperatingSystem</span>, <span class="ident">PointerWidth</span>, <span class="ident">Triple</span>, <span class="ident">Vendor</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::error::ParseCpuFeatureError;
+<span class="kw">use </span>enumset::{EnumSet, EnumSetType};
+<span class="kw">use </span>std::str::FromStr;
+<span class="kw">use </span>std::string::{String, ToString};
+<span class="kw">pub use </span>target_lexicon::{
+    Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, Endianness, Environment,
+    OperatingSystem, PointerWidth, Triple, Vendor,
 };
 
-<span class="doccomment">/// The nomenclature is inspired by the [`cpuid` crate].</span>
-<span class="doccomment">/// The list of supported features was initially retrieved from</span>
-<span class="doccomment">/// [`cranelift-native`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The `CpuFeature` enum values are likely to grow closer to the</span>
-<span class="doccomment">/// original `cpuid`. However, we prefer to start small and grow from there.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// If you would like to use a flag that doesn&#39;t exist yet here, please</span>
-<span class="doccomment">/// open a PR.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// [`cpuid` crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html</span>
-<span class="doccomment">/// [`cranelift-native`]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>, <span class="ident">clippy::derive_hash_xor_eq</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">EnumSetType</span>, <span class="ident">Debug</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CpuFeature</span> {
-    <span class="comment">// X86 features</span>
-    <span class="ident">SSE2</span>,
-    <span class="ident">SSE3</span>,
-    <span class="ident">SSSE3</span>,
-    <span class="ident">SSE41</span>,
-    <span class="ident">SSE42</span>,
-    <span class="ident">POPCNT</span>,
-    <span class="ident">AVX</span>,
-    <span class="ident">BMI1</span>,
-    <span class="ident">BMI2</span>,
-    <span class="ident">AVX2</span>,
-    <span class="ident">AVX512DQ</span>,
-    <span class="ident">AVX512VL</span>,
-    <span class="ident">AVX512F</span>,
-    <span class="ident">LZCNT</span>,
-    <span class="comment">// ARM features</span>
-    <span class="comment">// Risc-V features</span>
-}
+<span class="doccomment">/// The nomenclature is inspired by the [`cpuid` crate].
+/// The list of supported features was initially retrieved from
+/// [`cranelift-native`].
+///
+/// The `CpuFeature` enum values are likely to grow closer to the
+/// original `cpuid`. However, we prefer to start small and grow from there.
+///
+/// If you would like to use a flag that doesn&#39;t exist yet here, please
+/// open a PR.
+///
+/// [`cpuid` crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html
+/// [`cranelift-native`]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92
+</span><span class="attribute">#[allow(missing_docs, clippy::derive_hash_xor_eq)]
+#[derive(EnumSetType, Debug, Hash)]
+</span><span class="kw">pub enum </span>CpuFeature {
+    <span class="comment">// X86 features
+    </span>SSE2,
+    SSE3,
+    SSSE3,
+    SSE41,
+    SSE42,
+    POPCNT,
+    AVX,
+    BMI1,
+    BMI2,
+    AVX2,
+    AVX512DQ,
+    AVX512VL,
+    AVX512F,
+    LZCNT,
+    <span class="comment">// ARM features
+    // Risc-V features
+</span>}
 
-<span class="kw">impl</span> <span class="ident">CpuFeature</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
-    <span class="doccomment">/// Retrieves the features for the current Host</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_host</span>() -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">EnumSet::new</span>();
+<span class="kw">impl </span>CpuFeature {
+    <span class="attribute">#[cfg(any(target_arch = <span class="string">&quot;x86&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+    </span><span class="doccomment">/// Retrieves the features for the current Host
+    </span><span class="kw">pub fn </span>for_host() -&gt; EnumSet&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = EnumSet::new();
 
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse2&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::SSE2</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse2&quot;</span>) {
+            features.insert(<span class="self">Self</span>::SSE2);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse3&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::SSE3</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse3&quot;</span>) {
+            features.insert(<span class="self">Self</span>::SSE3);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;ssse3&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::SSSE3</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;ssse3&quot;</span>) {
+            features.insert(<span class="self">Self</span>::SSSE3);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse4.1&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::SSE41</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse4.1&quot;</span>) {
+            features.insert(<span class="self">Self</span>::SSE41);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse4.2&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::SSE42</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;sse4.2&quot;</span>) {
+            features.insert(<span class="self">Self</span>::SSE42);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;popcnt&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::POPCNT</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;popcnt&quot;</span>) {
+            features.insert(<span class="self">Self</span>::POPCNT);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::AVX</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx&quot;</span>) {
+            features.insert(<span class="self">Self</span>::AVX);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;bmi1&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::BMI1</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;bmi1&quot;</span>) {
+            features.insert(<span class="self">Self</span>::BMI1);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;bmi2&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::BMI2</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;bmi2&quot;</span>) {
+            features.insert(<span class="self">Self</span>::BMI2);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx2&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::AVX2</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx2&quot;</span>) {
+            features.insert(<span class="self">Self</span>::AVX2);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx512dq&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::AVX512DQ</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx512dq&quot;</span>) {
+            features.insert(<span class="self">Self</span>::AVX512DQ);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx512vl&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::AVX512VL</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx512vl&quot;</span>) {
+            features.insert(<span class="self">Self</span>::AVX512VL);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx512f&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::AVX512F</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;avx512f&quot;</span>) {
+            features.insert(<span class="self">Self</span>::AVX512F);
         }
-        <span class="kw">if</span> <span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;lzcnt&quot;</span>) {
-            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="ident"><span class="self">Self</span>::LZCNT</span>);
+        <span class="kw">if </span><span class="macro">std::is_x86_feature_detected!</span>(<span class="string">&quot;lzcnt&quot;</span>) {
+            features.insert(<span class="self">Self</span>::LZCNT);
         }
-        <span class="ident">features</span>
+        features
     }
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>)))]</span>
-    <span class="doccomment">/// Retrieves the features for the current Host</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_host</span>() -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="comment">// We default to an empty hash set</span>
-        <span class="ident">EnumSet::new</span>()
+    <span class="attribute">#[cfg(not(any(target_arch = <span class="string">&quot;x86&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)))]
+    </span><span class="doccomment">/// Retrieves the features for the current Host
+    </span><span class="kw">pub fn </span>for_host() -&gt; EnumSet&lt;<span class="self">Self</span>&gt; {
+        <span class="comment">// We default to an empty hash set
+        </span>EnumSet::new()
     }
 
-    <span class="doccomment">/// Retrieves an empty set of `CpuFeature`s.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>() -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="comment">// We default to an empty hash set</span>
-        <span class="ident">EnumSet::new</span>()
-    }
-}
-
-<span class="comment">// This options should map exactly the GCC options indicated</span>
-<span class="comment">// here by architectures:</span>
-<span class="comment">//</span>
-<span class="comment">// X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html</span>
-<span class="comment">// ARM: https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html</span>
-<span class="comment">// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html</span>
-<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">CpuFeature</span> {
-    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">ParseCpuFeatureError</span>;
-
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">s</span> {
-            <span class="string">&quot;sse2&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::SSE2</span>),
-            <span class="string">&quot;sse3&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::SSE3</span>),
-            <span class="string">&quot;ssse3&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::SSSE3</span>),
-            <span class="string">&quot;sse4.1&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::SSE41</span>),
-            <span class="string">&quot;sse4.2&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::SSE42</span>),
-            <span class="string">&quot;popcnt&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::POPCNT</span>),
-            <span class="string">&quot;avx&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::AVX</span>),
-            <span class="string">&quot;bmi&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BMI1</span>),
-            <span class="string">&quot;bmi2&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::BMI2</span>),
-            <span class="string">&quot;avx2&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::AVX2</span>),
-            <span class="string">&quot;avx512dq&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::AVX512DQ</span>),
-            <span class="string">&quot;avx512vl&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::AVX512VL</span>),
-            <span class="string">&quot;avx512f&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::AVX512F</span>),
-            <span class="string">&quot;lzcnt&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::LZCNT</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">ParseCpuFeatureError::Missing</span>(<span class="ident">s</span>.<span class="ident">to_string</span>())),
-        }
+    <span class="doccomment">/// Retrieves an empty set of `CpuFeature`s.
+    </span><span class="kw">pub fn </span>set() -&gt; EnumSet&lt;<span class="self">Self</span>&gt; {
+        <span class="comment">// We default to an empty hash set
+        </span>EnumSet::new()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">ToString</span> <span class="kw">for</span> <span class="ident">CpuFeature</span> {
-    <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::SSE2</span> =&gt; <span class="string">&quot;sse2&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::SSE3</span> =&gt; <span class="string">&quot;sse3&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::SSSE3</span> =&gt; <span class="string">&quot;ssse3&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::SSE41</span> =&gt; <span class="string">&quot;sse4.1&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::SSE42</span> =&gt; <span class="string">&quot;sse4.2&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::POPCNT</span> =&gt; <span class="string">&quot;popcnt&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::AVX</span> =&gt; <span class="string">&quot;avx&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::BMI1</span> =&gt; <span class="string">&quot;bmi&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::BMI2</span> =&gt; <span class="string">&quot;bmi2&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::AVX2</span> =&gt; <span class="string">&quot;avx2&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::AVX512DQ</span> =&gt; <span class="string">&quot;avx512dq&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::AVX512VL</span> =&gt; <span class="string">&quot;avx512vl&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::AVX512F</span> =&gt; <span class="string">&quot;avx512f&quot;</span>,
-            <span class="ident"><span class="self">Self</span>::LZCNT</span> =&gt; <span class="string">&quot;lzcnt&quot;</span>,
-        }
-        .<span class="ident">to_string</span>()
-    }
-}
+<span class="comment">// This options should map exactly the GCC options indicated
+// here by architectures:
+//
+// X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
+// ARM: https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html
+// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
+</span><span class="kw">impl </span>FromStr <span class="kw">for </span>CpuFeature {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= ParseCpuFeatureError;
 
-<span class="doccomment">/// This is the target that we will use for compiling</span>
-<span class="doccomment">/// the WebAssembly ModuleInfo, and then run it.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Target</span> {
-    <span class="ident">triple</span>: <span class="ident">Triple</span>,
-    <span class="ident">cpu_features</span>: <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">Target</span> {
-    <span class="doccomment">/// Creates a new target given a triple</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">triple</span>: <span class="ident">Triple</span>, <span class="ident">cpu_features</span>: <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">triple</span>,
-            <span class="ident">cpu_features</span>,
+    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">match </span>s {
+            <span class="string">&quot;sse2&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE2),
+            <span class="string">&quot;sse3&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE3),
+            <span class="string">&quot;ssse3&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSSE3),
+            <span class="string">&quot;sse4.1&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE41),
+            <span class="string">&quot;sse4.2&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE42),
+            <span class="string">&quot;popcnt&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::POPCNT),
+            <span class="string">&quot;avx&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX),
+            <span class="string">&quot;bmi&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BMI1),
+            <span class="string">&quot;bmi2&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BMI2),
+            <span class="string">&quot;avx2&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX2),
+            <span class="string">&quot;avx512dq&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512DQ),
+            <span class="string">&quot;avx512vl&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512VL),
+            <span class="string">&quot;avx512f&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512F),
+            <span class="string">&quot;lzcnt&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::LZCNT),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ParseCpuFeatureError::Missing(s.to_string())),
         }
     }
+}
 
-    <span class="doccomment">/// The triple associated for the target.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">triple</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Triple</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">triple</span>
-    }
-
-    <span class="doccomment">/// The triple associated for the target.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>
-    }
-
-    <span class="doccomment">/// Check if target is a native (eq to host) or not</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_native</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="ident">Triple::host</span>();
-        <span class="ident">host</span>.<span class="ident">operating_system</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">triple</span>.<span class="ident">operating_system</span>
-            <span class="op">&amp;&amp;</span> <span class="ident">host</span>.<span class="ident">architecture</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">triple</span>.<span class="ident">architecture</span>
+<span class="kw">impl </span>ToString <span class="kw">for </span>CpuFeature {
+    <span class="kw">fn </span>to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::SSE2 =&gt; <span class="string">&quot;sse2&quot;</span>,
+            <span class="self">Self</span>::SSE3 =&gt; <span class="string">&quot;sse3&quot;</span>,
+            <span class="self">Self</span>::SSSE3 =&gt; <span class="string">&quot;ssse3&quot;</span>,
+            <span class="self">Self</span>::SSE41 =&gt; <span class="string">&quot;sse4.1&quot;</span>,
+            <span class="self">Self</span>::SSE42 =&gt; <span class="string">&quot;sse4.2&quot;</span>,
+            <span class="self">Self</span>::POPCNT =&gt; <span class="string">&quot;popcnt&quot;</span>,
+            <span class="self">Self</span>::AVX =&gt; <span class="string">&quot;avx&quot;</span>,
+            <span class="self">Self</span>::BMI1 =&gt; <span class="string">&quot;bmi&quot;</span>,
+            <span class="self">Self</span>::BMI2 =&gt; <span class="string">&quot;bmi2&quot;</span>,
+            <span class="self">Self</span>::AVX2 =&gt; <span class="string">&quot;avx2&quot;</span>,
+            <span class="self">Self</span>::AVX512DQ =&gt; <span class="string">&quot;avx512dq&quot;</span>,
+            <span class="self">Self</span>::AVX512VL =&gt; <span class="string">&quot;avx512vl&quot;</span>,
+            <span class="self">Self</span>::AVX512F =&gt; <span class="string">&quot;avx512f&quot;</span>,
+            <span class="self">Self</span>::LZCNT =&gt; <span class="string">&quot;lzcnt&quot;</span>,
+        }
+        .to_string()
     }
 }
 
-<span class="doccomment">/// The default for the Target will use the HOST as the triple</span>
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Target</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">triple</span>: <span class="ident">Triple::host</span>(),
-            <span class="ident">cpu_features</span>: <span class="ident">CpuFeature::for_host</span>(),
+<span class="doccomment">/// This is the target that we will use for compiling
+/// the WebAssembly ModuleInfo, and then run it.
+</span><span class="attribute">#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+</span><span class="kw">pub struct </span>Target {
+    triple: Triple,
+    cpu_features: EnumSet&lt;CpuFeature&gt;,
+}
+
+<span class="kw">impl </span>Target {
+    <span class="doccomment">/// Creates a new target given a triple
+    </span><span class="kw">pub fn </span>new(triple: Triple, cpu_features: EnumSet&lt;CpuFeature&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            triple,
+            cpu_features,
+        }
+    }
+
+    <span class="doccomment">/// The triple associated for the target.
+    </span><span class="kw">pub fn </span>triple(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Triple {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.triple
+    }
+
+    <span class="doccomment">/// The triple associated for the target.
+    </span><span class="kw">pub fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features
+    }
+
+    <span class="doccomment">/// Check if target is a native (eq to host) or not
+    </span><span class="kw">pub fn </span>is_native(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span>host = Triple::host();
+        host.operating_system == <span class="self">self</span>.triple.operating_system
+            &amp;&amp; host.architecture == <span class="self">self</span>.triple.architecture
+    }
+}
+
+<span class="doccomment">/// The default for the Target will use the HOST as the triple
+</span><span class="kw">impl </span>Default <span class="kw">for </span>Target {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            triple: Triple::host(),
+            cpu_features: CpuFeature::for_host(),
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

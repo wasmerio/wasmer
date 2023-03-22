@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -68,75 +68,75 @@
 <span id="68">68</span>
 <span id="69">69</span>
 <span id="70">70</span>
-</pre><pre class="rust"><code><span class="comment">// Allow unused imports while developing</span>
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
+</pre><pre class="rust"><code><span class="comment">// Allow unused imports while developing
+</span><span class="attribute">#![allow(unused_imports, dead_code)]
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::SinglepassCompiler</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>, <span class="ident">ModuleMiddleware</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CpuFeature</span>, <span class="ident">Features</span>, <span class="ident">Target</span>};
+</span><span class="kw">use </span><span class="kw">crate</span>::compiler::SinglepassCompiler;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+<span class="kw">use </span>wasmer_types::{CpuFeature, Features, Target};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Singlepass</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// The middleware chain.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Singlepass {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_nan_canonicalization: bool,
+    <span class="doccomment">/// The middleware chain.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) middlewares: Vec&lt;Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Singlepass</span> {
-    <span class="doccomment">/// Creates a new configuration object with the default configuration</span>
-    <span class="doccomment">/// specified.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">enable_nan_canonicalization</span>: <span class="bool-val">true</span>,
-            <span class="ident">middlewares</span>: <span class="macro">vec!</span>[],
+<span class="kw">impl </span>Singlepass {
+    <span class="doccomment">/// Creates a new configuration object with the default configuration
+    /// specified.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            enable_nan_canonicalization: <span class="bool-val">true</span>,
+            middlewares: <span class="macro">vec!</span>[],
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">enable_nan_canonicalization</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="kw">fn </span>enable_nan_canonicalization(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.enable_nan_canonicalization = <span class="bool-val">true</span>;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">canonicalize_nans</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">enable_nan_canonicalization</span> <span class="op">=</span> <span class="ident">enable</span>;
-        <span class="self">self</span>
+    <span class="kw">pub fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.enable_nan_canonicalization = enable;
+        <span class="self">self
+    </span>}
+}
+
+<span class="kw">impl </span>CompilerConfig <span class="kw">for </span>Singlepass {
+    <span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="comment">// Do nothing, since singlepass already emits
+        // PIC code.
+    </span>}
+
+    <span class="doccomment">/// Transform it into the compiler
+    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
+        Box::new(SinglepassCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
+    }
+
+    <span class="doccomment">/// Gets the default features for this compiler in the given target
+    </span><span class="kw">fn </span>default_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; Features {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = Features::default();
+        features.multi_value(<span class="bool-val">false</span>);
+        features
+    }
+
+    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
+    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
+        <span class="self">self</span>.middlewares.push(middleware);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">CompilerConfig</span> <span class="kw">for</span> <span class="ident">Singlepass</span> {
-    <span class="kw">fn</span> <span class="ident">enable_pic</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="comment">// Do nothing, since singlepass already emits</span>
-        <span class="comment">// PIC code.</span>
-    }
-
-    <span class="doccomment">/// Transform it into the compiler</span>
-    <span class="kw">fn</span> <span class="ident">compiler</span>(<span class="self">self</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span> {
-        <span class="ident">Box::new</span>(<span class="ident">SinglepassCompiler::new</span>(<span class="kw-2">*</span><span class="self">self</span>))
-    }
-
-    <span class="doccomment">/// Gets the default features for this compiler in the given target</span>
-    <span class="kw">fn</span> <span class="ident">default_features_for_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="ident">Features</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">Features::default</span>();
-        <span class="ident">features</span>.<span class="ident">multi_value</span>(<span class="bool-val">false</span>);
-        <span class="ident">features</span>
-    }
-
-    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.</span>
-    <span class="kw">fn</span> <span class="ident">push_middleware</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">middleware</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">middlewares</span>.<span class="ident">push</span>(<span class="ident">middleware</span>);
+<span class="kw">impl </span>Default <span class="kw">for </span>Singlepass {
+    <span class="kw">fn </span>default() -&gt; Singlepass {
+        <span class="self">Self</span>::new()
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Singlepass</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="ident">Singlepass</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Singlepass</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Engine</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">config</span>: <span class="ident">Singlepass</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">EngineBuilder::new</span>(<span class="ident">config</span>).<span class="ident">engine</span>()
+<span class="kw">impl </span>From&lt;Singlepass&gt; <span class="kw">for </span>Engine {
+    <span class="kw">fn </span>from(config: Singlepass) -&gt; <span class="self">Self </span>{
+        EngineBuilder::new(config).engine()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

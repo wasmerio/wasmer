@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/pipe.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>pipe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vfs/src/pipe.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>pipe.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_fs/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -519,526 +519,526 @@
 <span id="519">519</span>
 <span id="520">520</span>
 <span id="521">521</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">Bytes</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;futures&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">futures::Future</span>;
-<span class="kw">use</span> <span class="ident">std::io::IoSlice</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">SeekFrom</span>};
-<span class="kw">use</span> <span class="ident">std::ops::DerefMut</span>;
-<span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
-<span class="kw">use</span> <span class="ident">std::task::Context</span>;
-<span class="kw">use</span> <span class="ident">std::task::Poll</span>;
-<span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncRead</span>, <span class="ident">AsyncSeek</span>, <span class="ident">AsyncWrite</span>};
-<span class="kw">use</span> <span class="ident">tokio::sync</span>::{<span class="ident">mpsc</span>, <span class="ident">mpsc::error::TryRecvError</span>};
+</pre><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;futures&quot;</span>)]
+</span><span class="kw">use </span>futures::Future;
+<span class="kw">use </span>std::io::IoSlice;
+<span class="kw">use </span>std::io::{<span class="self">self</span>, Read, Seek, SeekFrom};
+<span class="kw">use </span>std::ops::DerefMut;
+<span class="kw">use </span>std::pin::Pin;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::sync::Mutex;
+<span class="kw">use </span>std::task::Context;
+<span class="kw">use </span>std::task::Poll;
+<span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
+<span class="kw">use </span>tokio::sync::{mpsc, mpsc::error::TryRecvError};
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ArcFile</span>, <span class="ident">FsError</span>, <span class="ident">VirtualFile</span>};
+<span class="kw">use crate</span>::{ArcFile, FsError, VirtualFile};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Pipe</span> {
-    <span class="doccomment">/// Transmit side of the pipe</span>
-    <span class="ident">send</span>: <span class="ident">PipeTx</span>,
-    <span class="doccomment">/// Receive side of the pipe</span>
-    <span class="ident">recv</span>: <span class="ident">PipeRx</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Pipe {
+    <span class="doccomment">/// Transmit side of the pipe
+    </span>send: PipeTx,
+    <span class="doccomment">/// Receive side of the pipe
+    </span>recv: PipeRx,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PipeTx</span> {
-    <span class="doccomment">/// Sends bytes down the pipe</span>
-    <span class="ident">tx</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">mpsc::UnboundedSender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Whether the pipe should block or not block to wait for stdin reads</span>
-    <span class="ident">block</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>PipeTx {
+    <span class="doccomment">/// Sends bytes down the pipe
+    </span>tx: Arc&lt;Mutex&lt;mpsc::UnboundedSender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// Whether the pipe should block or not block to wait for stdin reads
+    </span>block: bool,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PipeRx</span> {
-    <span class="doccomment">/// Receives bytes from the pipe</span>
-    <span class="doccomment">/// Also, buffers the last read message from the pipe while its being consumed</span>
-    <span class="ident">rx</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">PipeReceiver</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Whether the pipe should block or not block to wait for stdin reads</span>
-    <span class="ident">block</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>PipeRx {
+    <span class="doccomment">/// Receives bytes from the pipe
+    /// Also, buffers the last read message from the pipe while its being consumed
+    </span>rx: Arc&lt;Mutex&lt;PipeReceiver&gt;&gt;,
+    <span class="doccomment">/// Whether the pipe should block or not block to wait for stdin reads
+    </span>block: bool,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">PipeReceiver</span> {
-    <span class="ident">chan</span>: <span class="ident">mpsc::UnboundedReceiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">buffer</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Bytes</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">struct </span>PipeReceiver {
+    chan: mpsc::UnboundedReceiver&lt;Vec&lt;u8&gt;&gt;,
+    buffer: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded_channel</span>();
+<span class="kw">impl </span>Pipe {
+    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel();
 
-        <span class="ident">Pipe</span> {
-            <span class="ident">send</span>: <span class="ident">PipeTx</span> {
-                <span class="ident">tx</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">tx</span>)),
-                <span class="ident">block</span>: <span class="bool-val">true</span>,
+        Pipe {
+            send: PipeTx {
+                tx: Arc::new(Mutex::new(tx)),
+                block: <span class="bool-val">true</span>,
             },
-            <span class="ident">recv</span>: <span class="ident">PipeRx</span> {
-                <span class="ident">rx</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">PipeReceiver</span> {
-                    <span class="ident">chan</span>: <span class="ident">rx</span>,
-                    <span class="ident">buffer</span>: <span class="prelude-val">None</span>,
+            recv: PipeRx {
+                rx: Arc::new(Mutex::new(PipeReceiver {
+                    chan: rx,
+                    buffer: <span class="prelude-val">None</span>,
                 })),
-                <span class="ident">block</span>: <span class="bool-val">true</span>,
+                block: <span class="bool-val">true</span>,
             },
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">channel</span>() -&gt; (<span class="ident">Pipe</span>, <span class="ident">Pipe</span>) {
-        <span class="kw">let</span> (<span class="ident">tx1</span>, <span class="ident">rx1</span>) <span class="op">=</span> <span class="ident">Pipe::new</span>().<span class="ident">split</span>();
-        <span class="kw">let</span> (<span class="ident">tx2</span>, <span class="ident">rx2</span>) <span class="op">=</span> <span class="ident">Pipe::new</span>().<span class="ident">split</span>();
+    <span class="kw">pub fn </span>channel() -&gt; (Pipe, Pipe) {
+        <span class="kw">let </span>(tx1, rx1) = Pipe::new().split();
+        <span class="kw">let </span>(tx2, rx2) = Pipe::new().split();
 
-        <span class="kw">let</span> <span class="ident">end1</span> <span class="op">=</span> <span class="ident">Pipe::combine</span>(<span class="ident">tx1</span>, <span class="ident">rx2</span>);
-        <span class="kw">let</span> <span class="ident">end2</span> <span class="op">=</span> <span class="ident">Pipe::combine</span>(<span class="ident">tx2</span>, <span class="ident">rx1</span>);
-        (<span class="ident">end1</span>, <span class="ident">end2</span>)
+        <span class="kw">let </span>end1 = Pipe::combine(tx1, rx2);
+        <span class="kw">let </span>end2 = Pipe::combine(tx2, rx1);
+        (end1, end2)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">split</span>(<span class="self">self</span>) -&gt; (<span class="ident">PipeTx</span>, <span class="ident">PipeRx</span>) {
-        (<span class="self">self</span>.<span class="ident">send</span>, <span class="self">self</span>.<span class="ident">recv</span>)
+    <span class="kw">pub fn </span>split(<span class="self">self</span>) -&gt; (PipeTx, PipeRx) {
+        (<span class="self">self</span>.send, <span class="self">self</span>.recv)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine</span>(<span class="ident">tx</span>: <span class="ident">PipeTx</span>, <span class="ident">rx</span>: <span class="ident">PipeRx</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">send</span>: <span class="ident">tx</span>, <span class="ident">recv</span>: <span class="ident">rx</span> }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Pipe</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">PipeTx</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">Pipe</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">val</span>.<span class="ident">send</span>
+    <span class="kw">pub fn </span>combine(tx: PipeTx, rx: PipeRx) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ send: tx, recv: rx }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Pipe</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">PipeRx</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">Pipe</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident">val</span>.<span class="ident">recv</span>
+<span class="kw">impl </span>From&lt;Pipe&gt; <span class="kw">for </span>PipeTx {
+    <span class="kw">fn </span>from(val: Pipe) -&gt; <span class="self">Self </span>{
+        val.send
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Pipe</span> {
-    <span class="doccomment">/// Same as `set_blocking`, but as a builder method</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_blocking</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">block</span>: <span class="ident">bool</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">set_blocking</span>(<span class="ident">block</span>);
-        <span class="self">self</span>
-    }
-
-    <span class="doccomment">/// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_blocking</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">block</span>: <span class="ident">bool</span>) {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">block</span> <span class="op">=</span> <span class="ident">block</span>;
-        <span class="self">self</span>.<span class="ident">recv</span>.<span class="ident">block</span> <span class="op">=</span> <span class="ident">block</span>;
-    }
-
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">close</span>();
+<span class="kw">impl </span>From&lt;Pipe&gt; <span class="kw">for </span>PipeRx {
+    <span class="kw">fn </span>from(val: Pipe) -&gt; <span class="self">Self </span>{
+        val.recv
     }
 }
 
-<span class="kw">impl</span> <span class="ident">PipeTx</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">close</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// TODO: proper close() implementation - Propably want to store the writer in an Option&lt;&gt;</span>
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">null_tx</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">mpsc::unbounded_channel</span>();
+<span class="kw">impl </span>Pipe {
+    <span class="doccomment">/// Same as `set_blocking`, but as a builder method
+    </span><span class="kw">pub fn </span>with_blocking(<span class="kw-2">mut </span><span class="self">self</span>, block: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.set_blocking(block);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    </span><span class="kw">pub fn </span>set_blocking(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: bool) {
+        <span class="self">self</span>.send.block = block;
+        <span class="self">self</span>.recv.block = block;
+    }
+
+    <span class="kw">pub fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.send.close();
+    }
+}
+
+<span class="kw">impl </span>PipeTx {
+    <span class="kw">pub fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="comment">// TODO: proper close() implementation - Propably want to store the writer in an Option&lt;&gt;
+        </span><span class="kw">let </span>(<span class="kw-2">mut </span>null_tx, <span class="kw">_</span>) = mpsc::unbounded_channel();
         {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-            <span class="ident">std::mem::swap</span>(<span class="ident">guard</span>.<span class="ident">deref_mut</span>(), <span class="kw-2">&amp;mut</span> <span class="ident">null_tx</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.tx.lock().unwrap();
+            std::mem::swap(guard.deref_mut(), <span class="kw-2">&amp;mut </span>null_tx);
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">from</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">recv</span>.<span class="ident">seek</span>(<span class="ident">from</span>)
+<span class="kw">impl </span>Seek <span class="kw">for </span>Pipe {
+    <span class="kw">fn </span>seek(<span class="kw-2">&amp;mut </span><span class="self">self</span>, from: SeekFrom) -&gt; io::Result&lt;u64&gt; {
+        <span class="self">self</span>.recv.seek(from)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">PipeRx</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="kw">_</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+<span class="kw">impl </span>Seek <span class="kw">for </span>PipeRx {
+    <span class="kw">fn </span>seek(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: SeekFrom) -&gt; io::Result&lt;u64&gt; {
         <span class="prelude-val">Ok</span>(<span class="number">0</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">PipeTx</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="kw">_</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+<span class="kw">impl </span>Seek <span class="kw">for </span>PipeTx {
+    <span class="kw">fn </span>seek(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: SeekFrom) -&gt; io::Result&lt;u64&gt; {
         <span class="prelude-val">Ok</span>(<span class="number">0</span>)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">recv</span>.<span class="ident">read</span>(<span class="ident">buf</span>)
+<span class="kw">impl </span>Read <span class="kw">for </span>Pipe {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; std::io::Result&lt;usize&gt; {
+        <span class="self">self</span>.recv.read(buf)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">PipeRx</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">max_size</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">len</span>();
+<span class="kw">impl </span>Read <span class="kw">for </span>PipeRx {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; std::io::Result&lt;usize&gt; {
+        <span class="kw">let </span>max_size = buf.len();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">rx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">loop</span> {
+        <span class="kw">let </span><span class="kw-2">mut </span>rx = <span class="self">self</span>.rx.lock().unwrap();
+        <span class="kw">loop </span>{
             {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">read_buffer</span>) <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">buffer</span>.<span class="ident">as_mut</span>() {
-                    <span class="kw">let</span> <span class="ident">buf_len</span> <span class="op">=</span> <span class="ident">read_buffer</span>.<span class="ident">len</span>();
-                    <span class="kw">if</span> <span class="ident">buf_len</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">buf_len</span>.<span class="ident">min</span>(<span class="ident">max_size</span>);
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_buf</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">read_buffer</span>[..<span class="ident">read</span>];
-                        <span class="ident">read</span> <span class="op">=</span> <span class="ident">Read::read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_buf</span>, <span class="ident">buf</span>)<span class="question-mark">?</span>;
-                        <span class="ident">read_buffer</span>.<span class="ident">advance</span>(<span class="ident">read</span>);
-                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">read</span>);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(read_buffer) = rx.buffer.as_mut() {
+                    <span class="kw">let </span>buf_len = read_buffer.len();
+                    <span class="kw">if </span>buf_len &gt; <span class="number">0 </span>{
+                        <span class="kw">let </span><span class="kw-2">mut </span>read = buf_len.min(max_size);
+                        <span class="kw">let </span><span class="kw-2">mut </span>inner_buf = <span class="kw-2">&amp;</span>read_buffer[..read];
+                        read = Read::read(<span class="kw-2">&amp;mut </span>inner_buf, buf)<span class="question-mark">?</span>;
+                        read_buffer.advance(read);
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(read);
                     }
                 }
             }
-            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> {
-                <span class="kw">match</span> <span class="self">self</span>.<span class="ident">block</span> {
-                    <span class="bool-val">true</span> =&gt; <span class="kw">match</span> <span class="ident">rx</span>.<span class="ident">chan</span>.<span class="ident">blocking_recv</span>() {
-                        <span class="prelude-val">Some</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
-                        <span class="prelude-val">None</span> =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="number">0</span>);
+            <span class="kw">let </span>data = {
+                <span class="kw">match </span><span class="self">self</span>.block {
+                    <span class="bool-val">true </span>=&gt; <span class="kw">match </span>rx.chan.blocking_recv() {
+                        <span class="prelude-val">Some</span>(a) =&gt; a,
+                        <span class="prelude-val">None </span>=&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
                         }
                     },
-                    <span class="bool-val">false</span> =&gt; <span class="kw">match</span> <span class="ident">rx</span>.<span class="ident">chan</span>.<span class="ident">try_recv</span>() {
-                        <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
-                        <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Empty</span>) =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">io::Error</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">io::ErrorKind::WouldBlock</span>));
+                    <span class="bool-val">false </span>=&gt; <span class="kw">match </span>rx.chan.try_recv() {
+                        <span class="prelude-val">Ok</span>(a) =&gt; a,
+                        <span class="prelude-val">Err</span>(TryRecvError::Empty) =&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(Into::&lt;io::Error&gt;::into(io::ErrorKind::WouldBlock));
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">TryRecvError::Disconnected</span>) =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="number">0</span>);
+                        <span class="prelude-val">Err</span>(TryRecvError::Disconnected) =&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
                         }
                     },
                 }
             };
-            <span class="ident">rx</span>.<span class="ident">buffer</span>.<span class="ident">replace</span>(<span class="ident">Bytes::from</span>(<span class="ident">data</span>));
+            rx.buffer.replace(Bytes::from(data));
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::io::Write</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">write</span>(<span class="ident">buf</span>)
+<span class="kw">impl </span>std::io::Write <span class="kw">for </span>Pipe {
+    <span class="kw">fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; std::io::Result&lt;usize&gt; {
+        <span class="self">self</span>.send.write(buf)
     }
 
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">flush</span>()
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; std::io::Result&lt;()&gt; {
+        <span class="self">self</span>.send.flush()
     }
 
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">write_all</span>(<span class="ident">buf</span>)
+    <span class="kw">fn </span>write_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt; {
+        <span class="self">self</span>.send.write_all(buf)
     }
 
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: <span class="ident">std::fmt::Arguments</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)
+    <span class="kw">fn </span>write_fmt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fmt: std::fmt::Arguments&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; io::Result&lt;()&gt; {
+        <span class="self">self</span>.send.write_fmt(fmt)
     }
 
-    <span class="kw">fn</span> <span class="ident">write_vectored</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">bufs</span>: <span class="kw-2">&amp;</span>[<span class="ident">IoSlice</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">write_vectored</span>(<span class="ident">bufs</span>)
+    <span class="kw">fn </span>write_vectored(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bufs: <span class="kw-2">&amp;</span>[IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;]) -&gt; io::Result&lt;usize&gt; {
+        <span class="self">self</span>.send.write_vectored(bufs)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::io::Write</span> <span class="kw">for</span> <span class="ident">PipeTx</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>())
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">std::io::Error</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">std::io::ErrorKind::BrokenPipe</span>))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())
+<span class="kw">impl </span>std::io::Write <span class="kw">for </span>PipeTx {
+    <span class="kw">fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; std::io::Result&lt;usize&gt; {
+        <span class="kw">let </span>tx = <span class="self">self</span>.tx.lock().unwrap();
+        tx.send(buf.to_vec())
+            .map_err(|<span class="kw">_</span>| Into::&lt;std::io::Error&gt;::into(std::io::ErrorKind::BrokenPipe))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(buf.len())
     }
 
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; std::io::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">start_seek</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">position</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">recv</span>);
-        <span class="ident">this</span>.<span class="ident">start_seek</span>(<span class="ident">position</span>)
+<span class="kw">impl </span>AsyncSeek <span class="kw">for </span>Pipe {
+    <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, position: SeekFrom) -&gt; io::Result&lt;()&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.recv);
+        this.start_seek(position)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_complete</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">recv</span>);
-        <span class="ident">this</span>.<span class="ident">poll_complete</span>(<span class="ident">cx</span>)
+    <span class="kw">fn </span>poll_complete(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.recv);
+        this.poll_complete(cx)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="ident">PipeRx</span> {
-    <span class="kw">fn</span> <span class="ident">start_seek</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_position</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+<span class="kw">impl </span>AsyncSeek <span class="kw">for </span>PipeRx {
+    <span class="kw">fn </span>start_seek(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _position: SeekFrom) -&gt; io::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">poll_complete</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+    <span class="kw">fn </span>poll_complete(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="ident">PipeTx</span> {
-    <span class="kw">fn</span> <span class="ident">start_seek</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_position</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+<span class="kw">impl </span>AsyncSeek <span class="kw">for </span>PipeTx {
+    <span class="kw">fn </span>start_seek(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _position: SeekFrom) -&gt; io::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">poll_complete</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+    <span class="kw">fn </span>poll_complete(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">poll_write</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">send</span>);
-        <span class="ident">this</span>.<span class="ident">poll_write</span>(<span class="ident">cx</span>, <span class="ident">buf</span>)
+<span class="kw">impl </span>AsyncWrite <span class="kw">for </span>Pipe {
+    <span class="kw">fn </span>poll_write(
+        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.send);
+        this.poll_write(cx, buf)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">send</span>);
-        <span class="ident">this</span>.<span class="ident">poll_flush</span>(<span class="ident">cx</span>)
+    <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.send);
+        this.poll_flush(cx)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_shutdown</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">send</span>);
-        <span class="ident">this</span>.<span class="ident">poll_shutdown</span>(<span class="ident">cx</span>)
+    <span class="kw">fn </span>poll_shutdown(
+        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.send);
+        this.poll_shutdown(cx)
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_write_vectored</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">bufs</span>: <span class="kw-2">&amp;</span>[<span class="ident">IoSlice</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">send</span>);
-        <span class="ident">this</span>.<span class="ident">poll_write_vectored</span>(<span class="ident">cx</span>, <span class="ident">bufs</span>)
+    <span class="kw">fn </span>poll_write_vectored(
+        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        bufs: <span class="kw-2">&amp;</span>[IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;],
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, io::Error&gt;&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.send);
+        this.poll_write_vectored(cx, bufs)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="ident">PipeTx</span> {
-    <span class="kw">fn</span> <span class="ident">poll_write</span>(
-        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>()) {
-            <span class="prelude-val">Ok</span>(()) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">std::io::Error</span><span class="op">&gt;</span><span class="ident">::into</span>(
-                <span class="ident">std::io::ErrorKind::BrokenPipe</span>,
+<span class="kw">impl </span>AsyncWrite <span class="kw">for </span>PipeTx {
+    <span class="kw">fn </span>poll_write(
+        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>guard = <span class="self">self</span>.tx.lock().unwrap();
+        <span class="kw">match </span>guard.send(buf.to_vec()) {
+            <span class="prelude-val">Ok</span>(()) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(buf.len())),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Into::&lt;std::io::Error&gt;::into(
+                std::io::ErrorKind::BrokenPipe,
             ))),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    <span class="kw">fn </span>poll_flush(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 
-    <span class="kw">fn</span> <span class="ident">poll_shutdown</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">close</span>();
-        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="kw">fn</span> <span class="ident">poll_read</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tokio::io::ReadBuf</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">this</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">recv</span>);
-        <span class="ident">this</span>.<span class="ident">poll_read</span>(<span class="ident">cx</span>, <span class="ident">buf</span>)
+    <span class="kw">fn </span>poll_shutdown(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="self">self</span>.close();
+        Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="ident">PipeRx</span> {
-    <span class="kw">fn</span> <span class="ident">poll_read</span>(
-        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tokio::io::ReadBuf</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">rx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">loop</span> {
+<span class="kw">impl </span>AsyncRead <span class="kw">for </span>Pipe {
+    <span class="kw">fn </span>poll_read(
+        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>this = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.recv);
+        this.poll_read(cx, buf)
+    }
+}
+
+<span class="kw">impl </span>AsyncRead <span class="kw">for </span>PipeRx {
+    <span class="kw">fn </span>poll_read(
+        <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>rx = <span class="self">self</span>.rx.lock().unwrap();
+        <span class="kw">loop </span>{
             {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner_buf</span>) <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">buffer</span>.<span class="ident">as_mut</span>() {
-                    <span class="kw">let</span> <span class="ident">buf_len</span> <span class="op">=</span> <span class="ident">inner_buf</span>.<span class="ident">len</span>();
-                    <span class="kw">if</span> <span class="ident">buf_len</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                        <span class="kw">let</span> <span class="ident">read</span> <span class="op">=</span> <span class="ident">buf_len</span>.<span class="ident">min</span>(<span class="ident">buf</span>.<span class="ident">remaining</span>());
-                        <span class="ident">buf</span>.<span class="ident">put_slice</span>(<span class="kw-2">&amp;</span><span class="ident">inner_buf</span>[..<span class="ident">read</span>]);
-                        <span class="ident">inner_buf</span>.<span class="ident">advance</span>(<span class="ident">read</span>);
-                        <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()));
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(inner_buf) = rx.buffer.as_mut() {
+                    <span class="kw">let </span>buf_len = inner_buf.len();
+                    <span class="kw">if </span>buf_len &gt; <span class="number">0 </span>{
+                        <span class="kw">let </span>read = buf_len.min(buf.remaining());
+                        buf.put_slice(<span class="kw-2">&amp;</span>inner_buf[..read]);
+                        inner_buf.advance(read);
+                        <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(()));
                     }
                 }
             }
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rx</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="ident">rx</span>.<span class="ident">deref_mut</span>());
-            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">rx</span>.<span class="ident">chan</span>.<span class="ident">poll_recv</span>(<span class="ident">cx</span>) {
-                <span class="ident">Poll::Ready</span>(<span class="prelude-val">Some</span>(<span class="ident">a</span>)) =&gt; <span class="ident">a</span>,
-                <span class="ident">Poll::Ready</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(())),
-                <span class="ident">Poll::Pending</span> =&gt; {
-                    <span class="kw">return</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">block</span> {
-                        <span class="bool-val">true</span> =&gt; <span class="ident">Poll::Pending</span>,
-                        <span class="bool-val">false</span> =&gt; {
-                            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">io::Error</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">io::ErrorKind::WouldBlock</span>)))
+            <span class="kw">let </span><span class="kw-2">mut </span>rx = Pin::new(rx.deref_mut());
+            <span class="kw">let </span>data = <span class="kw">match </span>rx.chan.poll_recv(cx) {
+                Poll::Ready(<span class="prelude-val">Some</span>(a)) =&gt; a,
+                Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(())),
+                Poll::Pending =&gt; {
+                    <span class="kw">return match </span><span class="self">self</span>.block {
+                        <span class="bool-val">true </span>=&gt; Poll::Pending,
+                        <span class="bool-val">false </span>=&gt; {
+                            Poll::Ready(<span class="prelude-val">Err</span>(Into::&lt;io::Error&gt;::into(io::ErrorKind::WouldBlock)))
                         }
                     }
                 }
             };
 
-            <span class="ident">rx</span>.<span class="ident">buffer</span>.<span class="ident">replace</span>(<span class="ident">Bytes::from</span>(<span class="ident">data</span>));
+            rx.buffer.replace(Bytes::from(data));
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">Pipe</span> {
-    <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp</span>
-    <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
-    }
+<span class="kw">impl </span>VirtualFile <span class="kw">for </span>Pipe {
+    <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp
+    </span><span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
 
-    <span class="doccomment">/// the last time the file was modified in nanoseconds as a UNIX timestamp</span>
-    <span class="kw">fn</span> <span class="ident">last_modified</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
-    }
+    <span class="doccomment">/// the last time the file was modified in nanoseconds as a UNIX timestamp
+    </span><span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
 
-    <span class="doccomment">/// the time at which the file was created in nanoseconds as a UNIX timestamp</span>
-    <span class="kw">fn</span> <span class="ident">created_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
-    }
+    <span class="doccomment">/// the time at which the file was created in nanoseconds as a UNIX timestamp
+    </span><span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
 
-    <span class="doccomment">/// the size of the file in bytes</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">0</span>
-    }
+    <span class="doccomment">/// the size of the file in bytes
+    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="number">0
+    </span>}
 
-    <span class="doccomment">/// Change the size of the file, if the `new_size` is greater than the current size</span>
-    <span class="doccomment">/// the extra bytes will be allocated and zeroed</span>
-    <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_new_size</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Change the size of the file, if the `new_size` is greater than the current size
+    /// the extra bytes will be allocated and zeroed
+    </span><span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Request deletion of the file</span>
-    <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Request deletion of the file
+    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Indicates if the file is opened or closed. This function must not block</span>
-    <span class="doccomment">/// Defaults to a status of being constantly open</span>
-    <span class="kw">fn</span> <span class="ident">is_open</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">send</span>
-            .<span class="ident">tx</span>
-            .<span class="ident">try_lock</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="op">!</span><span class="ident">a</span>.<span class="ident">is_closed</span>())
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="bool-val">true</span>)
+    <span class="doccomment">/// Indicates if the file is opened or closed. This function must not block
+    /// Defaults to a status of being constantly open
+    </span><span class="kw">fn </span>is_open(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.send
+            .tx
+            .try_lock()
+            .map(|a| !a.is_closed())
+            .unwrap_or_else(|<span class="kw">_</span>| <span class="bool-val">true</span>)
     }
 
-    <span class="doccomment">/// Polls the file for when there is data to be read</span>
-    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">recv</span>.<span class="ident">rx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">loop</span> {
+    <span class="doccomment">/// Polls the file for when there is data to be read
+    </span><span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>rx = <span class="self">self</span>.recv.rx.lock().unwrap();
+        <span class="kw">loop </span>{
             {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inner_buf</span>) <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">buffer</span>.<span class="ident">as_mut</span>() {
-                    <span class="kw">let</span> <span class="ident">buf_len</span> <span class="op">=</span> <span class="ident">inner_buf</span>.<span class="ident">len</span>();
-                    <span class="kw">if</span> <span class="ident">buf_len</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                        <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">buf_len</span>));
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(inner_buf) = rx.buffer.as_mut() {
+                    <span class="kw">let </span>buf_len = inner_buf.len();
+                    <span class="kw">if </span>buf_len &gt; <span class="number">0 </span>{
+                        <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(buf_len));
                     }
                 }
             }
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pinned_rx</span> <span class="op">=</span> <span class="ident">Pin::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rx</span>.<span class="ident">chan</span>);
-            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">pinned_rx</span>.<span class="ident">poll_recv</span>(<span class="ident">cx</span>) {
-                <span class="ident">Poll::Ready</span>(<span class="prelude-val">Some</span>(<span class="ident">a</span>)) =&gt; <span class="ident">a</span>,
-                <span class="ident">Poll::Ready</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-                <span class="ident">Poll::Pending</span> =&gt; {
-                    <span class="kw">return</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">recv</span>.<span class="ident">block</span> {
-                        <span class="bool-val">true</span> =&gt; <span class="ident">Poll::Pending</span>,
-                        <span class="bool-val">false</span> =&gt; {
-                            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">io::Error</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">io::ErrorKind::WouldBlock</span>)))
+            <span class="kw">let </span><span class="kw-2">mut </span>pinned_rx = Pin::new(<span class="kw-2">&amp;mut </span>rx.chan);
+            <span class="kw">let </span>data = <span class="kw">match </span>pinned_rx.poll_recv(cx) {
+                Poll::Ready(<span class="prelude-val">Some</span>(a)) =&gt; a,
+                Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+                Poll::Pending =&gt; {
+                    <span class="kw">return match </span><span class="self">self</span>.recv.block {
+                        <span class="bool-val">true </span>=&gt; Poll::Pending,
+                        <span class="bool-val">false </span>=&gt; {
+                            Poll::Ready(<span class="prelude-val">Err</span>(Into::&lt;io::Error&gt;::into(io::ErrorKind::WouldBlock)))
                         }
                     }
                 }
             };
 
-            <span class="ident">rx</span>.<span class="ident">buffer</span>.<span class="ident">replace</span>(<span class="ident">Bytes::from</span>(<span class="ident">data</span>));
+            rx.buffer.replace(Bytes::from(data));
         }
     }
 
-    <span class="doccomment">/// Polls the file for when it is available for writing</span>
-    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">send</span>.<span class="ident">tx</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">if</span> <span class="ident">tx</span>.<span class="ident">is_closed</span>() {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
-        } <span class="kw">else</span> {
-            <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
+    <span class="doccomment">/// Polls the file for when it is available for writing
+    </span><span class="kw">fn </span>poll_write_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>tx = <span class="self">self</span>.send.tx.lock().unwrap();
+        <span class="kw">if </span>tx.is_closed() {
+            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+        } <span class="kw">else </span>{
+            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
         }
     }
 }
 
-<span class="doccomment">/// A pair of pipes that are connected together.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DuplexPipe</span> {
-    <span class="ident">front</span>: <span class="ident">Pipe</span>,
-    <span class="ident">back</span>: <span class="ident">Pipe</span>,
+<span class="doccomment">/// A pair of pipes that are connected together.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>DuplexPipe {
+    front: Pipe,
+    back: Pipe,
 }
 
-<span class="kw">impl</span> <span class="ident">DuplexPipe</span> {
-    <span class="doccomment">/// Get the sender pipe.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">front</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Pipe</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">front</span>
+<span class="kw">impl </span>DuplexPipe {
+    <span class="doccomment">/// Get the sender pipe.
+    </span><span class="kw">pub fn </span>front(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Pipe {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.front
     }
 
-    <span class="doccomment">/// Get the receiver pipe.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">back</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Pipe</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">back</span>
+    <span class="doccomment">/// Get the receiver pipe.
+    </span><span class="kw">pub fn </span>back(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Pipe {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.back
     }
 
-    <span class="doccomment">/// Get the mutable sender pipe.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">front_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Pipe</span> {
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">front</span>
+    <span class="doccomment">/// Get the mutable sender pipe.
+    </span><span class="kw">pub fn </span>front_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Pipe {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.front
     }
 
-    <span class="doccomment">/// Get the receiver pipe.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">back_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">Pipe</span> {
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">back</span>
+    <span class="doccomment">/// Get the receiver pipe.
+    </span><span class="kw">pub fn </span>back_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Pipe {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.back
     }
 
-    <span class="doccomment">/// Split into two pipes that are connected to each other</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">split</span>(<span class="self">self</span>) -&gt; (<span class="ident">Pipe</span>, <span class="ident">Pipe</span>) {
-        (<span class="self">self</span>.<span class="ident">front</span>, <span class="self">self</span>.<span class="ident">back</span>)
+    <span class="doccomment">/// Split into two pipes that are connected to each other
+    </span><span class="kw">pub fn </span>split(<span class="self">self</span>) -&gt; (Pipe, Pipe) {
+        (<span class="self">self</span>.front, <span class="self">self</span>.back)
     }
 
-    <span class="doccomment">/// Combines two ends of a duplex pipe back together again</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">combine</span>(<span class="ident">front</span>: <span class="ident">Pipe</span>, <span class="ident">back</span>: <span class="ident">Pipe</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">front</span>, <span class="ident">back</span> }
+    <span class="doccomment">/// Combines two ends of a duplex pipe back together again
+    </span><span class="kw">pub fn </span>combine(front: Pipe, back: Pipe) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ front, back }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reverse</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> (<span class="ident">front</span>, <span class="ident">back</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">split</span>();
-        <span class="ident"><span class="self">Self</span>::combine</span>(<span class="ident">back</span>, <span class="ident">front</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">DuplexPipe</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new</span>()
+    <span class="kw">pub fn </span>reverse(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>(front, back) = <span class="self">self</span>.split();
+        <span class="self">Self</span>::combine(back, front)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">DuplexPipe</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="ident">DuplexPipe</span> {
-        <span class="kw">let</span> (<span class="ident">end1</span>, <span class="ident">end2</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
-        <span class="self">Self</span> {
-            <span class="ident">front</span>: <span class="ident">end1</span>,
-            <span class="ident">back</span>: <span class="ident">end2</span>,
+<span class="kw">impl </span>Default <span class="kw">for </span>DuplexPipe {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new()
+    }
+}
+
+<span class="kw">impl </span>DuplexPipe {
+    <span class="kw">pub fn </span>new() -&gt; DuplexPipe {
+        <span class="kw">let </span>(end1, end2) = Pipe::channel();
+        <span class="self">Self </span>{
+            front: end1,
+            back: end2,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_blocking</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">block</span>: <span class="ident">bool</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">self</span>.<span class="ident">set_blocking</span>(<span class="ident">block</span>);
-        <span class="self">self</span>
-    }
+    <span class="kw">pub fn </span>with_blocking(<span class="kw-2">mut </span><span class="self">self</span>, block: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.set_blocking(block);
+        <span class="self">self
+    </span>}
 
-    <span class="doccomment">/// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_blocking</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">block</span>: <span class="ident">bool</span>) {
-        <span class="self">self</span>.<span class="ident">front</span>.<span class="ident">set_blocking</span>(<span class="ident">block</span>);
-        <span class="self">self</span>.<span class="ident">back</span>.<span class="ident">set_blocking</span>(<span class="ident">block</span>);
+    <span class="doccomment">/// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    </span><span class="kw">pub fn </span>set_blocking(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: bool) {
+        <span class="self">self</span>.front.set_blocking(block);
+        <span class="self">self</span>.back.set_blocking(block);
     }
 }
 
-<span class="doccomment">/// Shared version of BidiPipe for situations where you need</span>
-<span class="doccomment">/// to emulate the old behaviour of `Pipe` (both send and recv on one channel).</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">WasiBidirectionalSharedPipePair</span> <span class="op">=</span> <span class="ident">ArcFile</span><span class="op">&lt;</span><span class="ident">DuplexPipe</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Shared version of BidiPipe for situations where you need
+/// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
+</span><span class="kw">pub type </span>WasiBidirectionalSharedPipePair = ArcFile&lt;DuplexPipe&gt;;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_fs" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/compiler-test-derive/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../compiler_test_derive/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../compiler_test_derive/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../compiler_test_derive/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `tests/lib/compiler-test-derive/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../compiler_test_derive/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../compiler_test_derive/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../compiler_test_derive/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -148,155 +148,155 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-<span class="kw">use</span> <span class="ident">proc_macro::TokenStream</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">use</span> <span class="ident">proc_macro2::TokenStream</span>;
-<span class="kw">use</span> <span class="ident">quote::quote</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-<span class="kw">use</span> <span class="ident">syn::parse</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">use</span> <span class="ident">syn::parse2</span> <span class="kw">as</span> <span class="ident">parse</span>;
-<span class="kw">use</span> <span class="ident">syn</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="attribute">#[cfg(not(test))]
+</span><span class="kw">extern crate </span>proc_macro;
+<span class="attribute">#[cfg(not(test))]
+</span><span class="kw">use </span>proc_macro::TokenStream;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">use </span>proc_macro2::TokenStream;
+<span class="kw">use </span>quote::quote;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="attribute">#[cfg(not(test))]
+</span><span class="kw">use </span>syn::parse;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">use </span>syn::parse2 <span class="kw">as </span>parse;
+<span class="kw">use </span>syn::<span class="kw-2">*</span>;
 
-<span class="kw">mod</span> <span class="ident">ignores</span>;
+<span class="kw">mod </span>ignores;
 
-<span class="comment">// Reimplement parse_macro_input to use the imported `parse`</span>
-<span class="comment">// function. This way parse_macro_input will parse a TokenStream2 when</span>
-<span class="comment">// unit-testing.</span>
-<span class="macro">macro_rules!</span> <span class="ident">parse_macro_input</span> {
+<span class="comment">// Reimplement parse_macro_input to use the imported `parse`
+// function. This way parse_macro_input will parse a TokenStream2 when
+// unit-testing.
+</span><span class="macro">macro_rules! </span>parse_macro_input {
     (
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">token_stream</span>:<span class="ident">ident</span> <span class="kw">as</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">T</span>:<span class="ident">ty</span>
+        <span class="macro-nonterminal">$token_stream</span>:ident <span class="kw">as </span><span class="macro-nonterminal">$T</span>:ty
     ) =&gt; {
-        <span class="kw">match</span> <span class="ident">parse</span>::<span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">T</span><span class="op">&gt;</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">token_stream</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">data</span>) =&gt; <span class="ident">data</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                <span class="kw">return</span> <span class="ident">TokenStream::from</span>(<span class="ident">err</span>.<span class="ident">to_compile_error</span>());
+        <span class="kw">match </span>parse::&lt;<span class="macro-nonterminal">$T</span>&gt;(<span class="macro-nonterminal">$token_stream</span>) {
+            <span class="prelude-val">Ok</span>(data) =&gt; data,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">return </span>TokenStream::from(err.to_compile_error());
             }
         }
     };
 
     (
-        <span class="macro-nonterminal">$</span><span class="macro-nonterminal">token_stream</span>:<span class="ident">ident</span>
+        <span class="macro-nonterminal">$token_stream</span>:ident
     ) =&gt; {
-        <span class="macro">parse_macro_input!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">token_stream</span> <span class="kw">as</span> <span class="kw">_</span>)
+        <span class="macro">parse_macro_input!</span>(<span class="macro-nonterminal">$token_stream </span><span class="kw">as _</span>)
     };
 }
 
-<span class="attribute">#[<span class="ident">proc_macro_attribute</span>]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compiler_test</span>(<span class="ident">attrs</span>: <span class="ident">TokenStream</span>, <span class="ident">input</span>: <span class="ident">TokenStream</span>) -&gt; <span class="ident">TokenStream</span> {
-    <span class="kw">let</span> <span class="ident">path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExprPath</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">ExprPath</span><span class="op">&gt;</span>(<span class="ident">attrs</span>).<span class="ident">ok</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">my_fn</span>: <span class="ident">ItemFn</span> <span class="op">=</span> <span class="macro">parse_macro_input!</span>(<span class="ident">input</span> <span class="kw">as</span> <span class="ident">ItemFn</span>);
-    <span class="kw">let</span> <span class="ident">fn_name</span> <span class="op">=</span> <span class="ident">my_fn</span>.<span class="ident">sig</span>.<span class="ident">ident</span>.<span class="ident">clone</span>();
+<span class="attribute">#[proc_macro_attribute]
+</span><span class="kw">pub fn </span>compiler_test(attrs: TokenStream, input: TokenStream) -&gt; TokenStream {
+    <span class="kw">let </span>path: <span class="prelude-ty">Option</span>&lt;ExprPath&gt; = parse::&lt;ExprPath&gt;(attrs).ok();
+    <span class="kw">let </span><span class="kw-2">mut </span>my_fn: ItemFn = <span class="macro">parse_macro_input!</span>(input <span class="kw">as </span>ItemFn);
+    <span class="kw">let </span>fn_name = my_fn.sig.ident.clone();
 
-    <span class="comment">// Let&#39;s build the ignores to append an `#[ignore]` macro to the</span>
-    <span class="comment">// autogenerated tests in case the test appears in the `ignores.txt` path;</span>
+    <span class="comment">// Let&#39;s build the ignores to append an `#[ignore]` macro to the
+    // autogenerated tests in case the test appears in the `ignores.txt` path;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ignores_txt_path</span> <span class="op">=</span> <span class="ident">PathBuf::new</span>();
-    <span class="ident">ignores_txt_path</span>.<span class="ident">push</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>));
-    <span class="ident">ignores_txt_path</span>.<span class="ident">push</span>(<span class="string">&quot;../../ignores.txt&quot;</span>);
+    </span><span class="kw">let </span><span class="kw-2">mut </span>ignores_txt_path = PathBuf::new();
+    ignores_txt_path.push(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>));
+    ignores_txt_path.push(<span class="string">&quot;../../ignores.txt&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">ignores</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::ignores::Ignores::build_from_path</span>(<span class="ident">ignores_txt_path</span>);
+    <span class="kw">let </span>ignores = <span class="kw">crate</span>::ignores::Ignores::build_from_path(ignores_txt_path);
 
-    <span class="kw">let</span> <span class="ident">should_ignore</span> <span class="op">=</span> <span class="op">|</span><span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">compiler_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">engine_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">compiler_name</span> <span class="op">=</span> <span class="ident">compiler_name</span>.<span class="ident">to_lowercase</span>();
-        <span class="kw">let</span> <span class="ident">engine_name</span> <span class="op">=</span> <span class="ident">engine_name</span>.<span class="ident">to_lowercase</span>();
-        <span class="comment">// We construct the path manually because we can&#39;t get the</span>
-        <span class="comment">// source_file location from the `Span` (it&#39;s only available in nightly)</span>
-        <span class="kw">let</span> <span class="ident">full_path</span> <span class="op">=</span> <span class="macro">format!</span>(
+    <span class="kw">let </span>should_ignore = |test_name: <span class="kw-2">&amp;</span>str, compiler_name: <span class="kw-2">&amp;</span>str, engine_name: <span class="kw-2">&amp;</span>str| {
+        <span class="kw">let </span>compiler_name = compiler_name.to_lowercase();
+        <span class="kw">let </span>engine_name = engine_name.to_lowercase();
+        <span class="comment">// We construct the path manually because we can&#39;t get the
+        // source_file location from the `Span` (it&#39;s only available in nightly)
+        </span><span class="kw">let </span>full_path = <span class="macro">format!</span>(
             <span class="string">&quot;{}::{}::{}::{}&quot;</span>,
-            <span class="macro">quote!</span> { #<span class="ident">path</span> },
-            <span class="ident">test_name</span>,
-            <span class="ident">compiler_name</span>,
-            <span class="ident">engine_name</span>
+            <span class="macro">quote! </span>{ #path },
+            test_name,
+            compiler_name,
+            engine_name
         )
-        .<span class="ident">replace</span>(<span class="string">&#39; &#39;</span>, <span class="string">&quot;&quot;</span>);
+        .replace(<span class="string">&#39; &#39;</span>, <span class="string">&quot;&quot;</span>);
 
-        <span class="comment">// println!(&quot;{} -&gt; Should ignore: {}&quot;, full_path, should_ignore);</span>
-        <span class="ident">ignores</span>.<span class="ident">should_ignore_host</span>(<span class="kw-2">&amp;</span><span class="ident">engine_name</span>, <span class="kw-2">&amp;</span><span class="ident">compiler_name</span>, <span class="kw-2">&amp;</span><span class="ident">full_path</span>)
+        <span class="comment">// println!(&quot;{} -&gt; Should ignore: {}&quot;, full_path, should_ignore);
+        </span>ignores.should_ignore_host(<span class="kw-2">&amp;</span>engine_name, <span class="kw-2">&amp;</span>compiler_name, <span class="kw-2">&amp;</span>full_path)
     };
-    <span class="kw">let</span> <span class="ident">construct_engine_test</span> <span class="op">=</span> <span class="op">|</span><span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">::syn::ItemFn</span>,
-                                 <span class="ident">compiler_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-                                 <span class="ident">engine_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-                                 <span class="ident">engine_feature_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">|</span>
-     -&gt; <span class="ident">::proc_macro2::TokenStream</span> {
-        <span class="kw">let</span> <span class="ident">config_compiler</span> <span class="op">=</span> <span class="macro">::quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">compiler_name</span>);
-        <span class="kw">let</span> <span class="ident">test_name</span> <span class="op">=</span> <span class="macro">::quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">engine_name</span>.<span class="ident">to_lowercase</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_sig</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">sig</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">attrs</span> <span class="op">=</span> <span class="ident">func</span>
-            .<span class="ident">attrs</span>
-            .<span class="ident">clone</span>()
-            .<span class="ident">iter</span>()
-            .<span class="ident">fold</span>(<span class="macro">quote!</span> {}, <span class="op">|</span><span class="ident">acc</span>, <span class="ident">new</span><span class="op">|</span> <span class="macro">quote!</span> {#<span class="ident">acc</span> #<span class="ident">new</span>});
-        <span class="ident">new_sig</span>.<span class="ident">ident</span> <span class="op">=</span> <span class="ident">test_name</span>;
-        <span class="ident">new_sig</span>.<span class="ident">inputs</span> <span class="op">=</span> <span class="ident">::syn::punctuated::Punctuated::new</span>();
-        <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="macro">quote!</span> {
-            <span class="attribute">#[<span class="ident">test_log::test</span>]</span>
-            #<span class="ident">attrs</span>
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> #<span class="ident">engine_feature_name</span>)]</span>
-            #<span class="ident">new_sig</span> {
-                #<span class="ident">fn_name</span>(<span class="ident"><span class="kw">crate</span>::Config::new</span>(<span class="ident"><span class="kw">crate</span>::Compiler</span>::#<span class="ident">config_compiler</span>))
+    <span class="kw">let </span>construct_engine_test = |func: <span class="kw-2">&amp;</span>::syn::ItemFn,
+                                 compiler_name: <span class="kw-2">&amp;</span>str,
+                                 engine_name: <span class="kw-2">&amp;</span>str,
+                                 engine_feature_name: <span class="kw-2">&amp;</span>str|
+     -&gt; ::proc_macro2::TokenStream {
+        <span class="kw">let </span>config_compiler = <span class="macro">::quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, compiler_name);
+        <span class="kw">let </span>test_name = <span class="macro">::quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, engine_name.to_lowercase());
+        <span class="kw">let </span><span class="kw-2">mut </span>new_sig = func.sig.clone();
+        <span class="kw">let </span>attrs = func
+            .attrs
+            .clone()
+            .iter()
+            .fold(<span class="macro">quote! </span>{}, |acc, new| <span class="macro">quote! </span>{#acc #new});
+        new_sig.ident = test_name;
+        new_sig.inputs = ::syn::punctuated::Punctuated::new();
+        <span class="kw">let </span>f = <span class="macro">quote! </span>{
+            <span class="attribute">#[test_log::test]
+            </span>#attrs
+            <span class="attribute">#[cfg(feature = #engine_feature_name)]
+            </span>#new_sig {
+                #fn_name(<span class="kw">crate</span>::Config::new(<span class="kw">crate</span>::Compiler::#config_compiler))
             }
         };
-        <span class="kw">if</span> <span class="ident">should_ignore</span>(
-            <span class="kw-2">&amp;</span><span class="ident">func</span>.<span class="ident">sig</span>.<span class="ident">ident</span>.<span class="ident">to_string</span>().<span class="ident">replace</span>(<span class="string">&quot;r#&quot;</span>, <span class="string">&quot;&quot;</span>),
-            <span class="ident">compiler_name</span>,
-            <span class="ident">engine_name</span>,
-        ) <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="macro">cfg!</span>(<span class="ident">test</span>)
+        <span class="kw">if </span>should_ignore(
+            <span class="kw-2">&amp;</span>func.sig.ident.to_string().replace(<span class="string">&quot;r#&quot;</span>, <span class="string">&quot;&quot;</span>),
+            compiler_name,
+            engine_name,
+        ) &amp;&amp; !<span class="macro">cfg!</span>(test)
         {
-            <span class="macro">quote!</span> {
-                <span class="attribute">#[<span class="ident">ignore</span>]</span>
-                #<span class="ident">f</span>
+            <span class="macro">quote! </span>{
+                <span class="attribute">#[ignore]
+                </span>#f
             }
-        } <span class="kw">else</span> {
-            <span class="ident">f</span>
+        } <span class="kw">else </span>{
+            f
         }
     };
 
-    <span class="kw">let</span> <span class="ident">construct_compiler_test</span> <span class="op">=</span>
-        <span class="op">|</span><span class="ident">func</span>: <span class="kw-2">&amp;</span><span class="ident">::syn::ItemFn</span>, <span class="ident">compiler_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">|</span> -&gt; <span class="ident">::proc_macro2::TokenStream</span> {
-            <span class="kw">let</span> <span class="ident">mod_name</span> <span class="op">=</span> <span class="macro">::quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">compiler_name</span>.<span class="ident">to_lowercase</span>());
-            <span class="kw">let</span> <span class="ident">universal_engine_test</span> <span class="op">=</span>
-                <span class="ident">construct_engine_test</span>(<span class="ident">func</span>, <span class="ident">compiler_name</span>, <span class="string">&quot;Universal&quot;</span>, <span class="string">&quot;universal&quot;</span>);
-            <span class="kw">let</span> <span class="ident">compiler_name_lowercase</span> <span class="op">=</span> <span class="ident">compiler_name</span>.<span class="ident">to_lowercase</span>();
+    <span class="kw">let </span>construct_compiler_test =
+        |func: <span class="kw-2">&amp;</span>::syn::ItemFn, compiler_name: <span class="kw-2">&amp;</span>str| -&gt; ::proc_macro2::TokenStream {
+            <span class="kw">let </span>mod_name = <span class="macro">::quote::format_ident!</span>(<span class="string">&quot;{}&quot;</span>, compiler_name.to_lowercase());
+            <span class="kw">let </span>universal_engine_test =
+                construct_engine_test(func, compiler_name, <span class="string">&quot;Universal&quot;</span>, <span class="string">&quot;universal&quot;</span>);
+            <span class="kw">let </span>compiler_name_lowercase = compiler_name.to_lowercase();
 
-            <span class="macro">quote!</span> {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> #<span class="ident">compiler_name_lowercase</span>)]</span>
-                <span class="kw">mod</span> #<span class="ident">mod_name</span> {
-                    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+            <span class="macro">quote! </span>{
+                <span class="attribute">#[cfg(feature = #compiler_name_lowercase)]
+                </span><span class="kw">mod </span>#mod_name {
+                    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-                    #<span class="ident">universal_engine_test</span>
+                    #universal_engine_test
                 }
             }
         };
 
-    <span class="kw">let</span> <span class="ident">singlepass_compiler_test</span> <span class="op">=</span> <span class="ident">construct_compiler_test</span>(<span class="kw-2">&amp;</span><span class="ident">my_fn</span>, <span class="string">&quot;Singlepass&quot;</span>);
-    <span class="kw">let</span> <span class="ident">cranelift_compiler_test</span> <span class="op">=</span> <span class="ident">construct_compiler_test</span>(<span class="kw-2">&amp;</span><span class="ident">my_fn</span>, <span class="string">&quot;Cranelift&quot;</span>);
-    <span class="kw">let</span> <span class="ident">llvm_compiler_test</span> <span class="op">=</span> <span class="ident">construct_compiler_test</span>(<span class="kw-2">&amp;</span><span class="ident">my_fn</span>, <span class="string">&quot;LLVM&quot;</span>);
+    <span class="kw">let </span>singlepass_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">&quot;Singlepass&quot;</span>);
+    <span class="kw">let </span>cranelift_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">&quot;Cranelift&quot;</span>);
+    <span class="kw">let </span>llvm_compiler_test = construct_compiler_test(<span class="kw-2">&amp;</span>my_fn, <span class="string">&quot;LLVM&quot;</span>);
 
-    <span class="comment">// We remove the method decorators</span>
-    <span class="ident">my_fn</span>.<span class="ident">attrs</span> <span class="op">=</span> <span class="macro">vec!</span>[];
+    <span class="comment">// We remove the method decorators
+    </span>my_fn.attrs = <span class="macro">vec!</span>[];
 
-    <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="macro">quote!</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">mod</span> #<span class="ident">fn_name</span> {
-            <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">let </span>x = <span class="macro">quote! </span>{
+        <span class="attribute">#[cfg(test)]
+        </span><span class="kw">mod </span>#fn_name {
+            <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
-            #<span class="ident">my_fn</span>
+            <span class="attribute">#[allow(unused)]
+            </span>#my_fn
 
-            #<span class="ident">singlepass_compiler_test</span>
-            #<span class="ident">cranelift_compiler_test</span>
-            #<span class="ident">llvm_compiler_test</span>
+            #singlepass_compiler_test
+            #cranelift_compiler_test
+            #llvm_compiler_test
         }
     };
-    <span class="ident">x</span>.<span class="ident">into</span>()
+    x.into()
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="compiler_test_derive" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="compiler_test_derive" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

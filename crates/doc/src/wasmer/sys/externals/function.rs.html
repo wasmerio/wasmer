@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/function.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/function.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -657,662 +657,662 @@
 <span id="655">655</span>
 <span id="656">656</span>
 <span id="657">657</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::externals::function</span>::{<span class="ident">HostFunction</span>, <span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::native_type</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">IntoResult</span>, <span class="ident">NativeWasmTypeInto</span>, <span class="ident">WasmTypeList</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">StoreInner</span>, <span class="ident">StoreMut</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vm::VMExternFunction</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">FunctionType</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>};
-<span class="kw">use</span> <span class="ident">std::panic</span>::{<span class="self">self</span>, <span class="ident">AssertUnwindSafe</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">cell::UnsafeCell</span>, <span class="ident">cmp::max</span>, <span class="ident">ffi::c_void</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">RawValue</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">on_host_stack</span>, <span class="ident">raise_user_trap</span>, <span class="ident">resume_panic</span>, <span class="ident">wasmer_call_trampoline</span>, <span class="ident">MaybeInstanceOwned</span>,
-    <span class="ident">StoreHandle</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMDynamicFunctionContext</span>, <span class="ident">VMExtern</span>, <span class="ident">VMFuncRef</span>,
-    <span class="ident">VMFunction</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionContext</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMTrampoline</span>,
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::externals::function::{HostFunction, WithEnv, WithoutEnv};
+<span class="kw">use </span><span class="kw">crate</span>::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
+<span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
+<span class="kw">use </span><span class="kw">crate</span>::vm::VMExternFunction;
+<span class="kw">use crate</span>::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
+<span class="kw">use </span>std::panic::{<span class="self">self</span>, AssertUnwindSafe};
+<span class="kw">use </span>std::{cell::UnsafeCell, cmp::max, ffi::c_void};
+<span class="kw">use </span>wasmer_types::{NativeWasmType, RawValue};
+<span class="kw">use </span>wasmer_vm::{
+    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
+    StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMExtern, VMFuncRef,
+    VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Function</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Function {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) handle: StoreHandle&lt;VMFunction&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">handle</span> }
+<span class="kw">impl </span>From&lt;StoreHandle&lt;VMFunction&gt;&gt; <span class="kw">for </span>Function {
+    <span class="kw">fn </span>from(handle: StoreHandle&lt;VMFunction&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ handle }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Function</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_env</span><span class="op">&lt;</span><span class="ident">FT</span>, <span class="ident">F</span>, <span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnv</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-        <span class="ident">ty</span>: <span class="ident">FT</span>,
-        <span class="ident">func</span>: <span class="ident">F</span>,
-    ) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">FT</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">FunctionType</span><span class="op">&gt;</span>,
-        <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span>[<span class="ident">Value</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>
-            <span class="op">+</span> <span class="lifetime">&#39;static</span>
-            <span class="op">+</span> <span class="ident">Send</span>
-            <span class="op">+</span> <span class="ident">Sync</span>,
+<span class="kw">impl </span>Function {
+    <span class="kw">pub fn </span>new_with_env&lt;FT, F, T: Send + <span class="lifetime">&#39;static</span>&gt;(
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        env: <span class="kw-2">&amp;</span>FunctionEnv&lt;T&gt;,
+        ty: FT,
+        func: F,
+    ) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>FT: Into&lt;FunctionType&gt;,
+        F: Fn(FunctionEnvMut&lt;T&gt;, <span class="kw-2">&amp;</span>[Value]) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Value&gt;, RuntimeError&gt;
+            + <span class="lifetime">&#39;static
+            </span>+ Send
+            + Sync,
     {
-        <span class="kw">let</span> <span class="ident">function_type</span> <span class="op">=</span> <span class="ident">ty</span>.<span class="ident">into</span>();
-        <span class="kw">let</span> <span class="ident">func_ty</span> <span class="op">=</span> <span class="ident">function_type</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">func_env</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">raw_store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">as_raw</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>;
-        <span class="kw">let</span> <span class="ident">wrapper</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">values_vec</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span><span class="op">|</span> -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-            <span class="kw">unsafe</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">StoreMut::from_raw</span>(<span class="ident">raw_store</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">StoreInner</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">len</span>());
-                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-                    <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">Value::from_raw</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">*</span><span class="ident">ty</span>, <span class="kw-2">*</span><span class="ident">values_vec</span>.<span class="ident">add</span>(<span class="ident">i</span>)));
+        <span class="kw">let </span>function_type = ty.into();
+        <span class="kw">let </span>func_ty = function_type.clone();
+        <span class="kw">let </span>func_env = env.clone();
+        <span class="kw">let </span>raw_store = store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8;
+        <span class="kw">let </span>wrapper = <span class="kw">move </span>|values_vec: <span class="kw-2">*mut </span>RawValue| -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+            <span class="kw">unsafe </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>store = StoreMut::from_raw(raw_store <span class="kw">as </span><span class="kw-2">*mut </span>StoreInner);
+                <span class="kw">let </span><span class="kw-2">mut </span>args = Vec::with_capacity(func_ty.params().len());
+                <span class="kw">for </span>(i, ty) <span class="kw">in </span>func_ty.params().iter().enumerate() {
+                    args.push(Value::from_raw(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">*</span>ty, <span class="kw-2">*</span>values_vec.add(i)));
                 }
-                <span class="kw">let</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">StoreMut::from_raw</span>(<span class="ident">raw_store</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">StoreInner</span>);
-                <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">FunctionEnvMut</span> {
-                    <span class="ident">store_mut</span>,
-                    <span class="ident">func_env</span>: <span class="ident">func_env</span>.<span class="ident">clone</span>(),
+                <span class="kw">let </span>store_mut = StoreMut::from_raw(raw_store <span class="kw">as </span><span class="kw-2">*mut </span>StoreInner);
+                <span class="kw">let </span>env = FunctionEnvMut {
+                    store_mut,
+                    func_env: func_env.clone(),
                 };
-                <span class="kw">let</span> <span class="ident">returns</span> <span class="op">=</span> <span class="ident">func</span>(<span class="ident">env</span>, <span class="kw-2">&amp;</span><span class="ident">args</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>returns = func(env, <span class="kw-2">&amp;</span>args)<span class="question-mark">?</span>;
 
-                <span class="comment">// We need to dynamically check that the returns</span>
-                <span class="comment">// match the expected types, as well as expected length.</span>
-                <span class="kw">let</span> <span class="ident">return_types</span> <span class="op">=</span> <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">ret</span><span class="op">|</span> <span class="ident">ret</span>.<span class="ident">ty</span>());
-                <span class="kw">if</span> <span class="ident">return_types</span>.<span class="ident">ne</span>(<span class="ident">func_ty</span>.<span class="ident">results</span>().<span class="ident">iter</span>().<span class="ident">copied</span>()) {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
+                <span class="comment">// We need to dynamically check that the returns
+                // match the expected types, as well as expected length.
+                </span><span class="kw">let </span>return_types = returns.iter().map(|ret| ret.ty());
+                <span class="kw">if </span>return_types.ne(func_ty.results().iter().copied()) {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
                         <span class="string">&quot;Dynamic function returned wrong signature. Expected {:?} but got {:?}&quot;</span>,
-                        <span class="ident">func_ty</span>.<span class="ident">results</span>(),
-                        <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">ret</span><span class="op">|</span> <span class="ident">ret</span>.<span class="ident">ty</span>())
+                        func_ty.results(),
+                        returns.iter().map(|ret| ret.ty())
                     )));
                 }
-                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ret</span>) <span class="kw">in</span> <span class="ident">returns</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-                    <span class="kw-2">*</span><span class="ident">values_vec</span>.<span class="ident">add</span>(<span class="ident">i</span>) <span class="op">=</span> <span class="ident">ret</span>.<span class="ident">as_raw</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
+                <span class="kw">for </span>(i, ret) <span class="kw">in </span>returns.iter().enumerate() {
+                    <span class="kw-2">*</span>values_vec.add(i) = ret.as_raw(<span class="kw-2">&amp;</span>store);
                 }
             }
             <span class="prelude-val">Ok</span>(())
         };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_data</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">VMDynamicFunctionContext</span> {
-            <span class="ident">address</span>: <span class="ident">std::ptr::null</span>(),
-            <span class="ident">ctx</span>: <span class="ident">DynamicFunction</span> { <span class="ident">func</span>: <span class="ident">wrapper</span> },
+        <span class="kw">let </span><span class="kw-2">mut </span>host_data = Box::new(VMDynamicFunctionContext {
+            address: std::ptr::null(),
+            ctx: DynamicFunction { func: wrapper },
         });
-        <span class="ident">host_data</span>.<span class="ident">address</span> <span class="op">=</span> <span class="ident">host_data</span>.<span class="ident">ctx</span>.<span class="ident">func_body_ptr</span>();
+        host_data.address = host_data.ctx.func_body_ptr();
 
-        <span class="comment">// We don&#39;t yet have the address with the Wasm ABI signature.</span>
-        <span class="comment">// The engine linker will replace the address with one pointing to a</span>
-        <span class="comment">// generated dynamic trampoline.</span>
-        <span class="kw">let</span> <span class="ident">func_ptr</span> <span class="op">=</span> <span class="ident">std::ptr::null</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>;
-        <span class="kw">let</span> <span class="ident">type_index</span> <span class="op">=</span> <span class="ident">store</span>
-            .<span class="ident">as_store_mut</span>()
-            .<span class="ident">engine</span>()
-            .<span class="number">0</span>
-            .<span class="ident">register_signature</span>(<span class="kw-2">&amp;</span><span class="ident">function_type</span>);
-        <span class="kw">let</span> <span class="ident">vmctx</span> <span class="op">=</span> <span class="ident">VMFunctionContext</span> {
-            <span class="ident">host_env</span>: <span class="ident">host_data</span>.<span class="ident">as_ref</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>,
+        <span class="comment">// We don&#39;t yet have the address with the Wasm ABI signature.
+        // The engine linker will replace the address with one pointing to a
+        // generated dynamic trampoline.
+        </span><span class="kw">let </span>func_ptr = std::ptr::null() <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody;
+        <span class="kw">let </span>type_index = store
+            .as_store_mut()
+            .engine()
+            .<span class="number">0
+            </span>.register_signature(<span class="kw-2">&amp;</span>function_type);
+        <span class="kw">let </span>vmctx = VMFunctionContext {
+            host_env: host_data.as_ref() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span><span class="kw-2">*mut </span>c_void,
         };
-        <span class="kw">let</span> <span class="ident">call_trampoline</span> <span class="op">=</span> <span class="ident">host_data</span>.<span class="ident">ctx</span>.<span class="ident">call_trampoline_address</span>();
-        <span class="kw">let</span> <span class="ident">anyfunc</span> <span class="op">=</span> <span class="ident">VMCallerCheckedAnyfunc</span> {
-            <span class="ident">func_ptr</span>,
-            <span class="ident">type_index</span>,
-            <span class="ident">vmctx</span>,
-            <span class="ident">call_trampoline</span>,
+        <span class="kw">let </span>call_trampoline = host_data.ctx.call_trampoline_address();
+        <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr,
+            type_index,
+            vmctx,
+            call_trampoline,
         };
 
-        <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="ident">VMFunction</span> {
-            <span class="ident">anyfunc</span>: <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">anyfunc</span>))),
-            <span class="ident">kind</span>: <span class="ident">VMFunctionKind::Dynamic</span>,
-            <span class="ident">signature</span>: <span class="ident">function_type</span>,
-            <span class="ident">host_data</span>,
+        <span class="kw">let </span>vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            kind: VMFunctionKind::Dynamic,
+            signature: function_type,
+            host_data,
         };
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">objects_mut</span>(), <span class="ident">vm_function</span>),
+        <span class="self">Self </span>{
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
-    <span class="doccomment">/// Creates a new host `Function` from a native function.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_typed</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">func</span>: <span class="ident">F</span>) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">HostFunction</span><span class="op">&lt;</span>(), <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">WithoutEnv</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>,
-        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+    <span class="doccomment">/// Creates a new host `Function` from a native function.
+    </span><span class="kw">pub fn </span>new_typed&lt;F, Args, Rets&gt;(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, func: F) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>F: HostFunction&lt;(), Args, Rets, WithoutEnv&gt; + <span class="lifetime">&#39;static </span>+ Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
     {
-        <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">FunctionEnv::new</span>(<span class="ident">store</span>, ());
-        <span class="kw">let</span> <span class="ident">func_ptr</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">function_body_ptr</span>();
-        <span class="kw">let</span> <span class="ident">host_data</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">StaticFunction</span> {
-            <span class="ident">raw_store</span>: <span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">as_raw</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>,
-            <span class="ident">env</span>,
-            <span class="ident">func</span>,
+        <span class="kw">let </span>env = FunctionEnv::new(store, ());
+        <span class="kw">let </span>func_ptr = func.function_body_ptr();
+        <span class="kw">let </span>host_data = Box::new(StaticFunction {
+            raw_store: store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
+            env,
+            func,
         });
-        <span class="kw">let</span> <span class="ident">function_type</span> <span class="op">=</span> <span class="ident">FunctionType::new</span>(<span class="ident">Args::wasm_types</span>(), <span class="ident">Rets::wasm_types</span>());
+        <span class="kw">let </span>function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        <span class="kw">let</span> <span class="ident">type_index</span> <span class="op">=</span> <span class="ident">store</span>
-            .<span class="ident">as_store_mut</span>()
-            .<span class="ident">engine</span>()
-            .<span class="number">0</span>
-            .<span class="ident">register_signature</span>(<span class="kw-2">&amp;</span><span class="ident">function_type</span>);
-        <span class="kw">let</span> <span class="ident">vmctx</span> <span class="op">=</span> <span class="ident">VMFunctionContext</span> {
-            <span class="ident">host_env</span>: <span class="ident">host_data</span>.<span class="ident">as_ref</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>,
+        <span class="kw">let </span>type_index = store
+            .as_store_mut()
+            .engine()
+            .<span class="number">0
+            </span>.register_signature(<span class="kw-2">&amp;</span>function_type);
+        <span class="kw">let </span>vmctx = VMFunctionContext {
+            host_env: host_data.as_ref() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span><span class="kw-2">*mut </span>c_void,
         };
-        <span class="kw">let</span> <span class="ident">call_trampoline</span> <span class="op">=</span>
-            <span class="op">&lt;</span><span class="ident">F</span> <span class="kw">as</span> <span class="ident">HostFunction</span><span class="op">&lt;</span>(), <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">WithoutEnv</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::call_trampoline_address</span>();
-        <span class="kw">let</span> <span class="ident">anyfunc</span> <span class="op">=</span> <span class="ident">VMCallerCheckedAnyfunc</span> {
-            <span class="ident">func_ptr</span>,
-            <span class="ident">type_index</span>,
-            <span class="ident">vmctx</span>,
-            <span class="ident">call_trampoline</span>,
+        <span class="kw">let </span>call_trampoline =
+            &lt;F <span class="kw">as </span>HostFunction&lt;(), Args, Rets, WithoutEnv&gt;&gt;::call_trampoline_address();
+        <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr,
+            type_index,
+            vmctx,
+            call_trampoline,
         };
 
-        <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="ident">VMFunction</span> {
-            <span class="ident">anyfunc</span>: <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">anyfunc</span>))),
-            <span class="ident">kind</span>: <span class="ident">VMFunctionKind::Static</span>,
-            <span class="ident">signature</span>: <span class="ident">function_type</span>,
-            <span class="ident">host_data</span>,
+        <span class="kw">let </span>vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            kind: VMFunctionKind::Static,
+            signature: function_type,
+            host_data,
         };
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">objects_mut</span>(), <span class="ident">vm_function</span>),
+        <span class="self">Self </span>{
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_typed_with_env</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">F</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnv</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-        <span class="ident">func</span>: <span class="ident">F</span>,
-    ) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">WithEnv</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>,
-        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
-        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+    <span class="kw">pub fn </span>new_typed_with_env&lt;T: Send + <span class="lifetime">&#39;static</span>, F, Args, Rets&gt;(
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        env: <span class="kw-2">&amp;</span>FunctionEnv&lt;T&gt;,
+        func: F,
+    ) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>F: HostFunction&lt;T, Args, Rets, WithEnv&gt; + <span class="lifetime">&#39;static </span>+ Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
     {
-        <span class="kw">let</span> <span class="ident">func_ptr</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">function_body_ptr</span>();
-        <span class="kw">let</span> <span class="ident">host_data</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">StaticFunction</span> {
-            <span class="ident">raw_store</span>: <span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">as_raw</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>,
-            <span class="ident">env</span>: <span class="ident">env</span>.<span class="ident">clone</span>(),
-            <span class="ident">func</span>,
+        <span class="kw">let </span>func_ptr = func.function_body_ptr();
+        <span class="kw">let </span>host_data = Box::new(StaticFunction {
+            raw_store: store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
+            env: env.clone(),
+            func,
         });
-        <span class="kw">let</span> <span class="ident">function_type</span> <span class="op">=</span> <span class="ident">FunctionType::new</span>(<span class="ident">Args::wasm_types</span>(), <span class="ident">Rets::wasm_types</span>());
+        <span class="kw">let </span>function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        <span class="kw">let</span> <span class="ident">type_index</span> <span class="op">=</span> <span class="ident">store</span>
-            .<span class="ident">as_store_mut</span>()
-            .<span class="ident">engine</span>()
-            .<span class="number">0</span>
-            .<span class="ident">register_signature</span>(<span class="kw-2">&amp;</span><span class="ident">function_type</span>);
-        <span class="kw">let</span> <span class="ident">vmctx</span> <span class="op">=</span> <span class="ident">VMFunctionContext</span> {
-            <span class="ident">host_env</span>: <span class="ident">host_data</span>.<span class="ident">as_ref</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="kw">_</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_void</span>,
+        <span class="kw">let </span>type_index = store
+            .as_store_mut()
+            .engine()
+            .<span class="number">0
+            </span>.register_signature(<span class="kw-2">&amp;</span>function_type);
+        <span class="kw">let </span>vmctx = VMFunctionContext {
+            host_env: host_data.as_ref() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_ as </span><span class="kw-2">*mut </span>c_void,
         };
-        <span class="kw">let</span> <span class="ident">call_trampoline</span> <span class="op">=</span>
-            <span class="op">&lt;</span><span class="ident">F</span> <span class="kw">as</span> <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">WithEnv</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::call_trampoline_address</span>();
-        <span class="kw">let</span> <span class="ident">anyfunc</span> <span class="op">=</span> <span class="ident">VMCallerCheckedAnyfunc</span> {
-            <span class="ident">func_ptr</span>,
-            <span class="ident">type_index</span>,
-            <span class="ident">vmctx</span>,
-            <span class="ident">call_trampoline</span>,
+        <span class="kw">let </span>call_trampoline =
+            &lt;F <span class="kw">as </span>HostFunction&lt;T, Args, Rets, WithEnv&gt;&gt;::call_trampoline_address();
+        <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr,
+            type_index,
+            vmctx,
+            call_trampoline,
         };
 
-        <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="ident">VMFunction</span> {
-            <span class="ident">anyfunc</span>: <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">anyfunc</span>))),
-            <span class="ident">kind</span>: <span class="ident">VMFunctionKind::Static</span>,
-            <span class="ident">signature</span>: <span class="ident">function_type</span>,
-            <span class="ident">host_data</span>,
+        <span class="kw">let </span>vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            kind: VMFunctionKind::Static,
+            signature: function_type,
+            host_data,
         };
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">objects_mut</span>(), <span class="ident">vm_function</span>),
+        <span class="self">Self </span>{
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">FunctionType</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>
-            .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
-            .<span class="ident">signature</span>
-            .<span class="ident">clone</span>()
+    <span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; FunctionType {
+        <span class="self">self</span>.handle
+            .get(store.as_store_ref().objects())
+            .signature
+            .clone()
     }
 
-    <span class="kw">fn</span> <span class="ident">call_wasm</span>(
+    <span class="kw">fn </span>call_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">trampoline</span>: <span class="ident">VMTrampoline</span>,
-        <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>],
-        <span class="ident">results</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">Value</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">format_types_for_error_message</span> <span class="op">=</span> <span class="op">|</span><span class="ident">items</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>]<span class="op">|</span> {
-            <span class="ident">items</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">param</span><span class="op">|</span> <span class="ident">param</span>.<span class="ident">ty</span>().<span class="ident">to_string</span>())
-                .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>)
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        trampoline: VMTrampoline,
+        params: <span class="kw-2">&amp;</span>[Value],
+        results: <span class="kw-2">&amp;mut </span>[Value],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">let </span>format_types_for_error_message = |items: <span class="kw-2">&amp;</span>[Value]| {
+            items
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::&lt;Vec&lt;String&gt;&gt;()
+                .join(<span class="string">&quot;, &quot;</span>)
         };
-        <span class="comment">// TODO: Avoid cloning the signature here, it&#39;s expensive.</span>
-        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>);
-        <span class="kw">if</span> <span class="ident">signature</span>.<span class="ident">params</span>().<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">params</span>.<span class="ident">len</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
+        <span class="comment">// TODO: Avoid cloning the signature here, it&#39;s expensive.
+        </span><span class="kw">let </span>signature = <span class="self">self</span>.ty(store);
+        <span class="kw">if </span>signature.params().len() != params.len() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
                 <span class="string">&quot;Parameters of type [{}] did not match signature {}&quot;</span>,
-                <span class="ident">format_types_for_error_message</span>(<span class="ident">params</span>),
-                <span class="kw-2">&amp;</span><span class="ident">signature</span>
+                format_types_for_error_message(params),
+                <span class="kw-2">&amp;</span>signature
             )));
         }
-        <span class="kw">if</span> <span class="ident">signature</span>.<span class="ident">results</span>().<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">results</span>.<span class="ident">len</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
+        <span class="kw">if </span>signature.results().len() != results.len() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
                 <span class="string">&quot;Results of type [{}] did not match signature {}&quot;</span>,
-                <span class="ident">format_types_for_error_message</span>(<span class="ident">results</span>),
-                <span class="kw-2">&amp;</span><span class="ident">signature</span>,
+                format_types_for_error_message(results),
+                <span class="kw-2">&amp;</span>signature,
             )));
         }
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">values_vec</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">RawValue</span> { <span class="ident">i32</span>: <span class="number">0</span> }; <span class="ident">max</span>(<span class="ident">params</span>.<span class="ident">len</span>(), <span class="ident">results</span>.<span class="ident">len</span>())];
+        <span class="kw">let </span><span class="kw-2">mut </span>values_vec = <span class="macro">vec!</span>[RawValue { i32: <span class="number">0 </span>}; max(params.len(), results.len())];
 
-        <span class="comment">// Store the argument values into `values_vec`.</span>
-        <span class="kw">let</span> <span class="ident">param_tys</span> <span class="op">=</span> <span class="ident">signature</span>.<span class="ident">params</span>().<span class="ident">iter</span>();
-        <span class="kw">for</span> ((<span class="ident">arg</span>, <span class="ident">slot</span>), <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">params</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="kw-2">&amp;mut</span> <span class="ident">values_vec</span>).<span class="ident">zip</span>(<span class="ident">param_tys</span>) {
-            <span class="kw">if</span> <span class="ident">arg</span>.<span class="ident">ty</span>() <span class="op">!</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">ty</span> {
-                <span class="kw">let</span> <span class="ident">param_types</span> <span class="op">=</span> <span class="ident">format_types_for_error_message</span>(<span class="ident">params</span>);
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(
+        <span class="comment">// Store the argument values into `values_vec`.
+        </span><span class="kw">let </span>param_tys = signature.params().iter();
+        <span class="kw">for </span>((arg, slot), ty) <span class="kw">in </span>params.iter().zip(<span class="kw-2">&amp;mut </span>values_vec).zip(param_tys) {
+            <span class="kw">if </span>arg.ty() != <span class="kw-2">*</span>ty {
+                <span class="kw">let </span>param_types = format_types_for_error_message(params);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="macro">format!</span>(
                     <span class="string">&quot;Parameters of type [{}] did not match signature {}&quot;</span>,
-                    <span class="ident">param_types</span>, <span class="kw-2">&amp;</span><span class="ident">signature</span>,
+                    param_types, <span class="kw-2">&amp;</span>signature,
                 )));
             }
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">arg</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
+            <span class="kw">if </span>!arg.is_from_store(store) {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;cross-`Store` values are not supported&quot;</span>));
             }
-            <span class="kw-2">*</span><span class="ident">slot</span> <span class="op">=</span> <span class="ident">arg</span>.<span class="ident">as_raw</span>(<span class="ident">store</span>);
+            <span class="kw-2">*</span>slot = arg.as_raw(store);
         }
 
-        <span class="comment">// Invoke the call</span>
-        <span class="self">self</span>.<span class="ident">call_wasm_raw</span>(<span class="ident">store</span>, <span class="ident">trampoline</span>, <span class="ident">values_vec</span>, <span class="ident">results</span>)<span class="question-mark">?</span>;
+        <span class="comment">// Invoke the call
+        </span><span class="self">self</span>.call_wasm_raw(store, trampoline, values_vec, results)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">call_wasm_raw</span>(
+    <span class="kw">fn </span>call_wasm_raw(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">trampoline</span>: <span class="ident">VMTrampoline</span>,
-        <span class="kw-2">mut</span> <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawValue</span><span class="op">&gt;</span>,
-        <span class="ident">results</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">Value</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="comment">// Call the trampoline.</span>
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span>;
-            <span class="comment">// TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451</span>
-            <span class="kw">loop</span> {
-                <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>());
-                <span class="ident">r</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-                    <span class="ident">wasmer_call_trampoline</span>(
-                        <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">signal_handler</span>(),
-                        <span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">vmctx</span>,
-                        <span class="ident">trampoline</span>,
-                        <span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">func_ptr</span>,
-                        <span class="ident">params</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>,
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        trampoline: VMTrampoline,
+        <span class="kw-2">mut </span>params: Vec&lt;RawValue&gt;,
+        results: <span class="kw-2">&amp;mut </span>[Value],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="comment">// Call the trampoline.
+        </span><span class="kw">let </span>result = {
+            <span class="kw">let </span><span class="kw-2">mut </span>r;
+            <span class="comment">// TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+            </span><span class="kw">loop </span>{
+                <span class="kw">let </span>vm_function = <span class="self">self</span>.handle.get(store.as_store_ref().objects());
+                r = <span class="kw">unsafe </span>{
+                    wasmer_call_trampoline(
+                        store.as_store_ref().signal_handler(),
+                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                        trampoline,
+                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
+                        params.as_mut_ptr() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
                     )
                 };
-                <span class="kw">let</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>();
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">callback</span>) <span class="op">=</span> <span class="ident">store_mut</span>.<span class="ident">inner</span>.<span class="ident">on_called</span>.<span class="ident">take</span>() {
-                    <span class="kw">match</span> <span class="ident">callback</span>(<span class="ident">store_mut</span>) {
-                        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_types::OnCalledAction::InvokeAgain</span>) =&gt; {
+                <span class="kw">let </span>store_mut = store.as_store_mut();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(callback) = store_mut.inner.on_called.take() {
+                    <span class="kw">match </span>callback(store_mut) {
+                        <span class="prelude-val">Ok</span>(wasmer_types::OnCalledAction::InvokeAgain) =&gt; {
                             <span class="kw">continue</span>;
                         }
-                        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_types::OnCalledAction::Finish</span>) =&gt; {
+                        <span class="prelude-val">Ok</span>(wasmer_types::OnCalledAction::Finish) =&gt; {
                             <span class="kw">break</span>;
                         }
-                        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_types::OnCalledAction::Trap</span>(<span class="ident">trap</span>)) =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::user</span>(<span class="ident">trap</span>))
+                        <span class="prelude-val">Ok</span>(wasmer_types::OnCalledAction::Trap(trap)) =&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::user(trap))
                         }
-                        <span class="prelude-val">Err</span>(<span class="ident">trap</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::user</span>(<span class="ident">trap</span>)),
+                        <span class="prelude-val">Err</span>(trap) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::user(trap)),
                     }
                 }
                 <span class="kw">break</span>;
             }
-            <span class="ident">r</span>
+            r
         };
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">error</span>) <span class="op">=</span> <span class="ident">result</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::from_trap</span>(<span class="ident">error</span>));
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = result {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::from_trap(error));
         }
 
-        <span class="comment">// Load the return values out of `values_vec`.</span>
-        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>);
-        <span class="kw">for</span> (<span class="ident">index</span>, <span class="kw-2">&amp;</span><span class="ident">value_type</span>) <span class="kw">in</span> <span class="ident">signature</span>.<span class="ident">results</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">unsafe</span> {
-                <span class="ident">results</span>[<span class="ident">index</span>] <span class="op">=</span> <span class="ident">Value::from_raw</span>(<span class="ident">store</span>, <span class="ident">value_type</span>, <span class="ident">params</span>[<span class="ident">index</span>]);
+        <span class="comment">// Load the return values out of `values_vec`.
+        </span><span class="kw">let </span>signature = <span class="self">self</span>.ty(store);
+        <span class="kw">for </span>(index, <span class="kw-2">&amp;</span>value_type) <span class="kw">in </span>signature.results().iter().enumerate() {
+            <span class="kw">unsafe </span>{
+                results[index] = Value::from_raw(store, value_type, params[index]);
             }
         }
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">result_arity</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>).<span class="ident">results</span>().<span class="ident">len</span>()
+    <span class="kw">pub fn </span>result_arity(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; usize {
+        <span class="self">self</span>.ty(store).results().len()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call</span>(
+    <span class="kw">pub fn </span>call(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">trampoline</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="self">self</span>.<span class="ident">handle</span>
-                .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
-                .<span class="ident">anyfunc</span>
-                .<span class="ident">as_ptr</span>()
-                .<span class="ident">as_ref</span>()
-                .<span class="ident">call_trampoline</span>
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        params: <span class="kw-2">&amp;</span>[Value],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;[Value]&gt;, RuntimeError&gt; {
+        <span class="kw">let </span>trampoline = <span class="kw">unsafe </span>{
+            <span class="self">self</span>.handle
+                .get(store.as_store_ref().objects())
+                .anyfunc
+                .as_ptr()
+                .as_ref()
+                .call_trampoline
         };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Value::null</span>(); <span class="self">self</span>.<span class="ident">result_arity</span>(<span class="ident">store</span>)];
-        <span class="self">self</span>.<span class="ident">call_wasm</span>(<span class="ident">store</span>, <span class="ident">trampoline</span>, <span class="ident">params</span>, <span class="kw-2">&amp;mut</span> <span class="ident">results</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">results</span>.<span class="ident">into_boxed_slice</span>())
+        <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[Value::null(); <span class="self">self</span>.result_arity(store)];
+        <span class="self">self</span>.call_wasm(store, trampoline, params, <span class="kw-2">&amp;mut </span>results)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(results.into_boxed_slice())
     }
 
-    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_raw</span>(
+    <span class="attribute">#[doc(hidden)]
+    #[allow(missing_docs)]
+    </span><span class="kw">pub fn </span>call_raw(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawValue</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">trampoline</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="self">self</span>.<span class="ident">handle</span>
-                .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
-                .<span class="ident">anyfunc</span>
-                .<span class="ident">as_ptr</span>()
-                .<span class="ident">as_ref</span>()
-                .<span class="ident">call_trampoline</span>
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        params: Vec&lt;RawValue&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;[Value]&gt;, RuntimeError&gt; {
+        <span class="kw">let </span>trampoline = <span class="kw">unsafe </span>{
+            <span class="self">self</span>.handle
+                .get(store.as_store_ref().objects())
+                .anyfunc
+                .as_ptr()
+                .as_ref()
+                .call_trampoline
         };
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Value::null</span>(); <span class="self">self</span>.<span class="ident">result_arity</span>(<span class="ident">store</span>)];
-        <span class="self">self</span>.<span class="ident">call_wasm_raw</span>(<span class="ident">store</span>, <span class="ident">trampoline</span>, <span class="ident">params</span>, <span class="kw-2">&amp;mut</span> <span class="ident">results</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">results</span>.<span class="ident">into_boxed_slice</span>())
+        <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[Value::null(); <span class="self">self</span>.result_arity(store)];
+        <span class="self">self</span>.call_wasm_raw(store, trampoline, params, <span class="kw-2">&amp;mut </span>results)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(results.into_boxed_slice())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">vm_funcref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">VMFuncRef</span> {
-        <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>());
-        <span class="kw">if</span> <span class="ident">vm_function</span>.<span class="ident">kind</span> <span class="op">==</span> <span class="ident">VMFunctionKind::Dynamic</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>vm_funcref(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; VMFuncRef {
+        <span class="kw">let </span>vm_function = <span class="self">self</span>.handle.get(store.as_store_ref().objects());
+        <span class="kw">if </span>vm_function.kind == VMFunctionKind::Dynamic {
             <span class="macro">panic!</span>(<span class="string">&quot;dynamic functions cannot be used in tables or as funcrefs&quot;</span>);
         }
-        <span class="ident">VMFuncRef</span>(<span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>())
+        VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_vm_funcref</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">funcref</span>: <span class="ident">VMFuncRef</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">store</span>
-            .<span class="ident">as_store_ref</span>()
-            .<span class="ident">engine</span>()
-            .<span class="number">0</span>
-            .<span class="ident">lookup_signature</span>(<span class="ident">funcref</span>.<span class="number">0</span>.<span class="ident">as_ref</span>().<span class="ident">type_index</span>)
-            .<span class="ident">expect</span>(<span class="string">&quot;Signature not found in store&quot;</span>);
-        <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="ident">VMFunction</span> {
-            <span class="ident">anyfunc</span>: <span class="ident">MaybeInstanceOwned::Instance</span>(<span class="ident">funcref</span>.<span class="number">0</span>),
-            <span class="ident">signature</span>,
-            <span class="comment">// All functions in tables are already Static (as dynamic functions</span>
-            <span class="comment">// are converted to use the trampolines with static signatures).</span>
-            <span class="ident">kind</span>: <span class="ident">wasmer_vm::VMFunctionKind::Static</span>,
-            <span class="ident">host_data</span>: <span class="ident">Box::new</span>(()),
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>from_vm_funcref(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, funcref: VMFuncRef) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>signature = store
+            .as_store_ref()
+            .engine()
+            .<span class="number">0
+            </span>.lookup_signature(funcref.<span class="number">0</span>.as_ref().type_index)
+            .expect(<span class="string">&quot;Signature not found in store&quot;</span>);
+        <span class="kw">let </span>vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Instance(funcref.<span class="number">0</span>),
+            signature,
+            <span class="comment">// All functions in tables are already Static (as dynamic functions
+            // are converted to use the trampolines with static signatures).
+            </span>kind: wasmer_vm::VMFunctionKind::Static,
+            host_data: Box::new(()),
         };
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">as_store_mut</span>().<span class="ident">objects_mut</span>(), <span class="ident">vm_function</span>),
+        <span class="self">Self </span>{
+            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">vm_extern</span>: <span class="ident">VMExternFunction</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="kw">unsafe</span> {
-                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">vm_extern</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternFunction) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            handle: <span class="kw">unsafe </span>{
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }
 
-    <span class="doccomment">/// Checks whether this `Function` can be used with the given store.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
+    <span class="doccomment">/// Checks whether this `Function` can be used with the given store.
+    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="self">self</span>.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {
-        <span class="ident">VMExtern::Function</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>())
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
+        VMExtern::Function(<span class="self">self</span>.handle.internal_handle())
     }
 }
 
-<span class="doccomment">/// Host state for a dynamic function.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">DynamicFunction</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
-    <span class="ident">func</span>: <span class="ident">F</span>,
+<span class="doccomment">/// Host state for a dynamic function.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>DynamicFunction&lt;F&gt; {
+    func: F,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> <span class="ident">DynamicFunction</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">*mut</span> <span class="ident">RawValue</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="kw">impl</span>&lt;F&gt; DynamicFunction&lt;F&gt;
+<span class="kw">where
+    </span>F: Fn(<span class="kw-2">*mut </span>RawValue) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; + <span class="lifetime">&#39;static</span>,
 {
-    <span class="comment">// This function wraps our func, to make it compatible with the</span>
-    <span class="comment">// reverse trampoline signature</span>
-    <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">func_wrapper</span>(
-        <span class="ident">this</span>: <span class="kw-2">&amp;mut</span> <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>,
-        <span class="ident">values_vec</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>,
+    <span class="comment">// This function wraps our func, to make it compatible with the
+    // reverse trampoline signature
+    </span><span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>func_wrapper(
+        this: <span class="kw-2">&amp;mut </span>VMDynamicFunctionContext&lt;<span class="self">Self</span>&gt;,
+        values_vec: <span class="kw-2">*mut </span>RawValue,
     ) {
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span>
-            <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">panic::catch_unwind</span>(<span class="ident">AssertUnwindSafe</span>(<span class="op">|</span><span class="op">|</span> (<span class="ident">this</span>.<span class="ident">ctx</span>.<span class="ident">func</span>)(<span class="ident">values_vec</span>))));
+        <span class="kw">let </span>result =
+            on_host_stack(|| panic::catch_unwind(AssertUnwindSafe(|| (this.ctx.func)(values_vec))));
 
-        <span class="kw">match</span> <span class="ident">result</span> {
+        <span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {}
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">trap</span>)) =&gt; <span class="ident">raise_user_trap</span>(<span class="ident">Box::new</span>(<span class="ident">trap</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">panic</span>) =&gt; <span class="ident">resume_panic</span>(<span class="ident">panic</span>),
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(Box::new(trap)),
+            <span class="prelude-val">Err</span>(panic) =&gt; resume_panic(panic),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">func_body_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span> {
-        <span class="ident"><span class="self">Self</span>::func_wrapper</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>
+    <span class="kw">fn </span>func_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody {
+        <span class="self">Self</span>::func_wrapper <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody
     }
 
-    <span class="kw">fn</span> <span class="ident">call_trampoline_address</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMTrampoline</span> {
-        <span class="ident"><span class="self">Self</span>::call_trampoline</span>
+    <span class="kw">fn </span>call_trampoline_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMTrampoline {
+        <span class="self">Self</span>::call_trampoline
     }
 
-    <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">call_trampoline</span>(
-        <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-        <span class="ident">_body</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
-        <span class="ident">args</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>,
+    <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline(
+        vmctx: <span class="kw-2">*mut </span>VMContext,
+        _body: <span class="kw-2">*const </span>VMFunctionBody,
+        args: <span class="kw-2">*mut </span>RawValue,
     ) {
-        <span class="comment">// The VMFunctionBody pointer is null here: it is only filled in later</span>
-        <span class="comment">// by the engine linker.</span>
-        <span class="kw">let</span> <span class="ident">dynamic_function</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span>(<span class="ident">vmctx</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>);
-        <span class="ident"><span class="self">Self</span>::func_wrapper</span>(<span class="ident">dynamic_function</span>, <span class="ident">args</span>);
+        <span class="comment">// The VMFunctionBody pointer is null here: it is only filled in later
+        // by the engine linker.
+        </span><span class="kw">let </span>dynamic_function = <span class="kw-2">&amp;mut *</span>(vmctx <span class="kw">as </span><span class="kw-2">*mut </span>VMDynamicFunctionContext&lt;<span class="self">Self</span>&gt;);
+        <span class="self">Self</span>::func_wrapper(dynamic_function, args);
     }
 }
 
-<span class="doccomment">/// Represents a low-level Wasm static host function. See</span>
-<span class="doccomment">/// [`crate::Function::new_typed`] and</span>
-<span class="doccomment">/// [`crate::Function::new_typed_with_env`] to learn more.</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">StaticFunction</span><span class="op">&lt;</span><span class="ident">F</span>, <span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">raw_store</span>: <span class="kw-2">*mut</span> <span class="ident">u8</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">env</span>: <span class="ident">FunctionEnv</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">func</span>: <span class="ident">F</span>,
+<span class="doccomment">/// Represents a low-level Wasm static host function. See
+/// [`crate::Function::new_typed`] and
+/// [`crate::Function::new_typed_with_env`] to learn more.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StaticFunction&lt;F, T&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) raw_store: <span class="kw-2">*mut </span>u8,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) env: FunctionEnv&lt;T&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) func: F,
 }
 
-<span class="macro">macro_rules!</span> <span class="ident">impl_host_function</span> {
-        ( [<span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_representation</span>:<span class="ident">ident</span>]
-           <span class="macro-nonterminal">$</span><span class="macro-nonterminal">c_struct_name</span>:<span class="ident">ident</span>,
-           $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">ident</span> ),<span class="op">*</span> ) =&gt; {
+<span class="macro">macro_rules! </span>impl_host_function {
+        ( [<span class="macro-nonterminal">$c_struct_representation</span>:ident]
+           <span class="macro-nonterminal">$c_struct_name</span>:ident,
+           $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {
 
-            <span class="comment">// Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same</span>
-            <span class="comment">// arity than the tuple.</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
-            <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">RetsAsResult</span>, <span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">Func</span> <span class="op">&gt;</span>
-                <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">T</span>, ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span>, <span class="ident">WithEnv</span><span class="op">&gt;</span>
-            <span class="kw">for</span>
-                <span class="ident">Func</span>
-            <span class="kw">where</span>
-                $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
-                <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-                <span class="ident">RetsAsResult</span>: <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-                <span class="ident">Func</span>: <span class="ident">Fn</span>(<span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> , )<span class="kw-2">*</span>) -&gt; <span class="ident">RetsAsResult</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+            <span class="comment">// Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
+            // arity than the tuple.
+            </span><span class="attribute">#[allow(unused_parens)]
+            </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, T: Send + <span class="lifetime">&#39;static</span>, Func &gt;
+                HostFunction&lt;T, ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithEnv&gt;
+            <span class="kw">for
+                </span>Func
+            <span class="kw">where
+                </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult&lt;Rets&gt;,
+                Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
             {
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">fn</span> <span class="ident">function_body_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span> {
-                    <span class="doccomment">/// This is a function that wraps the real host</span>
-                    <span class="doccomment">/// function. Its address will be used inside the</span>
-                    <span class="doccomment">/// runtime.</span>
-                    <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">func_wrapper</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">RetsAsResult</span>, <span class="ident">Func</span><span class="op">&gt;</span>( <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">StaticFunction</span><span class="op">&lt;</span><span class="ident">Func</span>, <span class="ident">T</span><span class="op">&gt;</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x::Native</span> <span class="kw">as</span> <span class="ident">NativeWasmType</span><span class="op">&gt;</span><span class="ident">::Abi</span>, )<span class="op">*</span> ) -&gt; <span class="ident">Rets::CStruct</span>
-                    <span class="kw">where</span>
-                        $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
-                        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-                        <span class="ident">RetsAsResult</span>: <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-                        <span class="ident">Func</span>: <span class="ident">Fn</span>(<span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> , )<span class="kw-2">*</span>) -&gt; <span class="ident">RetsAsResult</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+                <span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">fn </span>function_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody {
+                    <span class="doccomment">/// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    </span><span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>func_wrapper&lt;T: Send + <span class="lifetime">&#39;static</span>, $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func&gt;( env: <span class="kw-2">&amp;</span>StaticFunction&lt;Func, T&gt;, $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )* ) -&gt; Rets::CStruct
+                    <span class="kw">where
+                        </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult&lt;Rets&gt;,
+                        Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
                     {
-                        <span class="comment">// println!(&quot;func wrapper&quot;);</span>
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">StoreMut::from_raw</span>(<span class="ident">env</span>.<span class="ident">raw_store</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>);
-                        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-                            <span class="comment">// println!(&quot;func wrapper1&quot;);</span>
-                            <span class="ident">panic::catch_unwind</span>(<span class="ident">AssertUnwindSafe</span>(<span class="op">|</span><span class="op">|</span> {
+                        <span class="comment">// println!(&quot;func wrapper&quot;);
+                        </span><span class="kw">let </span><span class="kw-2">mut </span>store = StoreMut::from_raw(env.raw_store <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>);
+                        <span class="kw">let </span>result = on_host_stack(|| {
+                            <span class="comment">// println!(&quot;func wrapper1&quot;);
+                            </span>panic::catch_unwind(AssertUnwindSafe(|| {
                                 $(
-                                    <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="op">=</span> <span class="ident">FromToNativeWasmType::from_native</span>(<span class="ident">NativeWasmTypeInto::from_abi</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>));
-                                )<span class="op">*</span>
-                                <span class="comment">// println!(&quot;func wrapper2 {:p}&quot;, *env.raw_env);</span>
-                                <span class="kw">let</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">StoreMut::from_raw</span>(<span class="ident">env</span>.<span class="ident">raw_store</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>);
-                                <span class="kw">let</span> <span class="ident">f_env</span> <span class="op">=</span> <span class="ident">FunctionEnvMut</span> {
-                                    <span class="ident">store_mut</span>,
-                                    <span class="ident">func_env</span>: <span class="ident">env</span>.<span class="ident">env</span>.<span class="ident">clone</span>(),
+                                    <span class="kw">let </span><span class="macro-nonterminal">$x </span>= FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(<span class="kw-2">&amp;mut </span>store, <span class="macro-nonterminal">$x</span>));
+                                )*
+                                <span class="comment">// println!(&quot;func wrapper2 {:p}&quot;, *env.raw_env);
+                                </span><span class="kw">let </span>store_mut = StoreMut::from_raw(env.raw_store <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>);
+                                <span class="kw">let </span>f_env = FunctionEnvMut {
+                                    store_mut,
+                                    func_env: env.env.clone(),
                                 };
-                                <span class="comment">// println!(&quot;func wrapper3&quot;);</span>
-                                (<span class="ident">env</span>.<span class="ident">func</span>)(<span class="ident">f_env</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="op">*</span> ).<span class="ident">into_result</span>()
+                                <span class="comment">// println!(&quot;func wrapper3&quot;);
+                                </span>(env.func)(f_env, $(<span class="macro-nonterminal">$x</span>),* ).into_result()
                             }))
                         });
 
-                        <span class="kw">match</span> <span class="ident">result</span> {
-                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">result</span>)) =&gt; <span class="kw">return</span> <span class="ident">result</span>.<span class="ident">into_c_struct</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>),
-                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">trap</span>)) =&gt; <span class="ident">raise_user_trap</span>(<span class="ident">Box::new</span>(<span class="ident">trap</span>)),
-                            <span class="prelude-val">Err</span>(<span class="ident">panic</span>) =&gt; <span class="ident">resume_panic</span>(<span class="ident">panic</span>) ,
+                        <span class="kw">match </span>result {
+                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(result)) =&gt; <span class="kw">return </span>result.into_c_struct(<span class="kw-2">&amp;mut </span>store),
+                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(Box::new(trap)),
+                            <span class="prelude-val">Err</span>(panic) =&gt; resume_panic(panic) ,
                         }
                     }
 
-                    <span class="ident">func_wrapper</span>::<span class="op">&lt;</span> <span class="ident">T</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">RetsAsResult</span>, <span class="self">Self</span> <span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>
+                    func_wrapper::&lt; T, $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, <span class="self">Self </span>&gt; <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody
                 }
 
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">fn</span> <span class="ident">call_trampoline_address</span>() -&gt; <span class="ident">VMTrampoline</span> {
-                    <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">call_trampoline</span><span class="op">&lt;</span>
-                        $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
-                        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-                    <span class="op">&gt;</span>(
-                        <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-                        <span class="ident">body</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
-                        <span class="ident">args</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>,
+                <span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">fn </span>call_trampoline_address() -&gt; VMTrampoline {
+                    <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline&lt;
+                        $( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                    &gt;(
+                        vmctx: <span class="kw-2">*mut </span>VMContext,
+                        body: <span class="kw-2">*const </span>VMFunctionBody,
+                        args: <span class="kw-2">*mut </span>RawValue,
                     ) {
-                            <span class="kw">let</span> <span class="ident">body</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(
-                                <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-                                $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x::Native</span> <span class="kw">as</span> <span class="ident">NativeWasmType</span><span class="op">&gt;</span><span class="ident">::Abi</span>, )<span class="op">*</span>
-                            ) -&gt; <span class="ident">Rets::CStruct</span>
-                                <span class="op">=</span> <span class="ident">std::mem::transmute</span>(<span class="ident">body</span>);
+                            <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
+                                vmctx: <span class="kw-2">*mut </span>VMContext,
+                                $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )*
+                            ) -&gt; Rets::CStruct
+                                = std::mem::transmute(body);
 
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">_n</span> <span class="op">=</span> <span class="number">0</span>;
+                            <span class="kw">let </span><span class="kw-2">mut </span>_n = <span class="number">0</span>;
                             $(
-                                <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">args</span>.<span class="ident">add</span>(<span class="ident">_n</span>).<span class="ident">cast</span>();
-                                <span class="ident">_n</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                            )<span class="op">*</span>
+                                <span class="kw">let </span><span class="macro-nonterminal">$x </span>= <span class="kw-2">*</span>args.add(_n).cast();
+                                _n += <span class="number">1</span>;
+                            )*
 
-                            <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">body</span>(<span class="ident">vmctx</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="kw-2">*</span>);
-                            <span class="ident">Rets::write_c_struct_to_ptr</span>(<span class="ident">results</span>, <span class="ident">args</span>);
+                            <span class="kw">let </span>results = body(vmctx, $( <span class="macro-nonterminal">$x </span>),<span class="kw-2">*</span>);
+                            Rets::write_c_struct_to_ptr(results, args);
                     }
 
-                    <span class="ident">call_trampoline</span>::<span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span><span class="op">&gt;</span>
+                    call_trampoline::&lt;$( <span class="macro-nonterminal">$x</span>, )* Rets&gt;
                 }
 
             }
 
-            <span class="comment">// Implement `HostFunction` for a function that has the same arity than the tuple.</span>
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_parens</span>)]</span>
-            <span class="kw">impl</span><span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">RetsAsResult</span>, <span class="ident">Func</span> <span class="op">&gt;</span>
-                <span class="ident">HostFunction</span><span class="op">&lt;</span>(), ( $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="op">*</span> ), <span class="ident">Rets</span>, <span class="ident">WithoutEnv</span><span class="op">&gt;</span>
-            <span class="kw">for</span>
-                <span class="ident">Func</span>
-            <span class="kw">where</span>
-                $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
-                <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-                <span class="ident">RetsAsResult</span>: <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-                <span class="ident">Func</span>: <span class="ident">Fn</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> , )<span class="kw-2">*</span>) -&gt; <span class="ident">RetsAsResult</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+            <span class="comment">// Implement `HostFunction` for a function that has the same arity than the tuple.
+            </span><span class="attribute">#[allow(unused_parens)]
+            </span><span class="kw">impl</span>&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func &gt;
+                HostFunction&lt;(), ( $( <span class="macro-nonterminal">$x </span>),* ), Rets, WithoutEnv&gt;
+            <span class="kw">for
+                </span>Func
+            <span class="kw">where
+                </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult&lt;Rets&gt;,
+                Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
             {
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">fn</span> <span class="ident">function_body_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span> {
-                    <span class="doccomment">/// This is a function that wraps the real host</span>
-                    <span class="doccomment">/// function. Its address will be used inside the</span>
-                    <span class="doccomment">/// runtime.</span>
-                    <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">func_wrapper</span><span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">RetsAsResult</span>, <span class="ident">Func</span><span class="op">&gt;</span>( <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">StaticFunction</span><span class="op">&lt;</span><span class="ident">Func</span>, ()<span class="op">&gt;</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x::Native</span> <span class="kw">as</span> <span class="ident">NativeWasmType</span><span class="op">&gt;</span><span class="ident">::Abi</span>, )<span class="op">*</span> ) -&gt; <span class="ident">Rets::CStruct</span>
-                    <span class="kw">where</span>
-                        $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
-                        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-                        <span class="ident">RetsAsResult</span>: <span class="ident">IntoResult</span><span class="op">&lt;</span><span class="ident">Rets</span><span class="op">&gt;</span>,
-                        <span class="ident">Func</span>: <span class="ident">Fn</span>($( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> , )<span class="kw-2">*</span>) -&gt; <span class="ident">RetsAsResult</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+                <span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">fn </span>function_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody {
+                    <span class="doccomment">/// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    </span><span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>func_wrapper&lt;$( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, Func&gt;( env: <span class="kw-2">&amp;</span>StaticFunction&lt;Func, ()&gt;, $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )* ) -&gt; Rets::CStruct
+                    <span class="kw">where
+                        </span>$( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult&lt;Rets&gt;,
+                        Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
                     {
-                        <span class="comment">// println!(&quot;func wrapper&quot;);</span>
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">StoreMut::from_raw</span>(<span class="ident">env</span>.<span class="ident">raw_store</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>);
-                        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-                            <span class="comment">// println!(&quot;func wrapper1&quot;);</span>
-                            <span class="ident">panic::catch_unwind</span>(<span class="ident">AssertUnwindSafe</span>(<span class="op">|</span><span class="op">|</span> {
+                        <span class="comment">// println!(&quot;func wrapper&quot;);
+                        </span><span class="kw">let </span><span class="kw-2">mut </span>store = StoreMut::from_raw(env.raw_store <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>);
+                        <span class="kw">let </span>result = on_host_stack(|| {
+                            <span class="comment">// println!(&quot;func wrapper1&quot;);
+                            </span>panic::catch_unwind(AssertUnwindSafe(|| {
                                 $(
-                                    <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="op">=</span> <span class="ident">FromToNativeWasmType::from_native</span>(<span class="ident">NativeWasmTypeInto::from_abi</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>));
-                                )<span class="op">*</span>
-                                (<span class="ident">env</span>.<span class="ident">func</span>)($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>),<span class="op">*</span> ).<span class="ident">into_result</span>()
+                                    <span class="kw">let </span><span class="macro-nonterminal">$x </span>= FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(<span class="kw-2">&amp;mut </span>store, <span class="macro-nonterminal">$x</span>));
+                                )*
+                                (env.func)($(<span class="macro-nonterminal">$x</span>),* ).into_result()
                             }))
                         });
 
-                        <span class="kw">match</span> <span class="ident">result</span> {
-                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">result</span>)) =&gt; <span class="kw">return</span> <span class="ident">result</span>.<span class="ident">into_c_struct</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>),
-                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">trap</span>)) =&gt; <span class="ident">raise_user_trap</span>(<span class="ident">Box::new</span>(<span class="ident">trap</span>)),
-                            <span class="prelude-val">Err</span>(<span class="ident">panic</span>) =&gt; <span class="ident">resume_panic</span>(<span class="ident">panic</span>) ,
+                        <span class="kw">match </span>result {
+                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(result)) =&gt; <span class="kw">return </span>result.into_c_struct(<span class="kw-2">&amp;mut </span>store),
+                            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(Box::new(trap)),
+                            <span class="prelude-val">Err</span>(panic) =&gt; resume_panic(panic) ,
                         }
                     }
 
-                    <span class="ident">func_wrapper</span>::<span class="op">&lt;</span> $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span>, <span class="ident">RetsAsResult</span>, <span class="self">Self</span> <span class="op">&gt;</span> <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>
+                    func_wrapper::&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, <span class="self">Self </span>&gt; <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody
                 }
 
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-                <span class="kw">fn</span> <span class="ident">call_trampoline_address</span>() -&gt; <span class="ident">VMTrampoline</span> {
-                    <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">call_trampoline</span><span class="op">&lt;</span>
-                        $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="ident">FromToNativeWasmType</span>, )<span class="op">*</span>
-                        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
-                    <span class="op">&gt;</span>(
-                        <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-                        <span class="ident">body</span>: <span class="kw-2">*const</span> <span class="ident">VMFunctionBody</span>,
-                        <span class="ident">args</span>: <span class="kw-2">*mut</span> <span class="ident">RawValue</span>,
+                <span class="attribute">#[allow(non_snake_case)]
+                </span><span class="kw">fn </span>call_trampoline_address() -&gt; VMTrampoline {
+                    <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline&lt;
+                        $( <span class="macro-nonterminal">$x</span>: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                    &gt;(
+                        vmctx: <span class="kw-2">*mut </span>VMContext,
+                        body: <span class="kw-2">*const </span>VMFunctionBody,
+                        args: <span class="kw-2">*mut </span>RawValue,
                     ) {
-                            <span class="kw">let</span> <span class="ident">body</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>(
-                                <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-                                $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>: <span class="op">&lt;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">x::Native</span> <span class="kw">as</span> <span class="ident">NativeWasmType</span><span class="op">&gt;</span><span class="ident">::Abi</span>, )<span class="op">*</span>
-                            ) -&gt; <span class="ident">Rets::CStruct</span>
-                                <span class="op">=</span> <span class="ident">std::mem::transmute</span>(<span class="ident">body</span>);
+                            <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
+                                vmctx: <span class="kw-2">*mut </span>VMContext,
+                                $( <span class="macro-nonterminal">$x</span>: &lt;<span class="macro-nonterminal">$x::Native </span><span class="kw">as </span>NativeWasmType&gt;::Abi, )*
+                            ) -&gt; Rets::CStruct
+                                = std::mem::transmute(body);
 
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">_n</span> <span class="op">=</span> <span class="number">0</span>;
+                            <span class="kw">let </span><span class="kw-2">mut </span>_n = <span class="number">0</span>;
                             $(
-                                <span class="kw">let</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">args</span>.<span class="ident">add</span>(<span class="ident">_n</span>).<span class="ident">cast</span>();
-                                <span class="ident">_n</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                            )<span class="op">*</span>
+                                <span class="kw">let </span><span class="macro-nonterminal">$x </span>= <span class="kw-2">*</span>args.add(_n).cast();
+                                _n += <span class="number">1</span>;
+                            )*
 
-                            <span class="kw">let</span> <span class="ident">results</span> <span class="op">=</span> <span class="ident">body</span>(<span class="ident">vmctx</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> ),<span class="kw-2">*</span>);
-                            <span class="ident">Rets::write_c_struct_to_ptr</span>(<span class="ident">results</span>, <span class="ident">args</span>);
+                            <span class="kw">let </span>results = body(vmctx, $( <span class="macro-nonterminal">$x </span>),<span class="kw-2">*</span>);
+                            Rets::write_c_struct_to_ptr(results, args);
                     }
 
-                    <span class="ident">call_trampoline</span>::<span class="op">&lt;</span>$( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, )<span class="op">*</span> <span class="ident">Rets</span><span class="op">&gt;</span>
+                    call_trampoline::&lt;$( <span class="macro-nonterminal">$x</span>, )* Rets&gt;
                 }
 
             }
         };
     }
 
-<span class="comment">// Here we go! Let&#39;s generate all the C struct, `WasmTypeList`</span>
-<span class="comment">// implementations and `HostFunction` implementations.</span>
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S0</span>,);
-<span class="macro">impl_host_function!</span>([<span class="ident">transparent</span>] <span class="ident">S1</span>, <span class="ident">A1</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S2</span>, <span class="ident">A1</span>, <span class="ident">A2</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S3</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S4</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S5</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S6</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S7</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S8</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S9</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S10</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S11</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S12</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S13</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S14</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S15</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S16</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S17</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S18</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S19</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S20</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S21</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S22</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S23</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S24</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>, <span class="ident">A24</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S25</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>, <span class="ident">A24</span>, <span class="ident">A25</span>);
-<span class="macro">impl_host_function!</span>([<span class="ident">C</span>] <span class="ident">S26</span>, <span class="ident">A1</span>, <span class="ident">A2</span>, <span class="ident">A3</span>, <span class="ident">A4</span>, <span class="ident">A5</span>, <span class="ident">A6</span>, <span class="ident">A7</span>, <span class="ident">A8</span>, <span class="ident">A9</span>, <span class="ident">A10</span>, <span class="ident">A11</span>, <span class="ident">A12</span>, <span class="ident">A13</span>, <span class="ident">A14</span>, <span class="ident">A15</span>, <span class="ident">A16</span>, <span class="ident">A17</span>, <span class="ident">A18</span>, <span class="ident">A19</span>, <span class="ident">A20</span>, <span class="ident">A21</span>, <span class="ident">A22</span>, <span class="ident">A23</span>, <span class="ident">A24</span>, <span class="ident">A25</span>, <span class="ident">A26</span>);
+<span class="comment">// Here we go! Let&#39;s generate all the C struct, `WasmTypeList`
+// implementations and `HostFunction` implementations.
+</span><span class="macro">impl_host_function!</span>([C] S0,);
+<span class="macro">impl_host_function!</span>([transparent] S1, A1);
+<span class="macro">impl_host_function!</span>([C] S2, A1, A2);
+<span class="macro">impl_host_function!</span>([C] S3, A1, A2, A3);
+<span class="macro">impl_host_function!</span>([C] S4, A1, A2, A3, A4);
+<span class="macro">impl_host_function!</span>([C] S5, A1, A2, A3, A4, A5);
+<span class="macro">impl_host_function!</span>([C] S6, A1, A2, A3, A4, A5, A6);
+<span class="macro">impl_host_function!</span>([C] S7, A1, A2, A3, A4, A5, A6, A7);
+<span class="macro">impl_host_function!</span>([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+<span class="macro">impl_host_function!</span>([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+<span class="macro">impl_host_function!</span>([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+<span class="macro">impl_host_function!</span>([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+<span class="macro">impl_host_function!</span>([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+<span class="macro">impl_host_function!</span>([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+<span class="macro">impl_host_function!</span>([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+<span class="macro">impl_host_function!</span>([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+<span class="macro">impl_host_function!</span>([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+<span class="macro">impl_host_function!</span>([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+<span class="macro">impl_host_function!</span>([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+<span class="macro">impl_host_function!</span>([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+<span class="macro">impl_host_function!</span>([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+<span class="macro">impl_host_function!</span>([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+<span class="macro">impl_host_function!</span>([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+<span class="macro">impl_host_function!</span>([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+<span class="macro">impl_host_function!</span>([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+<span class="macro">impl_host_function!</span>([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+<span class="macro">impl_host_function!</span>([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

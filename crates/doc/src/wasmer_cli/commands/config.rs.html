@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/config.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -316,321 +316,321 @@
 <span id="314">314</span>
 <span id="315">315</span>
 <span id="316">316</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VERSION</span>;
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::env</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="kw">use</span> <span class="ident">std::str::ParseBoolError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry::WasmerConfig</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::VERSION;
+<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>std::env;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::str::ParseBoolError;
+<span class="kw">use </span>wasmer_registry::WasmerConfig;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="doccomment">/// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Config</span> {
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">flags</span>: <span class="ident">Flags</span>,
-    <span class="doccomment">/// Subcommand for `wasmer config get | set`</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>)]</span>
-    <span class="ident">set</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GetOrSet</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Parser)]
+</span><span class="doccomment">/// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
+</span><span class="kw">pub struct </span>Config {
+    <span class="attribute">#[clap(flatten)]
+    </span>flags: Flags,
+    <span class="doccomment">/// Subcommand for `wasmer config get | set`
+    </span><span class="attribute">#[clap(subcommand)]
+    </span>set: <span class="prelude-ty">Option</span>&lt;GetOrSet&gt;,
 }
 
-<span class="doccomment">/// Normal configuration</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Flags</span> {
-    <span class="doccomment">/// Print the installation prefix.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">prefix</span>: <span class="ident">bool</span>,
+<span class="doccomment">/// Normal configuration
+</span><span class="attribute">#[derive(Debug, Parser)]
+</span><span class="kw">pub struct </span>Flags {
+    <span class="doccomment">/// Print the installation prefix.
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>prefix: bool,
 
-    <span class="doccomment">/// Directory containing Wasmer executables.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">bindir</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Directory containing Wasmer executables.
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>bindir: bool,
 
-    <span class="doccomment">/// Directory containing Wasmer headers.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">includedir</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Directory containing Wasmer headers.
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>includedir: bool,
 
-    <span class="doccomment">/// Directory containing Wasmer libraries.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">libdir</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Directory containing Wasmer libraries.
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>libdir: bool,
 
-    <span class="doccomment">/// Libraries needed to link against Wasmer components.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">libs</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Libraries needed to link against Wasmer components.
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>libs: bool,
 
-    <span class="doccomment">/// C compiler flags for files that include Wasmer headers.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">cflags</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// C compiler flags for files that include Wasmer headers.
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>cflags: bool,
 
-    <span class="doccomment">/// Print the path to the wasmer configuration file where all settings are stored</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">conflicts_with</span> <span class="op">=</span> <span class="string">&quot;pkg-config&quot;</span>)]</span>
-    <span class="ident">config_path</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Print the path to the wasmer configuration file where all settings are stored
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span>config_path: bool,
 
-    <span class="doccomment">/// Outputs the necessary details for compiling</span>
-    <span class="doccomment">/// and linking a program to Wasmer, using the `pkg-config` format.</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
-    <span class="ident">pkg_config</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Outputs the necessary details for compiling
+    /// and linking a program to Wasmer, using the `pkg-config` format.
+    </span><span class="attribute">#[clap(long)]
+    </span>pkg_config: bool,
 }
 
-<span class="doccomment">/// Subcommand for `wasmer config set`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GetOrSet</span> {
-    <span class="doccomment">/// `wasmer config get $KEY`</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>)]</span>
-    <span class="ident">Get</span>(<span class="ident">RetrievableConfigField</span>),
-    <span class="doccomment">/// `wasmer config set $KEY $VALUE`</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>)]</span>
-    <span class="ident">Set</span>(<span class="ident">StorableConfigField</span>),
+<span class="doccomment">/// Subcommand for `wasmer config set`
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub enum </span>GetOrSet {
+    <span class="doccomment">/// `wasmer config get $KEY`
+    </span><span class="attribute">#[clap(subcommand)]
+    </span>Get(RetrievableConfigField),
+    <span class="doccomment">/// `wasmer config set $KEY $VALUE`
+    </span><span class="attribute">#[clap(subcommand)]
+    </span>Set(StorableConfigField),
 }
 
-<span class="doccomment">/// Subcommand for `wasmer config get`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RetrievableConfigField</span> {
-    <span class="doccomment">/// Print the registry URL of the currently active registry</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;registry.url&quot;</span>)]</span>
-    <span class="ident">RegistryUrl</span>,
-    <span class="doccomment">/// Print the token for the currently active registry or nothing if not logged in</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;registry.token&quot;</span>)]</span>
-    <span class="ident">RegistryToken</span>,
-    <span class="doccomment">/// Print whether telemetry is currently enabled</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;telemetry.enabled&quot;</span>)]</span>
-    <span class="ident">TelemetryEnabled</span>,
-    <span class="doccomment">/// Print whether update notifications are enabled</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;update-notifications.enabled&quot;</span>)]</span>
-    <span class="ident">UpdateNotificationsEnabled</span>,
-    <span class="doccomment">/// Print the proxy URL</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;proxy.url&quot;</span>)]</span>
-    <span class="ident">ProxyUrl</span>,
+<span class="doccomment">/// Subcommand for `wasmer config get`
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub enum </span>RetrievableConfigField {
+    <span class="doccomment">/// Print the registry URL of the currently active registry
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;registry.url&quot;</span>)]
+    </span>RegistryUrl,
+    <span class="doccomment">/// Print the token for the currently active registry or nothing if not logged in
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;registry.token&quot;</span>)]
+    </span>RegistryToken,
+    <span class="doccomment">/// Print whether telemetry is currently enabled
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;telemetry.enabled&quot;</span>)]
+    </span>TelemetryEnabled,
+    <span class="doccomment">/// Print whether update notifications are enabled
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;update-notifications.enabled&quot;</span>)]
+    </span>UpdateNotificationsEnabled,
+    <span class="doccomment">/// Print the proxy URL
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;proxy.url&quot;</span>)]
+    </span>ProxyUrl,
 }
 
-<span class="doccomment">/// Setting that can be stored in the wasmer config</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">StorableConfigField</span> {
-    <span class="doccomment">/// Set the registry URL of the currently active registry</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;registry.url&quot;</span>)]</span>
-    <span class="ident">RegistryUrl</span>(<span class="ident">SetRegistryUrl</span>),
-    <span class="doccomment">/// Set the token for the currently active registry or nothing if not logged in</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;registry.token&quot;</span>)]</span>
-    <span class="ident">RegistryToken</span>(<span class="ident">SetRegistryToken</span>),
-    <span class="doccomment">/// Set whether telemetry is currently enabled</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;telemetry.enabled&quot;</span>)]</span>
-    <span class="ident">TelemetryEnabled</span>(<span class="ident">SetTelemetryEnabled</span>),
-    <span class="doccomment">/// Set whether update notifications are enabled</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;update-notifications.enabled&quot;</span>)]</span>
-    <span class="ident">UpdateNotificationsEnabled</span>(<span class="ident">SetUpdateNotificationsEnabled</span>),
-    <span class="doccomment">/// Set the active proxy URL</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;proxy.url&quot;</span>)]</span>
-    <span class="ident">ProxyUrl</span>(<span class="ident">SetProxyUrl</span>),
+<span class="doccomment">/// Setting that can be stored in the wasmer config
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub enum </span>StorableConfigField {
+    <span class="doccomment">/// Set the registry URL of the currently active registry
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;registry.url&quot;</span>)]
+    </span>RegistryUrl(SetRegistryUrl),
+    <span class="doccomment">/// Set the token for the currently active registry or nothing if not logged in
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;registry.token&quot;</span>)]
+    </span>RegistryToken(SetRegistryToken),
+    <span class="doccomment">/// Set whether telemetry is currently enabled
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;telemetry.enabled&quot;</span>)]
+    </span>TelemetryEnabled(SetTelemetryEnabled),
+    <span class="doccomment">/// Set whether update notifications are enabled
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;update-notifications.enabled&quot;</span>)]
+    </span>UpdateNotificationsEnabled(SetUpdateNotificationsEnabled),
+    <span class="doccomment">/// Set the active proxy URL
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;proxy.url&quot;</span>)]
+    </span>ProxyUrl(SetProxyUrl),
 }
 
-<span class="doccomment">/// Set the current active registry URL</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SetRegistryUrl</span> {
-    <span class="doccomment">/// Url of the registry</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;URL&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="ident">String</span>,
+<span class="doccomment">/// Set the current active registry URL
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub struct </span>SetRegistryUrl {
+    <span class="doccomment">/// Url of the registry
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;URL&quot;</span>)]
+    </span><span class="kw">pub </span>url: String,
 }
 
-<span class="doccomment">/// Set or change the token for the current active registry</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SetRegistryToken</span> {
-    <span class="doccomment">/// Token to set</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;TOKEN&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">token</span>: <span class="ident">String</span>,
+<span class="doccomment">/// Set or change the token for the current active registry
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub struct </span>SetRegistryToken {
+    <span class="doccomment">/// Token to set
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;TOKEN&quot;</span>)]
+    </span><span class="kw">pub </span>token: String,
 }
 
-<span class="doccomment">/// Set if update notifications are enabled</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SetUpdateNotificationsEnabled</span> {
-    <span class="doccomment">/// Whether to enable update notifications</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;ENABLED&quot;</span>, <span class="ident">possible_values</span> <span class="op">=</span> [<span class="string">&quot;true&quot;</span>, <span class="string">&quot;false&quot;</span>]</span>)]
-    <span class="kw">pub</span> <span class="ident">enabled</span>: <span class="ident">BoolString</span>,
+<span class="doccomment">/// Set if update notifications are enabled
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub struct </span>SetUpdateNotificationsEnabled {
+    <span class="doccomment">/// Whether to enable update notifications
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>, possible_values = [<span class="string">&quot;true&quot;</span>, <span class="string">&quot;false&quot;</span>]</span>)]
+    <span class="kw">pub </span>enabled: BoolString,
 }
 
-<span class="doccomment">/// &quot;true&quot; or &quot;false&quot; for handling input in the CLI</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BoolString</span>(<span class="kw">pub</span> <span class="ident">bool</span>);
+<span class="doccomment">/// &quot;true&quot; or &quot;false&quot; for handling input in the CLI
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+</span><span class="kw">pub struct </span>BoolString(<span class="kw">pub </span>bool);
 
-<span class="kw">impl</span> <span class="ident">std::str::FromStr</span> <span class="kw">for</span> <span class="ident">BoolString</span> {
-    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">ParseBoolError</span>;
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(<span class="ident">bool::from_str</span>(<span class="ident">s</span>)<span class="question-mark">?</span>))
+<span class="kw">impl </span>std::str::FromStr <span class="kw">for </span>BoolString {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= ParseBoolError;
+    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(bool::from_str(s)<span class="question-mark">?</span>))
     }
 }
 
-<span class="doccomment">/// Set if telemetry is enabled</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SetTelemetryEnabled</span> {
-    <span class="doccomment">/// Whether to enable telemetry</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;ENABLED&quot;</span>, <span class="ident">possible_values</span> <span class="op">=</span> [<span class="string">&quot;true&quot;</span>, <span class="string">&quot;false&quot;</span>]</span>)]
-    <span class="kw">pub</span> <span class="ident">enabled</span>: <span class="ident">BoolString</span>,
+<span class="doccomment">/// Set if telemetry is enabled
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub struct </span>SetTelemetryEnabled {
+    <span class="doccomment">/// Whether to enable telemetry
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>, possible_values = [<span class="string">&quot;true&quot;</span>, <span class="string">&quot;false&quot;</span>]</span>)]
+    <span class="kw">pub </span>enabled: BoolString,
 }
 
-<span class="doccomment">/// Set if a proxy URL should be used</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Parser</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SetProxyUrl</span> {
-    <span class="doccomment">/// Set if a proxy URL should be used (empty = unset proxy)</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;URL&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="ident">String</span>,
+<span class="doccomment">/// Set if a proxy URL should be used
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+</span><span class="kw">pub struct </span>SetProxyUrl {
+    <span class="doccomment">/// Set if a proxy URL should be used (empty = unset proxy)
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;URL&quot;</span>)]
+    </span><span class="kw">pub </span>url: String,
 }
 
-<span class="kw">impl</span> <span class="ident">Config</span> {
-    <span class="doccomment">/// Runs logic for the `config` subcommand</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner_execute</span>()
-            .<span class="ident">context</span>(<span class="string">&quot;failed to retrieve the wasmer config&quot;</span>.<span class="ident">to_string</span>())
+<span class="kw">impl </span>Config {
+    <span class="doccomment">/// Runs logic for the `config` subcommand
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.inner_execute()
+            .context(<span class="string">&quot;failed to retrieve the wasmer config&quot;</span>.to_string())
     }
-    <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">set</span>.<span class="ident">as_ref</span>() {
-            <span class="kw">return</span> <span class="ident">s</span>.<span class="ident">execute</span>();
+    <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = <span class="self">self</span>.set.as_ref() {
+            <span class="kw">return </span>s.execute();
         }
 
-        <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">flags</span>;
+        <span class="kw">let </span>flags = <span class="kw-2">&amp;</span><span class="self">self</span>.flags;
 
-        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="string">&quot;WASMER_DIR&quot;</span>;
-        <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">env::var</span>(<span class="ident">key</span>)
-            .<span class="ident">or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+        <span class="kw">let </span>key = <span class="string">&quot;WASMER_DIR&quot;</span>;
+        <span class="kw">let </span>wasmer_dir = env::var(key)
+            .or_else(|e| {
                 <span class="macro">option_env!</span>(<span class="string">&quot;WASMER_INSTALL_PREFIX&quot;</span>)
-                    .<span class="ident">map</span>(<span class="ident">str::to_string</span>)
-                    .<span class="ident">ok_or</span>(<span class="ident">e</span>)
+                    .map(str::to_string)
+                    .ok_or(e)
             })
-            .<span class="ident">context</span>(<span class="macro">format!</span>(
+            .context(<span class="macro">format!</span>(
                 <span class="string">&quot;failed to retrieve the {} environment variables&quot;</span>,
-                <span class="ident">key</span>
+                key
             ))<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">prefix</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">wasmer_dir</span>);
+        <span class="kw">let </span>prefix = PathBuf::from(wasmer_dir);
 
-        <span class="kw">let</span> <span class="ident">prefixdir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">bindir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">join</span>(<span class="string">&quot;bin&quot;</span>).<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">includedir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>).<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">libdir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">join</span>(<span class="string">&quot;lib&quot;</span>).<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">cflags</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">includedir</span>);
-        <span class="kw">let</span> <span class="ident">libs</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;-L{} -lwasmer&quot;</span>, <span class="ident">libdir</span>);
+        <span class="kw">let </span>prefixdir = prefix.display().to_string();
+        <span class="kw">let </span>bindir = prefix.join(<span class="string">&quot;bin&quot;</span>).display().to_string();
+        <span class="kw">let </span>includedir = prefix.join(<span class="string">&quot;include&quot;</span>).display().to_string();
+        <span class="kw">let </span>libdir = prefix.join(<span class="string">&quot;lib&quot;</span>).display().to_string();
+        <span class="kw">let </span>cflags = <span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, includedir);
+        <span class="kw">let </span>libs = <span class="macro">format!</span>(<span class="string">&quot;-L{} -lwasmer&quot;</span>, libdir);
 
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">pkg_config</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;prefix={}&quot;</span>, <span class="ident">prefixdir</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;exec_prefix={}&quot;</span>, <span class="ident">bindir</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;includedir={}&quot;</span>, <span class="ident">includedir</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;libdir={}&quot;</span>, <span class="ident">libdir</span>);
+        <span class="kw">if </span>flags.pkg_config {
+            <span class="macro">println!</span>(<span class="string">&quot;prefix={}&quot;</span>, prefixdir);
+            <span class="macro">println!</span>(<span class="string">&quot;exec_prefix={}&quot;</span>, bindir);
+            <span class="macro">println!</span>(<span class="string">&quot;includedir={}&quot;</span>, includedir);
+            <span class="macro">println!</span>(<span class="string">&quot;libdir={}&quot;</span>, libdir);
             <span class="macro">println!</span>();
             <span class="macro">println!</span>(<span class="string">&quot;Name: wasmer&quot;</span>);
             <span class="macro">println!</span>(<span class="string">&quot;Description: The Wasmer library for running WebAssembly&quot;</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;Version: {}&quot;</span>, <span class="ident">VERSION</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;Cflags: {}&quot;</span>, <span class="ident">cflags</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;Libs: {}&quot;</span>, <span class="ident">libs</span>);
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
+            <span class="macro">println!</span>(<span class="string">&quot;Version: {}&quot;</span>, VERSION);
+            <span class="macro">println!</span>(<span class="string">&quot;Cflags: {}&quot;</span>, cflags);
+            <span class="macro">println!</span>(<span class="string">&quot;Libs: {}&quot;</span>, libs);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">prefix</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">prefixdir</span>);
+        <span class="kw">if </span>flags.prefix {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, prefixdir);
         }
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">bindir</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">bindir</span>);
+        <span class="kw">if </span>flags.bindir {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, bindir);
         }
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">includedir</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">includedir</span>);
+        <span class="kw">if </span>flags.includedir {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, includedir);
         }
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">libdir</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">libdir</span>);
+        <span class="kw">if </span>flags.libdir {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, libdir);
         }
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">libs</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">libs</span>);
+        <span class="kw">if </span>flags.libs {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, libs);
         }
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">cflags</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">cflags</span>);
+        <span class="kw">if </span>flags.cflags {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, cflags);
         }
 
-        <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">config_path</span> {
-            <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>()
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_file_location</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>);
-            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>());
+        <span class="kw">if </span>flags.config_path {
+            <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir()
+                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>path = WasmerConfig::get_file_location(<span class="kw-2">&amp;</span>wasmer_dir);
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, path.display());
         }
 
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">GetOrSet</span> {
-    <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">config_file</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_file_location</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+<span class="kw">impl </span>GetOrSet {
+    <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir()
+            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>config_file = WasmerConfig::get_file_location(<span class="kw-2">&amp;</span>wasmer_dir);
+        <span class="kw">let </span><span class="kw-2">mut </span>config = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir).map_err(|e| {
             <span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;could not find config file {e} at {}&quot;</span>,
-                <span class="ident">config_file</span>.<span class="ident">display</span>()
+                config_file.display()
             )
         })<span class="question-mark">?</span>;
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">GetOrSet::Get</span>(<span class="ident">g</span>) =&gt; <span class="kw">match</span> <span class="ident">g</span> {
-                <span class="ident">RetrievableConfigField::RegistryUrl</span> =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>());
+        <span class="kw">match </span><span class="self">self </span>{
+            GetOrSet::Get(g) =&gt; <span class="kw">match </span>g {
+                RetrievableConfigField::RegistryUrl =&gt; {
+                    <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, config.registry.get_current_registry());
                 }
-                <span class="ident">RetrievableConfigField::RegistryToken</span> =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">config</span>
-                        .<span class="ident">registry</span>
-                        .<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>())
+                RetrievableConfigField::RegistryToken =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = config
+                        .registry
+                        .get_login_token_for_registry(<span class="kw-2">&amp;</span>config.registry.get_current_registry())
                     {
                         <span class="macro">println!</span>(<span class="string">&quot;{s}&quot;</span>);
                     }
                 }
-                <span class="ident">RetrievableConfigField::TelemetryEnabled</span> =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">config</span>.<span class="ident">telemetry_enabled</span>);
+                RetrievableConfigField::TelemetryEnabled =&gt; {
+                    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, config.telemetry_enabled);
                 }
-                <span class="ident">RetrievableConfigField::UpdateNotificationsEnabled</span> =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">config</span>.<span class="ident">update_notifications_enabled</span>);
+                RetrievableConfigField::UpdateNotificationsEnabled =&gt; {
+                    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, config.update_notifications_enabled);
                 }
-                <span class="ident">RetrievableConfigField::ProxyUrl</span> =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">proxy</span>.<span class="ident">url</span>.<span class="ident">as_ref</span>() {
+                RetrievableConfigField::ProxyUrl =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = config.proxy.url.as_ref() {
                         <span class="macro">println!</span>(<span class="string">&quot;{s}&quot;</span>);
-                    } <span class="kw">else</span> {
+                    } <span class="kw">else </span>{
                         <span class="macro">println!</span>(<span class="string">&quot;none&quot;</span>);
                     }
                 }
             },
-            <span class="ident">GetOrSet::Set</span>(<span class="ident">s</span>) =&gt; {
-                <span class="kw">match</span> <span class="ident">s</span> {
-                    <span class="ident">StorableConfigField::RegistryUrl</span>(<span class="ident">s</span>) =&gt; {
-                        <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">set_current_registry</span>(<span class="kw-2">&amp;</span><span class="ident">s</span>.<span class="ident">url</span>);
-                        <span class="kw">let</span> <span class="ident">current_registry</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>();
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">u</span>) <span class="op">=</span> <span class="ident">wasmer_registry::utils::get_username</span>(<span class="kw-2">&amp;</span><span class="ident">current_registry</span>)
-                            .<span class="ident">ok</span>()
-                            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="ident">o</span>)
+            GetOrSet::Set(s) =&gt; {
+                <span class="kw">match </span>s {
+                    StorableConfigField::RegistryUrl(s) =&gt; {
+                        config.registry.set_current_registry(<span class="kw-2">&amp;</span>s.url);
+                        <span class="kw">let </span>current_registry = config.registry.get_current_registry();
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = wasmer_registry::utils::get_username(<span class="kw-2">&amp;</span>current_registry)
+                            .ok()
+                            .and_then(|o| o)
                         {
                             <span class="macro">println!</span>(
-                                <span class="string">&quot;Successfully logged into registry {current_registry:?} as user {u:?}&quot;</span>
-                            );
+                                <span class="string">&quot;Successfully logged into registry {current_registry:?} as user {u:?}&quot;
+                            </span>);
                         }
                     }
-                    <span class="ident">StorableConfigField::RegistryToken</span>(<span class="ident">t</span>) =&gt; {
-                        <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">set_login_token_for_registry</span>(
-                            <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>(),
-                            <span class="kw-2">&amp;</span><span class="ident">t</span>.<span class="ident">token</span>,
-                            <span class="ident">wasmer_registry::config::UpdateRegistry::LeaveAsIs</span>,
+                    StorableConfigField::RegistryToken(t) =&gt; {
+                        config.registry.set_login_token_for_registry(
+                            <span class="kw-2">&amp;</span>config.registry.get_current_registry(),
+                            <span class="kw-2">&amp;</span>t.token,
+                            wasmer_registry::config::UpdateRegistry::LeaveAsIs,
                         );
                     }
-                    <span class="ident">StorableConfigField::TelemetryEnabled</span>(<span class="ident">t</span>) =&gt; {
-                        <span class="ident">config</span>.<span class="ident">telemetry_enabled</span> <span class="op">=</span> <span class="ident">t</span>.<span class="ident">enabled</span>.<span class="number">0</span>;
+                    StorableConfigField::TelemetryEnabled(t) =&gt; {
+                        config.telemetry_enabled = t.enabled.<span class="number">0</span>;
                     }
-                    <span class="ident">StorableConfigField::ProxyUrl</span>(<span class="ident">p</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">p</span>.<span class="ident">url</span> <span class="op">==</span> <span class="string">&quot;none&quot;</span> <span class="op">|</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">url</span>.<span class="ident">is_empty</span>() {
-                            <span class="ident">config</span>.<span class="ident">proxy</span>.<span class="ident">url</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-                        } <span class="kw">else</span> {
-                            <span class="ident">config</span>.<span class="ident">proxy</span>.<span class="ident">url</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">p</span>.<span class="ident">url</span>.<span class="ident">clone</span>());
+                    StorableConfigField::ProxyUrl(p) =&gt; {
+                        <span class="kw">if </span>p.url == <span class="string">&quot;none&quot; </span>|| p.url.is_empty() {
+                            config.proxy.url = <span class="prelude-val">None</span>;
+                        } <span class="kw">else </span>{
+                            config.proxy.url = <span class="prelude-val">Some</span>(p.url.clone());
                         }
                     }
-                    <span class="ident">StorableConfigField::UpdateNotificationsEnabled</span>(<span class="ident">u</span>) =&gt; {
-                        <span class="ident">config</span>.<span class="ident">update_notifications_enabled</span> <span class="op">=</span> <span class="ident">u</span>.<span class="ident">enabled</span>.<span class="number">0</span>;
+                    StorableConfigField::UpdateNotificationsEnabled(u) =&gt; {
+                        config.update_notifications_enabled = u.enabled.<span class="number">0</span>;
                     }
                 }
-                <span class="ident">config</span>
-                    .<span class="ident">save</span>(<span class="ident">config_file</span>)
-                    .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not save config file&quot;</span>))<span class="question-mark">?</span>;
+                config
+                    .save(config_file)
+                    .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not save config file&quot;</span>))<span class="question-mark">?</span>;
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

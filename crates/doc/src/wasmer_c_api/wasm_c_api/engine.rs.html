@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/engine.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -465,470 +465,470 @@
 <span id="463">463</span>
 <span id="464">464</span>
 <span id="465">465</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine</span>::{<span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::features::wasmer_features_t</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::middlewares::wasm_config_push_middleware</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::middlewares::wasmer_middleware_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::target_lexicon::wasmer_target_t</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>;
-<span class="kw">use</span> <span class="ident">cfg_if::cfg_if</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>};
+</pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available;
+<span class="kw">pub use </span><span class="kw">super</span>::unstable::engine::{wasm_config_set_features, wasm_config_set_target};
+<span class="kw">use </span><span class="kw">super</span>::unstable::features::wasmer_features_t;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;middlewares&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">super</span>::unstable::middlewares::wasm_config_push_middleware;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;middlewares&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">super</span>::unstable::middlewares::wasmer_middleware_t;
+<span class="kw">use </span><span class="kw">super</span>::unstable::target_lexicon::wasmer_target_t;
+<span class="kw">use </span><span class="kw">crate</span>::error::update_last_error;
+<span class="kw">use </span>cfg_if::cfg_if;
+<span class="kw">use </span>wasmer_compiler::{Engine, EngineBuilder};
 
-<span class="doccomment">/// Kind of compilers that can be used by the engines.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is a Wasmer-specific type with Wasmer-specific functions for</span>
-<span class="doccomment">/// manipulating it.</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">wasmer_compiler_t</span> {
-    <span class="doccomment">/// Variant to represent the Cranelift compiler. See the</span>
-    <span class="doccomment">/// [`wasmer_compiler_cranelift`] Rust crate.</span>
-    <span class="ident">CRANELIFT</span> <span class="op">=</span> <span class="number">0</span>,
+<span class="doccomment">/// Kind of compilers that can be used by the engines.
+///
+/// This is a Wasmer-specific type with Wasmer-specific functions for
+/// manipulating it.
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+</span><span class="kw">pub enum </span>wasmer_compiler_t {
+    <span class="doccomment">/// Variant to represent the Cranelift compiler. See the
+    /// [`wasmer_compiler_cranelift`] Rust crate.
+    </span>CRANELIFT = <span class="number">0</span>,
 
-    <span class="doccomment">/// Variant to represent the LLVM compiler. See the</span>
-    <span class="doccomment">/// [`wasmer_compiler_llvm`] Rust crate.</span>
-    <span class="ident">LLVM</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="doccomment">/// Variant to represent the LLVM compiler. See the
+    /// [`wasmer_compiler_llvm`] Rust crate.
+    </span>LLVM = <span class="number">1</span>,
 
-    <span class="doccomment">/// Variant to represent the Singlepass compiler. See the</span>
-    <span class="doccomment">/// [`wasmer_compiler_singlepass`] Rust crate.</span>
-    <span class="ident">SINGLEPASS</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="doccomment">/// Variant to represent the Singlepass compiler. See the
+    /// [`wasmer_compiler_singlepass`] Rust crate.
+    </span>SINGLEPASS = <span class="number">2</span>,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasmer_compiler_t</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="macro">cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span> {
-                <span class="ident"><span class="self">Self</span>::CRANELIFT</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span> {
-                <span class="ident"><span class="self">Self</span>::LLVM</span>
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span> {
-                <span class="ident"><span class="self">Self</span>::SINGLEPASS</span>
-            } <span class="kw">else</span> {
+<span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">impl </span>Default <span class="kw">for </span>wasmer_compiler_t {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="macro">cfg_if! </span>{
+            <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)] </span>{
+                <span class="self">Self</span>::CRANELIFT
+            } <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)] </span>{
+                <span class="self">Self</span>::LLVM
+            } <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)] </span>{
+                <span class="self">Self</span>::SINGLEPASS
+            } <span class="kw">else </span>{
                 <span class="macro">compile_error!</span>(<span class="string">&quot;Please enable one of the compiler backends&quot;</span>)
             }
         }
     }
 }
 
-<span class="doccomment">/// Kind of engines that can be used by the store.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is a Wasmer-specific type with Wasmer-specific functions for</span>
-<span class="doccomment">/// manipulating it.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">wasmer_engine_t</span> {
-    <span class="doccomment">/// Variant to represent the Universal engine. See the</span>
-    <span class="doccomment">/// [`wasmer_engine_universal`] Rust crate.</span>
-    <span class="ident">UNIVERSAL</span> <span class="op">=</span> <span class="number">0</span>,
+<span class="doccomment">/// Kind of engines that can be used by the store.
+///
+/// This is a Wasmer-specific type with Wasmer-specific functions for
+/// manipulating it.
+</span><span class="attribute">#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+</span><span class="kw">pub enum </span>wasmer_engine_t {
+    <span class="doccomment">/// Variant to represent the Universal engine. See the
+    /// [`wasmer_engine_universal`] Rust crate.
+    </span>UNIVERSAL = <span class="number">0</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">wasmer_engine_t</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::UNIVERSAL</span>
+<span class="kw">impl </span>Default <span class="kw">for </span>wasmer_engine_t {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::UNIVERSAL
     }
 }
 
-<span class="doccomment">/// A configuration holds the compiler and the engine used by the store.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_config_t</span> {
-    <span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>,
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>,
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">middlewares</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">wasmer_middleware_t</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">nan_canonicalization</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A configuration holds the compiler and the engine used by the store.
+///
+/// cbindgen:ignore
+</span><span class="attribute">#[derive(Debug, Default)]
+#[repr(C)]
+</span><span class="kw">pub struct </span>wasm_config_t {
+    engine: wasmer_engine_t,
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+    </span>compiler: wasmer_compiler_t,
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;middlewares&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) middlewares: Vec&lt;wasmer_middleware_t&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) nan_canonicalization: bool,
+    <span class="kw">pub</span>(<span class="kw">super</span>) features: <span class="prelude-ty">Option</span>&lt;Box&lt;wasmer_features_t&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) target: <span class="prelude-ty">Option</span>&lt;Box&lt;wasmer_target_t&gt;&gt;,
 }
 
-<span class="doccomment">/// Create a new default Wasmer configuration.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_config_t</span><span class="op">&gt;</span> {
-    <span class="ident">Box::new</span>(<span class="ident">wasm_config_t::default</span>())
+<span class="doccomment">/// Create a new default Wasmer configuration.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// cbindgen:ignore
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_new() -&gt; Box&lt;wasm_config_t&gt; {
+    Box::new(wasm_config_t::default())
 }
 
-<span class="doccomment">/// Delete a Wasmer config object.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function does not need to be called if `wasm_engine_new_with_config` or</span>
-<span class="doccomment">/// another function that takes ownership of the `wasm_config_t` is called.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Delete the configuration</span>
-<span class="doccomment">///     wasm_config_delete(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_delete</span>(<span class="ident">_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_config_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="doccomment">/// Delete a Wasmer config object.
+///
+/// This function does not need to be called if `wasm_engine_new_with_config` or
+/// another function that takes ownership of the `wasm_config_t` is called.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Delete the configuration
+///     wasm_config_delete(config);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+/// cbindgen:ignore
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_delete(_config: <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_config_t&gt;&gt;) {}
 
-<span class="doccomment">/// Updates the configuration to specify a particular compiler to use.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is a Wasmer-specific function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Use the Cranelift compiler, if available.</span>
-<span class="doccomment">///     if (wasmer_is_compiler_available(CRANELIFT)) {</span>
-<span class="doccomment">///         wasm_config_set_compiler(config, CRANELIFT);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///     // Or maybe LLVM?</span>
-<span class="doccomment">///     else if (wasmer_is_compiler_available(LLVM)) {</span>
-<span class="doccomment">///         wasm_config_set_compiler(config, LLVM);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///     // Or maybe Singlepass?</span>
-<span class="doccomment">///     else if (wasmer_is_compiler_available(SINGLEPASS)) {</span>
-<span class="doccomment">///         wasm_config_set_compiler(config, SINGLEPASS);</span>
-<span class="doccomment">///     }</span>
-<span class="doccomment">///     // OK, let&#39;s run with no particular compiler.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_set_compiler</span>(
-    <span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_config_t</span>,
-    <span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>,
+<span class="doccomment">/// Updates the configuration to specify a particular compiler to use.
+///
+/// This is a Wasmer-specific function.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Use the Cranelift compiler, if available.
+///     if (wasmer_is_compiler_available(CRANELIFT)) {
+///         wasm_config_set_compiler(config, CRANELIFT);
+///     }
+///     // Or maybe LLVM?
+///     else if (wasmer_is_compiler_available(LLVM)) {
+///         wasm_config_set_compiler(config, LLVM);
+///     }
+///     // Or maybe Singlepass?
+///     else if (wasmer_is_compiler_available(SINGLEPASS)) {
+///         wasm_config_set_compiler(config, SINGLEPASS);
+///     }
+///     // OK, let&#39;s run with no particular compiler.
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_set_compiler(
+    config: <span class="kw-2">&amp;mut </span>wasm_config_t,
+    compiler: wasmer_compiler_t,
 ) {
-    <span class="ident">config</span>.<span class="ident">compiler</span> <span class="op">=</span> <span class="ident">compiler</span>;
+    config.compiler = compiler;
 }
 
-<span class="doccomment">/// Updates the configuration to specify a particular engine to use.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This is a Wasmer-specific function.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the configuration.</span>
-<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_set_engine</span>(<span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasm_config_t</span>, <span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>) {
-    <span class="ident">config</span>.<span class="ident">engine</span> <span class="op">=</span> <span class="ident">engine</span>;
+<span class="doccomment">/// Updates the configuration to specify a particular engine to use.
+///
+/// This is a Wasmer-specific function.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_config_set_engine(config: <span class="kw-2">&amp;mut </span>wasm_config_t, engine: wasmer_engine_t) {
+    config.engine = engine;
 }
 
-<span class="doccomment">/// An engine is used by the store to drive the compilation and the</span>
-<span class="doccomment">/// execution of a WebAssembly module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_engine_t</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Engine</span>,
+<span class="doccomment">/// An engine is used by the store to drive the compilation and the
+/// execution of a WebAssembly module.
+///
+/// cbindgen:ignore
+</span><span class="attribute">#[repr(C)]
+</span><span class="kw">pub struct </span>wasm_engine_t {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Engine,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_api::CompilerConfig</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span>wasmer_api::CompilerConfig;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;dylib&quot;</span>)))]</span>
-<span class="kw">fn</span> <span class="ident">get_default_compiler_config</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> {
-    <span class="macro">cfg_if!</span> {
-        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span> {
-            <span class="ident">Box::new</span>(<span class="ident">wasmer_compiler_cranelift::Cranelift::default</span>())
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span> {
-            <span class="ident">Box::new</span>(<span class="ident">wasmer_compiler_llvm::LLVM::default</span>())
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span> {
-            <span class="ident">Box::new</span>(<span class="ident">wasmer_compiler_singlepass::Singlepass::default</span>())
-        } <span class="kw">else</span> {
+<span class="attribute">#[cfg(all(feature = <span class="string">&quot;compiler&quot;</span>, any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;dylib&quot;</span>)))]
+</span><span class="kw">fn </span>get_default_compiler_config() -&gt; Box&lt;<span class="kw">dyn </span>CompilerConfig&gt; {
+    <span class="macro">cfg_if! </span>{
+        <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)] </span>{
+            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+        } <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)] </span>{
+            Box::new(wasmer_compiler_llvm::LLVM::default())
+        } <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)] </span>{
+            Box::new(wasmer_compiler_singlepass::Singlepass::default())
+        } <span class="kw">else </span>{
             <span class="macro">compile_error!</span>(<span class="string">&quot;Please enable one of the compiler backends&quot;</span>)
         }
     }
 }
 
-<span class="macro">cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new Universal engine with the default compiler.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Example</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// See [`wasm_engine_delete`].</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// cbindgen:ignore</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">get_default_compiler_config</span>();
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>).<span class="ident">engine</span>();
-            <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
+<span class="macro">cfg_if! </span>{
+    <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)] </span>{
+        <span class="doccomment">/// Creates a new Universal engine with the default compiler.
+        ///
+        /// # Example
+        ///
+        /// See [`wasm_engine_delete`].
+        ///
+        /// cbindgen:ignore
+        </span><span class="attribute">#[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_engine_new() -&gt; Box&lt;wasm_engine_t&gt; {
+            <span class="kw">let </span>compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt; = get_default_compiler_config();
+            <span class="kw">let </span>engine: Engine = EngineBuilder::new(compiler_config).engine();
+            Box::new(wasm_engine_t { inner: engine })
         }
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler-headless&quot;</span>)]</span> {
-        <span class="doccomment">/// Creates a new headless Universal engine.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Example</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// See [`wasm_engine_delete`].</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// cbindgen:ignore</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">engine</span>: <span class="ident">Engine</span> <span class="op">=</span> <span class="ident">EngineBuilder::headless</span>().<span class="ident">engine</span>();
-            <span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span>: <span class="ident">engine</span> })
+    } <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler-headless&quot;</span>)] </span>{
+        <span class="doccomment">/// Creates a new headless Universal engine.
+        ///
+        /// # Example
+        ///
+        /// See [`wasm_engine_delete`].
+        ///
+        /// cbindgen:ignore
+        </span><span class="attribute">#[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_engine_new() -&gt; Box&lt;wasm_engine_t&gt; {
+            <span class="kw">let </span>engine: Engine = EngineBuilder::headless().engine();
+            Box::new(wasm_engine_t { inner: engine })
         }
-    } <span class="kw">else</span> {
-        <span class="doccomment">/// Creates a new unknown engine, i.e. it will panic with an error message.</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// # Example</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// See [`wasm_engine_delete`].</span>
-        <span class="doccomment">///</span>
-        <span class="doccomment">/// cbindgen:ignore</span>
-        <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-        <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new</span>() -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span> {
+    } <span class="kw">else </span>{
+        <span class="doccomment">/// Creates a new unknown engine, i.e. it will panic with an error message.
+        ///
+        /// # Example
+        ///
+        /// See [`wasm_engine_delete`].
+        ///
+        /// cbindgen:ignore
+        </span><span class="attribute">#[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_engine_new() -&gt; Box&lt;wasm_engine_t&gt; {
             <span class="macro">unimplemented!</span>(<span class="string">&quot;No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature compiler`&quot;</span>);
         }
     }
 }
 
-<span class="doccomment">/// Deletes an engine.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create a default engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have an engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_delete</span>(<span class="ident">_engine</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="doccomment">/// Deletes an engine.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create a default engine.
+///     wasm_engine_t* engine = wasm_engine_new();
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// cbindgen:ignore
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_engine_delete(_engine: <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_engine_t&gt;&gt;) {}
 
-<span class="doccomment">/// Creates an engine with a particular configuration.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_config_new`].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_engine_new_with_config</span>(
-    <span class="ident">config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_config_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">return_with_error</span>(<span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_engine_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="ident">update_last_error</span>(<span class="ident">msg</span>);
-        <span class="prelude-val">None</span>
-    }
+<span class="doccomment">/// Creates an engine with a particular configuration.
+///
+/// # Example
+///
+/// See [`wasm_config_new`].
+///
+/// cbindgen:ignore
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_engine_new_with_config(
+    config: <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_config_t&gt;&gt;,
+) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_engine_t&gt;&gt; {
+    <span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">fn </span>return_with_error(msg: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_engine_t&gt;&gt; {
+        update_last_error(msg);
+        <span class="prelude-val">None
+    </span>}
 
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">config</span><span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler-headless&quot;</span>)))]</span>
-    <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `compiler` feature.&quot;</span>);
-    <span class="macro">cfg_if!</span> {
-        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span> {
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">config</span>.<span class="ident">compiler</span> {
-                <span class="ident">wasmer_compiler_t::CRANELIFT</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span> {
-                            <span class="ident">Box::new</span>(<span class="ident">wasmer_compiler_cranelift::Cranelift::default</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `cranelift` feature.&quot;</span>);
+    <span class="kw">let </span>config = config<span class="question-mark">?</span>;
+    <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;compiler-headless&quot;</span>)))]
+    </span><span class="kw">return </span>return_with_error(<span class="string">&quot;Wasmer has not been compiled with the `compiler` feature.&quot;</span>);
+    <span class="macro">cfg_if! </span>{
+        <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)] </span>{
+            <span class="attribute">#[allow(unused_mut)]
+            </span><span class="kw">let </span><span class="kw-2">mut </span>compiler_config: Box&lt;<span class="kw">dyn </span>CompilerConfig&gt; = <span class="kw">match </span>config.compiler {
+                wasmer_compiler_t::CRANELIFT =&gt; {
+                    <span class="macro">cfg_if! </span>{
+                        <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)] </span>{
+                            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span>return_with_error(<span class="string">&quot;Wasmer has not been compiled with the `cranelift` feature.&quot;</span>);
                         }
                     }
                 },
-                <span class="ident">wasmer_compiler_t::LLVM</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span> {
-                            <span class="ident">Box::new</span>(<span class="ident">wasmer_compiler_llvm::LLVM::default</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `llvm` feature.&quot;</span>);
+                wasmer_compiler_t::LLVM =&gt; {
+                    <span class="macro">cfg_if! </span>{
+                        <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)] </span>{
+                            Box::new(wasmer_compiler_llvm::LLVM::default())
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span>return_with_error(<span class="string">&quot;Wasmer has not been compiled with the `llvm` feature.&quot;</span>);
                         }
                     }
                 },
-                <span class="ident">wasmer_compiler_t::SINGLEPASS</span> =&gt; {
-                    <span class="macro">cfg_if!</span> {
-                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span> {
-                            <span class="ident">Box::new</span>(<span class="ident">wasmer_compiler_singlepass::Singlepass::default</span>())
-                        } <span class="kw">else</span> {
-                            <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `singlepass` feature.&quot;</span>);
+                wasmer_compiler_t::SINGLEPASS =&gt; {
+                    <span class="macro">cfg_if! </span>{
+                        <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)] </span>{
+                            Box::new(wasmer_compiler_singlepass::Singlepass::default())
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span>return_with_error(<span class="string">&quot;Wasmer has not been compiled with the `singlepass` feature.&quot;</span>);
                         }
                     }
                 },
             };
 
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
-            <span class="kw">for</span> <span class="ident">middleware</span> <span class="kw">in</span> <span class="ident">config</span>.<span class="ident">middlewares</span> {
-                <span class="ident">compiler_config</span>.<span class="ident">push_middleware</span>(<span class="ident">middleware</span>.<span class="ident">inner</span>);
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;middlewares&quot;</span>)]
+            </span><span class="kw">for </span>middleware <span class="kw">in </span>config.middlewares {
+                compiler_config.push_middleware(middleware.inner);
             }
 
-            <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">nan_canonicalization</span> {
-                <span class="ident">compiler_config</span>.<span class="ident">canonicalize_nans</span>(<span class="bool-val">true</span>);
+            <span class="kw">if </span>config.nan_canonicalization {
+                compiler_config.canonicalize_nans(<span class="bool-val">true</span>);
             }
 
-            <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Engine</span> <span class="op">=</span>
+            <span class="kw">let </span>inner: Engine =
                          {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::new</span>(<span class="ident">compiler_config</span>);
+                            <span class="kw">let </span><span class="kw-2">mut </span>builder = EngineBuilder::new(compiler_config);
 
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(target) = config.target {
+                                builder = builder.set_target(<span class="prelude-val">Some</span>(target.inner));
                             }
 
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(features) = config.features {
+                                builder = builder.set_features(<span class="prelude-val">Some</span>(features.inner));
                             }
 
-                            <span class="ident">builder</span>.<span class="ident">engine</span>()
+                            builder.engine()
                         };
-            <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span> }))
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Engine</span> <span class="op">=</span>
+            <span class="prelude-val">Some</span>(Box::new(wasm_engine_t { inner }))
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>inner: Engine =
                      {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">EngineBuilder::headless</span>();
+                            <span class="kw">let </span><span class="kw-2">mut </span>builder = EngineBuilder::headless();
 
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_target</span>(<span class="prelude-val">Some</span>(<span class="ident">target</span>.<span class="ident">inner</span>));
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(target) = config.target {
+                                builder = builder.set_target(<span class="prelude-val">Some</span>(target.inner));
                             }
 
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
-                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">set_features</span>(<span class="prelude-val">Some</span>(<span class="ident">features</span>.<span class="ident">inner</span>));
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(features) = config.features {
+                                builder = builder.set_features(<span class="prelude-val">Some</span>(features.inner));
                             }
 
-                            <span class="ident">builder</span>.<span class="ident">engine</span>()
+                            builder.engine()
                     };
-            <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="ident">wasm_engine_t</span> { <span class="ident">inner</span> }))
+            <span class="prelude-val">Some</span>(Box::new(wasm_engine_t { inner }))
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-    <span class="kw">use</span> <span class="ident">inline_c::assert_c</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-    <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+    </span><span class="kw">use </span>inline_c::assert_c;
+    <span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
 
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_engine_new</span>() {
-        (<span class="macro">assert_c!</span> {
-            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer.h&quot;</span>
+    <span class="attribute">#[cfg_attr(coverage, ignore)]
+    #[test]
+    </span><span class="kw">fn </span>test_engine_new() {
+        (<span class="macro">assert_c! </span>{
+            #include <span class="string">&quot;tests/wasmer.h&quot;
 
-            <span class="ident">int</span> <span class="ident">main</span>() {
-                <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
-                <span class="ident">assert</span>(<span class="ident">engine</span>);
+            </span>int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                assert(engine);
 
-                <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
+                wasm_engine_delete(engine);
 
-                <span class="kw">return</span> <span class="number">0</span>;
+                <span class="kw">return </span><span class="number">0</span>;
             }
         })
-        .<span class="ident">success</span>();
+        .success();
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

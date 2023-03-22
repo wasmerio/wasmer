@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/emscripten_target.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>emscripten_target.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/emscripten_target.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>emscripten_target.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_emscripten/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -1015,1020 +1015,1020 @@
 <span id="1013">1013</span>
 <span id="1014">1014</span>
 <span id="1015">1015</span>
-</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
+</pre><pre class="rust"><code><span class="attribute">#![allow(non_snake_case)]
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::env</span>::{<span class="ident">get_emscripten_data</span>, <span class="ident">get_emscripten_funcs</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::EmEnv</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc::getdtablesize</span>;
-<span class="kw">use</span> <span class="ident">wasmer::FunctionEnvMut</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::env::{get_emscripten_data, get_emscripten_funcs};
+<span class="kw">use </span><span class="kw">crate</span>::EmEnv;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+</span><span class="kw">use </span>libc::getdtablesize;
+<span class="kw">use </span>wasmer::FunctionEnvMut;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">asm_const_i</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_val</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::asm_const_i: {}&quot;</span>, <span class="ident">_val</span>);
-    <span class="number">0</span>
-}
+<span class="kw">pub fn </span>asm_const_i(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _val: i32) -&gt; i32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::asm_const_i: {}&quot;</span>, _val);
+    <span class="number">0
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">exit_with_live_runtime</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) {
+<span class="kw">pub fn </span>exit_with_live_runtime(_ctx: FunctionEnvMut&lt;EmEnv&gt;) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::exit_with_live_runtime&quot;</span>);
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">setTempRet0</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">val</span>: <span class="ident">i32</span>) {
-    <span class="macro">trace!</span>(<span class="string">&quot;emscripten::setTempRet0: {}&quot;</span>, <span class="ident">val</span>);
-    <span class="ident">get_emscripten_data</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">as_mut</span>().<span class="ident">unwrap</span>().<span class="ident">temp_ret_0</span> <span class="op">=</span> <span class="ident">val</span>;
+<span class="kw">pub fn </span>setTempRet0(ctx: FunctionEnvMut&lt;EmEnv&gt;, val: i32) {
+    <span class="macro">trace!</span>(<span class="string">&quot;emscripten::setTempRet0: {}&quot;</span>, val);
+    get_emscripten_data(<span class="kw-2">&amp;</span>ctx).as_mut().unwrap().temp_ret_0 = val;
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">getTempRet0</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>getTempRet0(ctx: FunctionEnvMut&lt;EmEnv&gt;) -&gt; i32 {
     <span class="macro">trace!</span>(<span class="string">&quot;emscripten::getTempRet0&quot;</span>);
-    <span class="ident">get_emscripten_data</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>).<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="ident">temp_ret_0</span>
+    get_emscripten_data(<span class="kw-2">&amp;</span>ctx).as_ref().unwrap().temp_ret_0
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_alarm</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_seconds</span>: <span class="ident">u32</span>) -&gt; <span class="ident">i32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_alarm({})&quot;</span>, <span class="ident">_seconds</span>);
-    <span class="number">0</span>
-}
+<span class="kw">pub fn </span>_alarm(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _seconds: u32) -&gt; i32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_alarm({})&quot;</span>, _seconds);
+    <span class="number">0
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_atexit</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_func</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_atexit(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _func: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_atexit&quot;</span>);
-    <span class="comment">// TODO: implement atexit properly</span>
-    <span class="comment">// __ATEXIT__.unshift({</span>
-    <span class="comment">//     func: func,</span>
-    <span class="comment">//     arg: arg</span>
-    <span class="comment">// });</span>
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_Backtrace</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    <span class="comment">// TODO: implement atexit properly
+    // __ATEXIT__.unshift({
+    //     func: func,
+    //     arg: arg
+    // });
+    </span><span class="number">0
+</span>}
+<span class="kw">pub fn </span>__Unwind_Backtrace(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32, _b: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::__Unwind_Backtrace&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_FindEnclosingFunction</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>__Unwind_FindEnclosingFunction(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::__Unwind_FindEnclosingFunction&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__Unwind_GetIPInfo</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>__Unwind_GetIPInfo(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32, _b: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::__Unwind_GetIPInfo&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_find_matching_catch_2</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>___cxa_find_matching_catch_2(_ctx: FunctionEnvMut&lt;EmEnv&gt;) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___cxa_find_matching_catch_2&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_find_matching_catch_3</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>___cxa_find_matching_catch_3(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___cxa_find_matching_catch_3&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___cxa_free_exception</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>___cxa_free_exception(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___cxa_free_exception&quot;</span>);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___resumeException</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>___resumeException(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___resumeException&quot;</span>);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_dladdr</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_a</span>: <span class="ident">i32</span>, <span class="ident">_b</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_dladdr(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _a: i32, _b: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_dladdr&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___gxx_personality_v0</span>(
-    <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">_a</span>: <span class="ident">i32</span>,
-    <span class="ident">_b</span>: <span class="ident">i32</span>,
-    <span class="ident">_c</span>: <span class="ident">i32</span>,
-    <span class="ident">_d</span>: <span class="ident">i32</span>,
-    <span class="ident">_e</span>: <span class="ident">i32</span>,
-    <span class="ident">_f</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>___gxx_personality_v0(
+    _ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    _a: i32,
+    _b: i32,
+    _c: i32,
+    _d: i32,
+    _e: i32,
+    _f: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___gxx_personality_v0&quot;</span>);
-    <span class="number">0</span>
-}
+    <span class="number">0
+</span>}
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getdtablesize</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+</span><span class="kw">pub fn </span>_getdtablesize(_ctx: FunctionEnvMut&lt;EmEnv&gt;) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::getdtablesize&quot;</span>);
-    <span class="kw">unsafe</span> { <span class="ident">getdtablesize</span>() }
+    <span class="kw">unsafe </span>{ getdtablesize() }
 }
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getdtablesize</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="kw">pub fn </span>_getdtablesize(_ctx: FunctionEnvMut&lt;EmEnv&gt;) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::getdtablesize&quot;</span>);
-    <span class="op">-</span><span class="number">1</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyaddr</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_addr</span>: <span class="ident">i32</span>, <span class="ident">_addrlen</span>: <span class="ident">i32</span>, <span class="ident">_atype</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    -<span class="number">1
+</span>}
+<span class="kw">pub fn </span>_gethostbyaddr(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _addr: i32, _addrlen: i32, _atype: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::gethostbyaddr&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyname</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_name</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>_gethostbyname(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _name: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::gethostbyname_r&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gethostbyname_r</span>(
-    <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">_name</span>: <span class="ident">i32</span>,
-    <span class="ident">_ret</span>: <span class="ident">i32</span>,
-    <span class="ident">_buf</span>: <span class="ident">i32</span>,
-    <span class="ident">_buflen</span>: <span class="ident">i32</span>,
-    <span class="ident">_out</span>: <span class="ident">i32</span>,
-    <span class="ident">_err</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="kw">pub fn </span>_gethostbyname_r(
+    _ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    _name: i32,
+    _ret: i32,
+    _buf: i32,
+    _buflen: i32,
+    _out: i32,
+    _err: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::gethostbyname_r&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="comment">// NOTE: php.js has proper impl; libc has proper impl for linux</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getloadavg</span>(<span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_loadavg</span>: <span class="ident">i32</span>, <span class="ident">_nelem</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="comment">// NOTE: php.js has proper impl; libc has proper impl for linux
+</span><span class="kw">pub fn </span>_getloadavg(_ctx: FunctionEnvMut&lt;EmEnv&gt;, _loadavg: i32, _nelem: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::getloadavg&quot;</span>);
-    <span class="number">0</span>
-}
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_getnameinfo</span>(
-    <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">_addr</span>: <span class="ident">i32</span>,
-    <span class="ident">_addrlen</span>: <span class="ident">i32</span>,
-    <span class="ident">_host</span>: <span class="ident">i32</span>,
-    <span class="ident">_hostlen</span>: <span class="ident">i32</span>,
-    <span class="ident">_serv</span>: <span class="ident">i32</span>,
-    <span class="ident">_servlen</span>: <span class="ident">i32</span>,
-    <span class="ident">_flags</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+    <span class="number">0
+</span>}
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>_getnameinfo(
+    _ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    _addr: i32,
+    _addrlen: i32,
+    _host: i32,
+    _hostlen: i32,
+    _serv: i32,
+    _servlen: i32,
+    _flags: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::_getnameinfo({}, {}, {}, {}, {}, {}, {})&quot;</span>,
-        <span class="ident">_addr</span>, <span class="ident">_addrlen</span>, <span class="ident">_host</span>, <span class="ident">_hostlen</span>, <span class="ident">_serv</span>, <span class="ident">_servlen</span>, <span class="ident">_flags</span>
+        _addr, _addrlen, _host, _hostlen, _serv, _servlen, _flags
     );
-    <span class="number">0</span>
+    <span class="number">0
+</span>}
+
+<span class="comment">// Invoke functions
+// They save the stack to allow unwinding
+
+// Macro definitions
+</span><span class="macro">macro_rules! </span>invoke {
+    (<span class="macro-nonterminal">$ctx</span>: ident, <span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$name_ref</span>:ident, $( <span class="macro-nonterminal">$arg</span>:ident ),<span class="kw-2">*</span>) =&gt; {{
+        <span class="kw">let </span>funcs = get_emscripten_funcs(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$ctx</span>).clone();
+        <span class="kw">let </span>sp = funcs.stack_save_ref().expect(<span class="string">&quot;stack_save is None&quot;</span>).call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>).expect(<span class="string">&quot;stack_save call failed&quot;</span>);
+        <span class="kw">let </span>call = funcs.<span class="macro-nonterminal">$name_ref</span>().expect(<span class="macro">concat!</span>(<span class="string">&quot;Dynamic call is None: &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>))).clone();
+        <span class="kw">match </span>call.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, $(<span class="macro-nonterminal">$arg</span>),<span class="kw-2">*</span>) {
+            <span class="prelude-val">Ok</span>(v) =&gt; v,
+            <span class="prelude-val">Err</span>(_e) =&gt; {
+                <span class="kw">let </span>stack = funcs.stack_restore_ref().expect(<span class="string">&quot;stack_restore is None&quot;</span>);
+                stack.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, sp).expect(<span class="string">&quot;stack_restore call failed&quot;</span>);
+                <span class="comment">// TODO: We should check if _e != &quot;longjmp&quot; and if that&#39;s the case, re-throw the error
+                // JS version is: if (e !== e+0 &amp;&amp; e !== &#39;longjmp&#39;) throw e;
+                </span><span class="kw">let </span>threw = funcs.set_threw_ref().expect(<span class="string">&quot;set_threw is None&quot;</span>);
+                threw.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, <span class="number">1</span>, <span class="number">0</span>).expect(<span class="string">&quot;set_threw call failed&quot;</span>);
+                <span class="number">0 </span><span class="kw">as _
+            </span>}
+        }
+    }};
 }
-
-<span class="comment">// Invoke functions</span>
-<span class="comment">// They save the stack to allow unwinding</span>
-
-<span class="comment">// Macro definitions</span>
-<span class="macro">macro_rules!</span> <span class="ident">invoke</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name_ref</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">funcs</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="ident">stack_save_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_save is None&quot;</span>).<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">expect</span>(<span class="string">&quot;stack_save call failed&quot;</span>);
-        <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name_ref</span>().<span class="ident">expect</span>(<span class="macro">concat!</span>(<span class="string">&quot;Dynamic call is None: &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>))).<span class="ident">clone</span>();
-        <span class="kw">match</span> <span class="ident">call</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>),<span class="kw-2">*</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">stack</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="ident">stack_restore_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_restore is None&quot;</span>);
-                <span class="ident">stack</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, <span class="ident">sp</span>).<span class="ident">expect</span>(<span class="string">&quot;stack_restore call failed&quot;</span>);
-                <span class="comment">// TODO: We should check if _e != &quot;longjmp&quot; and if that&#39;s the case, re-throw the error</span>
-                <span class="comment">// JS version is: if (e !== e+0 &amp;&amp; e !== &#39;longjmp&#39;) throw e;</span>
-                <span class="kw">let</span> <span class="ident">threw</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="ident">set_threw_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;set_threw is None&quot;</span>);
-                <span class="ident">threw</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, <span class="number">1</span>, <span class="number">0</span>).<span class="ident">expect</span>(<span class="string">&quot;set_threw call failed&quot;</span>);
-                <span class="number">0</span> <span class="kw">as</span> <span class="kw">_</span>
+<span class="macro">macro_rules! </span>invoke_no_return {
+    (<span class="macro-nonterminal">$ctx</span>: ident, <span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$name_ref</span>:ident, $( <span class="macro-nonterminal">$arg</span>:ident ),<span class="kw-2">*</span>) =&gt; {{
+        <span class="kw">let </span>funcs = get_emscripten_funcs(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$ctx</span>).clone();
+        <span class="kw">let </span>stack = funcs.stack_save_ref().expect(<span class="string">&quot;stack_save is None&quot;</span>);
+        <span class="kw">let </span>sp = stack.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>).expect(<span class="string">&quot;stack_save call failed&quot;</span>);
+        <span class="kw">let </span>call = funcs.<span class="macro-nonterminal">$name_ref</span>().expect(<span class="macro">concat!</span>(<span class="string">&quot;Dynamic call is None: &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>))).clone();
+        <span class="kw">match </span>call.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, $(<span class="macro-nonterminal">$arg</span>),<span class="kw-2">*</span>) {
+            <span class="prelude-val">Ok</span>(v) =&gt; v,
+            <span class="prelude-val">Err</span>(_e) =&gt; {
+                <span class="kw">let </span>stack = funcs.stack_restore_ref().expect(<span class="string">&quot;stack_restore is None&quot;</span>);
+                stack.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, sp).expect(<span class="string">&quot;stack_restore call failed&quot;</span>);
+                <span class="comment">// TODO: We should check if _e != &quot;longjmp&quot; and if that&#39;s the case, re-throw the error
+                // JS version is: if (e !== e+0 &amp;&amp; e !== &#39;longjmp&#39;) throw e;
+                </span><span class="kw">let </span>threw = funcs.set_threw_ref().expect(<span class="string">&quot;set_threw is None&quot;</span>);
+                threw.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, <span class="number">1</span>, <span class="number">0</span>).expect(<span class="string">&quot;set_threw call failed&quot;</span>);
             }
         }
     }};
 }
-<span class="macro">macro_rules!</span> <span class="ident">invoke_no_return</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name_ref</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">funcs</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">stack</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="ident">stack_save_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_save is None&quot;</span>);
-        <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">stack</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">expect</span>(<span class="string">&quot;stack_save call failed&quot;</span>);
-        <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name_ref</span>().<span class="ident">expect</span>(<span class="macro">concat!</span>(<span class="string">&quot;Dynamic call is None: &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>))).<span class="ident">clone</span>();
-        <span class="kw">match</span> <span class="ident">call</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>),<span class="kw-2">*</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) =&gt; <span class="ident">v</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">_e</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">stack</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="ident">stack_restore_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;stack_restore is None&quot;</span>);
-                <span class="ident">stack</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, <span class="ident">sp</span>).<span class="ident">expect</span>(<span class="string">&quot;stack_restore call failed&quot;</span>);
-                <span class="comment">// TODO: We should check if _e != &quot;longjmp&quot; and if that&#39;s the case, re-throw the error</span>
-                <span class="comment">// JS version is: if (e !== e+0 &amp;&amp; e !== &#39;longjmp&#39;) throw e;</span>
-                <span class="kw">let</span> <span class="ident">threw</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="ident">set_threw_ref</span>().<span class="ident">expect</span>(<span class="string">&quot;set_threw is None&quot;</span>);
-                <span class="ident">threw</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, <span class="number">1</span>, <span class="number">0</span>).<span class="ident">expect</span>(<span class="string">&quot;set_threw call failed&quot;</span>);
-            }
-        }
-    }};
-}
-<span class="comment">// The invoke_j functions do not save the stack</span>
-<span class="macro">macro_rules!</span> <span class="ident">invoke_no_stack_save</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>: <span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name_ref</span>:<span class="ident">ident</span>, $( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">ident</span> ),<span class="kw-2">*</span>) =&gt; {{
-        <span class="kw">let</span> <span class="ident">funcs</span> <span class="op">=</span> <span class="ident">get_emscripten_funcs</span>(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>).<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">funcs</span>.<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name_ref</span>().<span class="ident">expect</span>(<span class="macro">concat!</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot; is set to None&quot;</span>)).<span class="ident">clone</span>();
+<span class="comment">// The invoke_j functions do not save the stack
+</span><span class="macro">macro_rules! </span>invoke_no_stack_save {
+    (<span class="macro-nonterminal">$ctx</span>: ident, <span class="macro-nonterminal">$name</span>:ident, <span class="macro-nonterminal">$name_ref</span>:ident, $( <span class="macro-nonterminal">$arg</span>:ident ),<span class="kw-2">*</span>) =&gt; {{
+        <span class="kw">let </span>funcs = get_emscripten_funcs(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$ctx</span>).clone();
+        <span class="kw">let </span>call = funcs.<span class="macro-nonterminal">$name_ref</span>().expect(<span class="macro">concat!</span>(<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="string">&quot; is set to None&quot;</span>)).clone();
 
-        <span class="ident">call</span>.<span class="ident">call</span>(<span class="kw-2">&amp;mut</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ctx</span>, $(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>),<span class="kw-2">*</span>).<span class="ident">unwrap</span>()
+        call.call(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$ctx</span>, $(<span class="macro-nonterminal">$arg</span>),<span class="kw-2">*</span>).unwrap()
     }}
 }
 
-<span class="comment">// Invoke functions</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_i</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="comment">// Invoke functions
+</span><span class="kw">pub fn </span>invoke_i(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_i&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_i</span>, <span class="ident">dyn_call_i_ref</span>, <span class="ident">index</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_i, dyn_call_i_ref, index)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_ii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_ii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_ii&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_ii</span>, <span class="ident">dyn_call_ii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_ii, dyn_call_ii_ref, index, a1)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iii&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iii</span>, <span class="ident">dyn_call_iii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_iii, dyn_call_iii_ref, index, a1, a2)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iiii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiii&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiii</span>, <span class="ident">dyn_call_iiii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_iiii, dyn_call_iiii_ref, index, a1, a2, a3)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iifi</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">f64</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iifi(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: f64, a3: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iifi&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iifi</span>, <span class="ident">dyn_call_iifi_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_iifi, dyn_call_iifi_ref, index, a1, a2, a3)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_v</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_v(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_v&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_v</span>, <span class="ident">dyn_call_v_ref</span>, <span class="ident">index</span>);
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_v, dyn_call_v_ref, index);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vi</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_vi(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vi&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_vi</span>, <span class="ident">dyn_call_vi_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>);
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_vi, dyn_call_vi_ref, index, a1);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_vii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vii&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_vii</span>, <span class="ident">dyn_call_vii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>);
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_vii, dyn_call_vii_ref, index, a1, a2);
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_viii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viii&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_viii</span>, <span class="ident">dyn_call_viii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>);
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_viii, dyn_call_viii_ref, index, a1, a2, a3);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_viiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiii</span>,
-        <span class="ident">dyn_call_viiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>
+        ctx,
+        dyn_call_viiii,
+        dyn_call_viiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4
     );
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_dii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) -&gt; <span class="ident">f64</span> {
+<span class="kw">pub fn </span>invoke_dii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32) -&gt; f64 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_dii&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_dii</span>, <span class="ident">dyn_call_dii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_dii, dyn_call_dii_ref, index, a1, a2)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_diiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">f64</span> {
+<span class="kw">pub fn </span>invoke_diiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -&gt; f64 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_diiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_diiii</span>,
-        <span class="ident">dyn_call_diiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>
+        ctx,
+        dyn_call_diiii,
+        dyn_call_diiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiii</span>,
-        <span class="ident">dyn_call_iiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>
+        ctx,
+        dyn_call_iiiii,
+        dyn_call_iiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiiii</span>,
-        <span class="ident">dyn_call_iiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_iiiiii,
+        dyn_call_iiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_iiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiiiii</span>,
-        <span class="ident">dyn_call_iiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>
+        ctx,
+        dyn_call_iiiiiii,
+        dyn_call_iiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_iiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiiiiii</span>,
-        <span class="ident">dyn_call_iiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>
+        ctx,
+        dyn_call_iiiiiiii,
+        dyn_call_iiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_iiiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiiiiiii</span>,
-        <span class="ident">dyn_call_iiiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>
+        ctx,
+        dyn_call_iiiiiiiii,
+        dyn_call_iiiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-    <span class="ident">a9</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_iiiiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiiiiiiii</span>,
-        <span class="ident">dyn_call_iiiiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>
+        ctx,
+        dyn_call_iiiiiiiiii,
+        dyn_call_iiiiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiiiiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-    <span class="ident">a9</span>: <span class="ident">i32</span>,
-    <span class="ident">a10</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_iiiiiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+    a10: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiiiiiiiiii&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiiiiiiiiii</span>,
-        <span class="ident">dyn_call_iiiiiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>,
-        <span class="ident">a10</span>
+        ctx,
+        dyn_call_iiiiiiiiiii,
+        dyn_call_iiiiiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vd</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">f64</span>) {
+<span class="kw">pub fn </span>invoke_vd(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: f64) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vd&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_vd</span>, <span class="ident">dyn_call_vd_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>)
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_vd, dyn_call_vd_ref, index, a1)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_viiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiiii</span>,
-        <span class="ident">dyn_call_viiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_viiiii,
+        dyn_call_viiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiiiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiiiii</span>,
-        <span class="ident">dyn_call_viiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>
+        ctx,
+        dyn_call_viiiiii,
+        dyn_call_viiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiiiiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiiiiii</span>,
-        <span class="ident">dyn_call_viiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>
+        ctx,
+        dyn_call_viiiiiii,
+        dyn_call_viiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiiiiiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiiiiiii</span>,
-        <span class="ident">dyn_call_viiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>
+        ctx,
+        dyn_call_viiiiiiii,
+        dyn_call_viiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-    <span class="ident">a9</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiiiiiiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiiiiiiii</span>,
-        <span class="ident">dyn_call_viiiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>
+        ctx,
+        dyn_call_viiiiiiiii,
+        dyn_call_viiiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiiiiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-    <span class="ident">a9</span>: <span class="ident">i32</span>,
-    <span class="ident">a10</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiiiiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+    a10: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiiiiiiiii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiiiiiiiii</span>,
-        <span class="ident">dyn_call_viiiiiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>,
-        <span class="ident">a10</span>
+        ctx,
+        dyn_call_viiiiiiiiii,
+        dyn_call_viiiiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10
     )
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iij</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iij(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iij&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iij</span>, <span class="ident">dyn_call_iij_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_iij, dyn_call_iij_ref, index, a1, a2, a3)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iji</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iji(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iji&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iji</span>, <span class="ident">dyn_call_iji_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_iji, dyn_call_iji_ref, index, a1, a2, a3)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiji</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_iiji(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiji&quot;</span>);
-    <span class="macro">invoke!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_iiji</span>, <span class="ident">dyn_call_iiji_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
+    <span class="macro">invoke!</span>(ctx, dyn_call_iiji, dyn_call_iiji_ref, index, a1, a2, a3, a4)
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_iiijj</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_iiijj(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_iiijj&quot;</span>);
     <span class="macro">invoke!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_iiijj</span>,
-        <span class="ident">dyn_call_iiijj_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>
+        ctx,
+        dyn_call_iiijj,
+        dyn_call_iiijj_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_j</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_j(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_j&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_j</span>, <span class="ident">dyn_call_j_ref</span>, <span class="ident">index</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_j, dyn_call_j_ref, index)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_ji</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_ji(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_ji&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_ji</span>, <span class="ident">dyn_call_ji_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_ji, dyn_call_ji_ref, index, a1)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jii</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_jii(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_jii&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_jii</span>, <span class="ident">dyn_call_jii_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_jii, dyn_call_jii_ref, index, a1, a2)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jij</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_jij(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_jij&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_jij</span>, <span class="ident">dyn_call_jij_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_jij, dyn_call_jij_ref, index, a1, a2, a3)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_jjj</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>invoke_jjj(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_jjj&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_jjj</span>, <span class="ident">dyn_call_jjj_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_jjj, dyn_call_jjj_ref, index, a1, a2, a3, a4)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiij</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_viiij(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiij&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiij</span>,
-        <span class="ident">dyn_call_viiij_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_viiij,
+        dyn_call_viiij_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiijiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-    <span class="ident">a9</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiijiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiijiiii&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiijiiii</span>,
-        <span class="ident">dyn_call_viiijiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>
+        ctx,
+        dyn_call_viiijiiii,
+        dyn_call_viiijiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiijiiiiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
-    <span class="ident">a8</span>: <span class="ident">i32</span>,
-    <span class="ident">a9</span>: <span class="ident">i32</span>,
-    <span class="ident">a10</span>: <span class="ident">i32</span>,
-    <span class="ident">a11</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viiijiiiiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
+    a8: i32,
+    a9: i32,
+    a10: i32,
+    a11: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiijiiiiii&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiijiiiiii</span>,
-        <span class="ident">dyn_call_viiijiiiiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>,
-        <span class="ident">a10</span>,
-        <span class="ident">a11</span>
+        ctx,
+        dyn_call_viiijiiiiii,
+        dyn_call_viiijiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10,
+        a11
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viij</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_viij(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viij&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_viij</span>, <span class="ident">dyn_call_viij_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_viij, dyn_call_viij_ref, index, a1, a2, a3, a4)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viiji</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_viiji(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viiji&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viiji</span>,
-        <span class="ident">dyn_call_viiji_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_viiji,
+        dyn_call_viiji_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viijiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
-    <span class="ident">a7</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viijiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
+    a7: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viijiii&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viijiii</span>,
-        <span class="ident">dyn_call_viijiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>
+        ctx,
+        dyn_call_viijiii,
+        dyn_call_viijiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7
     )
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viijj</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viijj(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viijj&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viijj</span>,
-        <span class="ident">dyn_call_viijj_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>
+        ctx,
+        dyn_call_viijj,
+        dyn_call_viijj_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vj</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_vj(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vj&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_vj</span>, <span class="ident">dyn_call_vj_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_vj, dyn_call_vj_ref, index, a1, a2)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vjji</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_vjji(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vjji&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_vjji</span>,
-        <span class="ident">dyn_call_vjji_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_vjji,
+        dyn_call_vjji_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vij</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_vij(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vij&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_vij</span>, <span class="ident">dyn_call_vij_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_vij, dyn_call_vij_ref, index, a1, a2, a3)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viji</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">i32</span>, <span class="ident">a4</span>: <span class="ident">i32</span>) {
+<span class="kw">pub fn </span>invoke_viji(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viji&quot;</span>);
-    <span class="macro">invoke_no_stack_save!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_viji</span>, <span class="ident">dyn_call_viji_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>, <span class="ident">a4</span>)
+    <span class="macro">invoke_no_stack_save!</span>(ctx, dyn_call_viji, dyn_call_viji_ref, index, a1, a2, a3, a4)
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vijiii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
-    <span class="ident">a6</span>: <span class="ident">i32</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_vijiii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
+    a6: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vijiii&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_vijiii</span>,
-        <span class="ident">dyn_call_vijiii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>
+        ctx,
+        dyn_call_vijiii,
+        dyn_call_vijiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vijj</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">i32</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_vijj(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: i32,
+    a4: i32,
+    a5: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_vijj&quot;</span>);
     <span class="macro">invoke_no_stack_save!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_vijj</span>,
-        <span class="ident">dyn_call_vijj_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_vijj,
+        dyn_call_vijj_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     )
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_vidd</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">f64</span>, <span class="ident">a3</span>: <span class="ident">f64</span>) {
+<span class="kw">pub fn </span>invoke_vidd(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: f64, a3: f64) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viid&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_vidd</span>, <span class="ident">dyn_call_vidd_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>);
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_vidd, dyn_call_vidd_ref, index, a1, a2, a3);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viid</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">index</span>: <span class="ident">i32</span>, <span class="ident">a1</span>: <span class="ident">i32</span>, <span class="ident">a2</span>: <span class="ident">i32</span>, <span class="ident">a3</span>: <span class="ident">f64</span>) {
+<span class="kw">pub fn </span>invoke_viid(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, index: i32, a1: i32, a2: i32, a3: f64) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viid&quot;</span>);
-    <span class="macro">invoke_no_return!</span>(<span class="ident">ctx</span>, <span class="ident">dyn_call_viid</span>, <span class="ident">dyn_call_viid_ref</span>, <span class="ident">index</span>, <span class="ident">a1</span>, <span class="ident">a2</span>, <span class="ident">a3</span>);
+    <span class="macro">invoke_no_return!</span>(ctx, dyn_call_viid, dyn_call_viid_ref, index, a1, a2, a3);
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viidii</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">f64</span>,
-    <span class="ident">a4</span>: <span class="ident">i32</span>,
-    <span class="ident">a5</span>: <span class="ident">i32</span>,
+<span class="kw">pub fn </span>invoke_viidii(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: f64,
+    a4: i32,
+    a5: i32,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viidii&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viidii</span>,
-        <span class="ident">dyn_call_viidii_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>
+        ctx,
+        dyn_call_viidii,
+        dyn_call_viidii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
     );
 }
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">invoke_viidddddddd</span>(
-    <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">index</span>: <span class="ident">i32</span>,
-    <span class="ident">a1</span>: <span class="ident">i32</span>,
-    <span class="ident">a2</span>: <span class="ident">i32</span>,
-    <span class="ident">a3</span>: <span class="ident">f64</span>,
-    <span class="ident">a4</span>: <span class="ident">f64</span>,
-    <span class="ident">a5</span>: <span class="ident">f64</span>,
-    <span class="ident">a6</span>: <span class="ident">f64</span>,
-    <span class="ident">a7</span>: <span class="ident">f64</span>,
-    <span class="ident">a8</span>: <span class="ident">f64</span>,
-    <span class="ident">a9</span>: <span class="ident">f64</span>,
-    <span class="ident">a10</span>: <span class="ident">f64</span>,
+<span class="attribute">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub fn </span>invoke_viidddddddd(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    index: i32,
+    a1: i32,
+    a2: i32,
+    a3: f64,
+    a4: f64,
+    a5: f64,
+    a6: f64,
+    a7: f64,
+    a8: f64,
+    a9: f64,
+    a10: f64,
 ) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::invoke_viidddddddd&quot;</span>);
     <span class="macro">invoke_no_return!</span>(
-        <span class="ident">ctx</span>,
-        <span class="ident">dyn_call_viidddddddd</span>,
-        <span class="ident">dyn_call_viidddddddd_ref</span>,
-        <span class="ident">index</span>,
-        <span class="ident">a1</span>,
-        <span class="ident">a2</span>,
-        <span class="ident">a3</span>,
-        <span class="ident">a4</span>,
-        <span class="ident">a5</span>,
-        <span class="ident">a6</span>,
-        <span class="ident">a7</span>,
-        <span class="ident">a8</span>,
-        <span class="ident">a9</span>,
-        <span class="ident">a10</span>
+        ctx,
+        dyn_call_viidddddddd,
+        dyn_call_viidddddddd_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8,
+        a9,
+        a10
     );
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

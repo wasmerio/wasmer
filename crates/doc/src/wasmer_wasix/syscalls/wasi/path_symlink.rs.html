@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/syscalls/wasi/path_symlink.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>path_symlink.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/syscalls/wasi/path_symlink.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>path_symlink.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -106,111 +106,111 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// ### `path_symlink()`</span>
-<span class="doccomment">/// Create a symlink</span>
-<span class="doccomment">/// Inputs:</span>
-<span class="doccomment">/// - `const char *old_path`</span>
-<span class="doccomment">///     Array of UTF-8 bytes representing the source path</span>
-<span class="doccomment">/// - `u32 old_path_len`</span>
-<span class="doccomment">///     The number of bytes to read from `old_path`</span>
-<span class="doccomment">/// - `Fd fd`</span>
-<span class="doccomment">///     The base directory from which the paths are understood</span>
-<span class="doccomment">/// - `const char *new_path`</span>
-<span class="doccomment">///     Array of UTF-8 bytes representing the target path</span>
-<span class="doccomment">/// - `u32 new_path_len`</span>
-<span class="doccomment">///     The number of bytes to read from `new_path`</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">fd</span>, <span class="ident">old_path</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">new_path</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_symlink</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">old_path_len</span>: <span class="ident">M::Offset</span>,
-    <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
-    <span class="ident">new_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span>,
-    <span class="ident">new_path_len</span>: <span class="ident">M::Offset</span>,
-) -&gt; <span class="ident">Errno</span> {
-    <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>, <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">old_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>) };
-    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;old_path&quot;</span>, <span class="ident">old_path_str</span>.<span class="ident">as_str</span>());
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>) };
-    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;new_path&quot;</span>, <span class="ident">new_path_str</span>.<span class="ident">as_str</span>());
-    <span class="ident">old_path_str</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">old_path_str</span>);
-    <span class="ident">new_path_str</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">new_path_str</span>);
-    <span class="kw">let</span> <span class="ident">base_fd</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">base_fd</span>.<span class="ident">rights</span>.<span class="ident">contains</span>(<span class="ident">Rights::PATH_SYMLINK</span>) {
-        <span class="kw">return</span> <span class="ident">Errno::Access</span>;
+<span class="doccomment">/// ### `path_symlink()`
+/// Create a symlink
+/// Inputs:
+/// - `const char *old_path`
+///     Array of UTF-8 bytes representing the source path
+/// - `u32 old_path_len`
+///     The number of bytes to read from `old_path`
+/// - `Fd fd`
+///     The base directory from which the paths are understood
+/// - `const char *new_path`
+///     Array of UTF-8 bytes representing the target path
+/// - `u32 new_path_len`
+///     The number of bytes to read from `new_path`
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(fd, old_path = field::Empty, new_path = field::Empty), ret)]
+</span><span class="kw">pub fn </span>path_symlink&lt;M: MemorySize&gt;(
+    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    old_path: WasmPtr&lt;u8, M&gt;,
+    old_path_len: M::Offset,
+    fd: WasiFd,
+    new_path: WasmPtr&lt;u8, M&gt;,
+    new_path_len: M::Offset,
+) -&gt; Errno {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>old_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
+    Span::current().record(<span class="string">&quot;old_path&quot;</span>, old_path_str.as_str());
+    <span class="kw">let </span><span class="kw-2">mut </span>new_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
+    Span::current().record(<span class="string">&quot;new_path&quot;</span>, new_path_str.as_str());
+    old_path_str = ctx.data().state.fs.relative_path_to_absolute(old_path_str);
+    new_path_str = ctx.data().state.fs.relative_path_to_absolute(new_path_str);
+    <span class="kw">let </span>base_fd = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+    <span class="kw">if </span>!base_fd.rights.contains(Rights::PATH_SYMLINK) {
+        <span class="kw">return </span>Errno::Access;
     }
 
-    <span class="comment">// get the depth of the parent + 1 (UNDER INVESTIGATION HMMMMMMMM THINK FISH ^ THINK FISH)</span>
-    <span class="kw">let</span> <span class="ident">old_path_path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">old_path_str</span>);
-    <span class="kw">let</span> (<span class="ident">source_inode</span>, <span class="kw">_</span>) <span class="op">=</span>
-        <span class="macro">wasi_try!</span>(<span class="ident">state</span>
-            .<span class="ident">fs</span>
-            .<span class="ident">get_parent_inode_at_path</span>(<span class="ident">inodes</span>, <span class="ident">fd</span>, <span class="ident">old_path_path</span>, <span class="bool-val">true</span>));
-    <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">path_depth_from_fd</span>(<span class="ident">fd</span>, <span class="ident">source_inode</span>);
+    <span class="comment">// get the depth of the parent + 1 (UNDER INVESTIGATION HMMMMMMMM THINK FISH ^ THINK FISH)
+    </span><span class="kw">let </span>old_path_path = std::path::Path::new(<span class="kw-2">&amp;</span>old_path_str);
+    <span class="kw">let </span>(source_inode, <span class="kw">_</span>) =
+        <span class="macro">wasi_try!</span>(state
+            .fs
+            .get_parent_inode_at_path(inodes, fd, old_path_path, <span class="bool-val">true</span>));
+    <span class="kw">let </span>depth = state.fs.path_depth_from_fd(fd, source_inode);
 
-    <span class="comment">// depth == -1 means folder is not relative. See issue #3233.</span>
-    <span class="kw">let</span> <span class="ident">depth</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">depth</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">depth</span>) =&gt; <span class="ident">depth</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="op">-</span> <span class="number">1</span>,
-        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="op">-</span><span class="number">1</span>,
+    <span class="comment">// depth == -1 means folder is not relative. See issue #3233.
+    </span><span class="kw">let </span>depth = <span class="kw">match </span>depth {
+        <span class="prelude-val">Ok</span>(depth) =&gt; depth <span class="kw">as </span>i32 - <span class="number">1</span>,
+        <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; -<span class="number">1</span>,
     };
 
-    <span class="kw">let</span> <span class="ident">new_path_path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">new_path_str</span>);
-    <span class="kw">let</span> (<span class="ident">target_parent_inode</span>, <span class="ident">entry_name</span>) <span class="op">=</span>
-        <span class="macro">wasi_try!</span>(<span class="ident">state</span>
-            .<span class="ident">fs</span>
-            .<span class="ident">get_parent_inode_at_path</span>(<span class="ident">inodes</span>, <span class="ident">fd</span>, <span class="ident">new_path_path</span>, <span class="bool-val">true</span>));
+    <span class="kw">let </span>new_path_path = std::path::Path::new(<span class="kw-2">&amp;</span>new_path_str);
+    <span class="kw">let </span>(target_parent_inode, entry_name) =
+        <span class="macro">wasi_try!</span>(state
+            .fs
+            .get_parent_inode_at_path(inodes, fd, new_path_path, <span class="bool-val">true</span>));
 
-    <span class="comment">// short circuit if anything is wrong, before we create an inode</span>
-    {
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">target_parent_inode</span>.<span class="ident">read</span>();
-        <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
-            <span class="ident">Kind::Dir</span> { <span class="ident">entries</span>, .. } =&gt; {
-                <span class="kw">if</span> <span class="ident">entries</span>.<span class="ident">contains_key</span>(<span class="kw-2">&amp;</span><span class="ident">entry_name</span>) {
-                    <span class="kw">return</span> <span class="ident">Errno::Exist</span>;
+    <span class="comment">// short circuit if anything is wrong, before we create an inode
+    </span>{
+        <span class="kw">let </span>guard = target_parent_inode.read();
+        <span class="kw">match </span>guard.deref() {
+            Kind::Dir { entries, .. } =&gt; {
+                <span class="kw">if </span>entries.contains_key(<span class="kw-2">&amp;</span>entry_name) {
+                    <span class="kw">return </span>Errno::Exist;
                 }
             }
-            <span class="ident">Kind::Root</span> { .. } =&gt; <span class="kw">return</span> <span class="ident">Errno::Notcapable</span>,
-            <span class="ident">Kind::Socket</span> { .. } <span class="op">|</span> <span class="ident">Kind::Pipe</span> { .. } <span class="op">|</span> <span class="ident">Kind::EventNotifications</span> { .. } =&gt; {
-                <span class="kw">return</span> <span class="ident">Errno::Inval</span>
+            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Notcapable,
+            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } =&gt; {
+                <span class="kw">return </span>Errno::Inval
             }
-            <span class="ident">Kind::File</span> { .. } <span class="op">|</span> <span class="ident">Kind::Symlink</span> { .. } <span class="op">|</span> <span class="ident">Kind::Buffer</span> { .. } =&gt; {
+            Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } =&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">&quot;get_parent_inode_at_path returned something other than a Dir or Root&quot;</span>)
             }
         }
     }
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">source_path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">old_path_str</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relative_path</span> <span class="op">=</span> <span class="ident">std::path::PathBuf::new</span>();
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">depth</span> {
-        <span class="ident">relative_path</span>.<span class="ident">push</span>(<span class="string">&quot;..&quot;</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>source_path = std::path::Path::new(<span class="kw-2">&amp;</span>old_path_str);
+    <span class="kw">let </span><span class="kw-2">mut </span>relative_path = std::path::PathBuf::new();
+    <span class="kw">for _ in </span><span class="number">0</span>..depth {
+        relative_path.push(<span class="string">&quot;..&quot;</span>);
     }
-    <span class="ident">relative_path</span>.<span class="ident">push</span>(<span class="ident">source_path</span>);
+    relative_path.push(source_path);
 
-    <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="ident">Kind::Symlink</span> {
-        <span class="ident">base_po_dir</span>: <span class="ident">fd</span>,
-        <span class="ident">path_to_symlink</span>: <span class="ident">std::path::PathBuf::from</span>(<span class="ident">new_path_str</span>),
-        <span class="ident">relative_path</span>,
+    <span class="kw">let </span>kind = Kind::Symlink {
+        base_po_dir: fd,
+        path_to_symlink: std::path::PathBuf::from(new_path_str),
+        relative_path,
     };
-    <span class="kw">let</span> <span class="ident">new_inode</span> <span class="op">=</span>
-        <span class="ident">state</span>
-            .<span class="ident">fs</span>
-            .<span class="ident">create_inode_with_default_stat</span>(<span class="ident">inodes</span>, <span class="ident">kind</span>, <span class="bool-val">false</span>, <span class="ident">entry_name</span>.<span class="ident">clone</span>().<span class="ident">into</span>());
+    <span class="kw">let </span>new_inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, kind, <span class="bool-val">false</span>, entry_name.clone().into());
 
     {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">target_parent_inode</span>.<span class="ident">write</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind::Dir</span> {
-            <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">entries</span>, ..
-        } <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref_mut</span>()
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = target_parent_inode.write();
+        <span class="kw">if let </span>Kind::Dir {
+            <span class="kw-2">ref mut </span>entries, ..
+        } = guard.deref_mut()
         {
-            <span class="ident">entries</span>.<span class="ident">insert</span>(<span class="ident">entry_name</span>, <span class="ident">new_inode</span>);
+            entries.insert(entry_name, new_inode);
         }
     }
 
-    <span class="ident">Errno::Success</span>
+    Errno::Success
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

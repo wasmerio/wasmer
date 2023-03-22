@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/tty/tty_sys.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tty_sys.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/tty/tty_sys.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tty_sys.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -276,281 +276,281 @@
 <span id="274">274</span>
 <span id="275">275</span>
 <span id="276">276</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::TtyBridge</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::WasiTtyState</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::TtyBridge;
+<span class="kw">use </span><span class="kw">crate</span>::WasiTtyState;
 
-<span class="doccomment">/// [`TtyBridge`] implementation for Unix systems.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SysTty</span>;
+<span class="doccomment">/// [`TtyBridge`] implementation for Unix systems.
+</span><span class="attribute">#[derive(Debug, Default, Clone)]
+</span><span class="kw">pub struct </span>SysTty;
 
-<span class="kw">impl</span> <span class="ident">TtyBridge</span> <span class="kw">for</span> <span class="ident">SysTty</span> {
-    <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="ident">sys::reset</span>().<span class="ident">ok</span>();
+<span class="kw">impl </span>TtyBridge <span class="kw">for </span>SysTty {
+    <span class="kw">fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        sys::reset().ok();
     }
 
-    <span class="kw">fn</span> <span class="ident">tty_get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiTtyState</span> {
-        <span class="kw">let</span> <span class="ident">echo</span> <span class="op">=</span> <span class="ident">sys::is_mode_echo</span>();
-        <span class="kw">let</span> <span class="ident">line_buffered</span> <span class="op">=</span> <span class="ident">sys::is_mode_line_buffering</span>();
-        <span class="kw">let</span> <span class="ident">line_feeds</span> <span class="op">=</span> <span class="ident">sys::is_mode_line_feeds</span>();
-        <span class="kw">let</span> <span class="ident">stdin_tty</span> <span class="op">=</span> <span class="ident">sys::is_stdin_tty</span>();
-        <span class="kw">let</span> <span class="ident">stdout_tty</span> <span class="op">=</span> <span class="ident">sys::is_stdout_tty</span>();
-        <span class="kw">let</span> <span class="ident">stderr_tty</span> <span class="op">=</span> <span class="ident">sys::is_stderr_tty</span>();
+    <span class="kw">fn </span>tty_get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiTtyState {
+        <span class="kw">let </span>echo = sys::is_mode_echo();
+        <span class="kw">let </span>line_buffered = sys::is_mode_line_buffering();
+        <span class="kw">let </span>line_feeds = sys::is_mode_line_feeds();
+        <span class="kw">let </span>stdin_tty = sys::is_stdin_tty();
+        <span class="kw">let </span>stdout_tty = sys::is_stdout_tty();
+        <span class="kw">let </span>stderr_tty = sys::is_stderr_tty();
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">w</span>, <span class="ident">h</span>)) <span class="op">=</span> <span class="ident">term_size::dimensions</span>() {
-            <span class="ident">WasiTtyState</span> {
-                <span class="ident">cols</span>: <span class="ident">w</span> <span class="kw">as</span> <span class="ident">u32</span>,
-                <span class="ident">rows</span>: <span class="ident">h</span> <span class="kw">as</span> <span class="ident">u32</span>,
-                <span class="ident">width</span>: <span class="number">800</span>,
-                <span class="ident">height</span>: <span class="number">600</span>,
-                <span class="ident">stdin_tty</span>,
-                <span class="ident">stdout_tty</span>,
-                <span class="ident">stderr_tty</span>,
-                <span class="ident">echo</span>,
-                <span class="ident">line_buffered</span>,
-                <span class="ident">line_feeds</span>,
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((w, h)) = term_size::dimensions() {
+            WasiTtyState {
+                cols: w <span class="kw">as </span>u32,
+                rows: h <span class="kw">as </span>u32,
+                width: <span class="number">800</span>,
+                height: <span class="number">600</span>,
+                stdin_tty,
+                stdout_tty,
+                stderr_tty,
+                echo,
+                line_buffered,
+                line_feeds,
             }
-        } <span class="kw">else</span> {
-            <span class="ident">WasiTtyState</span> {
-                <span class="ident">rows</span>: <span class="number">80</span>,
-                <span class="ident">cols</span>: <span class="number">25</span>,
-                <span class="ident">width</span>: <span class="number">800</span>,
-                <span class="ident">height</span>: <span class="number">600</span>,
-                <span class="ident">stdin_tty</span>,
-                <span class="ident">stdout_tty</span>,
-                <span class="ident">stderr_tty</span>,
-                <span class="ident">echo</span>,
-                <span class="ident">line_buffered</span>,
-                <span class="ident">line_feeds</span>,
+        } <span class="kw">else </span>{
+            WasiTtyState {
+                rows: <span class="number">80</span>,
+                cols: <span class="number">25</span>,
+                width: <span class="number">800</span>,
+                height: <span class="number">600</span>,
+                stdin_tty,
+                stdout_tty,
+                stderr_tty,
+                echo,
+                line_buffered,
+                line_feeds,
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">tty_set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tty_state</span>: <span class="ident">WasiTtyState</span>) {
-        <span class="kw">if</span> <span class="ident">tty_state</span>.<span class="ident">echo</span> {
-            <span class="ident">sys::set_mode_echo</span>().<span class="ident">ok</span>();
-        } <span class="kw">else</span> {
-            <span class="ident">sys::set_mode_no_echo</span>().<span class="ident">ok</span>();
+    <span class="kw">fn </span>tty_set(<span class="kw-2">&amp;</span><span class="self">self</span>, tty_state: WasiTtyState) {
+        <span class="kw">if </span>tty_state.echo {
+            sys::set_mode_echo().ok();
+        } <span class="kw">else </span>{
+            sys::set_mode_no_echo().ok();
         }
-        <span class="kw">if</span> <span class="ident">tty_state</span>.<span class="ident">line_buffered</span> {
-            <span class="ident">sys::set_mode_line_buffered</span>().<span class="ident">ok</span>();
-        } <span class="kw">else</span> {
-            <span class="ident">sys::set_mode_no_line_buffered</span>().<span class="ident">ok</span>();
+        <span class="kw">if </span>tty_state.line_buffered {
+            sys::set_mode_line_buffered().ok();
+        } <span class="kw">else </span>{
+            sys::set_mode_no_line_buffered().ok();
         }
-        <span class="kw">if</span> <span class="ident">tty_state</span>.<span class="ident">line_feeds</span> {
-            <span class="ident">sys::set_mode_line_feeds</span>().<span class="ident">ok</span>();
-        } <span class="kw">else</span> {
-            <span class="ident">sys::set_mode_no_line_feeds</span>().<span class="ident">ok</span>();
+        <span class="kw">if </span>tty_state.line_feeds {
+            sys::set_mode_line_feeds().ok();
+        } <span class="kw">else </span>{
+            sys::set_mode_no_line_feeds().ok();
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_mut</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-<span class="kw">mod</span> <span class="ident">sys</span> {
-    <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-    <span class="kw">use</span> {
-        <span class="ident">libc</span>::{
-            <span class="ident">c_int</span>, <span class="ident">tcsetattr</span>, <span class="ident">termios</span>, <span class="ident">ECHO</span>, <span class="ident">ECHOCTL</span>, <span class="ident">ECHOE</span>, <span class="ident">ECHOK</span>, <span class="ident">ECHONL</span>, <span class="ident">ICANON</span>, <span class="ident">ICRNL</span>, <span class="ident">IEXTEN</span>,
-            <span class="ident">IGNCR</span>, <span class="ident">ISIG</span>, <span class="ident">IXON</span>, <span class="ident">ONLCR</span>, <span class="ident">OPOST</span>, <span class="ident">TCSANOW</span>,
+<span class="attribute">#[allow(unused_mut)]
+#[cfg(unix)]
+</span><span class="kw">mod </span>sys {
+    <span class="attribute">#![allow(unused_imports)]
+    </span><span class="kw">use </span>{
+        libc::{
+            c_int, tcsetattr, termios, ECHO, ECHOCTL, ECHOE, ECHOK, ECHONL, ICANON, ICRNL, IEXTEN,
+            IGNCR, ISIG, IXON, ONLCR, OPOST, TCSANOW,
         },
-        <span class="ident">std::mem</span>,
-        <span class="ident">std::os::unix::io::AsRawFd</span>,
+        std::mem,
+        std::os::unix::io::AsRawFd,
     };
 
-    <span class="kw">fn</span> <span class="ident">io_result</span>(<span class="ident">ret</span>: <span class="ident">libc::c_int</span>) -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">ret</span> {
-            <span class="number">0</span> =&gt; <span class="prelude-val">Ok</span>(()),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">std::io::Error::last_os_error</span>()),
+    <span class="kw">fn </span>io_result(ret: libc::c_int) -&gt; std::io::Result&lt;()&gt; {
+        <span class="kw">match </span>ret {
+            <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(()),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(std::io::Error::last_os_error()),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>reset() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ISIG</span> <span class="op">|</span> <span class="ident">ICANON</span> <span class="op">|</span> <span class="ident">IEXTEN</span> <span class="op">|</span> <span class="ident">ECHO</span> <span class="op">|</span> <span class="ident">ECHOE</span> <span class="op">|</span> <span class="ident">ECHOK</span> <span class="op">|</span> <span class="ident">ECHOCTL</span>;
+        termios.c_lflag |= ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL;
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        <span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_stdin_tty</span>() -&gt; <span class="ident">bool</span> {
-        <span class="ident">::termios::Termios::from_fd</span>(<span class="number">0</span>).<span class="ident">is_ok</span>()
+    <span class="kw">pub fn </span>is_stdin_tty() -&gt; bool {
+        ::termios::Termios::from_fd(<span class="number">0</span>).is_ok()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_stdout_tty</span>() -&gt; <span class="ident">bool</span> {
-        <span class="ident">::termios::Termios::from_fd</span>(<span class="number">1</span>).<span class="ident">is_ok</span>()
+    <span class="kw">pub fn </span>is_stdout_tty() -&gt; bool {
+        ::termios::Termios::from_fd(<span class="number">1</span>).is_ok()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_stderr_tty</span>() -&gt; <span class="ident">bool</span> {
-        <span class="ident">::termios::Termios::from_fd</span>(<span class="number">2</span>).<span class="ident">is_ok</span>()
+    <span class="kw">pub fn </span>is_stderr_tty() -&gt; bool {
+        ::termios::Termios::from_fd(<span class="number">2</span>).is_ok()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mode_echo</span>() -&gt; <span class="ident">bool</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">termios</span>) <span class="op">=</span> <span class="ident">::termios::Termios::from_fd</span>(<span class="number">0</span>) {
-            (<span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;</span> <span class="ident">::termios::ECHO</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-        } <span class="kw">else</span> {
-            <span class="bool-val">false</span>
-        }
+    <span class="kw">pub fn </span>is_mode_echo() -&gt; bool {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(termios) = ::termios::Termios::from_fd(<span class="number">0</span>) {
+            (termios.c_lflag &amp; ::termios::ECHO) != <span class="number">0
+        </span>} <span class="kw">else </span>{
+            <span class="bool-val">false
+        </span>}
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mode_line_buffering</span>() -&gt; <span class="ident">bool</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">termios</span>) <span class="op">=</span> <span class="ident">::termios::Termios::from_fd</span>(<span class="number">0</span>) {
-            (<span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;</span> <span class="ident">::termios::ICANON</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-        } <span class="kw">else</span> {
-            <span class="bool-val">false</span>
-        }
+    <span class="kw">pub fn </span>is_mode_line_buffering() -&gt; bool {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(termios) = ::termios::Termios::from_fd(<span class="number">0</span>) {
+            (termios.c_lflag &amp; ::termios::ICANON) != <span class="number">0
+        </span>} <span class="kw">else </span>{
+            <span class="bool-val">false
+        </span>}
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mode_line_feeds</span>() -&gt; <span class="ident">bool</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">termios</span>) <span class="op">=</span> <span class="ident">::termios::Termios::from_fd</span>(<span class="number">0</span>) {
-            (<span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;</span> <span class="ident">::termios::ONLCR</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-        } <span class="kw">else</span> {
-            <span class="bool-val">false</span>
-        }
+    <span class="kw">pub fn </span>is_mode_line_feeds() -&gt; bool {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(termios) = ::termios::Termios::from_fd(<span class="number">0</span>) {
+            (termios.c_lflag &amp; ::termios::ONLCR) != <span class="number">0
+        </span>} <span class="kw">else </span>{
+            <span class="bool-val">false
+        </span>}
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_no_echo</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>set_mode_no_echo() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">ECHO</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">ECHOE</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">ECHOK</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">ECHOCTL</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">IEXTEN</span>;
+        termios.c_lflag &amp;= !ECHO;
+        termios.c_lflag &amp;= !ECHOE;
+        termios.c_lflag &amp;= !ECHOK;
+        termios.c_lflag &amp;= !ECHOCTL;
+        termios.c_lflag &amp;= !IEXTEN;
         <span class="comment">/*
         termios.c_lflag &amp;= !ISIG;
         termios.c_lflag &amp;= !IXON;
         termios.c_lflag &amp;= !ICRNL;
         termios.c_lflag &amp;= !OPOST;
-        */</span>
+        */
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        </span><span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_echo</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>set_mode_echo() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ECHO</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ECHOE</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ECHOK</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ECHOCTL</span>;
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">IEXTEN</span>;
+        termios.c_lflag |= ECHO;
+        termios.c_lflag |= ECHOE;
+        termios.c_lflag |= ECHOK;
+        termios.c_lflag |= ECHOCTL;
+        termios.c_lflag |= IEXTEN;
         <span class="comment">/*
         termios.c_lflag |= ISIG;
         termios.c_lflag |= IXON;
         termios.c_lflag |= ICRNL;
         termios.c_lflag |= OPOST;
-        */</span>
+        */
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        </span><span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_no_line_buffered</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>set_mode_no_line_buffered() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">ICANON</span>;
+        termios.c_lflag &amp;= !ICANON;
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        <span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_line_buffered</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>set_mode_line_buffered() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ICANON</span>;
+        termios.c_lflag |= ICANON;
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        <span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_no_line_feeds</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>set_mode_no_line_feeds() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">&amp;=</span> <span class="op">!</span><span class="ident">ONLCR</span>;
+        termios.c_lflag &amp;= !ONLCR;
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        <span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_line_feeds</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="ident">mem::MaybeUninit</span>::<span class="op">&lt;</span><span class="ident">termios</span><span class="op">&gt;</span><span class="ident">::uninit</span>();
-        <span class="ident">io_result</span>(<span class="kw">unsafe</span> { <span class="ident">::libc::tcgetattr</span>(<span class="number">0</span>, <span class="ident">termios</span>.<span class="ident">as_mut_ptr</span>()) })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">termios</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">termios</span>.<span class="ident">assume_init</span>() };
+    <span class="kw">pub fn </span>set_mode_line_feeds() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = mem::MaybeUninit::&lt;termios&gt;::uninit();
+        io_result(<span class="kw">unsafe </span>{ ::libc::tcgetattr(<span class="number">0</span>, termios.as_mut_ptr()) })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>termios = <span class="kw">unsafe </span>{ termios.assume_init() };
 
-        <span class="ident">termios</span>.<span class="ident">c_lflag</span> <span class="op">|</span><span class="op">=</span> <span class="ident">ONLCR</span>;
+        termios.c_lflag |= ONLCR;
 
-        <span class="kw">unsafe</span> { <span class="ident">tcsetattr</span>(<span class="number">0</span>, <span class="ident">TCSANOW</span>, <span class="kw-2">&amp;</span><span class="ident">termios</span>) };
+        <span class="kw">unsafe </span>{ tcsetattr(<span class="number">0</span>, TCSANOW, <span class="kw-2">&amp;</span>termios) };
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">unix</span>))]</span>
-<span class="kw">mod</span> <span class="ident">sys</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reset</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+<span class="attribute">#[cfg(not(unix))]
+</span><span class="kw">mod </span>sys {
+    <span class="kw">pub fn </span>reset() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_stdin_tty</span>() -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
-    }
+    <span class="kw">pub fn </span>is_stdin_tty() -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_stdout_tty</span>() -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
-    }
+    <span class="kw">pub fn </span>is_stdout_tty() -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_stderr_tty</span>() -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
-    }
+    <span class="kw">pub fn </span>is_stderr_tty() -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mode_echo</span>() -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">true</span>
-    }
+    <span class="kw">pub fn </span>is_mode_echo() -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mode_line_buffering</span>() -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">true</span>
-    }
+    <span class="kw">pub fn </span>is_mode_line_buffering() -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_mode_line_feeds</span>() -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">true</span>
-    }
+    <span class="kw">pub fn </span>is_mode_line_feeds() -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_no_echo</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub fn </span>set_mode_no_echo() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_echo</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub fn </span>set_mode_echo() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_no_line_buffered</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub fn </span>set_mode_no_line_buffered() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_line_buffered</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub fn </span>set_mode_line_buffered() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_no_line_feeds</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub fn </span>set_mode_no_line_feeds() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_mode_line_feeds</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub fn </span>set_mode_line_feeds() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

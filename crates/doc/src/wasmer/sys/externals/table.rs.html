@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/table.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/table.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>table.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -161,166 +161,166 @@
 <span id="159">159</span>
 <span id="160">160</span>
 <span id="161">161</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::TableType</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Value</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">vm::VMExternTable</span>, <span class="ident">ExternRef</span>, <span class="ident">Function</span>, <span class="ident">RuntimeError</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">StoreHandle</span>, <span class="ident">TableElement</span>, <span class="ident">VMExtern</span>, <span class="ident">VMTable</span>};
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
+<span class="kw">use </span><span class="kw">crate</span>::TableType;
+<span class="kw">use </span><span class="kw">crate</span>::Value;
+<span class="kw">use crate</span>::{vm::VMExternTable, ExternRef, Function, RuntimeError};
+<span class="kw">use </span>wasmer_vm::{StoreHandle, TableElement, VMExtern, VMTable};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Table</span> {
-    <span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Table {
+    handle: StoreHandle&lt;VMTable&gt;,
 }
 
-<span class="kw">fn</span> <span class="ident">set_table_item</span>(
-    <span class="ident">table</span>: <span class="kw-2">&amp;mut</span> <span class="ident">VMTable</span>,
-    <span class="ident">item_index</span>: <span class="ident">u32</span>,
-    <span class="ident">item</span>: <span class="ident">TableElement</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-    <span class="ident">table</span>.<span class="ident">set</span>(<span class="ident">item_index</span>, <span class="ident">item</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">into</span>())
+<span class="kw">fn </span>set_table_item(
+    table: <span class="kw-2">&amp;mut </span>VMTable,
+    item_index: u32,
+    item: TableElement,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+    table.set(item_index, item).map_err(|e| e.into())
 }
 
-<span class="kw">fn</span> <span class="ident">value_to_table_element</span>(
-    <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-    <span class="ident">val</span>: <span class="ident">Value</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">wasmer_vm::TableElement</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">val</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;cannot pass Value across contexts&quot;</span>));
+<span class="kw">fn </span>value_to_table_element(
+    store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+    val: Value,
+) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_vm::TableElement, RuntimeError&gt; {
+    <span class="kw">if </span>!val.is_from_store(store) {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;cannot pass Value across contexts&quot;</span>));
     }
-    <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">val</span> {
-        <span class="ident">Value::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; {
-            <span class="ident">wasmer_vm::TableElement::ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">vm_externref</span>()))
+    <span class="prelude-val">Ok</span>(<span class="kw">match </span>val {
+        Value::ExternRef(extern_ref) =&gt; {
+            wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref()))
         }
-        <span class="ident">Value::FuncRef</span>(<span class="ident">func_ref</span>) =&gt; {
-            <span class="ident">wasmer_vm::TableElement::FuncRef</span>(<span class="ident">func_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">vm_funcref</span>(<span class="ident">store</span>)))
+        Value::FuncRef(func_ref) =&gt; {
+            wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(store)))
         }
-        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(<span class="string">&quot;val is not reference&quot;</span>)),
+        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(<span class="string">&quot;val is not reference&quot;</span>)),
     })
 }
 
-<span class="kw">fn</span> <span class="ident">value_from_table_element</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">item</span>: <span class="ident">wasmer_vm::TableElement</span>) -&gt; <span class="ident">Value</span> {
-    <span class="kw">match</span> <span class="ident">item</span> {
-        <span class="ident">wasmer_vm::TableElement::FuncRef</span>(<span class="ident">funcref</span>) =&gt; {
-            <span class="ident">Value::FuncRef</span>(<span class="ident">funcref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">Function::from_vm_funcref</span>(<span class="ident">store</span>, <span class="ident">f</span>) }))
+<span class="kw">fn </span>value_from_table_element(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, item: wasmer_vm::TableElement) -&gt; Value {
+    <span class="kw">match </span>item {
+        wasmer_vm::TableElement::FuncRef(funcref) =&gt; {
+            Value::FuncRef(funcref.map(|f| <span class="kw">unsafe </span>{ Function::from_vm_funcref(store, f) }))
         }
-        <span class="ident">wasmer_vm::TableElement::ExternRef</span>(<span class="ident">extern_ref</span>) =&gt; {
-            <span class="ident">Value::ExternRef</span>(<span class="ident">extern_ref</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">ExternRef::from_vm_externref</span>(<span class="ident">store</span>, <span class="ident">e</span>) }))
+        wasmer_vm::TableElement::ExternRef(extern_ref) =&gt; {
+            Value::ExternRef(extern_ref.map(|e| <span class="kw">unsafe </span>{ ExternRef::from_vm_externref(store, e) }))
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Table</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="kw-2">mut</span> <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">ty</span>: <span class="ident">TableType</span>,
-        <span class="ident">init</span>: <span class="ident">Value</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">init</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>();
-        <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">tunables</span>();
-        <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="ident">tunables</span>.<span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">tunables</span>
-            .<span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="ident">ty</span>, <span class="kw-2">&amp;</span><span class="ident">style</span>)
-            .<span class="ident">map_err</span>(<span class="ident">RuntimeError::new</span>)<span class="question-mark">?</span>;
+<span class="kw">impl </span>Table {
+    <span class="kw">pub fn </span>new(
+        <span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        ty: TableType,
+        init: Value,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, RuntimeError&gt; {
+        <span class="kw">let </span>item = value_to_table_element(<span class="kw-2">&amp;mut </span>store, init)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>store = store.as_store_mut();
+        <span class="kw">let </span>tunables = store.engine().tunables();
+        <span class="kw">let </span>style = tunables.table_style(<span class="kw-2">&amp;</span>ty);
+        <span class="kw">let </span><span class="kw-2">mut </span>table = tunables
+            .create_host_table(<span class="kw-2">&amp;</span>ty, <span class="kw-2">&amp;</span>style)
+            .map_err(RuntimeError::new)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">num_elements</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">size</span>();
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_elements</span> {
-            <span class="ident">set_table_item</span>(<span class="kw-2">&amp;mut</span> <span class="ident">table</span>, <span class="ident">i</span>, <span class="ident">item</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
+        <span class="kw">let </span>num_elements = table.size();
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..num_elements {
+            set_table_item(<span class="kw-2">&amp;mut </span>table, i, item.clone())<span class="question-mark">?</span>;
         }
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="ident">StoreHandle::new</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>(), <span class="ident">table</span>),
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            handle: StoreHandle::new(store.objects_mut(), table),
         })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">TableType</span> {
-        <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">ty</span>()
+    <span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; TableType {
+        <span class="kw-2">*</span><span class="self">self</span>.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">index</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Some</span>(<span class="ident">value_from_table_element</span>(<span class="ident">store</span>, <span class="ident">item</span>))
+    <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, index: u32) -&gt; <span class="prelude-ty">Option</span>&lt;Value&gt; {
+        <span class="kw">let </span>item = <span class="self">self</span>.handle.get(store.as_store_ref().objects()).get(index)<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(value_from_table_element(store, item))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(
+    <span class="kw">pub fn </span>set(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">index</span>: <span class="ident">u32</span>,
-        <span class="ident">val</span>: <span class="ident">Value</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="ident">store</span>, <span class="ident">val</span>)<span class="question-mark">?</span>;
-        <span class="ident">set_table_item</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>()), <span class="ident">index</span>, <span class="ident">item</span>)
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        index: u32,
+        val: Value,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">let </span>item = value_to_table_element(store, val)<span class="question-mark">?</span>;
+        set_table_item(<span class="self">self</span>.handle.get_mut(store.objects_mut()), index, item)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>()).<span class="ident">size</span>()
+    <span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; u32 {
+        <span class="self">self</span>.handle.get(store.as_store_ref().objects()).size()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">grow</span>(
+    <span class="kw">pub fn </span>grow(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">delta</span>: <span class="ident">u32</span>,
-        <span class="ident">init</span>: <span class="ident">Value</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">value_to_table_element</span>(<span class="ident">store</span>, <span class="ident">init</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">handle</span>
-            .<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>())
-            .<span class="ident">grow</span>(<span class="ident">delta</span>, <span class="ident">item</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError::new</span>(<span class="macro">format!</span>(<span class="string">&quot;failed to grow table by `{}`&quot;</span>, <span class="ident">delta</span>)))
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        delta: u32,
+        init: Value,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, RuntimeError&gt; {
+        <span class="kw">let </span>item = value_to_table_element(store, init)<span class="question-mark">?</span>;
+        <span class="self">self</span>.handle
+            .get_mut(store.objects_mut())
+            .grow(delta, item)
+            .ok_or_else(|| RuntimeError::new(<span class="macro">format!</span>(<span class="string">&quot;failed to grow table by `{}`&quot;</span>, delta)))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
-        <span class="ident">dst_table</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>,
-        <span class="ident">dst_index</span>: <span class="ident">u32</span>,
-        <span class="ident">src_table</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>,
-        <span class="ident">src_index</span>: <span class="ident">u32</span>,
-        <span class="ident">len</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">src_table</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::new</span>(
+    <span class="kw">pub fn </span>copy(
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        dst_table: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+        dst_index: u32,
+        src_table: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+        src_index: u32,
+        len: u32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
+        <span class="kw">if </span>dst_table.handle.store_id() != src_table.handle.store_id() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::new(
                 <span class="string">&quot;cross-`Store` table copies are not supported&quot;</span>,
             ));
         }
-        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>;
-        <span class="kw">if</span> <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>() <span class="op">==</span> <span class="ident">src_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>() {
-            <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">get_mut</span>(<span class="ident">store</span>.<span class="ident">objects_mut</span>());
-            <span class="ident">table</span>.<span class="ident">copy_within</span>(<span class="ident">dst_index</span>, <span class="ident">src_index</span>, <span class="ident">len</span>)
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> (<span class="ident">src_table</span>, <span class="ident">dst_table</span>) <span class="op">=</span> <span class="ident">store</span>.<span class="ident">objects_mut</span>().<span class="ident">get_2_mut</span>(
-                <span class="ident">src_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>(),
-                <span class="ident">dst_table</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>(),
+        <span class="kw">let </span>store = store;
+        <span class="kw">if </span>dst_table.handle.internal_handle() == src_table.handle.internal_handle() {
+            <span class="kw">let </span>table = dst_table.handle.get_mut(store.objects_mut());
+            table.copy_within(dst_index, src_index, len)
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>(src_table, dst_table) = store.objects_mut().get_2_mut(
+                src_table.handle.internal_handle(),
+                dst_table.handle.internal_handle(),
             );
-            <span class="ident">VMTable::copy</span>(<span class="ident">dst_table</span>, <span class="ident">src_table</span>, <span class="ident">dst_index</span>, <span class="ident">src_index</span>, <span class="ident">len</span>)
+            VMTable::copy(dst_table, src_table, dst_index, src_index, len)
         }
-        .<span class="ident">map_err</span>(<span class="ident">RuntimeError::from_trap</span>)<span class="question-mark">?</span>;
+        .map_err(RuntimeError::from_trap)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_extern</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">vm_extern</span>: <span class="ident">VMExternTable</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">handle</span>: <span class="kw">unsafe</span> {
-                <span class="ident">StoreHandle::from_internal</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>(), <span class="ident">vm_extern</span>)
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternTable) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            handle: <span class="kw">unsafe </span>{
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }
 
-    <span class="doccomment">/// Checks whether this `Table` can be used with the given context.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
+    <span class="doccomment">/// Checks whether this `Table` can be used with the given context.
+    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+        <span class="self">self</span>.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">to_vm_extern</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">VMExtern</span> {
-        <span class="ident">VMExtern::Table</span>(<span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">internal_handle</span>())
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">std::cmp::PartialEq</span> <span class="kw">for</span> <span class="ident">Table</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">handle</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">handle</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
+        VMExtern::Table(<span class="self">self</span>.handle.internal_handle())
     }
 }
 
-<span class="kw">impl</span> <span class="ident">std::cmp::Eq</span> <span class="kw">for</span> <span class="ident">Table</span> {}
+<span class="kw">impl </span>std::cmp::PartialEq <span class="kw">for </span>Table {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.handle == other.handle
+    }
+}
+
+<span class="kw">impl </span>std::cmp::Eq <span class="kw">for </span>Table {}
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

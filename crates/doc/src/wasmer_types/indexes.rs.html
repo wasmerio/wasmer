@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/indexes.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>indexes.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/indexes.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>indexes.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -250,257 +250,257 @@
 <span id="250">250</span>
 <span id="251">251</span>
 <span id="252">252</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::entity_impl</span>;
-<span class="kw">use</span> <span class="ident">core::u32</span>;
-<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+</pre><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.
+</span><span class="kw">use </span><span class="kw">crate</span>::entity::entity_impl;
+<span class="kw">use </span>core::u32;
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="doccomment">/// Index type of a function defined locally inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalFunctionIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">LocalFunctionIndex</span>);
+<span class="doccomment">/// Index type of a function defined locally inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>LocalFunctionIndex(u32);
+<span class="macro">entity_impl!</span>(LocalFunctionIndex);
 
-<span class="doccomment">/// Index type of a table defined locally inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalTableIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">LocalTableIndex</span>);
+<span class="doccomment">/// Index type of a table defined locally inside the WebAssembly module.
+</span><span class="attribute">#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>LocalTableIndex(u32);
+<span class="macro">entity_impl!</span>(LocalTableIndex);
 
-<span class="doccomment">/// Index type of a memory defined locally inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalMemoryIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">LocalMemoryIndex</span>);
+<span class="doccomment">/// Index type of a memory defined locally inside the WebAssembly module.
+</span><span class="attribute">#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>LocalMemoryIndex(u32);
+<span class="macro">entity_impl!</span>(LocalMemoryIndex);
 
-<span class="doccomment">/// Index type of a global defined locally inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LocalGlobalIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">LocalGlobalIndex</span>);
+<span class="doccomment">/// Index type of a global defined locally inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>LocalGlobalIndex(u32);
+<span class="macro">entity_impl!</span>(LocalGlobalIndex);
 
-<span class="doccomment">/// Index type of a function (imported or local) inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FunctionIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">FunctionIndex</span>);
+<span class="doccomment">/// Index type of a function (imported or local) inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>FunctionIndex(u32);
+<span class="macro">entity_impl!</span>(FunctionIndex);
 
-<span class="doccomment">/// Index type of a table (imported or local) inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TableIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">TableIndex</span>);
+<span class="doccomment">/// Index type of a table (imported or local) inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>TableIndex(u32);
+<span class="macro">entity_impl!</span>(TableIndex);
 
-<span class="doccomment">/// Index type of a global variable (imported or local) inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GlobalIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">GlobalIndex</span>);
+<span class="doccomment">/// Index type of a global variable (imported or local) inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>GlobalIndex(u32);
+<span class="macro">entity_impl!</span>(GlobalIndex);
 
-<span class="doccomment">/// Index type of a linear memory (imported or local) inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MemoryIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">MemoryIndex</span>);
+<span class="doccomment">/// Index type of a linear memory (imported or local) inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>MemoryIndex(u32);
+<span class="macro">entity_impl!</span>(MemoryIndex);
 
-<span class="doccomment">/// Index type of a signature (imported or local) inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SignatureIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">SignatureIndex</span>);
+<span class="doccomment">/// Index type of a signature (imported or local) inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>SignatureIndex(u32);
+<span class="macro">entity_impl!</span>(SignatureIndex);
 
-<span class="doccomment">/// Index type of a passive data segment inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DataIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">DataIndex</span>);
+<span class="doccomment">/// Index type of a passive data segment inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>DataIndex(u32);
+<span class="macro">entity_impl!</span>(DataIndex);
 
-<span class="doccomment">/// Index type of a passive element segment inside the WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ElemIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">ElemIndex</span>);
+<span class="doccomment">/// Index type of a passive element segment inside the WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>ElemIndex(u32);
+<span class="macro">entity_impl!</span>(ElemIndex);
 
-<span class="doccomment">/// Index type of a custom section inside a WebAssembly module.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CustomSectionIndex</span>(<span class="ident">u32</span>);
-<span class="macro">entity_impl!</span>(<span class="ident">CustomSectionIndex</span>);
+<span class="doccomment">/// Index type of a custom section inside a WebAssembly module.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub struct </span>CustomSectionIndex(u32);
+<span class="macro">entity_impl!</span>(CustomSectionIndex);
 
-<span class="doccomment">/// An entity to export.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Copy</span>,
-    <span class="ident">Clone</span>,
-    <span class="ident">Debug</span>,
-    <span class="ident">Hash</span>,
-    <span class="ident">PartialEq</span>,
-    <span class="ident">Eq</span>,
-    <span class="ident">PartialOrd</span>,
-    <span class="ident">Ord</span>,
-    <span class="ident">RkyvSerialize</span>,
-    <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExportIndex</span> {
-    <span class="doccomment">/// Function export.</span>
-    <span class="ident">Function</span>(<span class="ident">FunctionIndex</span>),
-    <span class="doccomment">/// Table export.</span>
-    <span class="ident">Table</span>(<span class="ident">TableIndex</span>),
-    <span class="doccomment">/// Memory export.</span>
-    <span class="ident">Memory</span>(<span class="ident">MemoryIndex</span>),
-    <span class="doccomment">/// Global export.</span>
-    <span class="ident">Global</span>(<span class="ident">GlobalIndex</span>),
+<span class="doccomment">/// An entity to export.
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>ExportIndex {
+    <span class="doccomment">/// Function export.
+    </span>Function(FunctionIndex),
+    <span class="doccomment">/// Table export.
+    </span>Table(TableIndex),
+    <span class="doccomment">/// Memory export.
+    </span>Memory(MemoryIndex),
+    <span class="doccomment">/// Global export.
+    </span>Global(GlobalIndex),
 }
 
-<span class="doccomment">/// An entity to import.</span>
-<span class="attribute">#[<span class="ident">derive</span>(
-    <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>,
-)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ImportIndex</span> {
-    <span class="doccomment">/// Function import.</span>
-    <span class="ident">Function</span>(<span class="ident">FunctionIndex</span>),
-    <span class="doccomment">/// Table import.</span>
-    <span class="ident">Table</span>(<span class="ident">TableIndex</span>),
-    <span class="doccomment">/// Memory import.</span>
-    <span class="ident">Memory</span>(<span class="ident">MemoryIndex</span>),
-    <span class="doccomment">/// Global import.</span>
-    <span class="ident">Global</span>(<span class="ident">GlobalIndex</span>),
+<span class="doccomment">/// An entity to import.
+</span><span class="attribute">#[derive(
+    Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>ImportIndex {
+    <span class="doccomment">/// Function import.
+    </span>Function(FunctionIndex),
+    <span class="doccomment">/// Table import.
+    </span>Table(TableIndex),
+    <span class="doccomment">/// Memory import.
+    </span>Memory(MemoryIndex),
+    <span class="doccomment">/// Global import.
+    </span>Global(GlobalIndex),
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

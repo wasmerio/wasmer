@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli-compiler/src/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli-compiler/src/error.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -114,119 +114,119 @@
 <span id="112">112</span>
 <span id="113">113</span>
 <span id="114">114</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Implements `PretyError` to print pretty errors in the CLI (when they happen)</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Chain</span>, <span class="ident">Error</span>};
-<span class="kw">use</span> <span class="ident">colored</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>::{<span class="self">self</span>, <span class="ident">Debug</span>, <span class="ident">Write</span>};
+</span><span class="kw">use </span>anyhow::{Chain, Error};
+<span class="kw">use </span>colored::<span class="kw-2">*</span>;
+<span class="kw">use </span>std::fmt::{<span class="self">self</span>, Debug, Write};
 
-<span class="doccomment">/// A `PrettyError` for printing `anyhow::Error` nicely.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PrettyError</span> {
-    <span class="ident">error</span>: <span class="ident">Error</span>,
+<span class="doccomment">/// A `PrettyError` for printing `anyhow::Error` nicely.
+</span><span class="kw">pub struct </span>PrettyError {
+    error: Error,
 }
 
-<span class="doccomment">/// A macro that prints a warning with nice colors</span>
-<span class="attribute">#[<span class="ident">macro_export</span>]</span>
-<span class="macro">macro_rules!</span> <span class="ident">warning</span> {
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>:<span class="ident">tt</span>)<span class="kw-2">*</span>) =&gt; ({
-        <span class="kw">use</span> <span class="ident">colored</span>::<span class="kw-2">*</span>;
-        <span class="macro">eprintln!</span>(<span class="string">&quot;{}: {}&quot;</span>, <span class="string">&quot;warning&quot;</span>.<span class="ident">yellow</span>().<span class="ident">bold</span>(), <span class="macro">format!</span>($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">arg</span>)<span class="kw-2">*</span>));
+<span class="doccomment">/// A macro that prints a warning with nice colors
+</span><span class="attribute">#[macro_export]
+</span><span class="macro">macro_rules! </span>warning {
+    ($(<span class="macro-nonterminal">$arg</span>:tt)<span class="kw-2">*</span>) =&gt; ({
+        <span class="kw">use </span>colored::<span class="kw-2">*</span>;
+        <span class="macro">eprintln!</span>(<span class="string">&quot;{}: {}&quot;</span>, <span class="string">&quot;warning&quot;</span>.yellow().bold(), <span class="macro">format!</span>($(<span class="macro-nonterminal">$arg</span>)<span class="kw-2">*</span>));
     })
 }
 
-<span class="kw">impl</span> <span class="ident">PrettyError</span> {
-    <span class="doccomment">/// Process a `Result` printing any errors and exiting</span>
-    <span class="doccomment">/// the process after</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">report</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">result</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Error</span><span class="op">&gt;</span>) -&gt; <span class="op">!</span> {
-        <span class="ident">std::process::exit</span>(<span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">_t</span>) =&gt; <span class="number">0</span>,
-            <span class="prelude-val">Err</span>(<span class="ident">error</span>) =&gt; {
-                <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">PrettyError</span> { <span class="ident">error</span> });
-                <span class="number">1</span>
-            }
+<span class="kw">impl </span>PrettyError {
+    <span class="doccomment">/// Process a `Result` printing any errors and exiting
+    /// the process after
+    </span><span class="kw">pub fn </span>report&lt;T&gt;(result: <span class="prelude-ty">Result</span>&lt;T, Error&gt;) -&gt; ! {
+        std::process::exit(<span class="kw">match </span>result {
+            <span class="prelude-val">Ok</span>(_t) =&gt; <span class="number">0</span>,
+            <span class="prelude-val">Err</span>(error) =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, PrettyError { error });
+                <span class="number">1
+            </span>}
         });
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Debug</span> <span class="kw">for</span> <span class="ident">PrettyError</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">let</span> <span class="ident">error</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">error</span>;
+<span class="kw">impl </span>Debug <span class="kw">for </span>PrettyError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">let </span>error = <span class="kw-2">&amp;</span><span class="self">self</span>.error;
 
-        <span class="kw">if</span> <span class="ident">f</span>.<span class="ident">alternate</span>() {
-            <span class="kw">return</span> <span class="ident">Debug::fmt</span>(<span class="kw-2">&amp;</span><span class="ident">error</span>, <span class="ident">f</span>);
+        <span class="kw">if </span>f.alternate() {
+            <span class="kw">return </span>Debug::fmt(<span class="kw-2">&amp;</span>error, f);
         }
 
-        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, <span class="string">&quot;error&quot;</span>.<span class="ident">red</span>(), <span class="ident">error</span>).<span class="ident">bold</span>())<span class="question-mark">?</span>;
-        <span class="comment">// write!(f, &quot;{}&quot;, error)?;</span>
+        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, <span class="string">&quot;error&quot;</span>.red(), error).bold())<span class="question-mark">?</span>;
+        <span class="comment">// write!(f, &quot;{}&quot;, error)?;
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cause</span>) <span class="op">=</span> <span class="ident">error</span>.<span class="ident">source</span>() {
-            <span class="comment">// write!(f, &quot;\n{}:&quot;, &quot;caused by&quot;.bold().blue())?;</span>
-            <span class="kw">let</span> <span class="ident">chain</span> <span class="op">=</span> <span class="ident">Chain::new</span>(<span class="ident">cause</span>);
-            <span class="kw">let</span> (<span class="ident">total_errors</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">chain</span>.<span class="ident">size_hint</span>();
-            <span class="kw">for</span> (<span class="ident">n</span>, <span class="ident">error</span>) <span class="kw">in</span> <span class="ident">chain</span>.<span class="ident">enumerate</span>() {
-                <span class="macro">writeln!</span>(<span class="ident">f</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">indented</span> <span class="op">=</span> <span class="ident">Indented</span> {
-                    <span class="ident">inner</span>: <span class="ident">f</span>,
-                    <span class="ident">number</span>: <span class="prelude-val">Some</span>(<span class="ident">n</span> <span class="op">+</span> <span class="number">1</span>),
-                    <span class="ident">is_last</span>: <span class="ident">n</span> <span class="op">==</span> <span class="ident">total_errors</span> <span class="op">-</span> <span class="number">1</span>,
-                    <span class="ident">started</span>: <span class="bool-val">false</span>,
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cause) = error.source() {
+            <span class="comment">// write!(f, &quot;\n{}:&quot;, &quot;caused by&quot;.bold().blue())?;
+            </span><span class="kw">let </span>chain = Chain::new(cause);
+            <span class="kw">let </span>(total_errors, <span class="kw">_</span>) = chain.size_hint();
+            <span class="kw">for </span>(n, error) <span class="kw">in </span>chain.enumerate() {
+                <span class="macro">writeln!</span>(f)<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>indented = Indented {
+                    inner: f,
+                    number: <span class="prelude-val">Some</span>(n + <span class="number">1</span>),
+                    is_last: n == total_errors - <span class="number">1</span>,
+                    started: <span class="bool-val">false</span>,
                 };
-                <span class="macro">write!</span>(<span class="ident">indented</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">error</span>)<span class="question-mark">?</span>;
+                <span class="macro">write!</span>(indented, <span class="string">&quot;{}&quot;</span>, error)<span class="question-mark">?</span>;
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="kw">struct</span> <span class="ident">Indented</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">D</span><span class="op">&gt;</span> {
-    <span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">D</span>,
-    <span class="ident">number</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
-    <span class="ident">started</span>: <span class="ident">bool</span>,
-    <span class="ident">is_last</span>: <span class="ident">bool</span>,
+<span class="kw">struct </span>Indented&lt;<span class="lifetime">&#39;a</span>, D&gt; {
+    inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>D,
+    number: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    started: bool,
+    is_last: bool,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">Indented</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">Write</span>,
+<span class="kw">impl</span>&lt;T&gt; Write <span class="kw">for </span>Indented&lt;<span class="lifetime">&#39;_</span>, T&gt;
+<span class="kw">where
+    </span>T: Write,
 {
-    <span class="kw">fn</span> <span class="ident">write_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">line</span>) <span class="kw">in</span> <span class="ident">s</span>.<span class="ident">split</span>(<span class="string">&#39;\n&#39;</span>).<span class="ident">enumerate</span>() {
-            <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">started</span> {
-                <span class="self">self</span>.<span class="ident">started</span> <span class="op">=</span> <span class="bool-val">true</span>;
-                <span class="kw">match</span> <span class="self">self</span>.<span class="ident">number</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">number</span>) =&gt; {
-                        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">is_last</span> {
+    <span class="kw">fn </span>write_str(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; fmt::Result {
+        <span class="kw">for </span>(i, line) <span class="kw">in </span>s.split(<span class="string">&#39;\n&#39;</span>).enumerate() {
+            <span class="kw">if </span>!<span class="self">self</span>.started {
+                <span class="self">self</span>.started = <span class="bool-val">true</span>;
+                <span class="kw">match </span><span class="self">self</span>.number {
+                    <span class="prelude-val">Some</span>(number) =&gt; {
+                        <span class="kw">if </span>!<span class="self">self</span>.is_last {
                             <span class="macro">write!</span>(
-                                <span class="self">self</span>.<span class="ident">inner</span>,
+                                <span class="self">self</span>.inner,
                                 <span class="string">&quot;{} {: &gt;4} &quot;</span>,
-                                <span class="string">&quot;│&quot;</span>.<span class="ident">bold</span>().<span class="ident">blue</span>(),
-                                <span class="macro">format!</span>(<span class="string">&quot;{}:&quot;</span>, <span class="ident">number</span>).<span class="ident">dimmed</span>()
-                            )<span class="question-mark">?</span>
-                        } <span class="kw">else</span> {
+                                <span class="string">&quot;│&quot;</span>.bold().blue(),
+                                <span class="macro">format!</span>(<span class="string">&quot;{}:&quot;</span>, number).dimmed()
+                            )<span class="question-mark">?
+                        </span>} <span class="kw">else </span>{
                             <span class="macro">write!</span>(
-                                <span class="self">self</span>.<span class="ident">inner</span>,
+                                <span class="self">self</span>.inner,
                                 <span class="string">&quot;{}{: &gt;2}: &quot;</span>,
-                                <span class="string">&quot;╰─▶&quot;</span>.<span class="ident">bold</span>().<span class="ident">blue</span>(),
-                                <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">number</span>).<span class="ident">bold</span>().<span class="ident">blue</span>()
-                            )<span class="question-mark">?</span>
-                        }
+                                <span class="string">&quot;╰─▶&quot;</span>.bold().blue(),
+                                <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, number).bold().blue()
+                            )<span class="question-mark">?
+                        </span>}
                     }
-                    <span class="prelude-val">None</span> =&gt; <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_str</span>(<span class="string">&quot;    &quot;</span>)<span class="question-mark">?</span>,
+                    <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.inner.write_str(<span class="string">&quot;    &quot;</span>)<span class="question-mark">?</span>,
                 }
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">i</span> <span class="op">&gt;</span> <span class="number">0</span> {
-                <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_char</span>(<span class="string">&#39;\n&#39;</span>)<span class="question-mark">?</span>;
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">number</span>.<span class="ident">is_some</span>() {
-                    <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_str</span>(<span class="string">&quot;       &quot;</span>)<span class="question-mark">?</span>;
-                } <span class="kw">else</span> {
-                    <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_str</span>(<span class="string">&quot;    &quot;</span>)<span class="question-mark">?</span>;
+            } <span class="kw">else if </span>i &gt; <span class="number">0 </span>{
+                <span class="self">self</span>.inner.write_char(<span class="string">&#39;\n&#39;</span>)<span class="question-mark">?</span>;
+                <span class="kw">if </span><span class="self">self</span>.number.is_some() {
+                    <span class="self">self</span>.inner.write_str(<span class="string">&quot;       &quot;</span>)<span class="question-mark">?</span>;
+                } <span class="kw">else </span>{
+                    <span class="self">self</span>.inner.write_str(<span class="string">&quot;    &quot;</span>)<span class="question-mark">?</span>;
                 }
             }
 
-            <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write_str</span>(<span class="ident">line</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.inner.write_str(line)<span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(())
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

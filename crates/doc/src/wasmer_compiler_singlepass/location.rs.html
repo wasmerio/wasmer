@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/location.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>location.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/location.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>location.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -75,82 +75,82 @@
 <span id="75">75</span>
 <span id="76">76</span>
 <span id="77">77</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::RegisterIndex</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std::hash::Hash</span>;
-<span class="kw">use</span> <span class="ident">std::slice::Iter</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::common_decl::RegisterIndex;
+<span class="kw">use </span><span class="kw">crate</span>::machine::<span class="kw-2">*</span>;
+<span class="kw">use </span>std::fmt::Debug;
+<span class="kw">use </span>std::hash::Hash;
+<span class="kw">use </span>std::slice::Iter;
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Multiplier</span> {
-    <span class="ident">Zero</span> <span class="op">=</span> <span class="number">0</span>,
-    <span class="ident">One</span> <span class="op">=</span> <span class="number">1</span>,
-    <span class="ident">Two</span> <span class="op">=</span> <span class="number">2</span>,
-    <span class="ident">Four</span> <span class="op">=</span> <span class="number">4</span>,
-    <span class="ident">Height</span> <span class="op">=</span> <span class="number">8</span>,
+<span class="attribute">#[allow(dead_code)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+</span><span class="kw">pub enum </span>Multiplier {
+    Zero = <span class="number">0</span>,
+    One = <span class="number">1</span>,
+    Two = <span class="number">2</span>,
+    Four = <span class="number">4</span>,
+    Height = <span class="number">8</span>,
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::upper_case_acronyms</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Ord</span>, <span class="ident">PartialOrd</span>, <span class="ident">Hash</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="ident">GPR</span>(<span class="ident">R</span>),
-    <span class="ident">SIMD</span>(<span class="ident">S</span>),
-    <span class="ident">Memory</span>(<span class="ident">R</span>, <span class="ident">i32</span>),
-    <span class="ident">Memory2</span>(<span class="ident">R</span>, <span class="ident">R</span>, <span class="ident">Multiplier</span>, <span class="ident">i32</span>), <span class="comment">// R + R*Multiplier + i32</span>
-    <span class="ident">Imm8</span>(<span class="ident">u8</span>),
-    <span class="ident">Imm32</span>(<span class="ident">u32</span>),
-    <span class="ident">Imm64</span>(<span class="ident">u64</span>),
+<span class="attribute">#[allow(dead_code, clippy::upper_case_acronyms)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+</span><span class="kw">pub enum </span>Location&lt;R, S&gt; {
+    GPR(R),
+    SIMD(S),
+    Memory(R, i32),
+    Memory2(R, R, Multiplier, i32), <span class="comment">// R + R*Multiplier + i32
+    </span>Imm8(u8),
+    Imm32(u32),
+    Imm64(u64),
     <span class="prelude-val">None</span>,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span> <span class="ident">MaybeImmediate</span> <span class="kw">for</span> <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">imm_value</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-            <span class="ident">Location::Imm8</span>(<span class="ident">imm</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">Value::I8</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">i8</span>)),
-            <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">Value::I32</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">i32</span>)),
-            <span class="ident">Location::Imm64</span>(<span class="ident">imm</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">Value::I64</span>(<span class="ident">imm</span> <span class="kw">as</span> <span class="ident">i64</span>)),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
+<span class="kw">impl</span>&lt;R, S&gt; MaybeImmediate <span class="kw">for </span>Location&lt;R, S&gt; {
+    <span class="kw">fn </span>imm_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Value&gt; {
+        <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+            Location::Imm8(imm) =&gt; <span class="prelude-val">Some</span>(Value::I8(imm <span class="kw">as </span>i8)),
+            Location::Imm32(imm) =&gt; <span class="prelude-val">Some</span>(Value::I32(imm <span class="kw">as </span>i32)),
+            Location::Imm64(imm) =&gt; <span class="prelude-val">Some</span>(Value::I64(imm <span class="kw">as </span>i64)),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
     }
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Reg</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Eq</span> <span class="op">+</span> <span class="ident">PartialEq</span> <span class="op">+</span> <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Hash</span> <span class="op">+</span> <span class="ident">Ord</span> {
-    <span class="kw">fn</span> <span class="ident">is_callee_save</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span>;
-    <span class="kw">fn</span> <span class="ident">is_reserved</span>(<span class="self">self</span>) -&gt; <span class="ident">bool</span>;
-    <span class="kw">fn</span> <span class="ident">into_index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span>;
-    <span class="kw">fn</span> <span class="ident">from_index</span>(<span class="ident">i</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, ()<span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">iterator</span>() -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">to_dwarf</span>(<span class="self">self</span>) -&gt; <span class="ident">u16</span>;
+<span class="kw">pub trait </span>Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
+    <span class="kw">fn </span>is_callee_save(<span class="self">self</span>) -&gt; bool;
+    <span class="kw">fn </span>is_reserved(<span class="self">self</span>) -&gt; bool;
+    <span class="kw">fn </span>into_index(<span class="self">self</span>) -&gt; usize;
+    <span class="kw">fn </span>from_index(i: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt;;
+    <span class="kw">fn </span>iterator() -&gt; Iter&lt;<span class="lifetime">&#39;static</span>, <span class="self">Self</span>&gt;;
+    <span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; u16;
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Descriptor</span><span class="op">&lt;</span><span class="ident">R</span>: <span class="ident">Reg</span>, <span class="ident">S</span>: <span class="ident">Reg</span><span class="op">&gt;</span> {
-    <span class="kw">const</span> <span class="ident">FP</span>: <span class="ident">R</span>;
-    <span class="kw">const</span> <span class="ident">VMCTX</span>: <span class="ident">R</span>;
-    <span class="kw">const</span> <span class="ident">GPR_COUNT</span>: <span class="ident">usize</span>;
-    <span class="kw">const</span> <span class="ident">SIMD_COUNT</span>: <span class="ident">usize</span>;
-    <span class="kw">const</span> <span class="ident">WORD_SIZE</span>: <span class="ident">usize</span>;
-    <span class="kw">const</span> <span class="ident">STACK_GROWS_DOWN</span>: <span class="ident">bool</span>;
-    <span class="kw">const</span> <span class="ident">FP_STACK_ARG_OFFSET</span>: <span class="ident">i32</span>;
-    <span class="kw">const</span> <span class="ident">ARG_REG_COUNT</span>: <span class="ident">usize</span>;
-    <span class="kw">fn</span> <span class="ident">callee_save_gprs</span>() -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">caller_save_gprs</span>() -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">R</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">callee_save_simd</span>() -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">caller_save_simd</span>() -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">callee_param_location</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">caller_arg_location</span>(<span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">return_location</span>() -&gt; <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">R</span>, <span class="ident">S</span><span class="op">&gt;</span>;
+<span class="kw">pub trait </span>Descriptor&lt;R: Reg, S: Reg&gt; {
+    <span class="kw">const </span>FP: R;
+    <span class="kw">const </span>VMCTX: R;
+    <span class="kw">const </span>GPR_COUNT: usize;
+    <span class="kw">const </span>SIMD_COUNT: usize;
+    <span class="kw">const </span>WORD_SIZE: usize;
+    <span class="kw">const </span>STACK_GROWS_DOWN: bool;
+    <span class="kw">const </span>FP_STACK_ARG_OFFSET: i32;
+    <span class="kw">const </span>ARG_REG_COUNT: usize;
+    <span class="kw">fn </span>callee_save_gprs() -&gt; Vec&lt;R&gt;;
+    <span class="kw">fn </span>caller_save_gprs() -&gt; Vec&lt;R&gt;;
+    <span class="kw">fn </span>callee_save_simd() -&gt; Vec&lt;S&gt;;
+    <span class="kw">fn </span>caller_save_simd() -&gt; Vec&lt;S&gt;;
+    <span class="kw">fn </span>callee_param_location(n: usize) -&gt; Location&lt;R, S&gt;;
+    <span class="kw">fn </span>caller_arg_location(n: usize) -&gt; Location&lt;R, S&gt;;
+    <span class="kw">fn </span>return_location() -&gt; Location&lt;R, S&gt;;
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">CombinedRegister</span>: <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Eq</span> <span class="op">+</span> <span class="ident">PartialEq</span> <span class="op">+</span> <span class="ident">Debug</span> {
-    <span class="doccomment">/// Returns the index of the register.</span>
-    <span class="kw">fn</span> <span class="ident">to_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">RegisterIndex</span>;
-    <span class="doccomment">/// Converts a DWARF regnum to CombinedRegister.</span>
-    <span class="kw">fn</span> <span class="ident">_from_dwarf_regnum</span>(<span class="ident">x</span>: <span class="ident">u16</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>;
-    <span class="doccomment">/// Convert from a GPR register</span>
-    <span class="kw">fn</span> <span class="ident">from_gpr</span>(<span class="ident">x</span>: <span class="ident">u16</span>) -&gt; <span class="self">Self</span>;
-    <span class="doccomment">/// Convert from an SIMD register</span>
-    <span class="kw">fn</span> <span class="ident">from_simd</span>(<span class="ident">x</span>: <span class="ident">u16</span>) -&gt; <span class="self">Self</span>;
+<span class="kw">pub trait </span>CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
+    <span class="doccomment">/// Returns the index of the register.
+    </span><span class="kw">fn </span>to_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegisterIndex;
+    <span class="doccomment">/// Converts a DWARF regnum to CombinedRegister.
+    </span><span class="kw">fn </span>_from_dwarf_regnum(x: u16) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
+    <span class="doccomment">/// Convert from a GPR register
+    </span><span class="kw">fn </span>from_gpr(x: u16) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Convert from an SIMD register
+    </span><span class="kw">fn </span>from_simd(x: u16) -&gt; <span class="self">Self</span>;
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

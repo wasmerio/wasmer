@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/entity/boxed_slice.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>boxed_slice.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/entity/boxed_slice.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>boxed_slice.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -315,322 +315,322 @@
 <span id="315">315</span>
 <span id="316">316</span>
 <span id="317">317</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Boxed slices for `PrimaryMap`.</span>
+</span><span class="doccomment">//! Boxed slices for `PrimaryMap`.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::iter</span>::{<span class="ident">Iter</span>, <span class="ident">IterMut</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::keys::Keys</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::EntityRef</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::boxed::Box</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::marker::PhantomData</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::ops</span>::{<span class="ident">Index</span>, <span class="ident">IndexMut</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::slice</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::entity::iter::{Iter, IterMut};
+<span class="kw">use </span><span class="kw">crate</span>::entity::keys::Keys;
+<span class="kw">use </span><span class="kw">crate</span>::entity::EntityRef;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::boxed::Box;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::marker::PhantomData;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::ops::{Index, IndexMut};
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::slice;
 
-<span class="doccomment">/// A slice mapping `K -&gt; V` allocating dense entity references.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The `BoxedSlice` data structure uses the dense index space to implement a map with a boxed</span>
-<span class="doccomment">/// slice.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
+<span class="doccomment">/// A slice mapping `K -&gt; V` allocating dense entity references.
+///
+/// The `BoxedSlice` data structure uses the dense index space to implement a map with a boxed
+/// slice.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
 {
-    <span class="ident">elems</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">V</span>]<span class="op">&gt;</span>,
-    <span class="ident">unused</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>,
+    elems: Box&lt;[V]&gt;,
+    unused: PhantomData&lt;K&gt;,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
+<span class="kw">impl</span>&lt;K, V&gt; BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
 {
-    <span class="doccomment">/// Create a new slice from a raw pointer. A safer way to create slices is</span>
-    <span class="doccomment">/// to use `PrimaryMap::into_boxed_slice()`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This relies on `raw` pointing to a valid slice of `V`s.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">raw</span>: <span class="kw-2">*mut</span> [<span class="ident">V</span>]) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">elems</span>: <span class="ident">Box::from_raw</span>(<span class="ident">raw</span>),
-            <span class="ident">unused</span>: <span class="ident">PhantomData</span>,
+    <span class="doccomment">/// Create a new slice from a raw pointer. A safer way to create slices is
+    /// to use `PrimaryMap::into_boxed_slice()`.
+    ///
+    /// # Safety
+    ///
+    /// This relies on `raw` pointing to a valid slice of `V`s.
+    </span><span class="kw">pub unsafe fn </span>from_raw(raw: <span class="kw-2">*mut </span>[V]) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            elems: Box::from_raw(raw),
+            unused: PhantomData,
         }
     }
 
-    <span class="doccomment">/// Check if `k` is a valid key in the map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_valid</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">K</span>) -&gt; <span class="ident">bool</span> {
-        <span class="ident">k</span>.<span class="ident">index</span>() <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">len</span>()
+    <span class="doccomment">/// Check if `k` is a valid key in the map.
+    </span><span class="kw">pub fn </span>is_valid(<span class="kw-2">&amp;</span><span class="self">self</span>, k: K) -&gt; bool {
+        k.index() &lt; <span class="self">self</span>.elems.len()
     }
 
-    <span class="doccomment">/// Get the element at `k` if it exists.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">K</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">get</span>(<span class="ident">k</span>.<span class="ident">index</span>())
+    <span class="doccomment">/// Get the element at `k` if it exists.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, k: K) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>V&gt; {
+        <span class="self">self</span>.elems.get(k.index())
     }
 
-    <span class="doccomment">/// Get the element at `k` if it exists, mutable version.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">k</span>: <span class="ident">K</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">get_mut</span>(<span class="ident">k</span>.<span class="ident">index</span>())
+    <span class="doccomment">/// Get the element at `k` if it exists, mutable version.
+    </span><span class="kw">pub fn </span>get_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, k: K) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>V&gt; {
+        <span class="self">self</span>.elems.get_mut(k.index())
     }
 
-    <span class="doccomment">/// Is this map completely empty?</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">is_empty</span>()
+    <span class="doccomment">/// Is this map completely empty?
+    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.elems.is_empty()
     }
 
-    <span class="doccomment">/// Get the total number of entity references created.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">len</span>()
+    <span class="doccomment">/// Get the total number of entity references created.
+    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.elems.len()
     }
 
-    <span class="doccomment">/// Iterate over all the keys in this map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">keys</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Keys</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> {
-        <span class="ident">Keys::with_len</span>(<span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">len</span>())
+    <span class="doccomment">/// Iterate over all the keys in this map.
+    </span><span class="kw">pub fn </span>keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Keys&lt;K&gt; {
+        Keys::with_len(<span class="self">self</span>.elems.len())
     }
 
-    <span class="doccomment">/// Iterate over all the values in this map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">values</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">slice::Iter</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">iter</span>()
+    <span class="doccomment">/// Iterate over all the values in this map.
+    </span><span class="kw">pub fn </span>values(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; slice::Iter&lt;V&gt; {
+        <span class="self">self</span>.elems.iter()
     }
 
-    <span class="doccomment">/// Iterate over all the values in this map, mutable edition.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">values_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">slice::IterMut</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">iter_mut</span>()
+    <span class="doccomment">/// Iterate over all the values in this map, mutable edition.
+    </span><span class="kw">pub fn </span>values_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; slice::IterMut&lt;V&gt; {
+        <span class="self">self</span>.elems.iter_mut()
     }
 
-    <span class="doccomment">/// Iterate over all the keys and values in this map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="ident">Iter::new</span>(<span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">iter</span>())
+    <span class="doccomment">/// Iterate over all the keys and values in this map.
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;K, V&gt; {
+        Iter::new(<span class="self">self</span>.elems.iter())
     }
 
-    <span class="doccomment">/// Iterate over all the keys and values in this map, mutable edition.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">IterMut</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="ident">IterMut::new</span>(<span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">iter_mut</span>())
+    <span class="doccomment">/// Iterate over all the keys and values in this map, mutable edition.
+    </span><span class="kw">pub fn </span>iter_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; IterMut&lt;K, V&gt; {
+        IterMut::new(<span class="self">self</span>.elems.iter_mut())
     }
 
-    <span class="doccomment">/// Returns the last element that was inserted in the map.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">last</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">V</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">last</span>()
-    }
-}
-
-<span class="doccomment">/// Immutable indexing into a `BoxedSlice`.</span>
-<span class="doccomment">/// The indexed value must be in the map.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> <span class="ident">Index</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
-{
-    <span class="kw">type</span> <span class="ident">Output</span> <span class="op">=</span> <span class="ident">V</span>;
-
-    <span class="kw">fn</span> <span class="ident">index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">k</span>: <span class="ident">K</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">V</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">elems</span>[<span class="ident">k</span>.<span class="ident">index</span>()]
+    <span class="doccomment">/// Returns the last element that was inserted in the map.
+    </span><span class="kw">pub fn </span>last(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>V&gt; {
+        <span class="self">self</span>.elems.last()
     }
 }
 
-<span class="doccomment">/// Mutable indexing into a `BoxedSlice`.</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> <span class="ident">IndexMut</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
+<span class="doccomment">/// Immutable indexing into a `BoxedSlice`.
+/// The indexed value must be in the map.
+</span><span class="kw">impl</span>&lt;K, V&gt; Index&lt;K&gt; <span class="kw">for </span>BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
 {
-    <span class="kw">fn</span> <span class="ident">index_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">k</span>: <span class="ident">K</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">V</span> {
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">elems</span>[<span class="ident">k</span>.<span class="ident">index</span>()]
+    <span class="kw">type </span>Output = V;
+
+    <span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>, k: K) -&gt; <span class="kw-2">&amp;</span>V {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.elems[k.index()]
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> <span class="ident">IntoIterator</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
+<span class="doccomment">/// Mutable indexing into a `BoxedSlice`.
+</span><span class="kw">impl</span>&lt;K, V&gt; IndexMut&lt;K&gt; <span class="kw">for </span>BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
 {
-    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> (<span class="ident">K</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">V</span>);
-    <span class="kw">type</span> <span class="ident">IntoIter</span> <span class="op">=</span> <span class="ident">Iter</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>;
-
-    <span class="kw">fn</span> <span class="ident">into_iter</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::IntoIter</span> {
-        <span class="ident">Iter::new</span>(<span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">iter</span>())
+    <span class="kw">fn </span>index_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, k: K) -&gt; <span class="kw-2">&amp;mut </span>V {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.elems[k.index()]
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span> <span class="ident">IntoIterator</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">K</span>: <span class="ident">EntityRef</span>,
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, K, V&gt; IntoIterator <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
 {
-    <span class="kw">type</span> <span class="ident">Item</span> <span class="op">=</span> (<span class="ident">K</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">V</span>);
-    <span class="kw">type</span> <span class="ident">IntoIter</span> <span class="op">=</span> <span class="ident">IterMut</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">K</span>, <span class="ident">V</span><span class="op">&gt;</span>;
+    <span class="kw">type </span>Item = (K, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>V);
+    <span class="kw">type </span>IntoIter = Iter&lt;<span class="lifetime">&#39;a</span>, K, V&gt;;
 
-    <span class="kw">fn</span> <span class="ident">into_iter</span>(<span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::IntoIter</span> {
-        <span class="ident">IterMut::new</span>(<span class="self">self</span>.<span class="ident">elems</span>.<span class="ident">iter_mut</span>())
+    <span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
+        Iter::new(<span class="self">self</span>.elems.iter())
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, K, V&gt; IntoIterator <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
+{
+    <span class="kw">type </span>Item = (K, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>V);
+    <span class="kw">type </span>IntoIter = IterMut&lt;<span class="lifetime">&#39;a</span>, K, V&gt;;
 
-    <span class="comment">// `EntityRef` impl for testing.</span>
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">E</span>(<span class="ident">u32</span>);
+    <span class="kw">fn </span>into_iter(<span class="self">self</span>) -&gt; <span class="self">Self</span>::IntoIter {
+        IterMut::new(<span class="self">self</span>.elems.iter_mut())
+    }
+}
 
-    <span class="kw">impl</span> <span class="ident">EntityRef</span> <span class="kw">for</span> <span class="ident">E</span> {
-        <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">i</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-            <span class="self">Self</span>(<span class="ident">i</span> <span class="kw">as</span> <span class="ident">u32</span>)
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
+    <span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
+
+    <span class="comment">// `EntityRef` impl for testing.
+    </span><span class="attribute">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    </span><span class="kw">struct </span>E(u32);
+
+    <span class="kw">impl </span>EntityRef <span class="kw">for </span>E {
+        <span class="kw">fn </span>new(i: usize) -&gt; <span class="self">Self </span>{
+            <span class="self">Self</span>(i <span class="kw">as </span>u32)
         }
-        <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-            <span class="self">self</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">usize</span>
+        <span class="kw">fn </span>index(<span class="self">self</span>) -&gt; usize {
+            <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>usize
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">basic</span>() {
-        <span class="kw">let</span> <span class="ident">r0</span> <span class="op">=</span> <span class="ident">E</span>(<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">r1</span> <span class="op">=</span> <span class="ident">E</span>(<span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">isize</span><span class="op">&gt;</span><span class="ident">::new</span>();
-        <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>basic() {
+        <span class="kw">let </span>r0 = E(<span class="number">0</span>);
+        <span class="kw">let </span>r1 = E(<span class="number">1</span>);
+        <span class="kw">let </span>p = PrimaryMap::&lt;E, isize&gt;::new();
+        <span class="kw">let </span>m = p.into_boxed_slice();
 
-        <span class="kw">let</span> <span class="ident">v</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">E</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">m</span>.<span class="ident">keys</span>().<span class="ident">collect</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">v</span>, []);
+        <span class="kw">let </span>v: Vec&lt;E&gt; = m.keys().collect();
+        <span class="macro">assert_eq!</span>(v, []);
 
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">m</span>.<span class="ident">is_valid</span>(<span class="ident">r0</span>));
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">m</span>.<span class="ident">is_valid</span>(<span class="ident">r1</span>));
+        <span class="macro">assert!</span>(!m.is_valid(r0));
+        <span class="macro">assert!</span>(!m.is_valid(r1));
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">iter</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">12</span>);
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>iter() {
+        <span class="kw">let </span><span class="kw-2">mut </span>p: PrimaryMap&lt;E, usize&gt; = PrimaryMap::new();
+        p.push(<span class="number">12</span>);
+        p.push(<span class="number">33</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>m = p.into_boxed_slice();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">m</span> {
-            <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
+        <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+        <span class="kw">for </span>(key, value) <span class="kw">in </span><span class="kw-2">&amp;</span>m {
+            <span class="macro">assert_eq!</span>(key.index(), i);
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
             }
-            <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+            i += <span class="number">1</span>;
         }
-        <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> (<span class="ident">key_mut</span>, <span class="ident">value_mut</span>) <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">iter_mut</span>() {
-            <span class="macro">assert_eq!</span>(<span class="ident">key_mut</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value_mut</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value_mut</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
+        i = <span class="number">0</span>;
+        <span class="kw">for </span>(key_mut, value_mut) <span class="kw">in </span>m.iter_mut() {
+            <span class="macro">assert_eq!</span>(key_mut.index(), i);
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value_mut, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value_mut, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
             }
-            <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-        }
-    }
-
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">iter_rev</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">12</span>);
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">2</span>;
-        <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-            <span class="ident">i</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
-            }
-        }
-
-        <span class="ident">i</span> <span class="op">=</span> <span class="number">2</span>;
-        <span class="kw">for</span> (<span class="ident">key</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">iter_mut</span>().<span class="ident">rev</span>() {
-            <span class="ident">i</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
-            }
-        }
-    }
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">keys</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">12</span>);
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
-        <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
-
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">key</span>) <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">keys</span>().<span class="ident">enumerate</span>() {
-            <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
+            i += <span class="number">1</span>;
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">keys_rev</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">12</span>);
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
-        <span class="kw">let</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>iter_rev() {
+        <span class="kw">let </span><span class="kw-2">mut </span>p: PrimaryMap&lt;E, usize&gt; = PrimaryMap::new();
+        p.push(<span class="number">12</span>);
+        p.push(<span class="number">33</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>m = p.into_boxed_slice();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">2</span>;
-        <span class="kw">for</span> <span class="ident">key</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">keys</span>().<span class="ident">rev</span>() {
-            <span class="ident">i</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="macro">assert_eq!</span>(<span class="ident">key</span>.<span class="ident">index</span>(), <span class="ident">i</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">2</span>;
+        <span class="kw">for </span>(key, value) <span class="kw">in </span>m.iter().rev() {
+            i -= <span class="number">1</span>;
+            <span class="macro">assert_eq!</span>(key.index(), i);
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
+            }
+        }
+
+        i = <span class="number">2</span>;
+        <span class="kw">for </span>(key, value) <span class="kw">in </span>m.iter_mut().rev() {
+            i -= <span class="number">1</span>;
+            <span class="macro">assert_eq!</span>(key.index(), i);
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
+            }
+        }
+    }
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>keys() {
+        <span class="kw">let </span><span class="kw-2">mut </span>p: PrimaryMap&lt;E, usize&gt; = PrimaryMap::new();
+        p.push(<span class="number">12</span>);
+        p.push(<span class="number">33</span>);
+        <span class="kw">let </span>m = p.into_boxed_slice();
+
+        <span class="kw">for </span>(i, key) <span class="kw">in </span>m.keys().enumerate() {
+            <span class="macro">assert_eq!</span>(key.index(), i);
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">values</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">12</span>);
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>keys_rev() {
+        <span class="kw">let </span><span class="kw-2">mut </span>p: PrimaryMap&lt;E, usize&gt; = PrimaryMap::new();
+        p.push(<span class="number">12</span>);
+        p.push(<span class="number">33</span>);
+        <span class="kw">let </span>m = p.into_boxed_slice();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">value</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">values</span>() {
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
-            }
-            <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-        }
-        <span class="ident">i</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">value_mut</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">values_mut</span>() {
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value_mut</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value_mut</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
-            }
-            <span class="ident">i</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">2</span>;
+        <span class="kw">for </span>key <span class="kw">in </span>m.keys().rev() {
+            i -= <span class="number">1</span>;
+            <span class="macro">assert_eq!</span>(key.index(), i);
         }
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">values_rev</span>() {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">p</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">E</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">PrimaryMap::new</span>();
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">12</span>);
-        <span class="ident">p</span>.<span class="ident">push</span>(<span class="number">33</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">m</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">into_boxed_slice</span>();
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>values() {
+        <span class="kw">let </span><span class="kw-2">mut </span>p: PrimaryMap&lt;E, usize&gt; = PrimaryMap::new();
+        p.push(<span class="number">12</span>);
+        p.push(<span class="number">33</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>m = p.into_boxed_slice();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="number">2</span>;
-        <span class="kw">for</span> <span class="ident">value</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">values</span>().<span class="ident">rev</span>() {
-            <span class="ident">i</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
+        <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+        <span class="kw">for </span>value <span class="kw">in </span>m.values() {
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
+            }
+            i += <span class="number">1</span>;
+        }
+        i = <span class="number">0</span>;
+        <span class="kw">for </span>value_mut <span class="kw">in </span>m.values_mut() {
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value_mut, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value_mut, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
+            }
+            i += <span class="number">1</span>;
+        }
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>values_rev() {
+        <span class="kw">let </span><span class="kw-2">mut </span>p: PrimaryMap&lt;E, usize&gt; = PrimaryMap::new();
+        p.push(<span class="number">12</span>);
+        p.push(<span class="number">33</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>m = p.into_boxed_slice();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">2</span>;
+        <span class="kw">for </span>value <span class="kw">in </span>m.values().rev() {
+            i -= <span class="number">1</span>;
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
             }
         }
-        <span class="ident">i</span> <span class="op">=</span> <span class="number">2</span>;
-        <span class="kw">for</span> <span class="ident">value_mut</span> <span class="kw">in</span> <span class="ident">m</span>.<span class="ident">values_mut</span>().<span class="ident">rev</span>() {
-            <span class="ident">i</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-            <span class="kw">match</span> <span class="ident">i</span> {
-                <span class="number">0</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value_mut</span>, <span class="number">12</span>),
-                <span class="number">1</span> =&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span><span class="ident">value_mut</span>, <span class="number">33</span>),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(),
+        i = <span class="number">2</span>;
+        <span class="kw">for </span>value_mut <span class="kw">in </span>m.values_mut().rev() {
+            i -= <span class="number">1</span>;
+            <span class="kw">match </span>i {
+                <span class="number">0 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value_mut, <span class="number">12</span>),
+                <span class="number">1 </span>=&gt; <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>value_mut, <span class="number">33</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
             }
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

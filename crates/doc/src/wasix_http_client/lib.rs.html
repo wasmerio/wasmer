@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/wasix-http-client/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasix_http_client/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/wasix-http-client/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasix_http_client/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -138,145 +138,145 @@
 <span id="138">138</span>
 <span id="139">139</span>
 <span id="140">140</span>
-</pre><pre class="rust"><code><span class="comment">// Auto-generated sys bindings.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">clippy::all</span>)]</span>
-<span class="kw">mod</span> <span class="ident">wasix_http_client_v1</span>;
+</pre><pre class="rust"><code><span class="comment">// Auto-generated sys bindings.
+</span><span class="attribute">#[allow(dead_code, clippy::all)]
+</span><span class="kw">mod </span>wasix_http_client_v1;
 
-<span class="kw">use</span> <span class="ident">anyhow::bail</span>;
+<span class="kw">use </span>anyhow::bail;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasix_http_client_v1</span> <span class="kw">as</span> <span class="ident">sys</span>;
+<span class="kw">use </span><span class="kw">crate</span>::wasix_http_client_v1 <span class="kw">as </span>sys;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">http</span>::{<span class="ident">header</span>, <span class="ident">Method</span>, <span class="ident">StatusCode</span>};
+<span class="kw">pub use </span>http::{header, Method, StatusCode};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HttpClient</span> {
-    <span class="ident">client</span>: <span class="ident">sys::Client</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>HttpClient {
+    client: sys::Client,
 }
 
-<span class="comment">// TODO: use proper custom error type</span>
-<span class="kw">impl</span> <span class="ident">HttpClient</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">sys::Client::new</span>().<span class="ident">map_err</span>(<span class="ident">anyhow::Error::msg</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">client</span> })
+<span class="comment">// TODO: use proper custom error type
+</span><span class="kw">impl </span>HttpClient {
+    <span class="kw">pub fn </span>new() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
+        <span class="kw">let </span>client = sys::Client::new().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ client })
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">parts</span>, <span class="ident">body</span>) <span class="op">=</span> <span class="ident">request</span>.<span class="ident">into_parts</span>();
+    <span class="kw">pub fn </span>send(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request) -&gt; <span class="prelude-ty">Result</span>&lt;Response, anyhow::Error&gt; {
+        <span class="kw">let </span>(parts, body) = request.into_parts();
 
-        <span class="kw">let</span> <span class="ident">uri</span> <span class="op">=</span> <span class="ident">parts</span>.<span class="ident">uri</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">method</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">parts</span>.<span class="ident">method</span> {
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::GET</span> =&gt; <span class="ident">sys::Method::Get</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::HEAD</span> =&gt; <span class="ident">sys::Method::Head</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::POST</span> =&gt; <span class="ident">sys::Method::Post</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::PUT</span> =&gt; <span class="ident">sys::Method::Put</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::DELETE</span> =&gt; <span class="ident">sys::Method::Delete</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::CONNECT</span> =&gt; <span class="ident">sys::Method::Connect</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::OPTIONS</span> =&gt; <span class="ident">sys::Method::Options</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::TRACE</span> =&gt; <span class="ident">sys::Method::Trace</span>,
-            <span class="ident">m</span> <span class="kw">if</span> <span class="ident">m</span> <span class="op">==</span> <span class="ident">Method::PATCH</span> =&gt; <span class="ident">sys::Method::Patch</span>,
-            <span class="ident">m</span> =&gt; <span class="ident">sys::Method::Other</span>(<span class="ident">m</span>.<span class="ident">as_str</span>()),
+        <span class="kw">let </span>uri = parts.uri.to_string();
+        <span class="kw">let </span>method = <span class="kw">match </span><span class="kw-2">&amp;</span>parts.method {
+            m <span class="kw">if </span>m == Method::GET =&gt; sys::Method::Get,
+            m <span class="kw">if </span>m == Method::HEAD =&gt; sys::Method::Head,
+            m <span class="kw">if </span>m == Method::POST =&gt; sys::Method::Post,
+            m <span class="kw">if </span>m == Method::PUT =&gt; sys::Method::Put,
+            m <span class="kw">if </span>m == Method::DELETE =&gt; sys::Method::Delete,
+            m <span class="kw">if </span>m == Method::CONNECT =&gt; sys::Method::Connect,
+            m <span class="kw">if </span>m == Method::OPTIONS =&gt; sys::Method::Options,
+            m <span class="kw">if </span>m == Method::TRACE =&gt; sys::Method::Trace,
+            m <span class="kw">if </span>m == Method::PATCH =&gt; sys::Method::Patch,
+            m =&gt; sys::Method::Other(m.as_str()),
         };
 
-        <span class="kw">let</span> <span class="ident">headers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">parts</span>
-            .<span class="ident">headers</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">key</span>, <span class="ident">val</span>)<span class="op">|</span> <span class="ident">sys::HeaderParam</span> {
-                <span class="ident">key</span>: <span class="ident">key</span>.<span class="ident">as_str</span>(),
-                <span class="ident">value</span>: <span class="ident">val</span>.<span class="ident">as_bytes</span>(),
+        <span class="kw">let </span>headers: Vec&lt;<span class="kw">_</span>&gt; = parts
+            .headers
+            .iter()
+            .map(|(key, val)| sys::HeaderParam {
+                key: key.as_str(),
+                value: val.as_bytes(),
             })
-            .<span class="ident">collect</span>();
+            .collect();
 
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">body</span>.<span class="number">0</span> {
-            <span class="ident">BodyInner::Data</span>(<span class="ident">d</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">sys::BodyParam::Data</span>(<span class="ident">d</span>)),
+        <span class="kw">let </span>body = <span class="kw">match </span><span class="kw-2">&amp;</span>body.<span class="number">0 </span>{
+            BodyInner::Data(d) =&gt; <span class="prelude-val">Some</span>(sys::BodyParam::Data(d)),
         };
 
-        <span class="kw">let</span> <span class="ident">req</span> <span class="op">=</span> <span class="ident">sys::Request</span> {
-            <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">uri</span>,
-            <span class="ident">method</span>,
-            <span class="ident">headers</span>: <span class="kw-2">&amp;</span><span class="ident">headers</span>,
-            <span class="ident">body</span>,
-            <span class="ident">timeout</span>: <span class="prelude-val">None</span>,
-            <span class="ident">redirect_policy</span>: <span class="prelude-val">None</span>,
+        <span class="kw">let </span>req = sys::Request {
+            url: <span class="kw-2">&amp;</span>uri,
+            method,
+            headers: <span class="kw-2">&amp;</span>headers,
+            body,
+            timeout: <span class="prelude-val">None</span>,
+            redirect_policy: <span class="prelude-val">None</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">client</span>.<span class="ident">send</span>(<span class="ident">req</span>).<span class="ident">map_err</span>(<span class="ident">anyhow::Error::msg</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>res = <span class="self">self</span>.client.send(req).map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res</span>.<span class="ident">body</span> {
-            <span class="ident">sys::BodyResult::Data</span>(<span class="ident">d</span>) =&gt; <span class="ident">Body::new_data</span>(<span class="ident">d</span>),
-            <span class="ident">sys::BodyResult::Fd</span>(<span class="kw">_</span>) =&gt; {
+        <span class="kw">let </span>body = <span class="kw">match </span>res.body {
+            sys::BodyResult::Data(d) =&gt; Body::new_data(d),
+            sys::BodyResult::Fd(<span class="kw">_</span>) =&gt; {
                 <span class="macro">bail!</span>(<span class="string">&quot;Received file descriptor response body, which is not suppported yet&quot;</span>);
             }
         };
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">http::Response::builder</span>().<span class="ident">status</span>(<span class="ident">res</span>.<span class="ident">status</span>);
-        <span class="kw">for</span> <span class="ident">param</span> <span class="kw">in</span> <span class="ident">res</span>.<span class="ident">headers</span> {
-            <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">header</span>(<span class="ident">param</span>.<span class="ident">key</span>, <span class="ident">param</span>.<span class="ident">value</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = http::Response::builder().status(res.status);
+        <span class="kw">for </span>param <span class="kw">in </span>res.headers {
+            builder = builder.header(param.key, param.value);
         }
-        <span class="ident">builder</span>.<span class="ident">body</span>(<span class="ident">body</span>).<span class="ident">map_err</span>(<span class="ident">anyhow::Error::from</span>)
+        builder.body(body).map_err(anyhow::Error::from)
     }
 }
 
-<span class="comment">// TODO: use custom request which can also hold timeout config, etc.</span>
-<span class="comment">// #[derive(Clone, Debug)]</span>
-<span class="comment">// pub struct Request {</span>
-<span class="comment">//     pub method: Method,</span>
-<span class="comment">//     pub headers: http::HeaderMap,</span>
-<span class="comment">// }</span>
+<span class="comment">// TODO: use custom request which can also hold timeout config, etc.
+// #[derive(Clone, Debug)]
+// pub struct Request {
+//     pub method: Method,
+//     pub headers: http::HeaderMap,
+// }
 
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Request</span> <span class="op">=</span> <span class="ident">http::Request</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Response</span> <span class="op">=</span> <span class="ident">http::Response</span><span class="op">&lt;</span><span class="ident">Body</span><span class="op">&gt;</span>;
+</span><span class="kw">pub type </span>Request = http::Request&lt;Body&gt;;
+<span class="kw">pub type </span>Response = http::Response&lt;Body&gt;;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Body</span>(<span class="ident">BodyInner</span>);
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>Body(BodyInner);
 
-<span class="kw">impl</span> <span class="ident">Body</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">empty</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::new_data</span>(<span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>())
+<span class="kw">impl </span>Body {
+    <span class="kw">pub fn </span>empty() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new_data(Vec::&lt;u8&gt;::new())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_data</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>(<span class="ident">data</span>: <span class="ident">I</span>) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">I</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub fn </span>new_data&lt;I&gt;(data: I) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>I: Into&lt;Vec&lt;u8&gt;&gt;,
     {
-        <span class="self">Self</span>(<span class="ident">BodyInner::Data</span>(<span class="ident">data</span>.<span class="ident">into</span>()))
+        <span class="self">Self</span>(BodyInner::Data(data.into()))
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_all</span>(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="number">0</span> {
-            <span class="ident">BodyInner::Data</span>(<span class="ident">d</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">d</span>),
+    <span class="kw">pub fn </span>read_all(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, anyhow::Error&gt; {
+        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
+            BodyInner::Data(d) =&gt; <span class="prelude-val">Ok</span>(d),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">BodyInner</span> {
-    <span class="ident">Data</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>BodyInner {
+    Data(Vec&lt;u8&gt;),
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Body</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">BodyInner::Data</span>(<span class="ident">value</span>))
+<span class="kw">impl </span>From&lt;Vec&lt;u8&gt;&gt; <span class="kw">for </span>Body {
+    <span class="kw">fn </span>from(value: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(BodyInner::Data(value))
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]<span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Body</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">BodyInner::Data</span>(<span class="ident">value</span>.<span class="ident">to_vec</span>()))
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt; <span class="kw">for </span>Body {
+    <span class="kw">fn </span>from(value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(BodyInner::Data(value.to_vec()))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Body</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">String</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">BodyInner::Data</span>(<span class="ident">value</span>.<span class="ident">into_bytes</span>()))
+<span class="kw">impl </span>From&lt;String&gt; <span class="kw">for </span>Body {
+    <span class="kw">fn </span>from(value: String) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(BodyInner::Data(value.into_bytes()))
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Body</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">BodyInner::Data</span>(<span class="ident">value</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>()))
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt; <span class="kw">for </span>Body {
+    <span class="kw">fn </span>from(value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(BodyInner::Data(value.as_bytes().to_vec()))
     }
 }
 
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">RequestBuilder</span> <span class="op">=</span> <span class="ident">http::request::Builder</span>;
+<span class="kw">pub type </span>RequestBuilder = http::request::Builder;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasix_http_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasix_http_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

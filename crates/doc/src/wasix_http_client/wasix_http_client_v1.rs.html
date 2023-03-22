@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/wasix-http-client/src/wasix_http_client_v1.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasix_http_client_v1.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasix_http_client/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/wasix-http-client/src/wasix_http_client_v1.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasix_http_client_v1.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasix_http_client/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasix_http_client/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -512,519 +512,519 @@
 <span id="512">512</span>
 <span id="513">513</span>
 <span id="514">514</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">Get</span>,
-    <span class="ident">Head</span>,
-    <span class="ident">Post</span>,
-    <span class="ident">Put</span>,
-    <span class="ident">Delete</span>,
-    <span class="ident">Connect</span>,
-    <span class="ident">Options</span>,
-    <span class="ident">Trace</span>,
-    <span class="ident">Patch</span>,
-    <span class="ident">Other</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>),
+</pre><pre class="rust"><code><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>Method&lt;<span class="lifetime">&#39;a</span>&gt; {
+    Get,
+    Head,
+    Post,
+    Put,
+    Delete,
+    Connect,
+    Options,
+    Trace,
+    Patch,
+    Other(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str),
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Method::Get</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Get&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Head</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Head&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Post</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Post&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Put</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Put&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Delete</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Delete&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Connect</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Connect&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Options</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Options&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Trace</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Trace&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Patch</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Patch&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Other</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Other&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>Method&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            Method::Get =&gt; f.debug_tuple(<span class="string">&quot;Method::Get&quot;</span>).finish(),
+            Method::Head =&gt; f.debug_tuple(<span class="string">&quot;Method::Head&quot;</span>).finish(),
+            Method::Post =&gt; f.debug_tuple(<span class="string">&quot;Method::Post&quot;</span>).finish(),
+            Method::Put =&gt; f.debug_tuple(<span class="string">&quot;Method::Put&quot;</span>).finish(),
+            Method::Delete =&gt; f.debug_tuple(<span class="string">&quot;Method::Delete&quot;</span>).finish(),
+            Method::Connect =&gt; f.debug_tuple(<span class="string">&quot;Method::Connect&quot;</span>).finish(),
+            Method::Options =&gt; f.debug_tuple(<span class="string">&quot;Method::Options&quot;</span>).finish(),
+            Method::Trace =&gt; f.debug_tuple(<span class="string">&quot;Method::Trace&quot;</span>).finish(),
+            Method::Patch =&gt; f.debug_tuple(<span class="string">&quot;Method::Patch&quot;</span>).finish(),
+            Method::Other(e) =&gt; f.debug_tuple(<span class="string">&quot;Method::Other&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HeaderParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
-    <span class="kw">pub</span> <span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>HeaderParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub </span>key: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    <span class="kw">pub </span>value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">HeaderParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;HeaderParam&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">key</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">value</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>HeaderParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;HeaderParam&quot;</span>)
+            .field(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
+            .field(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.value)
+            .finish()
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HeaderResult</span> {
-    <span class="kw">pub</span> <span class="ident">key</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">value</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>HeaderResult {
+    <span class="kw">pub </span>key: String,
+    <span class="kw">pub </span>value: Vec&lt;u8&gt;,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">HeaderResult</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;HeaderResult&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">key</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">value</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>HeaderResult {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;HeaderResult&quot;</span>)
+            .field(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
+            .field(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.value)
+            .finish()
     }
 }
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HeaderListParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">HeaderParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>];
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HeaderListResult</span> <span class="op">=</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">HeaderResult</span><span class="op">&gt;</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Fd</span> <span class="op">=</span> <span class="ident">u32</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TimeoutMs</span> <span class="op">=</span> <span class="ident">u32</span>;
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RedirectFollow</span> {
-    <span class="kw">pub</span> <span class="ident">max</span>: <span class="ident">u32</span>,
+<span class="kw">pub type </span>HeaderListParam&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[HeaderParam&lt;<span class="lifetime">&#39;a</span>&gt;];
+<span class="kw">pub type </span>HeaderListResult = Vec&lt;HeaderResult&gt;;
+<span class="kw">pub type </span>Fd = u32;
+<span class="kw">pub type </span>TimeoutMs = u32;
+<span class="attribute">#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>RedirectFollow {
+    <span class="kw">pub </span>max: u32,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">RedirectFollow</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RedirectFollow&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;max&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">max</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>RedirectFollow {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;RedirectFollow&quot;</span>)
+            .field(<span class="string">&quot;max&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.max)
+            .finish()
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RedirectPolicy</span> {
-    <span class="ident">NoFollow</span>,
-    <span class="ident">Follow</span>(<span class="ident">RedirectFollow</span>),
+<span class="attribute">#[derive(Clone, Copy)]
+</span><span class="kw">pub enum </span>RedirectPolicy {
+    NoFollow,
+    Follow(RedirectFollow),
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">RedirectPolicy</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">RedirectPolicy::NoFollow</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;RedirectPolicy::NoFollow&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">RedirectPolicy::Follow</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;RedirectPolicy::Follow&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>RedirectPolicy {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            RedirectPolicy::NoFollow =&gt; f.debug_tuple(<span class="string">&quot;RedirectPolicy::NoFollow&quot;</span>).finish(),
+            RedirectPolicy::Follow(e) =&gt; f.debug_tuple(<span class="string">&quot;RedirectPolicy::Follow&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">BodyParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">Data</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]),
-    <span class="ident">Fd</span>(<span class="ident">Fd</span>),
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>BodyParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    Data(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+    Fd(Fd),
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">BodyParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">BodyParam::Data</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyParam::Data&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
-            <span class="ident">BodyParam::Fd</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyParam::Fd&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>BodyParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            BodyParam::Data(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyParam::Data&quot;</span>).field(e).finish(),
+            BodyParam::Fd(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyParam::Fd&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">BodyResult</span> {
-    <span class="ident">Data</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
-    <span class="ident">Fd</span>(<span class="ident">Fd</span>),
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>BodyResult {
+    Data(Vec&lt;u8&gt;),
+    Fd(Fd),
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">BodyResult</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">BodyResult::Data</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyResult::Data&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
-            <span class="ident">BodyResult::Fd</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyResult::Fd&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>BodyResult {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            BodyResult::Data(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyResult::Data&quot;</span>).field(e).finish(),
+            BodyResult::Fd(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyResult::Fd&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
-    <span class="kw">pub</span> <span class="ident">method</span>: <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">headers</span>: <span class="ident">HeaderListParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BodyParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">timeout</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TimeoutMs</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">redirect_policy</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RedirectPolicy</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>Request&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub </span>url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    <span class="kw">pub </span>method: Method&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>headers: HeaderListParam&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>body: <span class="prelude-ty">Option</span>&lt;BodyParam&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+    <span class="kw">pub </span>timeout: <span class="prelude-ty">Option</span>&lt;TimeoutMs&gt;,
+    <span class="kw">pub </span>redirect_policy: <span class="prelude-ty">Option</span>&lt;RedirectPolicy&gt;,
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Request&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;url&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">url</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;method&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">method</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">headers</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">body</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;timeout&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">timeout</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;redirect-policy&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">redirect_policy</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>Request&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Request&quot;</span>)
+            .field(<span class="string">&quot;url&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.url)
+            .field(<span class="string">&quot;method&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.method)
+            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.headers)
+            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.body)
+            .field(<span class="string">&quot;timeout&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.timeout)
+            .field(<span class="string">&quot;redirect-policy&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.redirect_policy)
+            .finish()
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Response</span> {
-    <span class="kw">pub</span> <span class="ident">status</span>: <span class="ident">u16</span>,
-    <span class="kw">pub</span> <span class="ident">headers</span>: <span class="ident">HeaderListResult</span>,
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">BodyResult</span>,
-    <span class="kw">pub</span> <span class="ident">redirect_urls</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>Response {
+    <span class="kw">pub </span>status: u16,
+    <span class="kw">pub </span>headers: HeaderListResult,
+    <span class="kw">pub </span>body: BodyResult,
+    <span class="kw">pub </span>redirect_urls: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Response</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Response&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">status</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">headers</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">body</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;redirect-urls&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">redirect_urls</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Response {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Response&quot;</span>)
+            .field(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.status)
+            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.headers)
+            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.body)
+            .field(<span class="string">&quot;redirect-urls&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.redirect_urls)
+            .finish()
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Client</span>(<span class="ident">i32</span>);
-<span class="kw">impl</span> <span class="ident">Client</span> {
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_raw</span>(<span class="ident">raw</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">raw</span>)
+<span class="attribute">#[derive(Debug)]
+#[repr(transparent)]
+</span><span class="kw">pub struct </span>Client(i32);
+<span class="kw">impl </span>Client {
+    <span class="kw">pub unsafe fn </span>from_raw(raw: i32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(raw)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_raw</span>(<span class="self">self</span>) -&gt; <span class="ident">i32</span> {
-        <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>;
-        <span class="ident">core::mem::forget</span>(<span class="self">self</span>);
-        <span class="kw">return</span> <span class="ident">ret</span>;
+    <span class="kw">pub fn </span>into_raw(<span class="self">self</span>) -&gt; i32 {
+        <span class="kw">let </span>ret = <span class="self">self</span>.<span class="number">0</span>;
+        core::mem::forget(<span class="self">self</span>);
+        <span class="kw">return </span>ret;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">i32</span> {
-        <span class="self">self</span>.<span class="number">0</span>
+    <span class="kw">pub fn </span>as_raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i32 {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
+}
+<span class="kw">impl </span>Drop <span class="kw">for </span>Client {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="attribute">#[link(wasm_import_module = <span class="string">&quot;canonical_abi&quot;</span>)]
+        </span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+            <span class="attribute">#[link_name = <span class="string">&quot;resource_drop_client&quot;</span>]
+            </span><span class="kw">fn </span>close(fd: i32);
+        }
+        <span class="kw">unsafe </span>{
+            close(<span class="self">self</span>.<span class="number">0</span>);
+        }
     }
 }
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">Client</span> {
-    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="attribute">#[<span class="ident">link</span>(<span class="ident">wasm_import_module</span> <span class="op">=</span> <span class="string">&quot;canonical_abi&quot;</span>)]</span>
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="attribute">#[<span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;resource_drop_client&quot;</span>]</span>
-            <span class="kw">fn</span> <span class="ident">close</span>(<span class="ident">fd</span>: <span class="ident">i32</span>);
+<span class="kw">impl </span>Clone <span class="kw">for </span>Client {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="attribute">#[link(wasm_import_module = <span class="string">&quot;canonical_abi&quot;</span>)]
+        </span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+            <span class="attribute">#[link_name = <span class="string">&quot;resource_clone_client&quot;</span>]
+            </span><span class="kw">fn </span>clone(val: i32) -&gt; i32;
         }
-        <span class="kw">unsafe</span> {
-            <span class="ident">close</span>(<span class="self">self</span>.<span class="number">0</span>);
-        }
+        <span class="kw">unsafe </span>{ <span class="self">Self</span>(clone(<span class="self">self</span>.<span class="number">0</span>)) }
     }
 }
-<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">Client</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="attribute">#[<span class="ident">link</span>(<span class="ident">wasm_import_module</span> <span class="op">=</span> <span class="string">&quot;canonical_abi&quot;</span>)]</span>
-        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-            <span class="attribute">#[<span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;resource_clone_client&quot;</span>]</span>
-            <span class="kw">fn</span> <span class="ident">clone</span>(<span class="ident">val</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span>;
-        }
-        <span class="kw">unsafe</span> { <span class="self">Self</span>(<span class="ident">clone</span>(<span class="self">self</span>.<span class="number">0</span>)) }
-    }
-}
-<span class="kw">impl</span> <span class="ident">Client</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Client</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">ptr0</span> <span class="op">=</span> <span class="ident">WASIX_HTTP_CLIENT_V1_RET_AREA</span>.<span class="number">0</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="attribute">#[<span class="ident">link</span>(<span class="ident">wasm_import_module</span> <span class="op">=</span> <span class="string">&quot;wasix_http_client_v1&quot;</span>)]</span>
-            <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-                <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;client::new&quot;</span>)]</span>
-                <span class="attribute">#[<span class="ident">cfg_attr</span>(
-                    <span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>),
-                    <span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;wasix_http_client_v1_client::new&quot;</span>
-                )]</span>
-                <span class="kw">fn</span> <span class="ident">wai_import</span>(<span class="kw">_</span>: <span class="ident">i32</span>);
+<span class="kw">impl </span>Client {
+    <span class="kw">pub fn </span>new() -&gt; <span class="prelude-ty">Result</span>&lt;Client, String&gt; {
+        <span class="kw">unsafe </span>{
+            <span class="kw">let </span>ptr0 = WASIX_HTTP_CLIENT_V1_RET_AREA.<span class="number">0</span>.as_mut_ptr() <span class="kw">as </span>i32;
+            <span class="attribute">#[link(wasm_import_module = <span class="string">&quot;wasix_http_client_v1&quot;</span>)]
+            </span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+                <span class="attribute">#[cfg_attr(target_arch = <span class="string">&quot;wasm32&quot;</span>, link_name = <span class="string">&quot;client::new&quot;</span>)]
+                #[cfg_attr(
+                    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+                    link_name = <span class="string">&quot;wasix_http_client_v1_client::new&quot;
+                </span>)]
+                </span><span class="kw">fn </span>wai_import(<span class="kw">_</span>: i32);
             }
-            <span class="ident">wai_import</span>(<span class="ident">ptr0</span>);
-            <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>)) {
-                <span class="number">0</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Client</span>(<span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>))),
-                <span class="number">1</span> =&gt; <span class="prelude-val">Err</span>({
-                    <span class="kw">let</span> <span class="ident">len1</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+            wai_import(ptr0);
+            <span class="kw">match </span>i32::from(<span class="kw-2">*</span>((ptr0 + <span class="number">0</span>) <span class="kw">as </span><span class="kw-2">*const </span>u8)) {
+                <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(Client(<span class="kw-2">*</span>((ptr0 + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32))),
+                <span class="number">1 </span>=&gt; <span class="prelude-val">Err</span>({
+                    <span class="kw">let </span>len1 = <span class="kw-2">*</span>((ptr0 + <span class="number">8</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>usize;
 
-                    <span class="ident">String::from_utf8</span>(<span class="ident">Vec::from_raw_parts</span>(
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                        <span class="ident">len1</span>,
-                        <span class="ident">len1</span>,
+                    String::from_utf8(Vec::from_raw_parts(
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                        len1,
+                        len1,
                     ))
-                    .<span class="ident">unwrap</span>()
+                    .unwrap()
                 }),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
             }
         }
     }
 }
-<span class="kw">impl</span> <span class="ident">Client</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">ptr0</span> <span class="op">=</span> <span class="ident">WASIX_HTTP_CLIENT_V1_RET_AREA</span>.<span class="number">0</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="self">self</span>.<span class="number">0</span>;
-            <span class="kw">let</span> <span class="ident">Request</span> {
-                <span class="ident">url</span>: <span class="ident">url1</span>,
-                <span class="ident">method</span>: <span class="ident">method1</span>,
-                <span class="ident">headers</span>: <span class="ident">headers1</span>,
-                <span class="ident">body</span>: <span class="ident">body1</span>,
-                <span class="ident">timeout</span>: <span class="ident">timeout1</span>,
-                <span class="ident">redirect_policy</span>: <span class="ident">redirect_policy1</span>,
-            } <span class="op">=</span> <span class="ident">request</span>;
-            <span class="kw">let</span> <span class="ident">vec2</span> <span class="op">=</span> <span class="ident">url1</span>;
-            <span class="kw">let</span> <span class="ident">ptr2</span> <span class="op">=</span> <span class="ident">vec2</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="kw">let</span> <span class="ident">len2</span> <span class="op">=</span> <span class="ident">vec2</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">len2</span>;
-            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">ptr2</span>;
-            <span class="kw">match</span> <span class="ident">method1</span> {
-                <span class="ident">Method::Get</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+<span class="kw">impl </span>Client {
+    <span class="kw">pub fn </span>send(<span class="kw-2">&amp;</span><span class="self">self</span>, request: Request&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Response, String&gt; {
+        <span class="kw">unsafe </span>{
+            <span class="kw">let </span>ptr0 = WASIX_HTTP_CLIENT_V1_RET_AREA.<span class="number">0</span>.as_mut_ptr() <span class="kw">as </span>i32;
+            <span class="kw-2">*</span>((ptr0 + <span class="number">0</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = <span class="self">self</span>.<span class="number">0</span>;
+            <span class="kw">let </span>Request {
+                url: url1,
+                method: method1,
+                headers: headers1,
+                body: body1,
+                timeout: timeout1,
+                redirect_policy: redirect_policy1,
+            } = request;
+            <span class="kw">let </span>vec2 = url1;
+            <span class="kw">let </span>ptr2 = vec2.as_ptr() <span class="kw">as </span>i32;
+            <span class="kw">let </span>len2 = vec2.len() <span class="kw">as </span>i32;
+            <span class="kw-2">*</span>((ptr0 + <span class="number">8</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = len2;
+            <span class="kw-2">*</span>((ptr0 + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = ptr2;
+            <span class="kw">match </span>method1 {
+                Method::Get =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">0i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Head</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Head =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">1i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Post</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Post =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">2i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">2i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Put</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Put =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">3i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">3i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Delete</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Delete =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">4i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">4i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Connect</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Connect =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">5i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">5i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Options</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Options =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">6i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">6i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Trace</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Trace =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">7i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">7i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Patch</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                Method::Patch =&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">8i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">8i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
-                <span class="ident">Method::Other</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">9i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                    <span class="kw">let</span> <span class="ident">vec3</span> <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="kw">let</span> <span class="ident">ptr3</span> <span class="op">=</span> <span class="ident">vec3</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                    <span class="kw">let</span> <span class="ident">len3</span> <span class="op">=</span> <span class="ident">vec3</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">20</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">len3</span>;
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">16</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">ptr3</span>;
+                Method::Other(e) =&gt; {
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">9i32</span>) <span class="kw">as </span>u8;
+                    <span class="kw">let </span>vec3 = e;
+                    <span class="kw">let </span>ptr3 = vec3.as_ptr() <span class="kw">as </span>i32;
+                    <span class="kw">let </span>len3 = vec3.len() <span class="kw">as </span>i32;
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">20</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = len3;
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">16</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = ptr3;
                 }
             };
-            <span class="kw">let</span> <span class="ident">vec7</span> <span class="op">=</span> <span class="ident">headers1</span>;
-            <span class="kw">let</span> <span class="ident">len7</span> <span class="op">=</span> <span class="ident">vec7</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="kw">let</span> <span class="ident">layout7</span> <span class="op">=</span> <span class="ident">core::alloc::Layout::from_size_align_unchecked</span>(<span class="ident">vec7</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="number">16</span>, <span class="number">4</span>);
-            <span class="kw">let</span> <span class="ident">result7</span> <span class="op">=</span> <span class="ident">std::alloc::alloc</span>(<span class="ident">layout7</span>);
-            <span class="kw">if</span> <span class="ident">result7</span>.<span class="ident">is_null</span>() {
-                <span class="ident">std::alloc::handle_alloc_error</span>(<span class="ident">layout7</span>);
+            <span class="kw">let </span>vec7 = headers1;
+            <span class="kw">let </span>len7 = vec7.len() <span class="kw">as </span>i32;
+            <span class="kw">let </span>layout7 = core::alloc::Layout::from_size_align_unchecked(vec7.len() * <span class="number">16</span>, <span class="number">4</span>);
+            <span class="kw">let </span>result7 = std::alloc::alloc(layout7);
+            <span class="kw">if </span>result7.is_null() {
+                std::alloc::handle_alloc_error(layout7);
             }
-            <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">e</span>) <span class="kw">in</span> <span class="ident">vec7</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
-                <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">result7</span> <span class="kw">as</span> <span class="ident">i32</span> <span class="op">+</span> (<span class="ident">i</span> <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">16</span>;
+            <span class="kw">for </span>(i, e) <span class="kw">in </span>vec7.into_iter().enumerate() {
+                <span class="kw">let </span>base = result7 <span class="kw">as </span>i32 + (i <span class="kw">as </span>i32) * <span class="number">16</span>;
                 {
-                    <span class="kw">let</span> <span class="ident">HeaderParam</span> {
-                        <span class="ident">key</span>: <span class="ident">key4</span>,
-                        <span class="ident">value</span>: <span class="ident">value4</span>,
-                    } <span class="op">=</span> <span class="ident">e</span>;
-                    <span class="kw">let</span> <span class="ident">vec5</span> <span class="op">=</span> <span class="ident">key4</span>;
-                    <span class="kw">let</span> <span class="ident">ptr5</span> <span class="op">=</span> <span class="ident">vec5</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                    <span class="kw">let</span> <span class="ident">len5</span> <span class="op">=</span> <span class="ident">vec5</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                    <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">len5</span>;
-                    <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">ptr5</span>;
-                    <span class="kw">let</span> <span class="ident">vec6</span> <span class="op">=</span> <span class="ident">value4</span>;
-                    <span class="kw">let</span> <span class="ident">ptr6</span> <span class="op">=</span> <span class="ident">vec6</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                    <span class="kw">let</span> <span class="ident">len6</span> <span class="op">=</span> <span class="ident">vec6</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                    <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">len6</span>;
-                    <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">ptr6</span>;
+                    <span class="kw">let </span>HeaderParam {
+                        key: key4,
+                        value: value4,
+                    } = e;
+                    <span class="kw">let </span>vec5 = key4;
+                    <span class="kw">let </span>ptr5 = vec5.as_ptr() <span class="kw">as </span>i32;
+                    <span class="kw">let </span>len5 = vec5.len() <span class="kw">as </span>i32;
+                    <span class="kw-2">*</span>((base + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = len5;
+                    <span class="kw-2">*</span>((base + <span class="number">0</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = ptr5;
+                    <span class="kw">let </span>vec6 = value4;
+                    <span class="kw">let </span>ptr6 = vec6.as_ptr() <span class="kw">as </span>i32;
+                    <span class="kw">let </span>len6 = vec6.len() <span class="kw">as </span>i32;
+                    <span class="kw-2">*</span>((base + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = len6;
+                    <span class="kw-2">*</span>((base + <span class="number">8</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = ptr6;
                 }
             }
-            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">28</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">len7</span>;
-            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">24</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">result7</span> <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="kw">match</span> <span class="ident">body1</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                    <span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">BodyParam::Data</span>(<span class="ident">e</span>) =&gt; {
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">36</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                            <span class="kw">let</span> <span class="ident">vec8</span> <span class="op">=</span> <span class="ident">e</span>;
-                            <span class="kw">let</span> <span class="ident">ptr8</span> <span class="op">=</span> <span class="ident">vec8</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                            <span class="kw">let</span> <span class="ident">len8</span> <span class="op">=</span> <span class="ident">vec8</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">44</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">len8</span>;
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">40</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">ptr8</span>;
+            <span class="kw-2">*</span>((ptr0 + <span class="number">28</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = len7;
+            <span class="kw-2">*</span>((ptr0 + <span class="number">24</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = result7 <span class="kw">as </span>i32;
+            <span class="kw">match </span>body1 {
+                <span class="prelude-val">Some</span>(e) =&gt; {
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">32</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">1i32</span>) <span class="kw">as </span>u8;
+                    <span class="kw">match </span>e {
+                        BodyParam::Data(e) =&gt; {
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">36</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">0i32</span>) <span class="kw">as </span>u8;
+                            <span class="kw">let </span>vec8 = e;
+                            <span class="kw">let </span>ptr8 = vec8.as_ptr() <span class="kw">as </span>i32;
+                            <span class="kw">let </span>len8 = vec8.len() <span class="kw">as </span>i32;
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">44</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = len8;
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">40</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = ptr8;
                         }
-                        <span class="ident">BodyParam::Fd</span>(<span class="ident">e</span>) =&gt; {
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">36</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">40</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">wai_bindgen_rust::rt::as_i32</span>(<span class="ident">e</span>);
+                        BodyParam::Fd(e) =&gt; {
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">36</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">1i32</span>) <span class="kw">as </span>u8;
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">40</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = wai_bindgen_rust::rt::as_i32(e);
                         }
                     };
                 }
-                <span class="prelude-val">None</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">32</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">0i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
             };
-            <span class="kw">match</span> <span class="ident">timeout1</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">48</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">52</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">wai_bindgen_rust::rt::as_i32</span>(<span class="ident">e</span>);
+            <span class="kw">match </span>timeout1 {
+                <span class="prelude-val">Some</span>(e) =&gt; {
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">48</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">1i32</span>) <span class="kw">as </span>u8;
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">52</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = wai_bindgen_rust::rt::as_i32(e);
                 }
-                <span class="prelude-val">None</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">48</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">48</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">0i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
             };
-            <span class="kw">match</span> <span class="ident">redirect_policy1</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">56</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                    <span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">RedirectPolicy::NoFollow</span> =&gt; {
-                            <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+            <span class="kw">match </span>redirect_policy1 {
+                <span class="prelude-val">Some</span>(e) =&gt; {
+                    <span class="kw-2">*</span>((ptr0 + <span class="number">56</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">1i32</span>) <span class="kw">as </span>u8;
+                    <span class="kw">match </span>e {
+                        RedirectPolicy::NoFollow =&gt; {
+                            <span class="kw">let </span>e = ();
                             {
-                                <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">60</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                                <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                                <span class="kw-2">*</span>((ptr0 + <span class="number">60</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">0i32</span>) <span class="kw">as </span>u8;
+                                <span class="kw">let </span>() = e;
                             }
                         }
-                        <span class="ident">RedirectPolicy::Follow</span>(<span class="ident">e</span>) =&gt; {
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">60</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                            <span class="kw">let</span> <span class="ident">RedirectFollow</span> { <span class="ident">max</span>: <span class="ident">max9</span> } <span class="op">=</span> <span class="ident">e</span>;
-                            <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">64</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i32</span>) <span class="op">=</span> <span class="ident">wai_bindgen_rust::rt::as_i32</span>(<span class="ident">max9</span>);
+                        RedirectPolicy::Follow(e) =&gt; {
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">60</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">1i32</span>) <span class="kw">as </span>u8;
+                            <span class="kw">let </span>RedirectFollow { max: max9 } = e;
+                            <span class="kw-2">*</span>((ptr0 + <span class="number">64</span>) <span class="kw">as </span><span class="kw-2">*mut </span>i32) = wai_bindgen_rust::rt::as_i32(max9);
                         }
                     };
                 }
-                <span class="prelude-val">None</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="kw">let </span>e = ();
                     {
-                        <span class="kw-2">*</span>((<span class="ident">ptr0</span> <span class="op">+</span> <span class="number">56</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>) <span class="op">=</span> (<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>;
-                        <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                        <span class="kw-2">*</span>((ptr0 + <span class="number">56</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u8) = (<span class="number">0i32</span>) <span class="kw">as </span>u8;
+                        <span class="kw">let </span>() = e;
                     }
                 }
             };
-            <span class="kw">let</span> <span class="ident">ptr10</span> <span class="op">=</span> <span class="ident">WASIX_HTTP_CLIENT_V1_RET_AREA</span>.<span class="number">0</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-            <span class="attribute">#[<span class="ident">link</span>(<span class="ident">wasm_import_module</span> <span class="op">=</span> <span class="string">&quot;wasix_http_client_v1&quot;</span>)]</span>
-            <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-                <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>, <span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;client::send&quot;</span>)]</span>
-                <span class="attribute">#[<span class="ident">cfg_attr</span>(
-                    <span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>),
-                    <span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;wasix_http_client_v1_client::send&quot;</span>
-                )]</span>
-                <span class="kw">fn</span> <span class="ident">wai_import</span>(<span class="kw">_</span>: <span class="ident">i32</span>, <span class="kw">_</span>: <span class="ident">i32</span>);
+            <span class="kw">let </span>ptr10 = WASIX_HTTP_CLIENT_V1_RET_AREA.<span class="number">0</span>.as_mut_ptr() <span class="kw">as </span>i32;
+            <span class="attribute">#[link(wasm_import_module = <span class="string">&quot;wasix_http_client_v1&quot;</span>)]
+            </span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+                <span class="attribute">#[cfg_attr(target_arch = <span class="string">&quot;wasm32&quot;</span>, link_name = <span class="string">&quot;client::send&quot;</span>)]
+                #[cfg_attr(
+                    not(target_arch = <span class="string">&quot;wasm32&quot;</span>),
+                    link_name = <span class="string">&quot;wasix_http_client_v1_client::send&quot;
+                </span>)]
+                </span><span class="kw">fn </span>wai_import(<span class="kw">_</span>: i32, <span class="kw">_</span>: i32);
             }
-            <span class="ident">wai_import</span>(<span class="ident">ptr0</span>, <span class="ident">ptr10</span>);
-            <span class="ident">std::alloc::dealloc</span>(<span class="ident">result7</span>, <span class="ident">layout7</span>);
-            <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>)) {
-                <span class="number">0</span> =&gt; <span class="prelude-val">Ok</span>({
-                    <span class="kw">let</span> <span class="ident">base13</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>);
-                    <span class="kw">let</span> <span class="ident">len13</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>);
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result13</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">len13</span> <span class="kw">as</span> <span class="ident">usize</span>);
-                    <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">len13</span> {
-                        <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">base13</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">16</span>;
-                        <span class="ident">result13</span>.<span class="ident">push</span>({
-                            <span class="kw">let</span> <span class="ident">len11</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">usize</span>;
-                            <span class="kw">let</span> <span class="ident">len12</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">12</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+            wai_import(ptr0, ptr10);
+            std::alloc::dealloc(result7, layout7);
+            <span class="kw">match </span>i32::from(<span class="kw-2">*</span>((ptr10 + <span class="number">0</span>) <span class="kw">as </span><span class="kw-2">*const </span>u8)) {
+                <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>({
+                    <span class="kw">let </span>base13 = <span class="kw-2">*</span>((ptr10 + <span class="number">8</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32);
+                    <span class="kw">let </span>len13 = <span class="kw-2">*</span>((ptr10 + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32);
+                    <span class="kw">let </span><span class="kw-2">mut </span>result13 = Vec::with_capacity(len13 <span class="kw">as </span>usize);
+                    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..len13 {
+                        <span class="kw">let </span>base = base13 + i * <span class="number">16</span>;
+                        result13.push({
+                            <span class="kw">let </span>len11 = <span class="kw-2">*</span>((base + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>usize;
+                            <span class="kw">let </span>len12 = <span class="kw-2">*</span>((base + <span class="number">12</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>usize;
 
-                            <span class="ident">HeaderResult</span> {
-                                <span class="ident">key</span>: <span class="ident">String::from_utf8</span>(<span class="ident">Vec::from_raw_parts</span>(
-                                    <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                                    <span class="ident">len11</span>,
-                                    <span class="ident">len11</span>,
+                            HeaderResult {
+                                key: String::from_utf8(Vec::from_raw_parts(
+                                    <span class="kw-2">*</span>((base + <span class="number">0</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                                    len11,
+                                    len11,
                                 ))
-                                .<span class="ident">unwrap</span>(),
-                                <span class="ident">value</span>: <span class="ident">Vec::from_raw_parts</span>(
-                                    <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                                    <span class="ident">len12</span>,
-                                    <span class="ident">len12</span>,
+                                .unwrap(),
+                                value: Vec::from_raw_parts(
+                                    <span class="kw-2">*</span>((base + <span class="number">8</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                                    len12,
+                                    len12,
                                 ),
                             }
                         });
                     }
-                    <span class="ident">std::alloc::dealloc</span>(
-                        <span class="ident">base13</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                        <span class="ident">std::alloc::Layout::from_size_align_unchecked</span>((<span class="ident">len13</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">*</span> <span class="number">16</span>, <span class="number">4</span>),
+                    std::alloc::dealloc(
+                        base13 <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                        std::alloc::Layout::from_size_align_unchecked((len13 <span class="kw">as </span>usize) * <span class="number">16</span>, <span class="number">4</span>),
                     );
 
-                    <span class="ident">Response</span> {
-                        <span class="ident">status</span>: <span class="ident">i32::from</span>(<span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u16</span>)) <span class="kw">as</span> <span class="ident">u16</span>,
-                        <span class="ident">headers</span>: <span class="ident">result13</span>,
-                        <span class="ident">body</span>: <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">16</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>)) {
-                            <span class="number">0</span> =&gt; <span class="ident">BodyResult::Data</span>({
-                                <span class="kw">let</span> <span class="ident">len14</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">24</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+                    Response {
+                        status: i32::from(<span class="kw-2">*</span>((ptr10 + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*const </span>u16)) <span class="kw">as </span>u16,
+                        headers: result13,
+                        body: <span class="kw">match </span>i32::from(<span class="kw-2">*</span>((ptr10 + <span class="number">16</span>) <span class="kw">as </span><span class="kw-2">*const </span>u8)) {
+                            <span class="number">0 </span>=&gt; BodyResult::Data({
+                                <span class="kw">let </span>len14 = <span class="kw-2">*</span>((ptr10 + <span class="number">24</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>usize;
 
-                                <span class="ident">Vec::from_raw_parts</span>(
-                                    <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">20</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                                    <span class="ident">len14</span>,
-                                    <span class="ident">len14</span>,
+                                Vec::from_raw_parts(
+                                    <span class="kw-2">*</span>((ptr10 + <span class="number">20</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                                    len14,
+                                    len14,
                                 )
                             }),
-                            <span class="number">1</span> =&gt; <span class="ident">BodyResult::Fd</span>(<span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">20</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">u32</span>),
-                            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
+                            <span class="number">1 </span>=&gt; BodyResult::Fd(<span class="kw-2">*</span>((ptr10 + <span class="number">20</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>u32),
+                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
                         },
-                        <span class="ident">redirect_urls</span>: <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">28</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>)) {
-                            <span class="number">0</span> =&gt; <span class="prelude-val">None</span>,
-                            <span class="number">1</span> =&gt; <span class="prelude-val">Some</span>({
-                                <span class="kw">let</span> <span class="ident">base16</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">32</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>);
-                                <span class="kw">let</span> <span class="ident">len16</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">36</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>);
-                                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result16</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">len16</span> <span class="kw">as</span> <span class="ident">usize</span>);
-                                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">len16</span> {
-                                    <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">base16</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">8</span>;
-                                    <span class="ident">result16</span>.<span class="ident">push</span>({
-                                        <span class="kw">let</span> <span class="ident">len15</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+                        redirect_urls: <span class="kw">match </span>i32::from(<span class="kw-2">*</span>((ptr10 + <span class="number">28</span>) <span class="kw">as </span><span class="kw-2">*const </span>u8)) {
+                            <span class="number">0 </span>=&gt; <span class="prelude-val">None</span>,
+                            <span class="number">1 </span>=&gt; <span class="prelude-val">Some</span>({
+                                <span class="kw">let </span>base16 = <span class="kw-2">*</span>((ptr10 + <span class="number">32</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32);
+                                <span class="kw">let </span>len16 = <span class="kw-2">*</span>((ptr10 + <span class="number">36</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32);
+                                <span class="kw">let </span><span class="kw-2">mut </span>result16 = Vec::with_capacity(len16 <span class="kw">as </span>usize);
+                                <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..len16 {
+                                    <span class="kw">let </span>base = base16 + i * <span class="number">8</span>;
+                                    result16.push({
+                                        <span class="kw">let </span>len15 = <span class="kw-2">*</span>((base + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>usize;
 
-                                        <span class="ident">String::from_utf8</span>(<span class="ident">Vec::from_raw_parts</span>(
-                                            <span class="kw-2">*</span>((<span class="ident">base</span> <span class="op">+</span> <span class="number">0</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                                            <span class="ident">len15</span>,
-                                            <span class="ident">len15</span>,
+                                        String::from_utf8(Vec::from_raw_parts(
+                                            <span class="kw-2">*</span>((base + <span class="number">0</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                                            len15,
+                                            len15,
                                         ))
-                                        .<span class="ident">unwrap</span>()
+                                        .unwrap()
                                     });
                                 }
-                                <span class="ident">std::alloc::dealloc</span>(
-                                    <span class="ident">base16</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                                    <span class="ident">std::alloc::Layout::from_size_align_unchecked</span>(
-                                        (<span class="ident">len16</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">*</span> <span class="number">8</span>,
+                                std::alloc::dealloc(
+                                    base16 <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                                    std::alloc::Layout::from_size_align_unchecked(
+                                        (len16 <span class="kw">as </span>usize) * <span class="number">8</span>,
                                         <span class="number">4</span>,
                                     ),
                                 );
 
-                                <span class="ident">result16</span>
+                                result16
                             }),
-                            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
+                            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
                         },
                     }
                 }),
-                <span class="number">1</span> =&gt; <span class="prelude-val">Err</span>({
-                    <span class="kw">let</span> <span class="ident">len17</span> <span class="op">=</span> <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">8</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="ident">usize</span>;
+                <span class="number">1 </span>=&gt; <span class="prelude-val">Err</span>({
+                    <span class="kw">let </span>len17 = <span class="kw-2">*</span>((ptr10 + <span class="number">8</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span>usize;
 
-                    <span class="ident">String::from_utf8</span>(<span class="ident">Vec::from_raw_parts</span>(
-                        <span class="kw-2">*</span>((<span class="ident">ptr10</span> <span class="op">+</span> <span class="number">4</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="kw">_</span>,
-                        <span class="ident">len17</span>,
-                        <span class="ident">len17</span>,
+                    String::from_utf8(Vec::from_raw_parts(
+                        <span class="kw-2">*</span>((ptr10 + <span class="number">4</span>) <span class="kw">as </span><span class="kw-2">*const </span>i32) <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>,
+                        len17,
+                        len17,
                     ))
-                    .<span class="ident">unwrap</span>()
+                    .unwrap()
                 }),
-                <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid enum discriminant&quot;</span>),
             }
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">align</span>(<span class="number">4</span>))]</span>
-<span class="kw">struct</span> <span class="ident">RetArea</span>([<span class="ident">u8</span>; <span class="number">68</span>]);
-<span class="kw">static</span> <span class="kw-2">mut</span> <span class="ident">WASIX_HTTP_CLIENT_V1_RET_AREA</span>: <span class="ident">RetArea</span> <span class="op">=</span> <span class="ident">RetArea</span>([<span class="number">0</span>; <span class="number">68</span>]);
+<span class="attribute">#[repr(align(<span class="number">4</span>))]
+</span><span class="kw">struct </span>RetArea([u8; <span class="number">68</span>]);
+<span class="kw">static </span><span class="kw-2">mut </span>WASIX_HTTP_CLIENT_V1_RET_AREA: RetArea = RetArea([<span class="number">0</span>; <span class="number">68</span>]);
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasix_http_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasix_http_client" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/trampoline.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>trampoline.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/trampoline.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>trampoline.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -85,92 +85,134 @@
 <span id="85">85</span>
 <span id="86">86</span>
 <span id="87">87</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Trampolines for libcalls.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! This is needed because the target of libcall relocations are not reachable</span>
-<span class="doccomment">//! through normal branch instructions.</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Trampolines for libcalls.
+//!
+//! This is needed because the target of libcall relocations are not reachable
+//! through normal branch instructions.
 
-<span class="kw">use</span> <span class="ident">enum_iterator::IntoEnumIterator</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">LibCall</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationKind</span>,
-    <span class="ident">RelocationTarget</span>, <span class="ident">SectionBody</span>, <span class="ident">Target</span>,
+</span><span class="kw">use </span>enum_iterator::IntoEnumIterator;
+<span class="kw">use </span>wasmer_types::{
+    Architecture, CustomSection, CustomSectionProtection, LibCall, Relocation, RelocationKind,
+    RelocationTarget, SectionBody, Target,
 };
 
-<span class="comment">// SystemV says that both x16 and x17 are available as intra-procedural scratch</span>
-<span class="comment">// registers but Apple&#39;s ABI restricts us to use x17.</span>
-<span class="comment">// LDR x17, [PC, #8]  51 00 00 58</span>
-<span class="comment">// BR x17             20 02 1f d6</span>
-<span class="comment">// JMPADDR            00 00 00 00 00 00 00 00</span>
-<span class="kw">const</span> <span class="ident">AARCH64_TRAMPOLINE</span>: [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span> [
+<span class="comment">// SystemV says that both x16 and x17 are available as intra-procedural scratch
+// registers but Apple&#39;s ABI restricts us to use x17.
+// LDR x17, [PC, #8]  51 00 00 58
+// BR x17             20 02 1f d6
+// JMPADDR            00 00 00 00 00 00 00 00
+</span><span class="kw">const </span>AARCH64_TRAMPOLINE: [u8; <span class="number">16</span>] = [
     <span class="number">0x51</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x58</span>, <span class="number">0x20</span>, <span class="number">0x02</span>, <span class="number">0x1f</span>, <span class="number">0xd6</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
 ];
 
-<span class="comment">// 2 padding bytes are used to preserve alignment.</span>
-<span class="comment">// JMP [RIP + 2]   FF 25 02 00 00 00 [00 00]</span>
-<span class="comment">// 64-bit ADDR     00 00 00 00 00 00 00 00</span>
-<span class="kw">const</span> <span class="ident">X86_64_TRAMPOLINE</span>: [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span> [
+<span class="comment">// 2 padding bytes are used to preserve alignment.
+// JMP [RIP + 2]   FF 25 02 00 00 00 [00 00]
+// 64-bit ADDR     00 00 00 00 00 00 00 00
+</span><span class="kw">const </span>X86_64_TRAMPOLINE: [u8; <span class="number">16</span>] = [
     <span class="number">0xff</span>, <span class="number">0x25</span>, <span class="number">0x02</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>,
 ];
 
-<span class="kw">fn</span> <span class="ident">make_trampoline</span>(
-    <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-    <span class="ident">libcall</span>: <span class="ident">LibCall</span>,
-    <span class="ident">code</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="ident">relocations</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span>,
+<span class="comment">// can it be shorter than this?
+// 4 padding bytes are used to preserve alignment.
+// AUIPC t1,0     17 03 00 00
+// LD t1, 16(t1)  03 33 03 01
+// JR t1          67 00 03 00 [00 00 00 00]
+// JMPADDR        00 00 00 00 00 00 00 00
+</span><span class="kw">const </span>RISCV64_TRAMPOLINE: [u8; <span class="number">24</span>] = [
+    <span class="number">0x17</span>, <span class="number">0x03</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x03</span>, <span class="number">0x33</span>, <span class="number">0x03</span>, <span class="number">0x01</span>, <span class="number">0x67</span>, <span class="number">0x00</span>, <span class="number">0x03</span>, <span class="number">0x00</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+    <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>,
+];
+
+<span class="kw">fn </span>make_trampoline(
+    target: <span class="kw-2">&amp;</span>Target,
+    libcall: LibCall,
+    code: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;,
+    relocations: <span class="kw-2">&amp;mut </span>Vec&lt;Relocation&gt;,
 ) {
-    <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; {
-            <span class="ident">code</span>.<span class="ident">extend</span>(<span class="ident">AARCH64_TRAMPOLINE</span>);
-            <span class="ident">relocations</span>.<span class="ident">push</span>(<span class="ident">Relocation</span> {
-                <span class="ident">kind</span>: <span class="ident">RelocationKind::Abs8</span>,
-                <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">libcall</span>),
-                <span class="ident">offset</span>: <span class="ident">code</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">-</span> <span class="number">8</span>,
-                <span class="ident">addend</span>: <span class="number">0</span>,
+    <span class="kw">match </span>target.triple().architecture {
+        Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
+            code.extend(AARCH64_TRAMPOLINE);
+            relocations.push(Relocation {
+                kind: RelocationKind::Abs8,
+                reloc_target: RelocationTarget::LibCall(libcall),
+                offset: code.len() <span class="kw">as </span>u32 - <span class="number">8</span>,
+                addend: <span class="number">0</span>,
             });
         }
-        <span class="ident">Architecture::X86_64</span> =&gt; {
-            <span class="ident">code</span>.<span class="ident">extend</span>(<span class="ident">X86_64_TRAMPOLINE</span>);
-            <span class="ident">relocations</span>.<span class="ident">push</span>(<span class="ident">Relocation</span> {
-                <span class="ident">kind</span>: <span class="ident">RelocationKind::Abs8</span>,
-                <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget::LibCall</span>(<span class="ident">libcall</span>),
-                <span class="ident">offset</span>: <span class="ident">code</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span> <span class="op">-</span> <span class="number">8</span>,
-                <span class="ident">addend</span>: <span class="number">0</span>,
+        Architecture::X86_64 =&gt; {
+            code.extend(X86_64_TRAMPOLINE);
+            relocations.push(Relocation {
+                kind: RelocationKind::Abs8,
+                reloc_target: RelocationTarget::LibCall(libcall),
+                offset: code.len() <span class="kw">as </span>u32 - <span class="number">8</span>,
+                addend: <span class="number">0</span>,
             });
         }
-        <span class="ident">arch</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported architecture: {}&quot;</span>, <span class="ident">arch</span>),
+        Architecture::Riscv64(<span class="kw">_</span>) =&gt; {
+            code.extend(RISCV64_TRAMPOLINE);
+            relocations.push(Relocation {
+                kind: RelocationKind::Abs8,
+                reloc_target: RelocationTarget::LibCall(libcall),
+                offset: code.len() <span class="kw">as </span>u32 - <span class="number">8</span>,
+                addend: <span class="number">0</span>,
+            });
+        }
+        arch =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported architecture: {}&quot;</span>, arch),
     };
 }
 
-<span class="doccomment">/// Returns the length of a libcall trampoline.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">libcall_trampoline_len</span>(<span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="ident">usize</span> {
-    <span class="kw">match</span> <span class="ident">target</span>.<span class="ident">triple</span>().<span class="ident">architecture</span> {
-        <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) =&gt; <span class="ident">AARCH64_TRAMPOLINE</span>.<span class="ident">len</span>(),
-        <span class="ident">Architecture::X86_64</span> =&gt; <span class="ident">X86_64_TRAMPOLINE</span>.<span class="ident">len</span>(),
-        <span class="ident">arch</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported architecture: {}&quot;</span>, <span class="ident">arch</span>),
+<span class="doccomment">/// Returns the length of a libcall trampoline.
+</span><span class="kw">pub fn </span>libcall_trampoline_len(target: <span class="kw-2">&amp;</span>Target) -&gt; usize {
+    <span class="kw">match </span>target.triple().architecture {
+        Architecture::Aarch64(<span class="kw">_</span>) =&gt; AARCH64_TRAMPOLINE.len(),
+        Architecture::X86_64 =&gt; X86_64_TRAMPOLINE.len(),
+        Architecture::Riscv64(<span class="kw">_</span>) =&gt; RISCV64_TRAMPOLINE.len(),
+        arch =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unsupported architecture: {}&quot;</span>, arch),
     }
 }
 
-<span class="doccomment">/// Creates a custom section containing the libcall trampolines.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">make_libcall_trampolines</span>(<span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="ident">CustomSection</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">code</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">relocations</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">for</span> <span class="ident">libcall</span> <span class="kw">in</span> <span class="ident">LibCall::into_enum_iter</span>() {
-        <span class="ident">make_trampoline</span>(<span class="ident">target</span>, <span class="ident">libcall</span>, <span class="kw-2">&amp;mut</span> <span class="ident">code</span>, <span class="kw-2">&amp;mut</span> <span class="ident">relocations</span>);
+<span class="doccomment">/// Creates a custom section containing the libcall trampolines.
+</span><span class="kw">pub fn </span>make_libcall_trampolines(target: <span class="kw-2">&amp;</span>Target) -&gt; CustomSection {
+    <span class="kw">let </span><span class="kw-2">mut </span>code = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>relocations = <span class="macro">vec!</span>[];
+    <span class="kw">for </span>libcall <span class="kw">in </span>LibCall::into_enum_iter() {
+        make_trampoline(target, libcall, <span class="kw-2">&amp;mut </span>code, <span class="kw-2">&amp;mut </span>relocations);
     }
-    <span class="ident">CustomSection</span> {
-        <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::ReadExecute</span>,
-        <span class="ident">bytes</span>: <span class="ident">SectionBody::new_with_vec</span>(<span class="ident">code</span>),
-        <span class="ident">relocations</span>,
+    CustomSection {
+        protection: CustomSectionProtection::ReadExecute,
+        bytes: SectionBody::new_with_vec(code),
+        relocations,
     }
 }
 
-<span class="doccomment">/// Returns the address of a trampoline in the libcall trampolines section.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_libcall_trampoline</span>(
-    <span class="ident">libcall</span>: <span class="ident">LibCall</span>,
-    <span class="ident">libcall_trampolines</span>: <span class="ident">usize</span>,
-    <span class="ident">libcall_trampoline_len</span>: <span class="ident">usize</span>,
-) -&gt; <span class="ident">usize</span> {
-    <span class="ident">libcall_trampolines</span> <span class="op">+</span> <span class="ident">libcall</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">*</span> <span class="ident">libcall_trampoline_len</span>
+<span class="doccomment">/// Returns the address of a trampoline in the libcall trampolines section.
+</span><span class="kw">pub fn </span>get_libcall_trampoline(
+    libcall: LibCall,
+    libcall_trampolines: usize,
+    libcall_trampoline_len: usize,
+) -&gt; usize {
+    libcall_trampolines + libcall <span class="kw">as </span>usize * libcall_trampoline_len
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

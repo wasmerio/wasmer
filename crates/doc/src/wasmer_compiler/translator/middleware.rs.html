@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/middleware.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>middleware.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/translator/middleware.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>middleware.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -208,215 +208,215 @@
 <span id="208">208</span>
 <span id="209">209</span>
 <span id="210">210</span>
-</pre><pre class="rust"><code><span class="doccomment">//! The middleware parses the function binary bytecodes and transform them</span>
-<span class="doccomment">//! with the chosen functions.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! The middleware parses the function binary bytecodes and transform them
+//! with the chosen functions.
 
-<span class="kw">use</span> <span class="ident">smallvec::SmallVec</span>;
-<span class="kw">use</span> <span class="ident">std::collections::VecDeque</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std::ops</span>::{<span class="ident">Deref</span>, <span class="ident">Range</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">MiddlewareError</span>, <span class="ident">ModuleInfo</span>, <span class="ident">WasmResult</span>};
-<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">ValType</span>};
+</span><span class="kw">use </span>smallvec::SmallVec;
+<span class="kw">use </span>std::collections::VecDeque;
+<span class="kw">use </span>std::fmt::Debug;
+<span class="kw">use </span>std::ops::{Deref, Range};
+<span class="kw">use </span>wasmer_types::{LocalFunctionIndex, MiddlewareError, ModuleInfo, WasmResult};
+<span class="kw">use </span>wasmparser::{BinaryReader, Operator, ValType};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::error::from_binaryreadererror_wasmerror</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::environ::FunctionBinaryReader</span>;
+<span class="kw">use </span><span class="kw">super</span>::error::from_binaryreadererror_wasmerror;
+<span class="kw">use </span><span class="kw">crate</span>::translator::environ::FunctionBinaryReader;
 
-<span class="doccomment">/// A shared builder for function middlewares.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ModuleMiddleware</span>: <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
-    <span class="doccomment">/// Generates a `FunctionMiddleware` for a given function.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Here we generate a separate object for each function instead of executing directly on per-function operators,</span>
-    <span class="doccomment">/// in order to enable concurrent middleware application. Takes immutable `&amp;self` because this function can be called</span>
-    <span class="doccomment">/// concurrently from multiple compilation threads.</span>
-    <span class="kw">fn</span> <span class="ident">generate_function_middleware</span>(
+<span class="doccomment">/// A shared builder for function middlewares.
+</span><span class="kw">pub trait </span>ModuleMiddleware: Debug + Send + Sync {
+    <span class="doccomment">/// Generates a `FunctionMiddleware` for a given function.
+    ///
+    /// Here we generate a separate object for each function instead of executing directly on per-function operators,
+    /// in order to enable concurrent middleware application. Takes immutable `&amp;self` because this function can be called
+    /// concurrently from multiple compilation threads.
+    </span><span class="kw">fn </span>generate_function_middleware(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">local_function_index</span>: <span class="ident">LocalFunctionIndex</span>,
-    ) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span>;
+        local_function_index: LocalFunctionIndex,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>FunctionMiddleware&gt;;
 
-    <span class="doccomment">/// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.</span>
-    <span class="kw">fn</span> <span class="ident">transform_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ModuleInfo</span>) {}
+    <span class="doccomment">/// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
+    </span><span class="kw">fn </span>transform_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>ModuleInfo) {}
 }
 
-<span class="doccomment">/// A function middleware specialized for a single function.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">FunctionMiddleware</span>: <span class="ident">Debug</span> {
-    <span class="doccomment">/// Processes the given operator.</span>
-    <span class="kw">fn</span> <span class="ident">feed</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">operator</span>: <span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
-        <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">MiddlewareReaderState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">MiddlewareError</span><span class="op">&gt;</span> {
-        <span class="ident">state</span>.<span class="ident">push_operator</span>(<span class="ident">operator</span>);
+<span class="doccomment">/// A function middleware specialized for a single function.
+</span><span class="kw">pub trait </span>FunctionMiddleware: Debug {
+    <span class="doccomment">/// Processes the given operator.
+    </span><span class="kw">fn </span>feed&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        operator: Operator&lt;<span class="lifetime">&#39;a</span>&gt;,
+        state: <span class="kw-2">&amp;mut </span>MiddlewareReaderState&lt;<span class="lifetime">&#39;a</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), MiddlewareError&gt; {
+        state.push_operator(operator);
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// A Middleware binary reader of the WebAssembly structures and types.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MiddlewareBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Parsing state.</span>
-    <span class="ident">state</span>: <span class="ident">MiddlewareReaderState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A Middleware binary reader of the WebAssembly structures and types.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>MiddlewareBinaryReader&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Parsing state.
+    </span>state: MiddlewareReaderState&lt;<span class="lifetime">&#39;a</span>&gt;,
 
-    <span class="doccomment">/// The backing middleware chain for this reader.</span>
-    <span class="ident">chain</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The backing middleware chain for this reader.
+    </span>chain: Vec&lt;Box&lt;<span class="kw">dyn </span>FunctionMiddleware&gt;&gt;,
 }
 
-<span class="doccomment">/// The state of the binary reader. Exposed to middlewares to push their outputs.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MiddlewareReaderState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Raw binary reader.</span>
-    <span class="ident">inner</span>: <span class="ident">BinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The state of the binary reader. Exposed to middlewares to push their outputs.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>MiddlewareReaderState&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Raw binary reader.
+    </span>inner: BinaryReader&lt;<span class="lifetime">&#39;a</span>&gt;,
 
-    <span class="doccomment">/// The pending operations added by the middleware.</span>
-    <span class="ident">pending_operations</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The pending operations added by the middleware.
+    </span>pending_operations: VecDeque&lt;Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
 }
 
-<span class="doccomment">/// Trait for generating middleware chains from &quot;prototype&quot; (generator) chains.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ModuleMiddlewareChain</span> {
-    <span class="doccomment">/// Generates a function middleware chain.</span>
-    <span class="kw">fn</span> <span class="ident">generate_function_middleware_chain</span>(
+<span class="doccomment">/// Trait for generating middleware chains from &quot;prototype&quot; (generator) chains.
+</span><span class="kw">pub trait </span>ModuleMiddlewareChain {
+    <span class="doccomment">/// Generates a function middleware chain.
+    </span><span class="kw">fn </span>generate_function_middleware_chain(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">local_function_index</span>: <span class="ident">LocalFunctionIndex</span>,
-    ) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+        local_function_index: LocalFunctionIndex,
+    ) -&gt; Vec&lt;Box&lt;<span class="kw">dyn </span>FunctionMiddleware&gt;&gt;;
 
-    <span class="doccomment">/// Applies the chain on a `ModuleInfo` struct.</span>
-    <span class="kw">fn</span> <span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ModuleInfo</span>);
+    <span class="doccomment">/// Applies the chain on a `ModuleInfo` struct.
+    </span><span class="kw">fn </span>apply_on_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>, module_info: <span class="kw-2">&amp;mut </span>ModuleInfo);
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Deref</span><span class="op">&lt;</span><span class="ident">Target</span> <span class="op">=</span> <span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">ModuleMiddlewareChain</span> <span class="kw">for</span> [<span class="ident">T</span>] {
-    <span class="doccomment">/// Generates a function middleware chain.</span>
-    <span class="kw">fn</span> <span class="ident">generate_function_middleware_chain</span>(
+<span class="kw">impl</span>&lt;T: Deref&lt;Target = <span class="kw">dyn </span>ModuleMiddleware&gt;&gt; ModuleMiddlewareChain <span class="kw">for </span>[T] {
+    <span class="doccomment">/// Generates a function middleware chain.
+    </span><span class="kw">fn </span>generate_function_middleware_chain(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">local_function_index</span>: <span class="ident">LocalFunctionIndex</span>,
-    ) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">generate_function_middleware</span>(<span class="ident">local_function_index</span>))
-            .<span class="ident">collect</span>()
+        local_function_index: LocalFunctionIndex,
+    ) -&gt; Vec&lt;Box&lt;<span class="kw">dyn </span>FunctionMiddleware&gt;&gt; {
+        <span class="self">self</span>.iter()
+            .map(|x| x.generate_function_middleware(local_function_index))
+            .collect()
     }
 
-    <span class="doccomment">/// Applies the chain on a `ModuleInfo` struct.</span>
-    <span class="kw">fn</span> <span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module_info</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ModuleInfo</span>) {
-        <span class="kw">for</span> <span class="ident">item</span> <span class="kw">in</span> <span class="self">self</span> {
-            <span class="ident">item</span>.<span class="ident">transform_module_info</span>(<span class="ident">module_info</span>);
+    <span class="doccomment">/// Applies the chain on a `ModuleInfo` struct.
+    </span><span class="kw">fn </span>apply_on_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>, module_info: <span class="kw-2">&amp;mut </span>ModuleInfo) {
+        <span class="kw">for </span>item <span class="kw">in </span><span class="self">self </span>{
+            item.transform_module_info(module_info);
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">MiddlewareReaderState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Push an operator.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">push_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">operator</span>: <span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">pending_operations</span>.<span class="ident">push_back</span>(<span class="ident">operator</span>);
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; MiddlewareReaderState&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Push an operator.
+    </span><span class="kw">pub fn </span>push_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>, operator: Operator&lt;<span class="lifetime">&#39;a</span>&gt;) {
+        <span class="self">self</span>.pending_operations.push_back(operator);
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Extend</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MiddlewareReaderState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">extend</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">iter</span>: <span class="ident">I</span>) {
-        <span class="self">self</span>.<span class="ident">pending_operations</span>.<span class="ident">extend</span>(<span class="ident">iter</span>);
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Extend&lt;Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt; <span class="kw">for </span>MiddlewareReaderState&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>extend&lt;I: IntoIterator&lt;Item = Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, iter: I) {
+        <span class="self">self</span>.pending_operations.extend(iter);
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;b</span><span class="op">&gt;</span> <span class="ident">Extend</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MiddlewareReaderState</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">extend</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">IntoIterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;b</span> <span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">iter</span>: <span class="ident">I</span>) {
-        <span class="self">self</span>.<span class="ident">pending_operations</span>.<span class="ident">extend</span>(<span class="ident">iter</span>.<span class="ident">into_iter</span>().<span class="ident">cloned</span>());
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>: <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;b</span>&gt; Extend&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt; <span class="kw">for </span>MiddlewareReaderState&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>extend&lt;I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, iter: I) {
+        <span class="self">self</span>.pending_operations.extend(iter.into_iter().cloned());
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">MiddlewareBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_with_offset</span>(<span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>], <span class="ident">original_offset</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">BinaryReader::new_with_offset</span>(<span class="ident">data</span>, <span class="ident">original_offset</span>);
-        <span class="self">Self</span> {
-            <span class="ident">state</span>: <span class="ident">MiddlewareReaderState</span> {
-                <span class="ident">inner</span>,
-                <span class="ident">pending_operations</span>: <span class="ident">VecDeque::new</span>(),
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; MiddlewareBinaryReader&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
+    </span><span class="kw">pub fn </span>new_with_offset(data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], original_offset: usize) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>inner = BinaryReader::new_with_offset(data, original_offset);
+        <span class="self">Self </span>{
+            state: MiddlewareReaderState {
+                inner,
+                pending_operations: VecDeque::new(),
             },
-            <span class="ident">chain</span>: <span class="macro">vec!</span>[],
+            chain: <span class="macro">vec!</span>[],
         }
     }
 
-    <span class="doccomment">/// Replaces the middleware chain with a new one.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_middleware_chain</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">chain</span> <span class="op">=</span> <span class="ident">stages</span>;
+    <span class="doccomment">/// Replaces the middleware chain with a new one.
+    </span><span class="kw">pub fn </span>set_middleware_chain(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stages: Vec&lt;Box&lt;<span class="kw">dyn </span>FunctionMiddleware&gt;&gt;) {
+        <span class="self">self</span>.chain = stages;
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FunctionBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MiddlewareBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">read_local_count</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">state</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">read_var_u32</span>()
-            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FunctionBinaryReader&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>MiddlewareBinaryReader&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>read_local_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;u32&gt; {
+        <span class="self">self</span>.state
+            .inner
+            .read_var_u32()
+            .map_err(from_binaryreadererror_wasmerror)
     }
 
-    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">ValType</span>)<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">state</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">read_var_u32</span>()
-            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">ty</span>: <span class="ident">ValType</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">state</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">read_val_type</span>()
-            .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>((<span class="ident">count</span>, <span class="ident">ty</span>))
+    <span class="kw">fn </span>read_local_decl(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;(u32, ValType)&gt; {
+        <span class="kw">let </span>count = <span class="self">self
+            </span>.state
+            .inner
+            .read_var_u32()
+            .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
+        <span class="kw">let </span>ty: ValType = <span class="self">self
+            </span>.state
+            .inner
+            .read_val_type()
+            .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((count, ty))
     }
 
-    <span class="kw">fn</span> <span class="ident">read_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">chain</span>.<span class="ident">is_empty</span>() {
-            <span class="comment">// We short-circuit in case no chain is used</span>
-            <span class="kw">return</span> <span class="self">self</span>
-                .<span class="ident">state</span>
-                .<span class="ident">inner</span>
-                .<span class="ident">read_operator</span>()
-                .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>);
+    <span class="kw">fn </span>read_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasmResult&lt;Operator&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
+        <span class="kw">if </span><span class="self">self</span>.chain.is_empty() {
+            <span class="comment">// We short-circuit in case no chain is used
+            </span><span class="kw">return </span><span class="self">self
+                </span>.state
+                .inner
+                .read_operator()
+                .map_err(from_binaryreadererror_wasmerror);
         }
 
-        <span class="comment">// Try to fill the `self.pending_operations` buffer, until it is non-empty.</span>
-        <span class="kw">while</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">let</span> <span class="ident">raw_op</span> <span class="op">=</span> <span class="self">self</span>
-                .<span class="ident">state</span>
-                .<span class="ident">inner</span>
-                .<span class="ident">read_operator</span>()
-                .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>;
+        <span class="comment">// Try to fill the `self.pending_operations` buffer, until it is non-empty.
+        </span><span class="kw">while </span><span class="self">self</span>.state.pending_operations.is_empty() {
+            <span class="kw">let </span>raw_op = <span class="self">self
+                </span>.state
+                .inner
+                .read_operator()
+                .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
 
-            <span class="comment">// Fill the initial raw operator into pending buffer.</span>
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">push_back</span>(<span class="ident">raw_op</span>);
+            <span class="comment">// Fill the initial raw operator into pending buffer.
+            </span><span class="self">self</span>.state.pending_operations.push_back(raw_op);
 
-            <span class="comment">// Run the operator through each stage.</span>
-            <span class="kw">for</span> <span class="ident">stage</span> <span class="kw">in</span> <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">chain</span> {
-                <span class="comment">// Take the outputs from the previous stage.</span>
-                <span class="kw">let</span> <span class="ident">pending</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>; <span class="number">2</span>]<span class="op">&gt;</span> <span class="op">=</span>
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">drain</span>(<span class="number">0</span>..).<span class="ident">collect</span>();
+            <span class="comment">// Run the operator through each stage.
+            </span><span class="kw">for </span>stage <span class="kw">in </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.chain {
+                <span class="comment">// Take the outputs from the previous stage.
+                </span><span class="kw">let </span>pending: SmallVec&lt;[Operator&lt;<span class="lifetime">&#39;a</span>&gt;; <span class="number">2</span>]&gt; =
+                    <span class="self">self</span>.state.pending_operations.drain(<span class="number">0</span>..).collect();
 
-                <span class="comment">// ...and feed them into the current stage.</span>
-                <span class="kw">for</span> <span class="ident">pending_op</span> <span class="kw">in</span> <span class="ident">pending</span> {
-                    <span class="ident">stage</span>.<span class="ident">feed</span>(<span class="ident">pending_op</span>, <span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">state</span>)<span class="question-mark">?</span>;
+                <span class="comment">// ...and feed them into the current stage.
+                </span><span class="kw">for </span>pending_op <span class="kw">in </span>pending {
+                    stage.feed(pending_op, <span class="kw-2">&amp;mut </span><span class="self">self</span>.state)<span class="question-mark">?</span>;
                 }
             }
         }
 
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">pop_front</span>().<span class="ident">unwrap</span>())
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.state.pending_operations.pop_front().unwrap())
     }
 
-    <span class="kw">fn</span> <span class="ident">current_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">current_position</span>()
+    <span class="kw">fn </span>current_position(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.state.inner.current_position()
     }
 
-    <span class="kw">fn</span> <span class="ident">original_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">original_position</span>()
+    <span class="kw">fn </span>original_position(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.state.inner.original_position()
     }
 
-    <span class="kw">fn</span> <span class="ident">bytes_remaining</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">bytes_remaining</span>()
+    <span class="kw">fn </span>bytes_remaining(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.state.inner.bytes_remaining()
     }
 
-    <span class="kw">fn</span> <span class="ident">eof</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">eof</span>()
+    <span class="kw">fn </span>eof(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.state.inner.eof()
     }
 
-    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">range</span>()
+    <span class="kw">fn </span>range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;usize&gt; {
+        <span class="self">self</span>.state.inner.range()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

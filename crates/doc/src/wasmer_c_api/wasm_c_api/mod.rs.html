@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/c-api/src/wasm_c_api/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -369,374 +369,374 @@
 <span id="367">367</span>
 <span id="368">368</span>
 <span id="369">369</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Implementation of the [official WebAssembly C</span>
-<span class="doccomment">//! API](https://github.com/WebAssembly/wasm-c-api) for Wasmer.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! We would like to remind the reader that this official standard can</span>
-<span class="doccomment">//! be characterized as a _living standard_. As such, the API is not</span>
-<span class="doccomment">//! yet stable, even though it shows maturity over time. The API is</span>
-<span class="doccomment">//! described by the `wasm.h` C header, which is included by</span>
-<span class="doccomment">//! `wasmer.h` C header file (which contains extension of the</span>
-<span class="doccomment">//! standard API, for example to provide WASI or vendor-specific</span>
-<span class="doccomment">//! features).</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! # Quick Guide</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Usually, the user first needs to create an [`engine`] and a</span>
-<span class="doccomment">//! [`store`]. Once it&#39;s done, the user needs to create a [`module`]</span>
-<span class="doccomment">//! and then [instantiate][instance] it. When instantiating the</span>
-<span class="doccomment">//! module, the user is able to pass a set of</span>
-<span class="doccomment">//! [imports][externals]. With an instance, the user is able to call</span>
-<span class="doccomment">//! the [exports][instance::wasm_instance_exports].</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Every module comes with examples and entry points to guide the</span>
-<span class="doccomment">//! discovery of this API.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Implementation of the [official WebAssembly C
+//! API](https://github.com/WebAssembly/wasm-c-api) for Wasmer.
+//!
+//! We would like to remind the reader that this official standard can
+//! be characterized as a _living standard_. As such, the API is not
+//! yet stable, even though it shows maturity over time. The API is
+//! described by the `wasm.h` C header, which is included by
+//! `wasmer.h` C header file (which contains extension of the
+//! standard API, for example to provide WASI or vendor-specific
+//! features).
+//!
+//! # Quick Guide
+//!
+//! Usually, the user first needs to create an [`engine`] and a
+//! [`store`]. Once it&#39;s done, the user needs to create a [`module`]
+//! and then [instantiate][instance] it. When instantiating the
+//! module, the user is able to pass a set of
+//! [imports][externals]. With an instance, the user is able to call
+//! the [exports][instance::wasm_instance_exports].
+//!
+//! Every module comes with examples and entry points to guide the
+//! discovery of this API.
 
-<span class="doccomment">/// `Context`.</span>
-<span class="kw">mod</span> <span class="ident">function_env</span>;
+/// `Context`.
+</span><span class="kw">mod </span>function_env;
 
-<span class="doccomment">/// Private Rust macros.</span>
-<span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">mod</span> <span class="ident">macros</span>;
+<span class="doccomment">/// Private Rust macros.
+</span><span class="attribute">#[macro_use]
+</span><span class="kw">mod </span>macros;
 
-<span class="doccomment">/// An engine drives the compilation and the runtime.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Entry points: A default engine is created with</span>
-<span class="doccomment">/// [`wasm_engine_new`][engine::wasm_engine_new] and freed with</span>
-<span class="doccomment">/// [`wasm_engine_delete`][engine::wasm_engine_delete].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The simplest way to get a default engine is the following:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Check we have a valid engine!</span>
-<span class="doccomment">///     assert(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// To configure the engine, see the [`wasm_config_new`][engine::wasm_config_new].</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler-headless&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">engine</span>;
+<span class="doccomment">/// An engine drives the compilation and the runtime.
+///
+/// Entry points: A default engine is created with
+/// [`wasm_engine_new`][engine::wasm_engine_new] and freed with
+/// [`wasm_engine_delete`][engine::wasm_engine_delete].
+///
+/// # Example
+///
+/// The simplest way to get a default engine is the following:
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new();
+///
+///     // Check we have a valid engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// To configure the engine, see the [`wasm_config_new`][engine::wasm_config_new].
+</span><span class="attribute">#[cfg(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;compiler-headless&quot;</span>))]
+</span><span class="kw">pub mod </span>engine;
 
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">externals</span>;
+<span class="doccomment">/// cbindgen:ignore
+</span><span class="kw">pub mod </span>externals;
 
-<span class="doccomment">/// A WebAssembly instance is a stateful, executable instance of a</span>
-<span class="doccomment">/// WebAssembly module.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Instance objects contain all the exported WebAssembly functions,</span>
-<span class="doccomment">/// memories, tables and globals that allow interacting with</span>
-<span class="doccomment">/// WebAssembly.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Entry points: A WebAssembly instance is created with</span>
-<span class="doccomment">/// [`wasm_instance_new`][instance::wasm_instance_new] and freed with</span>
-<span class="doccomment">/// [`wasm_instance_delete`][instance::wasm_instance_delete].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The simplest way to instantiate a Wasm module is the following:</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the engine and the store.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create a WebAssembly module from a WAT definition.</span>
-<span class="doccomment">///     wasm_byte_vec_t wat;</span>
-<span class="doccomment">///     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(module)&quot;);</span>
-<span class="doccomment">///     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">///     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the module.</span>
-<span class="doccomment">///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);</span>
-<span class="doccomment">///     assert(module);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Instantiate the module.</span>
-<span class="doccomment">///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;</span>
-<span class="doccomment">///     wasm_trap_t* trap = NULL;</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);</span>
-<span class="doccomment">///     assert(instance);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Now do something with the instance, like calling the</span>
-<span class="doccomment">///     // exports with `wasm_instance_exports`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_instance_delete(instance);</span>
-<span class="doccomment">///     wasm_module_delete(module);</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wasm);</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wat);</span>
-<span class="doccomment">///     wasm_store_delete(store);</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">instance</span>;
+<span class="doccomment">/// A WebAssembly instance is a stateful, executable instance of a
+/// WebAssembly module.
+///
+/// Instance objects contain all the exported WebAssembly functions,
+/// memories, tables and globals that allow interacting with
+/// WebAssembly.
+///
+/// Entry points: A WebAssembly instance is created with
+/// [`wasm_instance_new`][instance::wasm_instance_new] and freed with
+/// [`wasm_instance_delete`][instance::wasm_instance_delete].
+///
+/// # Example
+///
+/// The simplest way to instantiate a Wasm module is the following:
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(module)&quot;);
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&amp;wat, &amp;wasm);
+///
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);
+///     assert(module);
+///
+///     // Instantiate the module.
+///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+///     wasm_trap_t* trap = NULL;
+///
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &amp;imports, &amp;trap);
+///     assert(instance);
+///
+///     // Now do something with the instance, like calling the
+///     // exports with `wasm_instance_exports`.
+///
+///     // Free everything.
+///     wasm_instance_delete(instance);
+///     wasm_module_delete(module);
+///     wasm_byte_vec_delete(&amp;wasm);
+///     wasm_byte_vec_delete(&amp;wat);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// cbindgen:ignore
+</span><span class="kw">pub mod </span>instance;
 
-<span class="doccomment">/// A WebAssembly module contains stateless WebAssembly code that has</span>
-<span class="doccomment">/// already been compiled and can be instantiated multiple times.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Entry points: A WebAssembly module is created with</span>
-<span class="doccomment">/// [`wasm_module_new`][module::wasm_module_new] and freed with</span>
-<span class="doccomment">/// [`wasm_module_delete`][module::wasm_module_delete].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the engine and the store.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create a WebAssembly module from a WAT definition.</span>
-<span class="doccomment">///     wasm_byte_vec_t wat;</span>
-<span class="doccomment">///     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(module)&quot;);</span>
-<span class="doccomment">///     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">///     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">///    </span>
-<span class="doccomment">///     // Create the module.</span>
-<span class="doccomment">///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // It works!</span>
-<span class="doccomment">///     assert(module);</span>
-<span class="doccomment">///    </span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wasm);</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wat);</span>
-<span class="doccomment">///     wasm_module_delete(module);</span>
-<span class="doccomment">///     wasm_store_delete(store);</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">module</span>;
+<span class="doccomment">/// A WebAssembly module contains stateless WebAssembly code that has
+/// already been compiled and can be instantiated multiple times.
+///
+/// Entry points: A WebAssembly module is created with
+/// [`wasm_module_new`][module::wasm_module_new] and freed with
+/// [`wasm_module_delete`][module::wasm_module_delete].
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(&amp;wat, &quot;(module)&quot;);
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&amp;wat, &amp;wasm);
+///    
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, &amp;wasm);
+///
+///     // It works!
+///     assert(module);
+///    
+///     // Free everything.
+///     wasm_byte_vec_delete(&amp;wasm);
+///     wasm_byte_vec_delete(&amp;wat);
+///     wasm_module_delete(module);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// cbindgen:ignore
+</span><span class="kw">pub mod </span>module;
 
-<span class="doccomment">/// A store represents all global state that can be manipulated by</span>
-<span class="doccomment">/// WebAssembly programs. It consists of the runtime representation of</span>
-<span class="doccomment">/// all instances of functions, tables, memories, and globals that</span>
-<span class="doccomment">/// have been allocated during the lifetime of the abstract machine.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The store holds the [engine] (that is —amonst many things— used to</span>
-<span class="doccomment">/// compile the Wasm bytes into a valid [module] artifact), in addition</span>
-<span class="doccomment">/// to extra private types.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Entry points: A store is created with</span>
-<span class="doccomment">/// [`wasm_store_new`][store::wasm_store_new] and freed with</span>
-<span class="doccomment">/// [`wasm_store_delete`][store::wasm_store_delete]. To customize the</span>
-<span class="doccomment">/// engine the store holds, see</span>
-<span class="doccomment">/// [`wasm_config_new`][engine::wasm_config_new].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create the engine.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the store.</span>
-<span class="doccomment">///     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // It works!</span>
-<span class="doccomment">///     assert(store);</span>
-<span class="doccomment">///    </span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_store_delete(store);</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">store</span>;
+<span class="doccomment">/// A store represents all global state that can be manipulated by
+/// WebAssembly programs. It consists of the runtime representation of
+/// all instances of functions, tables, memories, and globals that
+/// have been allocated during the lifetime of the abstract machine.
+///
+/// The store holds the [engine] (that is —amonst many things— used to
+/// compile the Wasm bytes into a valid [module] artifact), in addition
+/// to extra private types.
+///
+/// Entry points: A store is created with
+/// [`wasm_store_new`][store::wasm_store_new] and freed with
+/// [`wasm_store_delete`][store::wasm_store_delete]. To customize the
+/// engine the store holds, see
+/// [`wasm_config_new`][engine::wasm_config_new].
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new();
+///
+///     // Create the store.
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // It works!
+///     assert(store);
+///    
+///     // Free everything.
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// cbindgen:ignore
+</span><span class="kw">pub mod </span>store;
 
-<span class="doccomment">/// A trap represents an error which stores trace message with</span>
-<span class="doccomment">/// backtrace.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Create an engine and a store.</span>
-<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new();</span>
-<span class="doccomment">///     wasm_store_t* store = wasm_store_new(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the trap message.</span>
-<span class="doccomment">///     wasm_message_t message;</span>
-<span class="doccomment">///     wasm_name_new_from_string_nt(&amp;message, &quot;foobar&quot;);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Create the trap with its message.</span>
-<span class="doccomment">///     // The backtrace will be generated automatically.</span>
-<span class="doccomment">///     wasm_trap_t* trap = wasm_trap_new(store, &amp;message);</span>
-<span class="doccomment">///     assert(trap);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     wasm_name_delete(&amp;message);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Do something with the trap.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_trap_delete(trap);</span>
-<span class="doccomment">///     wasm_store_delete(store);</span>
-<span class="doccomment">///     wasm_engine_delete(engine);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Usually, a trap is returned from a host function (an imported</span>
-<span class="doccomment">/// function).</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">trap</span>;
+<span class="doccomment">/// A trap represents an error which stores trace message with
+/// backtrace.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Create an engine and a store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create the trap message.
+///     wasm_message_t message;
+///     wasm_name_new_from_string_nt(&amp;message, &quot;foobar&quot;);
+///
+///     // Create the trap with its message.
+///     // The backtrace will be generated automatically.
+///     wasm_trap_t* trap = wasm_trap_new(store, &amp;message);
+///     assert(trap);
+///
+///     wasm_name_delete(&amp;message);
+///
+///     // Do something with the trap.
+///
+///     // Free everything.
+///     wasm_trap_delete(trap);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// Usually, a trap is returned from a host function (an imported
+/// function).
+///
+/// cbindgen:ignore
+</span><span class="kw">pub mod </span>trap;
 
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
+<span class="doccomment">/// cbindgen:ignore
+</span><span class="kw">pub mod </span>types;
 
-<span class="doccomment">/// This module contains _unstable non-standard_ C API.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Use them at your own risks. The API is subject to change or to</span>
-<span class="doccomment">/// break without any plan to keep any compatibility :-).</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">unstable</span>;
+<span class="doccomment">/// This module contains _unstable non-standard_ C API.
+///
+/// Use them at your own risks. The API is subject to change or to
+/// break without any plan to keep any compatibility :-).
+</span><span class="kw">pub mod </span>unstable;
 
-<span class="doccomment">/// Possible runtime values that a WebAssembly module can either</span>
-<span class="doccomment">/// consume or produce.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// cbindgen:ignore</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">value</span>;
+<span class="doccomment">/// Possible runtime values that a WebAssembly module can either
+/// consume or produce.
+///
+/// cbindgen:ignore
+</span><span class="kw">pub mod </span>value;
 
-<span class="doccomment">/// Wasmer-specific API to get or query the version of this Wasm C API.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The `wasmer.h` file provides the `WASMER_VERSION`,</span>
-<span class="doccomment">/// `WASMER_VERSION_MAJOR`, `WASMER_VERSION_MINOR`,</span>
-<span class="doccomment">/// `WASMER_VERSION_PATCH` and `WASMER_VERSION_PRE`</span>
-<span class="doccomment">/// constants. However, in absence of this header file, it is possible</span>
-<span class="doccomment">/// to retrieve the same information with their respective functions,</span>
-<span class="doccomment">/// namely [`wasmer_version`][version::wasmer_version],</span>
-<span class="doccomment">/// [`wasmer_version_major`][version::wasmer_version_major],</span>
-<span class="doccomment">/// [`wasmer_version_minor`][version::wasmer_version_minor],</span>
-<span class="doccomment">/// [`wasmer_version_patch`][version::wasmer_version_patch], and</span>
-<span class="doccomment">/// [`wasmer_version_pre`][version::wasmer_version_pre].</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Get and print the version.</span>
-<span class="doccomment">///     const char* version = wasmer_version();</span>
-<span class="doccomment">///     printf(&quot;%s&quot;, version);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // No need to free the string. It&#39;s statically allocated on</span>
-<span class="doccomment">///     // the Rust side.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success()</span>
-<span class="doccomment">/// #    .stdout(env!(&quot;CARGO_PKG_VERSION&quot;));</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">version</span>;
+<span class="doccomment">/// Wasmer-specific API to get or query the version of this Wasm C API.
+///
+/// The `wasmer.h` file provides the `WASMER_VERSION`,
+/// `WASMER_VERSION_MAJOR`, `WASMER_VERSION_MINOR`,
+/// `WASMER_VERSION_PATCH` and `WASMER_VERSION_PRE`
+/// constants. However, in absence of this header file, it is possible
+/// to retrieve the same information with their respective functions,
+/// namely [`wasmer_version`][version::wasmer_version],
+/// [`wasmer_version_major`][version::wasmer_version_major],
+/// [`wasmer_version_minor`][version::wasmer_version_minor],
+/// [`wasmer_version_patch`][version::wasmer_version_patch], and
+/// [`wasmer_version_pre`][version::wasmer_version_pre].
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Get and print the version.
+///     const char* version = wasmer_version();
+///     printf(&quot;%s&quot;, version);
+///
+///     // No need to free the string. It&#39;s statically allocated on
+///     // the Rust side.
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(env!(&quot;CARGO_PKG_VERSION&quot;));
+/// # }
+/// ```
+</span><span class="kw">pub mod </span>version;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasi</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;wasi&quot;</span>)]
+</span><span class="kw">pub mod </span>wasi;
 
-<span class="doccomment">/// Wasmer-specific API to transform the WAT format into Wasm bytes.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It is used mostly for testing or for small program purposes.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Example</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// # use wasmer_inline_c::assert_c;</span>
-<span class="doccomment">/// # fn main() {</span>
-<span class="doccomment">/// #    (assert_c! {</span>
-<span class="doccomment">/// # #include &quot;tests/wasmer.h&quot;</span>
-<span class="doccomment">/// #</span>
-<span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     // Our WAT module.</span>
-<span class="doccomment">///     wasm_byte_vec_t wat;</span>
-<span class="doccomment">///     wasm_byte_vec_new(&amp;wat, 8, &quot;(module)&quot;);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Our Wasm bytes.</span>
-<span class="doccomment">///     wasm_byte_vec_t wasm;</span>
-<span class="doccomment">///     wat2wasm(&amp;wat, &amp;wasm);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // It works!</span>
-<span class="doccomment">///     assert(wasm.size &gt; 0);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     // Free everything.</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wasm);</span>
-<span class="doccomment">///     wasm_byte_vec_delete(&amp;wat);</span>
-<span class="doccomment">///</span>
-<span class="doccomment">///     return 0;</span>
-<span class="doccomment">/// }</span>
-<span class="doccomment">/// #    })</span>
-<span class="doccomment">/// #    .success();</span>
-<span class="doccomment">/// # }</span>
-<span class="doccomment">/// ```</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wat</span>;
+<span class="doccomment">/// Wasmer-specific API to transform the WAT format into Wasm bytes.
+///
+/// It is used mostly for testing or for small program purposes.
+///
+/// # Example
+///
+/// ```rust
+/// # use wasmer_inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include &quot;tests/wasmer.h&quot;
+/// #
+/// int main() {
+///     // Our WAT module.
+///     wasm_byte_vec_t wat;
+///     wasm_byte_vec_new(&amp;wat, 8, &quot;(module)&quot;);
+///
+///     // Our Wasm bytes.
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&amp;wat, &amp;wasm);
+///
+///     // It works!
+///     assert(wasm.size &gt; 0);
+///
+///     // Free everything.
+///     wasm_byte_vec_delete(&amp;wasm);
+///     wasm_byte_vec_delete(&amp;wat);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;wat&quot;</span>)]
+</span><span class="kw">pub mod </span>wat;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

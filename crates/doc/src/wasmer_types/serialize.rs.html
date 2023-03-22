@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/serialize.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>serialize.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/serialize.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>serialize.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -229,236 +229,236 @@
 <span id="229">229</span>
 <span id="230">230</span>
 <span id="231">231</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">compilation::target::CpuFeature</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>,
-    <span class="ident">DeserializeError</span>, <span class="ident">Dwarf</span>, <span class="ident">Features</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>,
-    <span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>,
-    <span class="ident">SerializeError</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>,
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
+<span class="kw">use crate</span>::{
+    compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
+    DeserializeError, Dwarf, Features, FunctionBody, FunctionIndex, LocalFunctionIndex,
+    MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
+    SerializeError, SignatureIndex, TableIndex, TableStyle,
 };
-<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">rkyv</span>::{
-    <span class="ident">archived_value</span>, <span class="ident">de::deserializers::SharedDeserializeMap</span>, <span class="ident">ser::serializers::AllocSerializer</span>,
-    <span class="ident">ser::Serializer</span> <span class="kw">as</span> <span class="ident">RkyvSerializer</span>, <span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>,
-    <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>,
+<span class="kw">use </span>enumset::EnumSet;
+<span class="kw">use </span>rkyv::{
+    archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
+    ser::Serializer <span class="kw">as </span>RkyvSerializer, Archive, Deserialize <span class="kw">as </span>RkyvDeserialize,
+    Serialize <span class="kw">as </span>RkyvSerialize,
 };
-<span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
+<span class="kw">use </span>std::convert::TryInto;
+<span class="kw">use </span>std::mem;
 
-<span class="doccomment">/// The compilation related data for a serialized modules</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Archive</span>, <span class="ident">Default</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">RkyvSerialize</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SerializableCompilation</span> {
-    <span class="kw">pub</span> <span class="ident">function_bodies</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">function_relocations</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">function_frame_info</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">function_call_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">dynamic_function_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">custom_sections</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">CustomSection</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">custom_section_relocations</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// The section indices corresponding to the Dwarf debug info</span>
-    <span class="kw">pub</span> <span class="ident">debug</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Dwarf</span><span class="op">&gt;</span>,
-    <span class="comment">// Custom section containing libcall trampolines.</span>
-    <span class="kw">pub</span> <span class="ident">libcall_trampolines</span>: <span class="ident">SectionIndex</span>,
-    <span class="comment">// Length of each libcall trampoline.</span>
-    <span class="kw">pub</span> <span class="ident">libcall_trampoline_len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// The compilation related data for a serialized modules
+</span><span class="attribute">#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
+#[allow(missing_docs)]
+</span><span class="kw">pub struct </span>SerializableCompilation {
+    <span class="kw">pub </span>function_bodies: PrimaryMap&lt;LocalFunctionIndex, FunctionBody&gt;,
+    <span class="kw">pub </span>function_relocations: PrimaryMap&lt;LocalFunctionIndex, Vec&lt;Relocation&gt;&gt;,
+    <span class="kw">pub </span>function_frame_info: PrimaryMap&lt;LocalFunctionIndex, CompiledFunctionFrameInfo&gt;,
+    <span class="kw">pub </span>function_call_trampolines: PrimaryMap&lt;SignatureIndex, FunctionBody&gt;,
+    <span class="kw">pub </span>dynamic_function_trampolines: PrimaryMap&lt;FunctionIndex, FunctionBody&gt;,
+    <span class="kw">pub </span>custom_sections: PrimaryMap&lt;SectionIndex, CustomSection&gt;,
+    <span class="kw">pub </span>custom_section_relocations: PrimaryMap&lt;SectionIndex, Vec&lt;Relocation&gt;&gt;,
+    <span class="comment">// The section indices corresponding to the Dwarf debug info
+    </span><span class="kw">pub </span>debug: <span class="prelude-ty">Option</span>&lt;Dwarf&gt;,
+    <span class="comment">// Custom section containing libcall trampolines.
+    </span><span class="kw">pub </span>libcall_trampolines: SectionIndex,
+    <span class="comment">// Length of each libcall trampoline.
+    </span><span class="kw">pub </span>libcall_trampoline_len: u32,
 }
 
-<span class="kw">impl</span> <span class="ident">SerializableCompilation</span> {
-    <span class="doccomment">/// Serialize a Compilation into bytes</span>
-    <span class="doccomment">/// The bytes will have the following format:</span>
-    <span class="doccomment">/// RKYV serialization (any length) + POS (8 bytes)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serializer</span> <span class="op">=</span> <span class="ident">AllocSerializer</span>::<span class="op">&lt;</span><span class="number">4096</span><span class="op">&gt;</span><span class="ident">::default</span>();
-        <span class="kw">let</span> <span class="ident">pos</span> <span class="op">=</span> <span class="ident">serializer</span>
-            .<span class="ident">serialize_value</span>(<span class="self">self</span>)
-            .<span class="ident">map_err</span>(<span class="ident">to_serialize_error</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u64</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="ident">serializer</span>.<span class="ident">into_serializer</span>().<span class="ident">into_inner</span>();
-        <span class="ident">serialized_data</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">pos</span>.<span class="ident">to_le_bytes</span>());
-        <span class="prelude-val">Ok</span>(<span class="ident">serialized_data</span>.<span class="ident">to_vec</span>())
+<span class="kw">impl </span>SerializableCompilation {
+    <span class="doccomment">/// Serialize a Compilation into bytes
+    /// The bytes will have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    </span><span class="kw">pub fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>serializer = AllocSerializer::&lt;<span class="number">4096</span>&gt;::default();
+        <span class="kw">let </span>pos = serializer
+            .serialize_value(<span class="self">self</span>)
+            .map_err(to_serialize_error)<span class="question-mark">? </span><span class="kw">as </span>u64;
+        <span class="kw">let </span><span class="kw-2">mut </span>serialized_data = serializer.into_serializer().into_inner();
+        serialized_data.extend_from_slice(<span class="kw-2">&amp;</span>pos.to_le_bytes());
+        <span class="prelude-val">Ok</span>(serialized_data.to_vec())
     }
 }
 
-<span class="doccomment">/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Archive</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">RkyvSerialize</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SerializableModule</span> {
-    <span class="doccomment">/// The main serializable compilation object</span>
-    <span class="kw">pub</span> <span class="ident">compilation</span>: <span class="ident">SerializableCompilation</span>,
-    <span class="doccomment">/// Compilation informations</span>
-    <span class="kw">pub</span> <span class="ident">compile_info</span>: <span class="ident">CompileModuleInfo</span>,
-    <span class="doccomment">/// Datas initializers</span>
-    <span class="kw">pub</span> <span class="ident">data_initializers</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">OwnedDataInitializer</span>]<span class="op">&gt;</span>,
-    <span class="doccomment">/// CPU Feature flags for this compilation</span>
-    <span class="kw">pub</span> <span class="ident">cpu_features</span>: <span class="ident">u64</span>,
+<span class="doccomment">/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
+</span><span class="attribute">#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[allow(missing_docs)]
+</span><span class="kw">pub struct </span>SerializableModule {
+    <span class="doccomment">/// The main serializable compilation object
+    </span><span class="kw">pub </span>compilation: SerializableCompilation,
+    <span class="doccomment">/// Compilation informations
+    </span><span class="kw">pub </span>compile_info: CompileModuleInfo,
+    <span class="doccomment">/// Datas initializers
+    </span><span class="kw">pub </span>data_initializers: Box&lt;[OwnedDataInitializer]&gt;,
+    <span class="doccomment">/// CPU Feature flags for this compilation
+    </span><span class="kw">pub </span>cpu_features: u64,
 }
 
-<span class="kw">fn</span> <span class="ident">to_serialize_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">std::error::Error</span>) -&gt; <span class="ident">SerializeError</span> {
-    <span class="ident">SerializeError::Generic</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">err</span>))
+<span class="kw">fn </span>to_serialize_error(err: <span class="kw">impl </span>std::error::Error) -&gt; SerializeError {
+    SerializeError::Generic(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err))
 }
 
-<span class="kw">impl</span> <span class="ident">SerializableModule</span> {
-    <span class="doccomment">/// Serialize a Module into bytes</span>
-    <span class="doccomment">/// The bytes will have the following format:</span>
-    <span class="doccomment">/// RKYV serialization (any length) + POS (8 bytes)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serializer</span> <span class="op">=</span> <span class="ident">AllocSerializer</span>::<span class="op">&lt;</span><span class="number">4096</span><span class="op">&gt;</span><span class="ident">::default</span>();
-        <span class="kw">let</span> <span class="ident">pos</span> <span class="op">=</span> <span class="ident">serializer</span>
-            .<span class="ident">serialize_value</span>(<span class="self">self</span>)
-            .<span class="ident">map_err</span>(<span class="ident">to_serialize_error</span>)<span class="question-mark">?</span> <span class="kw">as</span> <span class="ident">u64</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="ident">serializer</span>.<span class="ident">into_serializer</span>().<span class="ident">into_inner</span>();
-        <span class="ident">serialized_data</span>.<span class="ident">extend_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">pos</span>.<span class="ident">to_le_bytes</span>());
-        <span class="prelude-val">Ok</span>(<span class="ident">serialized_data</span>.<span class="ident">to_vec</span>())
+<span class="kw">impl </span>SerializableModule {
+    <span class="doccomment">/// Serialize a Module into bytes
+    /// The bytes will have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    </span><span class="kw">pub fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>serializer = AllocSerializer::&lt;<span class="number">4096</span>&gt;::default();
+        <span class="kw">let </span>pos = serializer
+            .serialize_value(<span class="self">self</span>)
+            .map_err(to_serialize_error)<span class="question-mark">? </span><span class="kw">as </span>u64;
+        <span class="kw">let </span><span class="kw-2">mut </span>serialized_data = serializer.into_serializer().into_inner();
+        serialized_data.extend_from_slice(<span class="kw-2">&amp;</span>pos.to_le_bytes());
+        <span class="prelude-val">Ok</span>(serialized_data.to_vec())
     }
 
-    <span class="doccomment">/// Deserialize a Module from a slice.</span>
-    <span class="doccomment">/// The slice must have the following format:</span>
-    <span class="doccomment">/// RKYV serialization (any length) + POS (8 bytes)</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method is unsafe since it deserializes data directly</span>
-    <span class="doccomment">/// from memory.</span>
-    <span class="doccomment">/// Right now we are not doing any extra work for validation, but</span>
-    <span class="doccomment">/// `rkyv` has an option to do bytecheck on the serialized data before</span>
-    <span class="doccomment">/// serializing (via `rkyv::check_archived_value`).</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">archived</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::archive_from_slice</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
-        <span class="ident"><span class="self">Self</span>::deserialize_from_archive</span>(<span class="ident">archived</span>)
+    <span class="doccomment">/// Deserialize a Module from a slice.
+    /// The slice must have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe since it deserializes data directly
+    /// from memory.
+    /// Right now we are not doing any extra work for validation, but
+    /// `rkyv` has an option to do bytecheck on the serialized data before
+    /// serializing (via `rkyv::check_archived_value`).
+    </span><span class="kw">pub unsafe fn </span>deserialize(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice(metadata_slice)<span class="question-mark">?</span>;
+        <span class="self">Self</span>::deserialize_from_archive(archived)
     }
 
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This method is unsafe.</span>
-    <span class="doccomment">/// Please check `SerializableModule::deserialize` for more details.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">archive_from_slice</span>(
-        <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ArchivedSerializableModule</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">8</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Incompatible</span>(
-                <span class="string">&quot;invalid serialized data&quot;</span>.<span class="ident">into</span>(),
+    <span class="doccomment">/// # Safety
+    ///
+    /// This method is unsafe.
+    /// Please check `SerializableModule::deserialize` for more details.
+    </span><span class="kw">unsafe fn </span>archive_from_slice(
+        metadata_slice: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedSerializableModule, DeserializeError&gt; {
+        <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;invalid serialized data&quot;</span>.into(),
             ));
         }
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pos</span>: [<span class="ident">u8</span>; <span class="number">8</span>] <span class="op">=</span> <span class="ident">Default::default</span>();
-        <span class="ident">pos</span>.<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">metadata_slice</span>[<span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">8</span>..<span class="ident">metadata_slice</span>.<span class="ident">len</span>()]);
-        <span class="kw">let</span> <span class="ident">pos</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">u64::from_le_bytes</span>(<span class="ident">pos</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">archived_value</span>::<span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>(
-            <span class="kw-2">&amp;</span><span class="ident">metadata_slice</span>[..<span class="ident">metadata_slice</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">8</span>],
-            <span class="ident">pos</span> <span class="kw">as</span> <span class="ident">usize</span>,
+        <span class="kw">let </span><span class="kw-2">mut </span>pos: [u8; <span class="number">8</span>] = Default::default();
+        pos.copy_from_slice(<span class="kw-2">&amp;</span>metadata_slice[metadata_slice.len() - <span class="number">8</span>..metadata_slice.len()]);
+        <span class="kw">let </span>pos: u64 = u64::from_le_bytes(pos);
+        <span class="prelude-val">Ok</span>(archived_value::&lt;<span class="self">Self</span>&gt;(
+            <span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>],
+            pos <span class="kw">as </span>usize,
         ))
     }
 
-    <span class="doccomment">/// Deserialize a compilation module from an archive</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize_from_archive</span>(
-        <span class="ident">archived</span>: <span class="kw-2">&amp;</span><span class="ident">ArchivedSerializableModule</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deserializer</span> <span class="op">=</span> <span class="ident">SharedDeserializeMap::new</span>();
-        <span class="ident">RkyvDeserialize::deserialize</span>(<span class="ident">archived</span>, <span class="kw-2">&amp;mut</span> <span class="ident">deserializer</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">DeserializeError::CorruptedBinary</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))
+    <span class="doccomment">/// Deserialize a compilation module from an archive
+    </span><span class="kw">pub fn </span>deserialize_from_archive(
+        archived: <span class="kw-2">&amp;</span>ArchivedSerializableModule,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>deserializer = SharedDeserializeMap::new();
+        RkyvDeserialize::deserialize(archived, <span class="kw-2">&amp;mut </span>deserializer)
+            .map_err(|e| DeserializeError::CorruptedBinary(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
     }
 
-    <span class="doccomment">/// Create a `ModuleInfo` for instantiation</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ModuleInfo</span> {
-        <span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">as_ref</span>().<span class="ident">clone</span>()
+    <span class="doccomment">/// Create a `ModuleInfo` for instantiation
+    </span><span class="kw">pub fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ModuleInfo {
+        <span class="self">self</span>.compile_info.module.as_ref().clone()
     }
 
-    <span class="doccomment">/// Returns the `ModuleInfo` for instantiation</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>
+    <span class="doccomment">/// Returns the `ModuleInfo` for instantiation
+    </span><span class="kw">pub fn </span>module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.compile_info.module
     }
 
-    <span class="doccomment">/// Returns the features for this Artifact</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">features</span>
+    <span class="doccomment">/// Returns the features for this Artifact
+    </span><span class="kw">pub fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.compile_info.features
     }
 
-    <span class="doccomment">/// Returns the CPU features for this Artifact</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
-        <span class="ident">EnumSet::from_u64</span>(<span class="self">self</span>.<span class="ident">cpu_features</span>)
+    <span class="doccomment">/// Returns the CPU features for this Artifact
+    </span><span class="kw">pub fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EnumSet&lt;CpuFeature&gt; {
+        EnumSet::from_u64(<span class="self">self</span>.cpu_features)
     }
 
-    <span class="doccomment">/// Returns data initializers to pass to `VMInstance::initialize`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">data_initializers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">OwnedDataInitializer</span>] {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">data_initializers</span>
+    <span class="doccomment">/// Returns data initializers to pass to `VMInstance::initialize`
+    </span><span class="kw">pub fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[OwnedDataInitializer] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.data_initializers
     }
 
-    <span class="doccomment">/// Returns the memory styles associated with this `Artifact`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">memory_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">memory_styles</span>
+    <span class="doccomment">/// Returns the memory styles associated with this `Artifact`.
+    </span><span class="kw">pub fn </span>memory_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.compile_info.memory_styles
     }
 
-    <span class="doccomment">/// Returns the table plans associated with this `Artifact`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">table_styles</span>
+    <span class="doccomment">/// Returns the table plans associated with this `Artifact`.
+    </span><span class="kw">pub fn </span>table_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.compile_info.table_styles
     }
 }
 
-<span class="doccomment">/// Metadata header which holds an ABI version and the length of the remaining</span>
-<span class="doccomment">/// metadata.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MetadataHeader</span> {
-    <span class="ident">magic</span>: [<span class="ident">u8</span>; <span class="number">8</span>],
-    <span class="ident">version</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Metadata header which holds an ABI version and the length of the remaining
+/// metadata.
+</span><span class="attribute">#[repr(C)]
+#[derive(Clone, Copy)]
+</span><span class="kw">pub struct </span>MetadataHeader {
+    magic: [u8; <span class="number">8</span>],
+    version: u32,
+    len: u32,
 }
 
-<span class="kw">impl</span> <span class="ident">MetadataHeader</span> {
-    <span class="doccomment">/// Current ABI version. Increment this any time breaking changes are made</span>
-    <span class="doccomment">/// to the format of the serialized data.</span>
-    <span class="kw">const</span> <span class="ident">CURRENT_VERSION</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">3</span>;
+<span class="kw">impl </span>MetadataHeader {
+    <span class="doccomment">/// Current ABI version. Increment this any time breaking changes are made
+    /// to the format of the serialized data.
+    </span><span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">3</span>;
 
-    <span class="doccomment">/// Magic number to identify wasmer metadata.</span>
-    <span class="kw">const</span> <span class="ident">MAGIC</span>: [<span class="ident">u8</span>; <span class="number">8</span>] <span class="op">=</span> <span class="kw-2">*</span><span class="string">b&quot;WASMER\0\0&quot;</span>;
+    <span class="doccomment">/// Magic number to identify wasmer metadata.
+    </span><span class="kw">const </span>MAGIC: [u8; <span class="number">8</span>] = <span class="kw-2">*</span><span class="string">b&quot;WASMER\0\0&quot;</span>;
 
-    <span class="doccomment">/// Length of the metadata header.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LEN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span>;
+    <span class="doccomment">/// Length of the metadata header.
+    </span><span class="kw">pub const </span>LEN: usize = <span class="number">16</span>;
 
-    <span class="doccomment">/// Alignment of the metadata.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ALIGN</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span>;
+    <span class="doccomment">/// Alignment of the metadata.
+    </span><span class="kw">pub const </span>ALIGN: usize = <span class="number">16</span>;
 
-    <span class="doccomment">/// Creates a new header for metadata of the given length.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">len</span>: <span class="ident">usize</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">magic</span>: <span class="ident"><span class="self">Self</span>::MAGIC</span>,
-            <span class="ident">version</span>: <span class="ident"><span class="self">Self</span>::CURRENT_VERSION</span>,
-            <span class="ident">len</span>: <span class="ident">len</span>.<span class="ident">try_into</span>().<span class="ident">expect</span>(<span class="string">&quot;metadata exceeds maximum length&quot;</span>),
+    <span class="doccomment">/// Creates a new header for metadata of the given length.
+    </span><span class="kw">pub fn </span>new(len: usize) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            magic: <span class="self">Self</span>::MAGIC,
+            version: <span class="self">Self</span>::CURRENT_VERSION,
+            len: len.try_into().expect(<span class="string">&quot;metadata exceeds maximum length&quot;</span>),
         }
     }
 
-    <span class="doccomment">/// Convert the header into its bytes representation.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">into_bytes</span>(<span class="self">self</span>) -&gt; [<span class="ident">u8</span>; <span class="number">16</span>] {
-        <span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>(<span class="self">self</span>) }
+    <span class="doccomment">/// Convert the header into its bytes representation.
+    </span><span class="kw">pub fn </span>into_bytes(<span class="self">self</span>) -&gt; [u8; <span class="number">16</span>] {
+        <span class="kw">unsafe </span>{ mem::transmute(<span class="self">self</span>) }
     }
 
-    <span class="doccomment">/// Parses the header and returns the length of the metadata following it.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">bytes</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="ident">usize</span> <span class="op">%</span> <span class="number">8</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::CorruptedBinary</span>(
-                <span class="string">&quot;misaligned metadata&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="doccomment">/// Parses the header and returns the length of the metadata following it.
+    </span><span class="kw">pub fn </span>parse(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize, DeserializeError&gt; {
+        <span class="kw">if </span>bytes.as_ptr() <span class="kw">as </span>usize % <span class="number">8 </span>!= <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::CorruptedBinary(
+                <span class="string">&quot;misaligned metadata&quot;</span>.to_string(),
             ));
         }
-        <span class="kw">let</span> <span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span> <span class="ident">bytes</span>
-            .<span class="ident">get</span>(..<span class="number">16</span>)
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="ident">DeserializeError::CorruptedBinary</span>(<span class="string">&quot;invalid metadata header&quot;</span>.<span class="ident">to_string</span>())
-            })<span class="question-mark">?</span>
-            .<span class="ident">try_into</span>()
-            .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">header</span>: <span class="self">Self</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">mem::transmute</span>(<span class="ident">bytes</span>) };
-        <span class="kw">if</span> <span class="ident">header</span>.<span class="ident">magic</span> <span class="op">!</span><span class="op">=</span> <span class="ident"><span class="self">Self</span>::MAGIC</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Incompatible</span>(
-                <span class="string">&quot;The provided bytes were not serialized by Wasmer&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="kw">let </span>bytes: [u8; <span class="number">16</span>] = bytes
+            .get(..<span class="number">16</span>)
+            .ok_or_else(|| {
+                DeserializeError::CorruptedBinary(<span class="string">&quot;invalid metadata header&quot;</span>.to_string())
+            })<span class="question-mark">?
+            </span>.try_into()
+            .unwrap();
+        <span class="kw">let </span>header: <span class="self">Self </span>= <span class="kw">unsafe </span>{ mem::transmute(bytes) };
+        <span class="kw">if </span>header.magic != <span class="self">Self</span>::MAGIC {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;The provided bytes were not serialized by Wasmer&quot;</span>.to_string(),
             ));
         }
-        <span class="kw">if</span> <span class="ident">header</span>.<span class="ident">version</span> <span class="op">!</span><span class="op">=</span> <span class="ident"><span class="self">Self</span>::CURRENT_VERSION</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError::Incompatible</span>(
-                <span class="string">&quot;The provided bytes were serialized by an incompatible version of Wasmer&quot;</span>
-                    .<span class="ident">to_string</span>(),
+        <span class="kw">if </span>header.version != <span class="self">Self</span>::CURRENT_VERSION {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;The provided bytes were serialized by an incompatible version of Wasmer&quot;
+                    </span>.to_string(),
             ));
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">header</span>.<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>)
+        <span class="prelude-val">Ok</span>(header.len <span class="kw">as </span>usize)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

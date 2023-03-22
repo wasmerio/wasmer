@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/tunables.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tunables.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/engine/tunables.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>tunables.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -351,358 +351,364 @@
 <span id="351">351</span>
 <span id="352">352</span>
 <span id="353">353</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::error::LinkError</span>;
-<span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">GlobalType</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryType</span>,
-    <span class="ident">ModuleInfo</span>, <span class="ident">Pages</span>, <span class="ident">PointerWidth</span>, <span class="ident">TableIndex</span>, <span class="ident">TableType</span>, <span class="ident">Target</span>,
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::error::LinkError;
+<span class="kw">use </span>std::ptr::NonNull;
+<span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::{
+    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
+    ModuleInfo, Pages, PointerWidth, TableIndex, TableType, Target,
 };
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">MemoryError</span>, <span class="ident">StoreObjects</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTableDefinition</span>};
+<span class="kw">use </span>wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
+<span class="kw">use </span>wasmer_vm::{MemoryStyle, TableStyle};
+<span class="kw">use </span>wasmer_vm::{VMGlobal, VMMemory, VMTable};
+<span class="kw">use </span>wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
-<span class="doccomment">/// An engine delegates the creation of memories, tables, and globals</span>
-<span class="doccomment">/// to a foreign implementor of this trait.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Tunables</span> {
-    <span class="doccomment">/// Construct a `MemoryStyle` for the provided `MemoryType`</span>
-    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span>;
+<span class="doccomment">/// An engine delegates the creation of memories, tables, and globals
+/// to a foreign implementor of this trait.
+</span><span class="kw">pub trait </span>Tunables {
+    <span class="doccomment">/// Construct a `MemoryStyle` for the provided `MemoryType`
+    </span><span class="kw">fn </span>memory_style(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>MemoryType) -&gt; MemoryStyle;
 
-    <span class="doccomment">/// Construct a `TableStyle` for the provided `TableType`</span>
-    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) -&gt; <span class="ident">TableStyle</span>;
+    <span class="doccomment">/// Construct a `TableStyle` for the provided `TableType`
+    </span><span class="kw">fn </span>table_style(<span class="kw-2">&amp;</span><span class="self">self</span>, table: <span class="kw-2">&amp;</span>TableType) -&gt; TableStyle;
 
-    <span class="doccomment">/// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_memory</span>(
+    <span class="doccomment">/// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
+    </span><span class="kw">fn </span>create_host_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt;;
 
-    <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_definition_location` must point to a valid location in VM memory.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_memory</span>(
+    <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    </span><span class="kw">unsafe fn </span>create_vm_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_definition_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt;;
 
-    <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+    </span><span class="kw">fn </span>create_host_table(<span class="kw-2">&amp;</span><span class="self">self</span>, ty: <span class="kw-2">&amp;</span>TableType, style: <span class="kw-2">&amp;</span>TableStyle) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt;;
 
-    <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_definition_location` must point to a valid location in VM memory.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_table</span>(
+    <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    </span><span class="kw">unsafe fn </span>create_vm_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span>;
+        ty: <span class="kw-2">&amp;</span>TableType,
+        style: <span class="kw-2">&amp;</span>TableStyle,
+        vm_definition_location: NonNull&lt;VMTableDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt;;
 
-    <span class="doccomment">/// Create a global with an unset value.</span>
-    <span class="kw">fn</span> <span class="ident">create_global</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">GlobalType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMGlobal</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">VMGlobal::new</span>(<span class="ident">ty</span>))
+    <span class="doccomment">/// Create a global with an unset value.
+    </span><span class="kw">fn </span>create_global(<span class="kw-2">&amp;</span><span class="self">self</span>, ty: GlobalType) -&gt; <span class="prelude-ty">Result</span>&lt;VMGlobal, String&gt; {
+        <span class="prelude-val">Ok</span>(VMGlobal::new(ty))
     }
 
-    <span class="doccomment">/// Allocate memory for just the memories of the current module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `memory_definition_locations` must point to a valid locations in VM memory.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_memories</span>(
+    <span class="doccomment">/// Allocate memory for just the memories of the current module.
+    ///
+    /// # Safety
+    /// - `memory_definition_locations` must point to a valid locations in VM memory.
+    </span><span class="attribute">#[allow(clippy::result_large_err)]
+    </span><span class="kw">unsafe fn </span>create_memories(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-        <span class="ident">memory_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span>,
-        <span class="ident">memory_definition_locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalMemoryIndex</span>, <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_imports</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">num_imported_memories</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memories</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalMemoryIndex</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span>
-            <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">num_imports</span>);
-        <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">mdl</span>) <span class="kw">in</span> <span class="ident">memory_definition_locations</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">take</span>(<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">len</span>())
-            .<span class="ident">skip</span>(<span class="ident">num_imports</span>)
+        context: <span class="kw-2">&amp;mut </span>StoreObjects,
+        module: <span class="kw-2">&amp;</span>ModuleInfo,
+        memory_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+        memory_definition_locations: <span class="kw-2">&amp;</span>[NonNull&lt;VMMemoryDefinition&gt;],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;LocalMemoryIndex, InternalStoreHandle&lt;VMMemory&gt;&gt;, LinkError&gt; {
+        <span class="kw">let </span>num_imports = module.num_imported_memories;
+        <span class="kw">let </span><span class="kw-2">mut </span>memories: PrimaryMap&lt;LocalMemoryIndex, <span class="kw">_</span>&gt; =
+            PrimaryMap::with_capacity(module.memories.len() - num_imports);
+        <span class="kw">for </span>(index, mdl) <span class="kw">in </span>memory_definition_locations
+            .iter()
+            .enumerate()
+            .take(module.memories.len())
+            .skip(num_imports)
         {
-            <span class="kw">let</span> <span class="ident">mi</span> <span class="op">=</span> <span class="ident">MemoryIndex::new</span>(<span class="ident">index</span>);
-            <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">memories</span>[<span class="ident">mi</span>];
-            <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">memory_styles</span>[<span class="ident">mi</span>];
-            <span class="ident">memories</span>.<span class="ident">push</span>(<span class="ident">InternalStoreHandle::new</span>(
-                <span class="ident">context</span>,
-                <span class="self">self</span>.<span class="ident">create_vm_memory</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="kw-2">*</span><span class="ident">mdl</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">LinkError::Resource</span>(<span class="macro">format!</span>(<span class="string">&quot;Failed to create memory: {}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>,
+            <span class="kw">let </span>mi = MemoryIndex::new(index);
+            <span class="kw">let </span>ty = <span class="kw-2">&amp;</span>module.memories[mi];
+            <span class="kw">let </span>style = <span class="kw-2">&amp;</span>memory_styles[mi];
+            memories.push(InternalStoreHandle::new(
+                context,
+                <span class="self">self</span>.create_vm_memory(ty, style, <span class="kw-2">*</span>mdl)
+                    .map_err(|e| LinkError::Resource(<span class="macro">format!</span>(<span class="string">&quot;Failed to create memory: {}&quot;</span>, e)))<span class="question-mark">?</span>,
             ));
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">memories</span>)
+        <span class="prelude-val">Ok</span>(memories)
     }
 
-    <span class="doccomment">/// Allocate memory for just the tables of the current module.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// To be done</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_tables</span>(
+    <span class="doccomment">/// Allocate memory for just the tables of the current module.
+    ///
+    /// # Safety
+    ///
+    /// To be done
+    </span><span class="attribute">#[allow(clippy::result_large_err)]
+    </span><span class="kw">unsafe fn </span>create_tables(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-        <span class="ident">table_styles</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>,
-        <span class="ident">table_definition_locations</span>: <span class="kw-2">&amp;</span>[<span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalTableIndex</span>, <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_imports</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">num_imported_tables</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tables</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalTableIndex</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span>
-            <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">num_imports</span>);
-        <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">tdl</span>) <span class="kw">in</span> <span class="ident">table_definition_locations</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">enumerate</span>()
-            .<span class="ident">take</span>(<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">len</span>())
-            .<span class="ident">skip</span>(<span class="ident">num_imports</span>)
+        context: <span class="kw-2">&amp;mut </span>StoreObjects,
+        module: <span class="kw-2">&amp;</span>ModuleInfo,
+        table_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
+        table_definition_locations: <span class="kw-2">&amp;</span>[NonNull&lt;VMTableDefinition&gt;],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;LocalTableIndex, InternalStoreHandle&lt;VMTable&gt;&gt;, LinkError&gt; {
+        <span class="kw">let </span>num_imports = module.num_imported_tables;
+        <span class="kw">let </span><span class="kw-2">mut </span>tables: PrimaryMap&lt;LocalTableIndex, <span class="kw">_</span>&gt; =
+            PrimaryMap::with_capacity(module.tables.len() - num_imports);
+        <span class="kw">for </span>(index, tdl) <span class="kw">in </span>table_definition_locations
+            .iter()
+            .enumerate()
+            .take(module.tables.len())
+            .skip(num_imports)
         {
-            <span class="kw">let</span> <span class="ident">ti</span> <span class="op">=</span> <span class="ident">TableIndex::new</span>(<span class="ident">index</span>);
-            <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">tables</span>[<span class="ident">ti</span>];
-            <span class="kw">let</span> <span class="ident">style</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">table_styles</span>[<span class="ident">ti</span>];
-            <span class="ident">tables</span>.<span class="ident">push</span>(<span class="ident">InternalStoreHandle::new</span>(
-                <span class="ident">context</span>,
-                <span class="self">self</span>.<span class="ident">create_vm_table</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="kw-2">*</span><span class="ident">tdl</span>)
-                    .<span class="ident">map_err</span>(<span class="ident">LinkError::Resource</span>)<span class="question-mark">?</span>,
+            <span class="kw">let </span>ti = TableIndex::new(index);
+            <span class="kw">let </span>ty = <span class="kw-2">&amp;</span>module.tables[ti];
+            <span class="kw">let </span>style = <span class="kw-2">&amp;</span>table_styles[ti];
+            tables.push(InternalStoreHandle::new(
+                context,
+                <span class="self">self</span>.create_vm_table(ty, style, <span class="kw-2">*</span>tdl)
+                    .map_err(LinkError::Resource)<span class="question-mark">?</span>,
             ));
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">tables</span>)
+        <span class="prelude-val">Ok</span>(tables)
     }
 
-    <span class="doccomment">/// Allocate memory for just the globals of the current module,</span>
-    <span class="doccomment">/// with initializers applied.</span>
-    <span class="kw">fn</span> <span class="ident">create_globals</span>(
+    <span class="doccomment">/// Allocate memory for just the globals of the current module,
+    /// with initializers applied.
+    </span><span class="attribute">#[allow(clippy::result_large_err)]
+    </span><span class="kw">fn </span>create_globals(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">InternalStoreHandle</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">LinkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_imports</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">num_imported_globals</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vmctx_globals</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">num_imports</span>);
+        context: <span class="kw-2">&amp;mut </span>StoreObjects,
+        module: <span class="kw-2">&amp;</span>ModuleInfo,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;LocalGlobalIndex, InternalStoreHandle&lt;VMGlobal&gt;&gt;, LinkError&gt; {
+        <span class="kw">let </span>num_imports = module.num_imported_globals;
+        <span class="kw">let </span><span class="kw-2">mut </span>vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
-        <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">global_type</span> <span class="kw">in</span> <span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">values</span>().<span class="ident">skip</span>(<span class="ident">num_imports</span>) {
-            <span class="ident">vmctx_globals</span>.<span class="ident">push</span>(<span class="ident">InternalStoreHandle::new</span>(
-                <span class="ident">context</span>,
-                <span class="self">self</span>.<span class="ident">create_global</span>(<span class="ident">global_type</span>)
-                    .<span class="ident">map_err</span>(<span class="ident">LinkError::Resource</span>)<span class="question-mark">?</span>,
+        <span class="kw">for </span><span class="kw-2">&amp;</span>global_type <span class="kw">in </span>module.globals.values().skip(num_imports) {
+            vmctx_globals.push(InternalStoreHandle::new(
+                context,
+                <span class="self">self</span>.create_global(global_type)
+                    .map_err(LinkError::Resource)<span class="question-mark">?</span>,
             ));
         }
 
-        <span class="prelude-val">Ok</span>(<span class="ident">vmctx_globals</span>)
+        <span class="prelude-val">Ok</span>(vmctx_globals)
     }
 }
 
-<span class="doccomment">/// Tunable parameters for WebAssembly compilation.</span>
-<span class="doccomment">/// This is the reference implementation of the `Tunables` trait,</span>
-<span class="doccomment">/// used by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// You can use this as a template for creating a custom Tunables</span>
-<span class="doccomment">/// implementation or use composition to wrap your Tunables around</span>
-<span class="doccomment">/// this one. The later approach is demonstrated in the</span>
-<span class="doccomment">/// tunables-limit-memory example.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BaseTunables</span> {
-    <span class="doccomment">/// For static heaps, the size in wasm pages of the heap protected by bounds checking.</span>
-    <span class="kw">pub</span> <span class="ident">static_memory_bound</span>: <span class="ident">Pages</span>,
+<span class="doccomment">/// Tunable parameters for WebAssembly compilation.
+/// This is the reference implementation of the `Tunables` trait,
+/// used by default.
+///
+/// You can use this as a template for creating a custom Tunables
+/// implementation or use composition to wrap your Tunables around
+/// this one. The later approach is demonstrated in the
+/// tunables-limit-memory example.
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>BaseTunables {
+    <span class="doccomment">/// For static heaps, the size in wasm pages of the heap protected by bounds checking.
+    </span><span class="kw">pub </span>static_memory_bound: Pages,
 
-    <span class="doccomment">/// The size in bytes of the offset guard for static heaps.</span>
-    <span class="kw">pub</span> <span class="ident">static_memory_offset_guard_size</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// The size in bytes of the offset guard for static heaps.
+    </span><span class="kw">pub </span>static_memory_offset_guard_size: u64,
 
-    <span class="doccomment">/// The size in bytes of the offset guard for dynamic heaps.</span>
-    <span class="kw">pub</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// The size in bytes of the offset guard for dynamic heaps.
+    </span><span class="kw">pub </span>dynamic_memory_offset_guard_size: u64,
 }
 
-<span class="kw">impl</span> <span class="ident">BaseTunables</span> {
-    <span class="doccomment">/// Get the `BaseTunables` for a specific Target</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_target</span>(<span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">triple</span>();
-        <span class="kw">let</span> <span class="ident">pointer_width</span>: <span class="ident">PointerWidth</span> <span class="op">=</span> <span class="ident">triple</span>.<span class="ident">pointer_width</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="ident">static_memory_bound</span>, <span class="ident">static_memory_offset_guard_size</span>): (<span class="ident">Pages</span>, <span class="ident">u64</span>) <span class="op">=</span>
-            <span class="kw">match</span> <span class="ident">pointer_width</span> {
-                <span class="ident">PointerWidth::U16</span> =&gt; (<span class="number">0x400</span>.<span class="ident">into</span>(), <span class="number">0x1000</span>),
-                <span class="ident">PointerWidth::U32</span> =&gt; (<span class="number">0x4000</span>.<span class="ident">into</span>(), <span class="number">0x1_0000</span>),
-                <span class="comment">// Static Memory Bound:</span>
-                <span class="comment">//   Allocating 4 GiB of address space let us avoid the</span>
-                <span class="comment">//   need for explicit bounds checks.</span>
-                <span class="comment">// Static Memory Guard size:</span>
-                <span class="comment">//   Allocating 2 GiB of address space lets us translate wasm</span>
-                <span class="comment">//   offsets into x86 offsets as aggressively as we can.</span>
-                <span class="ident">PointerWidth::U64</span> =&gt; (<span class="number">0x1_0000</span>.<span class="ident">into</span>(), <span class="number">0x8000_0000</span>),
+<span class="kw">impl </span>BaseTunables {
+    <span class="doccomment">/// Get the `BaseTunables` for a specific Target
+    </span><span class="kw">pub fn </span>for_target(target: <span class="kw-2">&amp;</span>Target) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>triple = target.triple();
+        <span class="kw">let </span>pointer_width: PointerWidth = triple.pointer_width().unwrap();
+        <span class="kw">let </span>(static_memory_bound, static_memory_offset_guard_size): (Pages, u64) =
+            <span class="kw">match </span>pointer_width {
+                PointerWidth::U16 =&gt; (<span class="number">0x400</span>.into(), <span class="number">0x1000</span>),
+                PointerWidth::U32 =&gt; (<span class="number">0x4000</span>.into(), <span class="number">0x1_0000</span>),
+                <span class="comment">// Static Memory Bound:
+                //   Allocating 4 GiB of address space let us avoid the
+                //   need for explicit bounds checks.
+                // Static Memory Guard size:
+                //   Allocating 2 GiB of address space lets us translate wasm
+                //   offsets into x86 offsets as aggressively as we can.
+                </span>PointerWidth::U64 =&gt; (<span class="number">0x1_0000</span>.into(), <span class="number">0x8000_0000</span>),
             };
 
-        <span class="comment">// Allocate a small guard to optimize common cases but without</span>
-        <span class="comment">// wasting too much memory.</span>
-        <span class="comment">// The Windows memory manager seems more laxed than the other ones</span>
-        <span class="comment">// And a guard of just 1 page may not be enough is some borderline cases</span>
-        <span class="comment">// So using 2 pages for guard on this platform</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x2_0000</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x1_0000</span>;
+        <span class="comment">// Allocate a small guard to optimize common cases but without
+        // wasting too much memory.
+        // The Windows memory manager seems more laxed than the other ones
+        // And a guard of just 1 page may not be enough is some borderline cases
+        // So using 2 pages for guard on this platform
+        </span><span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+        </span><span class="kw">let </span>dynamic_memory_offset_guard_size: u64 = <span class="number">0x2_0000</span>;
+        <span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+        </span><span class="kw">let </span>dynamic_memory_offset_guard_size: u64 = <span class="number">0x1_0000</span>;
 
-        <span class="self">Self</span> {
-            <span class="ident">static_memory_bound</span>,
-            <span class="ident">static_memory_offset_guard_size</span>,
-            <span class="ident">dynamic_memory_offset_guard_size</span>,
+        <span class="self">Self </span>{
+            static_memory_bound,
+            static_memory_offset_guard_size,
+            dynamic_memory_offset_guard_size,
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Tunables</span> <span class="kw">for</span> <span class="ident">BaseTunables</span> {
-    <span class="doccomment">/// Get a `MemoryStyle` for the provided `MemoryType`</span>
-    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="comment">// A heap with a maximum that doesn&#39;t exceed the static memory bound specified by the</span>
-        <span class="comment">// tunables make it static.</span>
-        <span class="comment">//</span>
-        <span class="comment">// If the module doesn&#39;t declare an explicit maximum treat it as 4GiB.</span>
-        <span class="kw">let</span> <span class="ident">maximum</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">maximum</span>.<span class="ident">unwrap_or_else</span>(<span class="ident">Pages::max_value</span>);
-        <span class="kw">if</span> <span class="ident">maximum</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">static_memory_bound</span> {
-            <span class="ident">MemoryStyle::Static</span> {
-                <span class="comment">// Bound can be larger than the maximum for performance reasons</span>
-                <span class="ident">bound</span>: <span class="self">self</span>.<span class="ident">static_memory_bound</span>,
-                <span class="ident">offset_guard_size</span>: <span class="self">self</span>.<span class="ident">static_memory_offset_guard_size</span>,
+<span class="kw">impl </span>Tunables <span class="kw">for </span>BaseTunables {
+    <span class="doccomment">/// Get a `MemoryStyle` for the provided `MemoryType`
+    </span><span class="kw">fn </span>memory_style(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>MemoryType) -&gt; MemoryStyle {
+        <span class="comment">// A heap with a maximum that doesn&#39;t exceed the static memory bound specified by the
+        // tunables make it static.
+        //
+        // If the module doesn&#39;t declare an explicit maximum treat it as 4GiB.
+        </span><span class="kw">let </span>maximum = memory.maximum.unwrap_or_else(Pages::max_value);
+        <span class="kw">if </span>maximum &lt;= <span class="self">self</span>.static_memory_bound {
+            MemoryStyle::Static {
+                <span class="comment">// Bound can be larger than the maximum for performance reasons
+                </span>bound: <span class="self">self</span>.static_memory_bound,
+                offset_guard_size: <span class="self">self</span>.static_memory_offset_guard_size,
             }
-        } <span class="kw">else</span> {
-            <span class="ident">MemoryStyle::Dynamic</span> {
-                <span class="ident">offset_guard_size</span>: <span class="self">self</span>.<span class="ident">dynamic_memory_offset_guard_size</span>,
+        } <span class="kw">else </span>{
+            MemoryStyle::Dynamic {
+                offset_guard_size: <span class="self">self</span>.dynamic_memory_offset_guard_size,
             }
         }
     }
 
-    <span class="doccomment">/// Get a [`TableStyle`] for the provided [`TableType`].</span>
-    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) -&gt; <span class="ident">TableStyle</span> {
-        <span class="ident">TableStyle::CallerChecksSignature</span>
+    <span class="doccomment">/// Get a [`TableStyle`] for the provided [`TableType`].
+    </span><span class="kw">fn </span>table_style(<span class="kw-2">&amp;</span><span class="self">self</span>, _table: <span class="kw-2">&amp;</span>TableType) -&gt; TableStyle {
+        TableStyle::CallerChecksSignature
     }
 
-    <span class="doccomment">/// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_memory</span>(
+    <span class="doccomment">/// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
+    </span><span class="kw">fn </span>create_host_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="ident">VMMemory::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
+        VMMemory::new(ty, style)
     }
 
-    <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_definition_location` must point to a valid, owned `VMMemoryDefinition`,</span>
-    <span class="doccomment">///   for example in `VMContext`.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_memory</span>(
+    <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid, owned `VMMemoryDefinition`,
+    ///   for example in `VMContext`.
+    </span><span class="kw">unsafe fn </span>create_vm_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="ident">VMMemory::from_definition</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_definition_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
+        VMMemory::from_definition(ty, style, vm_definition_location)
     }
 
-    <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident">VMTable::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
+    <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+    </span><span class="kw">fn </span>create_host_table(<span class="kw-2">&amp;</span><span class="self">self</span>, ty: <span class="kw-2">&amp;</span>TableType, style: <span class="kw-2">&amp;</span>TableStyle) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
+        VMTable::new(ty, style)
     }
 
-    <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_definition_location` must point to a valid, owned `VMTableDefinition`,</span>
-    <span class="doccomment">///   for example in `VMContext`.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_table</span>(
+    <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid, owned `VMTableDefinition`,
+    ///   for example in `VMContext`.
+    </span><span class="kw">unsafe fn </span>create_vm_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident">VMTable::from_definition</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
+        ty: <span class="kw-2">&amp;</span>TableType,
+        style: <span class="kw-2">&amp;</span>TableStyle,
+        vm_definition_location: NonNull&lt;VMTableDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
+        VMTable::from_definition(ty, style, vm_definition_location)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Tunables</span> <span class="kw">for</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Tunables</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">memory_style</span>(<span class="ident">memory</span>)
+<span class="kw">impl </span>Tunables <span class="kw">for </span>Box&lt;<span class="kw">dyn </span>Tunables + Send + Sync&gt; {
+    <span class="kw">fn </span>memory_style(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>MemoryType) -&gt; MemoryStyle {
+        <span class="self">self</span>.as_ref().memory_style(memory)
     }
 
-    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) -&gt; <span class="ident">TableStyle</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">table_style</span>(<span class="ident">table</span>)
+    <span class="kw">fn </span>table_style(<span class="kw-2">&amp;</span><span class="self">self</span>, table: <span class="kw-2">&amp;</span>TableType) -&gt; TableStyle {
+        <span class="self">self</span>.as_ref().table_style(table)
     }
 
-    <span class="kw">fn</span> <span class="ident">create_host_memory</span>(
+    <span class="kw">fn </span>create_host_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">create_host_memory</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
+        <span class="self">self</span>.as_ref().create_host_memory(ty, style)
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_memory</span>(
+    <span class="kw">unsafe fn </span>create_vm_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>()
-            .<span class="ident">create_vm_memory</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_definition_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
+        <span class="self">self</span>.as_ref()
+            .create_vm_memory(ty, style, vm_definition_location)
     }
 
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">create_host_table</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
+    <span class="kw">fn </span>create_host_table(<span class="kw-2">&amp;</span><span class="self">self</span>, ty: <span class="kw-2">&amp;</span>TableType, style: <span class="kw-2">&amp;</span>TableStyle) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
+        <span class="self">self</span>.as_ref().create_host_table(ty, style)
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_table</span>(
+    <span class="kw">unsafe fn </span>create_vm_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>()
-            .<span class="ident">create_vm_table</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
+        ty: <span class="kw-2">&amp;</span>TableType,
+        style: <span class="kw-2">&amp;</span>TableStyle,
+        vm_definition_location: NonNull&lt;VMTableDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
+        <span class="self">self</span>.as_ref()
+            .create_vm_table(ty, style, vm_definition_location)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Tunables</span> <span class="kw">for</span> <span class="ident">std::sync::Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Tunables</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">memory_style</span>(<span class="ident">memory</span>)
+<span class="kw">impl </span>Tunables <span class="kw">for </span>std::sync::Arc&lt;<span class="kw">dyn </span>Tunables + Send + Sync&gt; {
+    <span class="kw">fn </span>memory_style(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>MemoryType) -&gt; MemoryStyle {
+        <span class="self">self</span>.as_ref().memory_style(memory)
     }
 
-    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) -&gt; <span class="ident">TableStyle</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">table_style</span>(<span class="ident">table</span>)
+    <span class="kw">fn </span>table_style(<span class="kw-2">&amp;</span><span class="self">self</span>, table: <span class="kw-2">&amp;</span>TableType) -&gt; TableStyle {
+        <span class="self">self</span>.as_ref().table_style(table)
     }
 
-    <span class="kw">fn</span> <span class="ident">create_host_memory</span>(
+    <span class="kw">fn </span>create_host_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">create_host_memory</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
+        <span class="self">self</span>.as_ref().create_host_memory(ty, style)
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_memory</span>(
+    <span class="kw">unsafe fn </span>create_vm_memory(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>()
-            .<span class="ident">create_vm_memory</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
+        ty: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_definition_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
+        <span class="self">self</span>.as_ref()
+            .create_vm_memory(ty, style, vm_definition_location)
     }
 
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">create_host_table</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
+    <span class="kw">fn </span>create_host_table(<span class="kw-2">&amp;</span><span class="self">self</span>, ty: <span class="kw-2">&amp;</span>TableType, style: <span class="kw-2">&amp;</span>TableStyle) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
+        <span class="self">self</span>.as_ref().create_host_table(ty, style)
     }
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_table</span>(
+    <span class="kw">unsafe fn </span>create_vm_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">as_ref</span>()
-            .<span class="ident">create_vm_table</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
+        ty: <span class="kw-2">&amp;</span>TableType,
+        style: <span class="kw-2">&amp;</span>TableStyle,
+        vm_definition_location: NonNull&lt;VMTableDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
+        <span class="self">self</span>.as_ref()
+            .create_vm_table(ty, style, vm_definition_location)
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

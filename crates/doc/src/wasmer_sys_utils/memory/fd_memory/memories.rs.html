@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/memories.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memories.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_sys_utils/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/sys-utils/src/memory/fd_memory/memories.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memories.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_sys_utils/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_sys_utils/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -589,596 +589,596 @@
 <span id="589">589</span>
 <span id="590">590</span>
 <span id="591">591</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Memory management for linear memories.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.</span>
-<span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Memory management for linear memories.
+//!
+//! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
+</span><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">cell::UnsafeCell</span>,
-    <span class="ident">convert::TryInto</span>,
-    <span class="ident">ptr::NonNull</span>,
-    <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>},
+</span><span class="kw">use </span>std::{
+    cell::UnsafeCell,
+    convert::TryInto,
+    ptr::NonNull,
+    sync::{Arc, RwLock},
 };
 
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Bytes</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryType</span>, <span class="ident">Pages</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::MemoryStyle</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">LinearMemory</span>, <span class="ident">MaybeInstanceOwned</span>, <span class="ident">Trap</span>, <span class="ident">VMMemoryDefinition</span>};
+<span class="kw">use </span>wasmer::{Bytes, MemoryError, MemoryType, Pages};
+<span class="kw">use </span>wasmer_types::MemoryStyle;
+<span class="kw">use </span>wasmer_vm::{LinearMemory, MaybeInstanceOwned, Trap, VMMemoryDefinition};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::fd_mmap::FdMmap</span>;
+<span class="kw">use </span><span class="kw">super</span>::fd_mmap::FdMmap;
 
-<span class="comment">// use crate::trap::Trap;</span>
-<span class="comment">// use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};</span>
-<span class="comment">// use more_asserts::assert_ge;</span>
-<span class="comment">// use std::cell::UnsafeCell;</span>
-<span class="comment">// use std::convert::TryInto;</span>
-<span class="comment">// use std::ptr::NonNull;</span>
-<span class="comment">// use std::slice;</span>
-<span class="comment">// use std::sync::{Arc, RwLock};</span>
-<span class="comment">// use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};</span>
+<span class="comment">// use crate::trap::Trap;
+// use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
+// use more_asserts::assert_ge;
+// use std::cell::UnsafeCell;
+// use std::convert::TryInto;
+// use std::ptr::NonNull;
+// use std::slice;
+// use std::sync::{Arc, RwLock};
+// use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
 
-<span class="comment">// The memory mapped area</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">WasmMmap</span> {
-    <span class="comment">// Our OS allocation of mmap&#39;d memory.</span>
-    <span class="ident">alloc</span>: <span class="ident">FdMmap</span>,
-    <span class="comment">// The current logical size in wasm pages of this linear memory.</span>
-    <span class="ident">size</span>: <span class="ident">Pages</span>,
-    <span class="doccomment">/// The owned memory definition used by the generated code</span>
-    <span class="ident">vm_memory_definition</span>: <span class="ident">MaybeInstanceOwned</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
+// The memory mapped area
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">struct </span>WasmMmap {
+    <span class="comment">// Our OS allocation of mmap&#39;d memory.
+    </span>alloc: FdMmap,
+    <span class="comment">// The current logical size in wasm pages of this linear memory.
+    </span>size: Pages,
+    <span class="doccomment">/// The owned memory definition used by the generated code
+    </span>vm_memory_definition: MaybeInstanceOwned&lt;VMMemoryDefinition&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">WasmMmap</span> {
-    <span class="kw">fn</span> <span class="ident">get_vm_memory_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">vm_memory_definition</span>.<span class="ident">as_ptr</span>()
+<span class="kw">impl </span>WasmMmap {
+    <span class="kw">fn </span>get_vm_memory_definition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt; {
+        <span class="self">self</span>.vm_memory_definition.as_ptr()
     }
 
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Pages</span> {
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">md_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_vm_memory_definition</span>();
-            <span class="kw">let</span> <span class="ident">md</span> <span class="op">=</span> <span class="ident">md_ptr</span>.<span class="ident">as_ref</span>();
-            <span class="ident">Bytes::from</span>(<span class="ident">md</span>.<span class="ident">current_length</span>).<span class="ident">try_into</span>().<span class="ident">unwrap</span>()
+    <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
+        <span class="kw">unsafe </span>{
+            <span class="kw">let </span>md_ptr = <span class="self">self</span>.get_vm_memory_definition();
+            <span class="kw">let </span>md = md_ptr.as_ref();
+            Bytes::from(md.current_length).try_into().unwrap()
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">Pages</span>, <span class="ident">conf</span>: <span class="ident">VMMemoryConfig</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Pages</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="comment">// Optimization of memory.grow 0 calls.</span>
-        <span class="kw">if</span> <span class="ident">delta</span>.<span class="number">0</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">size</span>);
+    <span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages, conf: VMMemoryConfig) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
+        <span class="comment">// Optimization of memory.grow 0 calls.
+        </span><span class="kw">if </span>delta.<span class="number">0 </span>== <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">self</span>.size);
         }
 
-        <span class="kw">let</span> <span class="ident">new_pages</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">size</span>
-            .<span class="ident">checked_add</span>(<span class="ident">delta</span>)
-            .<span class="ident">ok_or</span>(<span class="ident">MemoryError::CouldNotGrow</span> {
-                <span class="ident">current</span>: <span class="self">self</span>.<span class="ident">size</span>,
-                <span class="ident">attempted_delta</span>: <span class="ident">delta</span>,
+        <span class="kw">let </span>new_pages = <span class="self">self
+            </span>.size
+            .checked_add(delta)
+            .ok_or(MemoryError::CouldNotGrow {
+                current: <span class="self">self</span>.size,
+                attempted_delta: delta,
             })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">prev_pages</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>;
+        <span class="kw">let </span>prev_pages = <span class="self">self</span>.size;
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">maximum</span>) <span class="op">=</span> <span class="ident">conf</span>.<span class="ident">maximum</span> {
-            <span class="kw">if</span> <span class="ident">new_pages</span> <span class="op">&gt;</span> <span class="ident">maximum</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryError::CouldNotGrow</span> {
-                    <span class="ident">current</span>: <span class="self">self</span>.<span class="ident">size</span>,
-                    <span class="ident">attempted_delta</span>: <span class="ident">delta</span>,
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(maximum) = conf.maximum {
+            <span class="kw">if </span>new_pages &gt; maximum {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::CouldNotGrow {
+                    current: <span class="self">self</span>.size,
+                    attempted_delta: delta,
                 });
             }
         }
 
-        <span class="comment">// Wasm linear memories are never allowed to grow beyond what is</span>
-        <span class="comment">// indexable. If the memory has no maximum, enforce the greatest</span>
-        <span class="comment">// limit here.</span>
-        <span class="kw">if</span> <span class="ident">new_pages</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">Pages::max_value</span>() {
-            <span class="comment">// Linear memory size would exceed the index range.</span>
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryError::CouldNotGrow</span> {
-                <span class="ident">current</span>: <span class="self">self</span>.<span class="ident">size</span>,
-                <span class="ident">attempted_delta</span>: <span class="ident">delta</span>,
+        <span class="comment">// Wasm linear memories are never allowed to grow beyond what is
+        // indexable. If the memory has no maximum, enforce the greatest
+        // limit here.
+        </span><span class="kw">if </span>new_pages &gt;= Pages::max_value() {
+            <span class="comment">// Linear memory size would exceed the index range.
+            </span><span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::CouldNotGrow {
+                current: <span class="self">self</span>.size,
+                attempted_delta: delta,
             });
         }
 
-        <span class="kw">let</span> <span class="ident">delta_bytes</span> <span class="op">=</span> <span class="ident">delta</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
-        <span class="kw">let</span> <span class="ident">prev_bytes</span> <span class="op">=</span> <span class="ident">prev_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
-        <span class="kw">let</span> <span class="ident">new_bytes</span> <span class="op">=</span> <span class="ident">new_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
+        <span class="kw">let </span>delta_bytes = delta.bytes().<span class="number">0</span>;
+        <span class="kw">let </span>prev_bytes = prev_pages.bytes().<span class="number">0</span>;
+        <span class="kw">let </span>new_bytes = new_pages.bytes().<span class="number">0</span>;
 
-        <span class="kw">if</span> <span class="ident">new_bytes</span> <span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">alloc</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">conf</span>.<span class="ident">offset_guard_size</span> {
-            <span class="comment">// If the new size is within the declared maximum, but needs more memory than we</span>
-            <span class="comment">// have on hand, it&#39;s a dynamic heap and it can move.</span>
-            <span class="kw">let</span> <span class="ident">guard_bytes</span> <span class="op">=</span> <span class="ident">conf</span>.<span class="ident">offset_guard_size</span>;
-            <span class="kw">let</span> <span class="ident">request_bytes</span> <span class="op">=</span>
-                <span class="ident">new_bytes</span>
-                    .<span class="ident">checked_add</span>(<span class="ident">guard_bytes</span>)
-                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">MemoryError::CouldNotGrow</span> {
-                        <span class="ident">current</span>: <span class="ident">new_pages</span>,
-                        <span class="ident">attempted_delta</span>: <span class="ident">Bytes</span>(<span class="ident">guard_bytes</span>).<span class="ident">try_into</span>().<span class="ident">unwrap</span>(),
+        <span class="kw">if </span>new_bytes &gt; <span class="self">self</span>.alloc.len() - conf.offset_guard_size {
+            <span class="comment">// If the new size is within the declared maximum, but needs more memory than we
+            // have on hand, it&#39;s a dynamic heap and it can move.
+            </span><span class="kw">let </span>guard_bytes = conf.offset_guard_size;
+            <span class="kw">let </span>request_bytes =
+                new_bytes
+                    .checked_add(guard_bytes)
+                    .ok_or_else(|| MemoryError::CouldNotGrow {
+                        current: new_pages,
+                        attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
                     })<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_mmap</span> <span class="op">=</span> <span class="ident">FdMmap::accessible_reserved</span>(<span class="ident">new_bytes</span>, <span class="ident">request_bytes</span>)
-                .<span class="ident">map_err</span>(<span class="ident">MemoryError::Region</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>new_mmap = FdMmap::accessible_reserved(new_bytes, request_bytes)
+                .map_err(MemoryError::Region)<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">copy_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">alloc</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="ident">conf</span>.<span class="ident">offset_guard_size</span>;
-            <span class="ident">new_mmap</span>.<span class="ident">as_mut_slice</span>()[..<span class="ident">copy_len</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">alloc</span>.<span class="ident">as_slice</span>()[..<span class="ident">copy_len</span>]);
+            <span class="kw">let </span>copy_len = <span class="self">self</span>.alloc.len() - conf.offset_guard_size;
+            new_mmap.as_mut_slice()[..copy_len].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.alloc.as_slice()[..copy_len]);
 
-            <span class="self">self</span>.<span class="ident">alloc</span> <span class="op">=</span> <span class="ident">new_mmap</span>;
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">delta_bytes</span> <span class="op">&gt;</span> <span class="number">0</span> {
-            <span class="comment">// Make the newly allocated pages accessible.</span>
-            <span class="self">self</span>.<span class="ident">alloc</span>
-                .<span class="ident">make_accessible</span>(<span class="ident">prev_bytes</span>, <span class="ident">delta_bytes</span>)
-                .<span class="ident">map_err</span>(<span class="ident">MemoryError::Region</span>)<span class="question-mark">?</span>;
+            <span class="self">self</span>.alloc = new_mmap;
+        } <span class="kw">else if </span>delta_bytes &gt; <span class="number">0 </span>{
+            <span class="comment">// Make the newly allocated pages accessible.
+            </span><span class="self">self</span>.alloc
+                .make_accessible(prev_bytes, delta_bytes)
+                .map_err(MemoryError::Region)<span class="question-mark">?</span>;
         }
 
-        <span class="self">self</span>.<span class="ident">size</span> <span class="op">=</span> <span class="ident">new_pages</span>;
+        <span class="self">self</span>.size = new_pages;
 
-        <span class="comment">// update memory definition</span>
-        <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">md_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_memory_definition</span>.<span class="ident">as_ptr</span>();
-            <span class="kw">let</span> <span class="ident">md</span> <span class="op">=</span> <span class="ident">md_ptr</span>.<span class="ident">as_mut</span>();
-            <span class="ident">md</span>.<span class="ident">current_length</span> <span class="op">=</span> <span class="ident">new_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
-            <span class="ident">md</span>.<span class="ident">base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">alloc</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>;
+        <span class="comment">// update memory definition
+        </span><span class="kw">unsafe </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>md_ptr = <span class="self">self</span>.vm_memory_definition.as_ptr();
+            <span class="kw">let </span>md = md_ptr.as_mut();
+            md.current_length = new_pages.bytes().<span class="number">0</span>;
+            md.base = <span class="self">self</span>.alloc.as_mut_ptr() <span class="kw">as _</span>;
         }
 
-        <span class="prelude-val">Ok</span>(<span class="ident">prev_pages</span>)
+        <span class="prelude-val">Ok</span>(prev_pages)
     }
 
-    <span class="doccomment">/// Copies the memory</span>
-    <span class="doccomment">/// (in this case it performs a copy-on-write to save memory)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">mem_length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">alloc</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">alloc</span>
-            .<span class="ident">duplicate</span>(<span class="prelude-val">Some</span>(<span class="ident">mem_length</span>))
-            .<span class="ident">map_err</span>(<span class="ident">MemoryError::Generic</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">base_ptr</span> <span class="op">=</span> <span class="ident">alloc</span>.<span class="ident">as_mut_ptr</span>();
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">vm_memory_definition</span>: <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(
-                <span class="ident">VMMemoryDefinition</span> {
-                    <span class="ident">base</span>: <span class="ident">base_ptr</span>,
-                    <span class="ident">current_length</span>: <span class="ident">mem_length</span>,
+    <span class="doccomment">/// Copies the memory
+    /// (in this case it performs a copy-on-write to save memory)
+    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="kw">let </span>mem_length = <span class="self">self</span>.size.bytes().<span class="number">0</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>alloc = <span class="self">self
+            </span>.alloc
+            .duplicate(<span class="prelude-val">Some</span>(mem_length))
+            .map_err(MemoryError::Generic)<span class="question-mark">?</span>;
+        <span class="kw">let </span>base_ptr = alloc.as_mut_ptr();
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
+                VMMemoryDefinition {
+                    base: base_ptr,
+                    current_length: mem_length,
                 },
             ))),
-            <span class="ident">alloc</span>,
-            <span class="ident">size</span>: <span class="self">self</span>.<span class="ident">size</span>,
+            alloc,
+            size: <span class="self">self</span>.size,
         })
     }
 }
 
-<span class="doccomment">/// A linear memory instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">struct</span> <span class="ident">VMMemoryConfig</span> {
-    <span class="comment">// The optional maximum size in wasm pages of this linear memory.</span>
-    <span class="ident">maximum</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The WebAssembly linear memory description.</span>
-    <span class="ident">memory</span>: <span class="ident">MemoryType</span>,
-    <span class="doccomment">/// Our chosen implementation style.</span>
-    <span class="ident">style</span>: <span class="ident">MemoryStyle</span>,
-    <span class="comment">// Size in bytes of extra guard pages after the end to optimize loads and stores with</span>
-    <span class="comment">// constant offsets.</span>
-    <span class="ident">offset_guard_size</span>: <span class="ident">usize</span>,
+<span class="doccomment">/// A linear memory instance.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">struct </span>VMMemoryConfig {
+    <span class="comment">// The optional maximum size in wasm pages of this linear memory.
+    </span>maximum: <span class="prelude-ty">Option</span>&lt;Pages&gt;,
+    <span class="doccomment">/// The WebAssembly linear memory description.
+    </span>memory: MemoryType,
+    <span class="doccomment">/// Our chosen implementation style.
+    </span>style: MemoryStyle,
+    <span class="comment">// Size in bytes of extra guard pages after the end to optimize loads and stores with
+    // constant offsets.
+    </span>offset_guard_size: usize,
 }
 
-<span class="kw">impl</span> <span class="ident">VMMemoryConfig</span> {
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">minimum</span>: <span class="ident">Pages</span>) -&gt; <span class="ident">MemoryType</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>;
-        <span class="ident">out</span>.<span class="ident">minimum</span> <span class="op">=</span> <span class="ident">minimum</span>;
+<span class="kw">impl </span>VMMemoryConfig {
+    <span class="kw">fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>, minimum: Pages) -&gt; MemoryType {
+        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="self">self</span>.memory;
+        out.minimum = minimum;
 
-        <span class="ident">out</span>
+        out
     }
 
-    <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="self">self</span>.<span class="ident">style</span>
+    <span class="kw">fn </span>style(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryStyle {
+        <span class="self">self</span>.style
     }
 }
 
-<span class="doccomment">/// A linear memory instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMOwnedMemory</span> {
-    <span class="comment">// The underlying allocation.</span>
-    <span class="ident">mmap</span>: <span class="ident">WasmMmap</span>,
-    <span class="comment">// Configuration of this memory</span>
-    <span class="ident">config</span>: <span class="ident">VMMemoryConfig</span>,
+<span class="doccomment">/// A linear memory instance.
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>VMOwnedMemory {
+    <span class="comment">// The underlying allocation.
+    </span>mmap: WasmMmap,
+    <span class="comment">// Configuration of this memory
+    </span>config: VMMemoryConfig,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMOwnedMemory</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMOwnedMemory</span> {}
+<span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMOwnedMemory {}
+<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMOwnedMemory {}
 
-<span class="kw">impl</span> <span class="ident">VMOwnedMemory</span> {
-    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `Memory` with owned metadata: this can be used to create a memory</span>
-    <span class="doccomment">/// that will be imported into Wasm modules.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">unsafe</span> { <span class="ident"><span class="self">Self</span>::new_internal</span>(<span class="ident">memory</span>, <span class="ident">style</span>, <span class="prelude-val">None</span>) }
+<span class="kw">impl </span>VMOwnedMemory {
+    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    </span><span class="kw">pub fn </span>new(memory: <span class="kw-2">&amp;</span>MemoryType, style: <span class="kw-2">&amp;</span>MemoryStyle) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="kw">unsafe </span>{ <span class="self">Self</span>::new_internal(memory, style, <span class="prelude-val">None</span>) }
     }
 
-    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `Memory` with metadata owned by a VM, pointed to by</span>
-    <span class="doccomment">/// `vm_memory_location`: this can be used to create a local memory.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_memory_location` must point to a valid location in VM memory.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_definition</span>(
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_memory_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="ident"><span class="self">Self</span>::new_internal</span>(<span class="ident">memory</span>, <span class="ident">style</span>, <span class="prelude-val">Some</span>(<span class="ident">vm_memory_location</span>))
+    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    </span><span class="kw">pub unsafe fn </span>from_definition(
+        memory: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_memory_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="self">Self</span>::new_internal(memory, style, <span class="prelude-val">Some</span>(vm_memory_location))
     }
 
-    <span class="doccomment">/// Build a `Memory` with either self-owned or VM owned metadata.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">new_internal</span>(
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_memory_location</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="ident">memory</span>.<span class="ident">minimum</span> <span class="op">&gt;</span> <span class="ident">Pages::max_value</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryError::MinimumMemoryTooLarge</span> {
-                <span class="ident">min_requested</span>: <span class="ident">memory</span>.<span class="ident">minimum</span>,
-                <span class="ident">max_allowed</span>: <span class="ident">Pages::max_value</span>(),
+    <span class="doccomment">/// Build a `Memory` with either self-owned or VM owned metadata.
+    </span><span class="kw">unsafe fn </span>new_internal(
+        memory: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_memory_location: <span class="prelude-ty">Option</span>&lt;NonNull&lt;VMMemoryDefinition&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="kw">if </span>memory.minimum &gt; Pages::max_value() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::MinimumMemoryTooLarge {
+                min_requested: memory.minimum,
+                max_allowed: Pages::max_value(),
             });
         }
-        <span class="comment">// `maximum` cannot be set to more than `65536` pages.</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max</span>) <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">maximum</span> {
-            <span class="kw">if</span> <span class="ident">max</span> <span class="op">&gt;</span> <span class="ident">Pages::max_value</span>() {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryError::MaximumMemoryTooLarge</span> {
-                    <span class="ident">max_requested</span>: <span class="ident">max</span>,
-                    <span class="ident">max_allowed</span>: <span class="ident">Pages::max_value</span>(),
+        <span class="comment">// `maximum` cannot be set to more than `65536` pages.
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(max) = memory.maximum {
+            <span class="kw">if </span>max &gt; Pages::max_value() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::MaximumMemoryTooLarge {
+                    max_requested: max,
+                    max_allowed: Pages::max_value(),
                 });
             }
-            <span class="kw">if</span> <span class="ident">max</span> <span class="op">&lt;</span> <span class="ident">memory</span>.<span class="ident">minimum</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MemoryError::InvalidMemory</span> {
-                    <span class="ident">reason</span>: <span class="macro">format!</span>(
+            <span class="kw">if </span>max &lt; memory.minimum {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::InvalidMemory {
+                    reason: <span class="macro">format!</span>(
                         <span class="string">&quot;the maximum ({} pages) is less than the minimum ({} pages)&quot;</span>,
-                        <span class="ident">max</span>.<span class="number">0</span>, <span class="ident">memory</span>.<span class="ident">minimum</span>.<span class="number">0</span>
-                    ),
+                        max.<span class="number">0</span>, memory.minimum.<span class="number">0
+                    </span>),
                 });
             }
         }
 
-        <span class="kw">let</span> <span class="ident">offset_guard_bytes</span> <span class="op">=</span> <span class="ident">style</span>.<span class="ident">offset_guard_size</span>() <span class="kw">as</span> <span class="ident">usize</span>;
+        <span class="kw">let </span>offset_guard_bytes = style.offset_guard_size() <span class="kw">as </span>usize;
 
-        <span class="kw">let</span> <span class="ident">minimum_pages</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">style</span> {
-            <span class="ident">MemoryStyle::Dynamic</span> { .. } =&gt; <span class="ident">memory</span>.<span class="ident">minimum</span>,
-            <span class="ident">MemoryStyle::Static</span> { <span class="ident">bound</span>, .. } =&gt; {
-                <span class="macro">assert!</span>(<span class="kw-2">*</span><span class="ident">bound</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">memory</span>.<span class="ident">minimum</span>);
-                <span class="kw-2">*</span><span class="ident">bound</span>
+        <span class="kw">let </span>minimum_pages = <span class="kw">match </span>style {
+            MemoryStyle::Dynamic { .. } =&gt; memory.minimum,
+            MemoryStyle::Static { bound, .. } =&gt; {
+                <span class="macro">assert!</span>(<span class="kw-2">*</span>bound &gt;= memory.minimum);
+                <span class="kw-2">*</span>bound
             }
         };
-        <span class="kw">let</span> <span class="ident">minimum_bytes</span> <span class="op">=</span> <span class="ident">minimum_pages</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
-        <span class="kw">let</span> <span class="ident">request_bytes</span> <span class="op">=</span> <span class="ident">minimum_bytes</span>.<span class="ident">checked_add</span>(<span class="ident">offset_guard_bytes</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">mapped_pages</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">minimum</span>;
-        <span class="kw">let</span> <span class="ident">mapped_bytes</span> <span class="op">=</span> <span class="ident">mapped_pages</span>.<span class="ident">bytes</span>();
+        <span class="kw">let </span>minimum_bytes = minimum_pages.bytes().<span class="number">0</span>;
+        <span class="kw">let </span>request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
+        <span class="kw">let </span>mapped_pages = memory.minimum;
+        <span class="kw">let </span>mapped_bytes = mapped_pages.bytes();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">alloc</span> <span class="op">=</span> <span class="ident">FdMmap::accessible_reserved</span>(<span class="ident">mapped_bytes</span>.<span class="number">0</span>, <span class="ident">request_bytes</span>)
-            .<span class="ident">map_err</span>(<span class="ident">MemoryError::Region</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">base_ptr</span> <span class="op">=</span> <span class="ident">alloc</span>.<span class="ident">as_mut_ptr</span>();
-        <span class="kw">let</span> <span class="ident">mem_length</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">minimum</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
-        <span class="kw">let</span> <span class="ident">mmap</span> <span class="op">=</span> <span class="ident">WasmMmap</span> {
-            <span class="ident">vm_memory_definition</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">mem_loc</span>) <span class="op">=</span> <span class="ident">vm_memory_location</span> {
+        <span class="kw">let </span><span class="kw-2">mut </span>alloc = FdMmap::accessible_reserved(mapped_bytes.<span class="number">0</span>, request_bytes)
+            .map_err(MemoryError::Region)<span class="question-mark">?</span>;
+        <span class="kw">let </span>base_ptr = alloc.as_mut_ptr();
+        <span class="kw">let </span>mem_length = memory.minimum.bytes().<span class="number">0</span>;
+        <span class="kw">let </span>mmap = WasmMmap {
+            vm_memory_definition: <span class="kw">if let </span><span class="prelude-val">Some</span>(mem_loc) = vm_memory_location {
                 {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">mem_loc</span>;
-                    <span class="kw">let</span> <span class="ident">md</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">as_mut</span>();
-                    <span class="ident">md</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">base_ptr</span>;
-                    <span class="ident">md</span>.<span class="ident">current_length</span> <span class="op">=</span> <span class="ident">mem_length</span>;
+                    <span class="kw">let </span><span class="kw-2">mut </span>ptr = mem_loc;
+                    <span class="kw">let </span>md = ptr.as_mut();
+                    md.base = base_ptr;
+                    md.current_length = mem_length;
                 }
-                <span class="ident">MaybeInstanceOwned::Instance</span>(<span class="ident">mem_loc</span>)
-            } <span class="kw">else</span> {
-                <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(<span class="ident">VMMemoryDefinition</span> {
-                    <span class="ident">base</span>: <span class="ident">base_ptr</span>,
-                    <span class="ident">current_length</span>: <span class="ident">mem_length</span>,
+                MaybeInstanceOwned::Instance(mem_loc)
+            } <span class="kw">else </span>{
+                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                    base: base_ptr,
+                    current_length: mem_length,
                 })))
             },
-            <span class="ident">alloc</span>,
-            <span class="ident">size</span>: <span class="ident">memory</span>.<span class="ident">minimum</span>,
+            alloc,
+            size: memory.minimum,
         };
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">mmap</span>,
-            <span class="ident">config</span>: <span class="ident">VMMemoryConfig</span> {
-                <span class="ident">maximum</span>: <span class="ident">memory</span>.<span class="ident">maximum</span>,
-                <span class="ident">offset_guard_size</span>: <span class="ident">offset_guard_bytes</span>,
-                <span class="ident">memory</span>: <span class="kw-2">*</span><span class="ident">memory</span>,
-                <span class="ident">style</span>: <span class="kw-2">*</span><span class="ident">style</span>,
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            mmap,
+            config: VMMemoryConfig {
+                maximum: memory.maximum,
+                offset_guard_size: offset_guard_bytes,
+                memory: <span class="kw-2">*</span>memory,
+                style: <span class="kw-2">*</span>style,
             },
         })
     }
 
-    <span class="doccomment">/// Converts this owned memory into shared memory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_shared</span>(<span class="self">self</span>) -&gt; <span class="ident">VMSharedMemory</span> {
-        <span class="ident">VMSharedMemory</span> {
-            <span class="ident">mmap</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="self">self</span>.<span class="ident">mmap</span>)),
-            <span class="ident">config</span>: <span class="self">self</span>.<span class="ident">config</span>,
+    <span class="doccomment">/// Converts this owned memory into shared memory
+    </span><span class="kw">pub fn </span>to_shared(<span class="self">self</span>) -&gt; VMSharedMemory {
+        VMSharedMemory {
+            mmap: Arc::new(RwLock::new(<span class="self">self</span>.mmap)),
+            config: <span class="self">self</span>.config,
         }
     }
 
-    <span class="doccomment">/// Copies this memory to a new memory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">mmap</span>: <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">duplicate</span>()<span class="question-mark">?</span>,
-            <span class="ident">config</span>: <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">clone</span>(),
+    <span class="doccomment">/// Copies this memory to a new memory
+    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            mmap: <span class="self">self</span>.mmap.duplicate()<span class="question-mark">?</span>,
+            config: <span class="self">self</span>.config.clone(),
         })
     }
 }
 
-<span class="kw">impl</span> <span class="ident">LinearMemory</span> <span class="kw">for</span> <span class="ident">VMOwnedMemory</span> {
-    <span class="doccomment">/// Returns the type for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryType</span> {
-        <span class="kw">let</span> <span class="ident">minimum</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">size</span>();
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">ty</span>(<span class="ident">minimum</span>)
+<span class="kw">impl </span>LinearMemory <span class="kw">for </span>VMOwnedMemory {
+    <span class="doccomment">/// Returns the type for this memory.
+    </span><span class="kw">fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryType {
+        <span class="kw">let </span>minimum = <span class="self">self</span>.mmap.size();
+        <span class="self">self</span>.config.ty(minimum)
     }
 
-    <span class="doccomment">/// Returns the size of hte memory in pages</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Pages</span> {
-        <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">size</span>()
+    <span class="doccomment">/// Returns the size of hte memory in pages
+    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
+        <span class="self">self</span>.mmap.size()
     }
 
-    <span class="doccomment">/// Returns the memory style for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">style</span>()
+    <span class="doccomment">/// Returns the memory style for this memory.
+    </span><span class="kw">fn </span>style(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryStyle {
+        <span class="self">self</span>.config.style()
     }
 
-    <span class="doccomment">/// Grow memory by the specified amount of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `None` if memory can&#39;t be grown by the specified amount</span>
-    <span class="doccomment">/// of wasm pages.</span>
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">Pages</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Pages</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">grow</span>(<span class="ident">delta</span>, <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">clone</span>())
+    <span class="doccomment">/// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// of wasm pages.
+    </span><span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
+        <span class="self">self</span>.mmap.grow(delta, <span class="self">self</span>.config.clone())
     }
 
-    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.</span>
-    <span class="kw">fn</span> <span class="ident">vmmemory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">vm_memory_definition</span>.<span class="ident">as_ptr</span>()
+    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    </span><span class="kw">fn </span>vmmemory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt; {
+        <span class="self">self</span>.mmap.vm_memory_definition.as_ptr()
     }
 
-    <span class="doccomment">/// Owned memory can not be cloned (this will always return None)</span>
-    <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
-    }
+    <span class="doccomment">/// Owned memory can not be cloned (this will always return None)
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="prelude-val">None
+    </span>}
 
-    <span class="doccomment">/// Copies this memory to a new memory</span>
-    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">forked</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::duplicate</span>(<span class="self">self</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">forked</span>))
+    <span class="doccomment">/// Copies this memory to a new memory
+    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="kw">let </span>forked = <span class="self">Self</span>::duplicate(<span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Box::new(forked))
     }
 }
 
-<span class="doccomment">/// A shared linear memory instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMSharedMemory</span> {
-    <span class="comment">// The underlying allocation.</span>
-    <span class="ident">mmap</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">WasmMmap</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// Configuration of this memory</span>
-    <span class="ident">config</span>: <span class="ident">VMMemoryConfig</span>,
+<span class="doccomment">/// A shared linear memory instance.
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>VMSharedMemory {
+    <span class="comment">// The underlying allocation.
+    </span>mmap: Arc&lt;RwLock&lt;WasmMmap&gt;&gt;,
+    <span class="comment">// Configuration of this memory
+    </span>config: VMMemoryConfig,
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {}
+<span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMSharedMemory {}
+<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMSharedMemory {}
 
-<span class="kw">impl</span> <span class="ident">VMSharedMemory</span> {
-    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `Memory` with owned metadata: this can be used to create a memory</span>
-    <span class="doccomment">/// that will be imported into Wasm modules.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">VMOwnedMemory::new</span>(<span class="ident">memory</span>, <span class="ident">style</span>)<span class="question-mark">?</span>.<span class="ident">to_shared</span>())
+<span class="kw">impl </span>VMSharedMemory {
+    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    </span><span class="kw">pub fn </span>new(memory: <span class="kw-2">&amp;</span>MemoryType, style: <span class="kw-2">&amp;</span>MemoryStyle) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="prelude-val">Ok</span>(VMOwnedMemory::new(memory, style)<span class="question-mark">?</span>.to_shared())
     }
 
-    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `Memory` with metadata owned by a VM, pointed to by</span>
-    <span class="doccomment">/// `vm_memory_location`: this can be used to create a local memory.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_memory_location` must point to a valid location in VM memory.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_definition</span>(
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_memory_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">VMOwnedMemory::from_definition</span>(<span class="ident">memory</span>, <span class="ident">style</span>, <span class="ident">vm_memory_location</span>)<span class="question-mark">?</span>.<span class="ident">to_shared</span>())
+    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    </span><span class="kw">pub unsafe fn </span>from_definition(
+        memory: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_memory_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="prelude-val">Ok</span>(VMOwnedMemory::from_definition(memory, style, vm_memory_location)<span class="question-mark">?</span>.to_shared())
     }
 
-    <span class="doccomment">/// Copies this memory to a new memory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">mmap</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">guard</span>.<span class="ident">duplicate</span>()<span class="question-mark">?</span>)),
-            <span class="ident">config</span>: <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">clone</span>(),
+    <span class="doccomment">/// Copies this memory to a new memory
+    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.mmap.write().unwrap();
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            mmap: Arc::new(RwLock::new(guard.duplicate()<span class="question-mark">?</span>)),
+            config: <span class="self">self</span>.config.clone(),
         })
     }
 }
 
-<span class="kw">impl</span> <span class="ident">LinearMemory</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {
-    <span class="doccomment">/// Returns the type for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryType</span> {
-        <span class="kw">let</span> <span class="ident">minimum</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="ident">guard</span>.<span class="ident">size</span>()
+<span class="kw">impl </span>LinearMemory <span class="kw">for </span>VMSharedMemory {
+    <span class="doccomment">/// Returns the type for this memory.
+    </span><span class="kw">fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryType {
+        <span class="kw">let </span>minimum = {
+            <span class="kw">let </span>guard = <span class="self">self</span>.mmap.read().unwrap();
+            guard.size()
         };
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">ty</span>(<span class="ident">minimum</span>)
+        <span class="self">self</span>.config.ty(minimum)
     }
 
-    <span class="doccomment">/// Returns the size of hte memory in pages</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Pages</span> {
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="ident">guard</span>.<span class="ident">size</span>()
+    <span class="doccomment">/// Returns the size of hte memory in pages
+    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
+        <span class="kw">let </span>guard = <span class="self">self</span>.mmap.read().unwrap();
+        guard.size()
     }
 
-    <span class="doccomment">/// Returns the memory style for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">style</span>()
+    <span class="doccomment">/// Returns the memory style for this memory.
+    </span><span class="kw">fn </span>style(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryStyle {
+        <span class="self">self</span>.config.style()
     }
 
-    <span class="doccomment">/// Grow memory by the specified amount of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `None` if memory can&#39;t be grown by the specified amount</span>
-    <span class="doccomment">/// of wasm pages.</span>
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">Pages</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Pages</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="ident">guard</span>.<span class="ident">grow</span>(<span class="ident">delta</span>, <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">clone</span>())
+    <span class="doccomment">/// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// of wasm pages.
+    </span><span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.mmap.write().unwrap();
+        guard.grow(delta, <span class="self">self</span>.config.clone())
     }
 
-    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.</span>
-    <span class="kw">fn</span> <span class="ident">vmmemory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-        <span class="ident">guard</span>.<span class="ident">vm_memory_definition</span>.<span class="ident">as_ptr</span>()
+    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    </span><span class="kw">fn </span>vmmemory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt; {
+        <span class="kw">let </span>guard = <span class="self">self</span>.mmap.read().unwrap();
+        guard.vm_memory_definition.as_ptr()
     }
 
-    <span class="doccomment">/// Shared memory can always be cloned</span>
-    <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>()))
+    <span class="doccomment">/// Shared memory can always be cloned
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="prelude-val">Some</span>(Box::new(<span class="self">self</span>.clone()))
     }
 
-    <span class="doccomment">/// Copies this memory to a new memory</span>
-    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">forked</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::duplicate</span>(<span class="self">self</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">forked</span>))
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMOwnedMemory</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMMemory</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">mem</span>: <span class="ident">VMOwnedMemory</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">mem</span>))
+    <span class="doccomment">/// Copies this memory to a new memory
+    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="kw">let </span>forked = <span class="self">Self</span>::duplicate(<span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Box::new(forked))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMSharedMemory</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMMemory</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">mem</span>: <span class="ident">VMSharedMemory</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">mem</span>))
+<span class="kw">impl </span>From&lt;VMOwnedMemory&gt; <span class="kw">for </span>VMMemory {
+    <span class="kw">fn </span>from(mem: VMOwnedMemory) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(Box::new(mem))
     }
 }
 
-<span class="doccomment">/// Represents linear memory that can be either owned or shared</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMMemory</span>(<span class="kw">pub</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>);
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMMemory</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">mem</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">mem</span>)
+<span class="kw">impl </span>From&lt;VMSharedMemory&gt; <span class="kw">for </span>VMMemory {
+    <span class="kw">fn </span>from(mem: VMSharedMemory) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(Box::new(mem))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">LinearMemory</span> <span class="kw">for</span> <span class="ident">VMMemory</span> {
-    <span class="doccomment">/// Returns the type for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryType</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">ty</span>()
-    }
+<span class="doccomment">/// Represents linear memory that can be either owned or shared
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>VMMemory(<span class="kw">pub </span>Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;);
 
-    <span class="doccomment">/// Returns the size of hte memory in pages</span>
-    <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Pages</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">size</span>()
-    }
-
-    <span class="doccomment">/// Grow memory by the specified amount of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `None` if memory can&#39;t be grown by the specified amount</span>
-    <span class="doccomment">/// of wasm pages.</span>
-    <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">Pages</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Pages</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">grow</span>(<span class="ident">delta</span>)
-    }
-
-    <span class="doccomment">/// Returns the memory style for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">style</span>()
-    }
-
-    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.</span>
-    <span class="kw">fn</span> <span class="ident">vmmemory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">vmmemory</span>()
-    }
-
-    <span class="doccomment">/// Attempts to clone this memory (if its clonable)</span>
-    <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">try_clone</span>()
-    }
-
-    <span class="doccomment">/// Initialize memory with data</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_with_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">initialize_with_data</span>(<span class="ident">start</span>, <span class="ident">data</span>)
-    }
-
-    <span class="doccomment">/// Copies this memory to a new memory</span>
-    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">duplicate</span>()
+<span class="kw">impl </span>From&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; <span class="kw">for </span>VMMemory {
+    <span class="kw">fn </span>from(mem: Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(mem)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">VMMemory</span> {
-    <span class="doccomment">/// Creates a new linear memory instance of the correct type with specified</span>
-    <span class="doccomment">/// minimum and maximum number of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `Memory` with owned metadata: this can be used to create a memory</span>
-    <span class="doccomment">/// that will be imported into Wasm modules.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">memory</span>.<span class="ident">shared</span> {
-            <span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">VMSharedMemory::new</span>(<span class="ident">memory</span>, <span class="ident">style</span>)<span class="question-mark">?</span>))
-        } <span class="kw">else</span> {
-            <span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">VMOwnedMemory::new</span>(<span class="ident">memory</span>, <span class="ident">style</span>)<span class="question-mark">?</span>))
+<span class="kw">impl </span>LinearMemory <span class="kw">for </span>VMMemory {
+    <span class="doccomment">/// Returns the type for this memory.
+    </span><span class="kw">fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryType {
+        <span class="self">self</span>.<span class="number">0</span>.ty()
+    }
+
+    <span class="doccomment">/// Returns the size of hte memory in pages
+    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
+        <span class="self">self</span>.<span class="number">0</span>.size()
+    }
+
+    <span class="doccomment">/// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can&#39;t be grown by the specified amount
+    /// of wasm pages.
+    </span><span class="kw">fn </span>grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta: Pages) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.grow(delta)
+    }
+
+    <span class="doccomment">/// Returns the memory style for this memory.
+    </span><span class="kw">fn </span>style(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryStyle {
+        <span class="self">self</span>.<span class="number">0</span>.style()
+    }
+
+    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    </span><span class="kw">fn </span>vmmemory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.vmmemory()
+    }
+
+    <span class="doccomment">/// Attempts to clone this memory (if its clonable)
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.try_clone()
+    }
+
+    <span class="doccomment">/// Initialize memory with data
+    </span><span class="kw">unsafe fn </span>initialize_with_data(<span class="kw-2">&amp;</span><span class="self">self</span>, start: usize, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.initialize_with_data(start, data)
+    }
+
+    <span class="doccomment">/// Copies this memory to a new memory
+    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.duplicate()
+    }
+}
+
+<span class="kw">impl </span>VMMemory {
+    <span class="doccomment">/// Creates a new linear memory instance of the correct type with specified
+    /// minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    </span><span class="kw">pub fn </span>new(memory: <span class="kw-2">&amp;</span>MemoryType, style: <span class="kw-2">&amp;</span>MemoryStyle) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">if </span>memory.shared {
+            <span class="self">Self</span>(Box::new(VMSharedMemory::new(memory, style)<span class="question-mark">?</span>))
+        } <span class="kw">else </span>{
+            <span class="self">Self</span>(Box::new(VMOwnedMemory::new(memory, style)<span class="question-mark">?</span>))
         })
     }
 
-    <span class="doccomment">/// Returns the number of pages in the allocated memory block</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_runtime_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">size</span>().<span class="number">0</span>
-    }
+    <span class="doccomment">/// Returns the number of pages in the allocated memory block
+    </span><span class="kw">pub fn </span>get_runtime_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.<span class="number">0</span>.size().<span class="number">0
+    </span>}
 
-    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This creates a `Memory` with metadata owned by a VM, pointed to by</span>
-    <span class="doccomment">/// `vm_memory_location`: this can be used to create a local memory.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_memory_location` must point to a valid location in VM memory.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_definition</span>(
-        <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_memory_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="kw">if</span> <span class="ident">memory</span>.<span class="ident">shared</span> {
-            <span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">VMSharedMemory::from_definition</span>(
-                <span class="ident">memory</span>,
-                <span class="ident">style</span>,
-                <span class="ident">vm_memory_location</span>,
+    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    </span><span class="kw">pub unsafe fn </span>from_definition(
+        memory: <span class="kw-2">&amp;</span>MemoryType,
+        style: <span class="kw-2">&amp;</span>MemoryStyle,
+        vm_memory_location: NonNull&lt;VMMemoryDefinition&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="kw">if </span>memory.shared {
+            <span class="self">Self</span>(Box::new(VMSharedMemory::from_definition(
+                memory,
+                style,
+                vm_memory_location,
             )<span class="question-mark">?</span>))
-        } <span class="kw">else</span> {
-            <span class="self">Self</span>(<span class="ident">Box::new</span>(<span class="ident">VMOwnedMemory::from_definition</span>(
-                <span class="ident">memory</span>,
-                <span class="ident">style</span>,
-                <span class="ident">vm_memory_location</span>,
+        } <span class="kw">else </span>{
+            <span class="self">Self</span>(Box::new(VMOwnedMemory::from_definition(
+                memory,
+                style,
+                vm_memory_location,
             )<span class="question-mark">?</span>))
         })
     }
 
-    <span class="doccomment">/// Creates VMMemory from a custom implementation - the following into implementations</span>
-    <span class="doccomment">/// are natively supported</span>
-    <span class="doccomment">/// - VMOwnedMemory -&gt; VMMemory</span>
-    <span class="doccomment">/// - Box&lt;dyn LinearMemory + &#39;static&gt; -&gt; VMMemory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_custom</span><span class="op">&lt;</span><span class="ident">IntoVMMemory</span><span class="op">&gt;</span>(<span class="ident">memory</span>: <span class="ident">IntoVMMemory</span>) -&gt; <span class="self">Self</span>
-    <span class="kw">where</span>
-        <span class="ident">IntoVMMemory</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Creates VMMemory from a custom implementation - the following into implementations
+    /// are natively supported
+    /// - VMOwnedMemory -&gt; VMMemory
+    /// - Box&lt;dyn LinearMemory + &#39;static&gt; -&gt; VMMemory
+    </span><span class="kw">pub fn </span>from_custom&lt;IntoVMMemory&gt;(memory: IntoVMMemory) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>IntoVMMemory: Into&lt;<span class="self">Self</span>&gt;,
     {
-        <span class="ident">memory</span>.<span class="ident">into</span>()
+        memory.into()
     }
 
-    <span class="doccomment">/// Copies this memory to a new memory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="ident">LinearMemory::duplicate</span>(<span class="self">self</span>)
+    <span class="doccomment">/// Copies this memory to a new memory
+    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        LinearMemory::duplicate(<span class="self">self</span>)
     }
 }
 
-<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
-<span class="doccomment">/// Default implementation to initialize memory with data</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_memory_with_data</span>(
-    <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">VMMemoryDefinition</span>,
-    <span class="ident">start</span>: <span class="ident">usize</span>,
-    <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">mem_slice</span> <span class="op">=</span> <span class="ident">std::slice::from_raw_parts_mut</span>(<span class="ident">memory</span>.<span class="ident">base</span>, <span class="ident">memory</span>.<span class="ident">current_length</span>);
-    <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="ident">data</span>.<span class="ident">len</span>();
-    <span class="kw">let</span> <span class="ident">to_init</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">mem_slice</span>[<span class="ident">start</span>..<span class="ident">end</span>];
-    <span class="ident">to_init</span>.<span class="ident">copy_from_slice</span>(<span class="ident">data</span>);
+<span class="attribute">#[doc(hidden)]
+</span><span class="doccomment">/// Default implementation to initialize memory with data
+</span><span class="kw">pub unsafe fn </span>initialize_memory_with_data(
+    memory: <span class="kw-2">&amp;</span>VMMemoryDefinition,
+    start: usize,
+    data: <span class="kw-2">&amp;</span>[u8],
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+    <span class="kw">let </span>mem_slice = std::slice::from_raw_parts_mut(memory.base, memory.current_length);
+    <span class="kw">let </span>end = start + data.len();
+    <span class="kw">let </span>to_init = <span class="kw-2">&amp;mut </span>mem_slice[start..end];
+    to_init.copy_from_slice(data);
 
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_sys_utils" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_sys_utils" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

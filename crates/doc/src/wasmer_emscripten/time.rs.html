@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/time.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>time.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/emscripten/src/time.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>time.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_emscripten/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_emscripten/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -464,469 +464,469 @@
 <span id="462">462</span>
 <span id="463">463</span>
 <span id="464">464</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::utils</span>::{<span class="ident">copy_cstr_into_wasm</span>, <span class="ident">write_to_buf</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">allocate_on_stack</span>, <span class="ident">lazy_static</span>, <span class="ident">EmEnv</span>};
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>};
-<span class="comment">// use libc::{c_char, c_int, clock_getres, clock_settime};</span>
-<span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">std::time::SystemTime</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::utils::{copy_cstr_into_wasm, write_to_buf};
+<span class="kw">use crate</span>::{allocate_on_stack, lazy_static, EmEnv};
+<span class="kw">use </span>libc::{c_char, c_int};
+<span class="comment">// use libc::{c_char, c_int, clock_getres, clock_settime};
+</span><span class="kw">use </span>std::mem;
+<span class="kw">use </span>std::time::SystemTime;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">clockid_t</span>, <span class="ident">time</span> <span class="kw">as</span> <span class="ident">libc_time</span>, <span class="ident">timegm</span> <span class="kw">as</span> <span class="ident">libc_timegm</span>, <span class="ident">tm</span> <span class="kw">as</span> <span class="ident">libc_tm</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">std::ffi::CString</span>;
+<span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+</span><span class="kw">use </span>libc::{clockid_t, time <span class="kw">as </span>libc_time, timegm <span class="kw">as </span>libc_timegm, tm <span class="kw">as </span>libc_tm};
+<span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+</span><span class="kw">use </span>std::ffi::CString;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc::time_t</span>;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+</span><span class="kw">use </span>libc::time_t;
 
-<span class="kw">use</span> <span class="ident">wasmer::FunctionEnvMut</span>;
+<span class="kw">use </span>wasmer::FunctionEnvMut;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">type</span> <span class="ident">clockid_t</span> <span class="op">=</span> <span class="ident">c_int</span>;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+#[allow(non_camel_case_types)]
+</span><span class="kw">type </span>clockid_t = c_int;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
-    <span class="attribute">#[<span class="ident">link_name</span> <span class="op">=</span> <span class="string">&quot;time&quot;</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">libc_time</span>(<span class="ident">s</span>: <span class="kw-2">*const</span> <span class="ident">time_t</span>) -&gt; <span class="ident">time_t</span>;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+</span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+    <span class="attribute">#[link_name = <span class="string">&quot;time&quot;</span>]
+    </span><span class="kw">pub fn </span>libc_time(s: <span class="kw-2">*const </span>time_t) -&gt; time_t;
 }
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::env</span>;
+<span class="kw">use </span><span class="kw">super</span>::env;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_MONOTONIC_COARSE</span>, <span class="ident">CLOCK_REALTIME</span>};
+<span class="attribute">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>))]
+</span><span class="kw">use </span>libc::{CLOCK_MONOTONIC, CLOCK_MONOTONIC_COARSE, CLOCK_REALTIME};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_REALTIME</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">6</span>;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;freebsd&quot;</span>)]
+</span><span class="kw">use </span>libc::{CLOCK_MONOTONIC, CLOCK_REALTIME};
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;freebsd&quot;</span>)]
+</span><span class="kw">const </span>CLOCK_MONOTONIC_COARSE: clockid_t = <span class="number">6</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">libc::CLOCK_REALTIME</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">1</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">6</span>;
+<span class="attribute">#[cfg(target_vendor = <span class="string">&quot;apple&quot;</span>)]
+</span><span class="kw">use </span>libc::CLOCK_REALTIME;
+<span class="attribute">#[cfg(target_vendor = <span class="string">&quot;apple&quot;</span>)]
+</span><span class="kw">const </span>CLOCK_MONOTONIC: clockid_t = <span class="number">1</span>;
+<span class="attribute">#[cfg(target_vendor = <span class="string">&quot;apple&quot;</span>)]
+</span><span class="kw">const </span>CLOCK_MONOTONIC_COARSE: clockid_t = <span class="number">6</span>;
 
-<span class="comment">// some assumptions about the constants when targeting windows</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">CLOCK_REALTIME</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">0</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">1</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">const</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span>: <span class="ident">clockid_t</span> <span class="op">=</span> <span class="number">6</span>;
+<span class="comment">// some assumptions about the constants when targeting windows
+</span><span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+</span><span class="kw">const </span>CLOCK_REALTIME: clockid_t = <span class="number">0</span>;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+</span><span class="kw">const </span>CLOCK_MONOTONIC: clockid_t = <span class="number">1</span>;
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+</span><span class="kw">const </span>CLOCK_MONOTONIC_COARSE: clockid_t = <span class="number">6</span>;
 
-<span class="doccomment">/// emscripten: _gettimeofday</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gettimeofday</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>, <span class="ident">tz</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_gettimeofday {} {}&quot;</span>, <span class="ident">tp</span>, <span class="ident">tz</span>);
-    <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">GuestTimeVal</span> {
-        <span class="ident">tv_sec</span>: <span class="ident">i32</span>,
-        <span class="ident">tv_usec</span>: <span class="ident">i32</span>,
+<span class="doccomment">/// emscripten: _gettimeofday
+</span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>_gettimeofday(ctx: FunctionEnvMut&lt;EmEnv&gt;, tp: c_int, tz: c_int) -&gt; c_int {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_gettimeofday {} {}&quot;</span>, tp, tz);
+    <span class="attribute">#[repr(C)]
+    </span><span class="kw">struct </span>GuestTimeVal {
+        tv_sec: i32,
+        tv_usec: i32,
     }
 
     <span class="macro">assert!</span>(
-        <span class="ident">tz</span> <span class="op">==</span> <span class="number">0</span>,
-        <span class="string">&quot;the timezone argument of `_gettimeofday` must be null&quot;</span>
-    );
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">SystemTime::now</span>();
-        <span class="kw">let</span> <span class="ident">since_epoch</span> <span class="op">=</span> <span class="ident">now</span>.<span class="ident">duration_since</span>(<span class="ident">SystemTime::UNIX_EPOCH</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">timeval_struct_ptr</span> <span class="op">=</span>
-            <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">tp</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">GuestTimeVal</span>;
+        tz == <span class="number">0</span>,
+        <span class="string">&quot;the timezone argument of `_gettimeofday` must be null&quot;
+    </span>);
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>now = SystemTime::now();
+        <span class="kw">let </span>since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
+        <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+        <span class="kw">let </span>timeval_struct_ptr =
+            <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), tp) <span class="kw">as </span><span class="kw-2">*mut </span>GuestTimeVal;
 
-        (<span class="kw-2">*</span><span class="ident">timeval_struct_ptr</span>).<span class="ident">tv_sec</span> <span class="op">=</span> <span class="ident">since_epoch</span>.<span class="ident">as_secs</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">timeval_struct_ptr</span>).<span class="ident">tv_usec</span> <span class="op">=</span> <span class="ident">since_epoch</span>.<span class="ident">subsec_nanos</span>() <span class="kw">as</span> <span class="kw">_</span>;
+        (<span class="kw-2">*</span>timeval_struct_ptr).tv_sec = since_epoch.as_secs() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>timeval_struct_ptr).tv_usec = since_epoch.subsec_nanos() <span class="kw">as _</span>;
     }
-    <span class="number">0</span>
-}
+    <span class="number">0
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_getres</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_clk_id</span>: <span class="ident">i32</span>, <span class="ident">_tp</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_clock_getres(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _clk_id: i32, _tp: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_clock_getres&quot;</span>);
-    <span class="comment">// clock_getres(clk_id, tp)</span>
-    <span class="number">0</span>
-}
+    <span class="comment">// clock_getres(clk_id, tp)
+    </span><span class="number">0
+</span>}
 
-<span class="doccomment">/// emscripten: _clock_gettime</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_gettime</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">clk_id</span>: <span class="ident">clockid_t</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_clock_gettime {} {}&quot;</span>, <span class="ident">clk_id</span>, <span class="ident">tp</span>);
-    <span class="comment">// debug!(&quot;Memory {:?}&quot;, ctx.memory(0)[..]);</span>
-    <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">GuestTimeSpec</span> {
-        <span class="ident">tv_sec</span>: <span class="ident">i32</span>,
-        <span class="ident">tv_nsec</span>: <span class="ident">i32</span>,
+<span class="doccomment">/// emscripten: _clock_gettime
+</span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>_clock_gettime(ctx: FunctionEnvMut&lt;EmEnv&gt;, clk_id: clockid_t, tp: c_int) -&gt; c_int {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_clock_gettime {} {}&quot;</span>, clk_id, tp);
+    <span class="comment">// debug!(&quot;Memory {:?}&quot;, ctx.memory(0)[..]);
+    </span><span class="attribute">#[repr(C)]
+    </span><span class="kw">struct </span>GuestTimeSpec {
+        tv_sec: i32,
+        tv_nsec: i32,
     }
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_patterns</span>)]</span>
-    <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">clk_id</span> {
-        <span class="ident">CLOCK_REALTIME</span> =&gt; <span class="ident">time::OffsetDateTime::now_utc</span>().<span class="ident">unix_timestamp_nanos</span>(),
+    <span class="attribute">#[allow(unreachable_patterns)]
+    </span><span class="kw">let </span>duration = <span class="kw">match </span>clk_id {
+        CLOCK_REALTIME =&gt; time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
 
-        <span class="ident">CLOCK_MONOTONIC</span> <span class="op">|</span> <span class="ident">CLOCK_MONOTONIC_COARSE</span> =&gt; {
-            <span class="macro">lazy_static!</span> {
-                <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">PRECISE0</span>: <span class="ident">time::Instant</span> <span class="op">=</span> <span class="ident">time::Instant::now</span>();
+        CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE =&gt; {
+            <span class="macro">lazy_static! </span>{
+                <span class="kw">static </span><span class="kw-2">ref </span>PRECISE0: time::Instant = time::Instant::now();
             };
-            <span class="kw">let</span> <span class="ident">precise_ns</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">PRECISE0</span>;
-            (<span class="ident">time::Instant::now</span>() <span class="op">-</span> <span class="ident">precise_ns</span>).<span class="ident">whole_nanoseconds</span>()
+            <span class="kw">let </span>precise_ns = <span class="kw-2">*</span>PRECISE0;
+            (time::Instant::now() - precise_ns).whole_nanoseconds()
         }
-        <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Clock with id \&quot;{}\&quot; is not supported.&quot;</span>, <span class="ident">clk_id</span>),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Clock with id \&quot;{}\&quot; is not supported.&quot;</span>, clk_id),
     };
 
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">timespec_struct_ptr</span> <span class="op">=</span>
-            <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">tp</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">GuestTimeSpec</span>;
-        (<span class="kw-2">*</span><span class="ident">timespec_struct_ptr</span>).<span class="ident">tv_sec</span> <span class="op">=</span> (<span class="ident">duration</span> <span class="op">/</span> <span class="number">1_000_000_000</span>) <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">timespec_struct_ptr</span>).<span class="ident">tv_nsec</span> <span class="op">=</span> (<span class="ident">duration</span> <span class="op">%</span> <span class="number">1_000_000_000</span>) <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+        <span class="kw">let </span>timespec_struct_ptr =
+            <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), tp) <span class="kw">as </span><span class="kw-2">*mut </span>GuestTimeSpec;
+        (<span class="kw-2">*</span>timespec_struct_ptr).tv_sec = (duration / <span class="number">1_000_000_000</span>) <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>timespec_struct_ptr).tv_nsec = (duration % <span class="number">1_000_000_000</span>) <span class="kw">as _</span>;
     }
-    <span class="number">0</span>
-}
+    <span class="number">0
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_settime</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_clk_id</span>: <span class="ident">i32</span>, <span class="ident">_tp</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_clock_settime(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _clk_id: i32, _tp: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_clock_settime&quot;</span>);
-    <span class="comment">// clock_settime(clk_id, tp)</span>
-    <span class="number">0</span>
+    <span class="comment">// clock_settime(clk_id, tp)
+    </span><span class="number">0
+</span>}
+
+<span class="doccomment">/// emscripten: ___clock_gettime
+</span><span class="kw">pub fn </span>___clock_gettime(ctx: FunctionEnvMut&lt;EmEnv&gt;, clk_id: clockid_t, tp: c_int) -&gt; c_int {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___clock_gettime {} {}&quot;</span>, clk_id, tp);
+    _clock_gettime(ctx, clk_id, tp)
 }
 
-<span class="doccomment">/// emscripten: ___clock_gettime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___clock_gettime</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">clk_id</span>: <span class="ident">clockid_t</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">c_int</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::___clock_gettime {} {}&quot;</span>, <span class="ident">clk_id</span>, <span class="ident">tp</span>);
-    <span class="ident">_clock_gettime</span>(<span class="ident">ctx</span>, <span class="ident">clk_id</span>, <span class="ident">tp</span>)
-}
-
-<span class="doccomment">/// emscripten: _clock</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) -&gt; <span class="ident">c_int</span> {
+<span class="doccomment">/// emscripten: _clock
+</span><span class="kw">pub fn </span>_clock(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;) -&gt; c_int {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_clock&quot;</span>);
-    <span class="number">0</span> <span class="comment">// TODO: unimplemented</span>
-}
+    <span class="number">0 </span><span class="comment">// TODO: unimplemented
+</span>}
 
-<span class="doccomment">/// emscripten: _difftime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_difftime</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">t0</span>: <span class="ident">u32</span>, <span class="ident">t1</span>: <span class="ident">u32</span>) -&gt; <span class="ident">f64</span> {
+<span class="doccomment">/// emscripten: _difftime
+</span><span class="kw">pub fn </span>_difftime(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, t0: u32, t1: u32) -&gt; f64 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_difftime&quot;</span>);
-    (<span class="ident">t0</span> <span class="op">-</span> <span class="ident">t1</span>) <span class="kw">as</span> <span class="kw">_</span>
-}
+    (t0 - t1) <span class="kw">as _
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gmtime_r</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_gmtime_r(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _one: i32, _two: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_gmtime_r&quot;</span>);
-    <span class="op">-</span><span class="number">1</span>
-}
+    -<span class="number">1
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_mktime</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_mktime(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _one: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_mktime&quot;</span>);
-    <span class="op">-</span><span class="number">1</span>
-}
+    -<span class="number">1
+</span>}
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gmtime</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) -&gt; <span class="ident">i32</span> {
+<span class="kw">pub fn </span>_gmtime(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _one: i32) -&gt; i32 {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_gmtime&quot;</span>);
-    <span class="op">-</span><span class="number">1</span>
-}
+    -<span class="number">1
+</span>}
 
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="kw">struct</span> <span class="ident">guest_tm</span> {
-    <span class="kw">pub</span> <span class="ident">tm_sec</span>: <span class="ident">c_int</span>,    <span class="comment">// 0</span>
-    <span class="kw">pub</span> <span class="ident">tm_min</span>: <span class="ident">c_int</span>,    <span class="comment">// 4</span>
-    <span class="kw">pub</span> <span class="ident">tm_hour</span>: <span class="ident">c_int</span>,   <span class="comment">// 8</span>
-    <span class="kw">pub</span> <span class="ident">tm_mday</span>: <span class="ident">c_int</span>,   <span class="comment">// 12</span>
-    <span class="kw">pub</span> <span class="ident">tm_mon</span>: <span class="ident">c_int</span>,    <span class="comment">// 16</span>
-    <span class="kw">pub</span> <span class="ident">tm_year</span>: <span class="ident">c_int</span>,   <span class="comment">// 20</span>
-    <span class="kw">pub</span> <span class="ident">tm_wday</span>: <span class="ident">c_int</span>,   <span class="comment">// 24</span>
-    <span class="kw">pub</span> <span class="ident">tm_yday</span>: <span class="ident">c_int</span>,   <span class="comment">// 28</span>
-    <span class="kw">pub</span> <span class="ident">tm_isdst</span>: <span class="ident">c_int</span>,  <span class="comment">// 32</span>
-    <span class="kw">pub</span> <span class="ident">tm_gmtoff</span>: <span class="ident">c_int</span>, <span class="comment">// 36</span>
-    <span class="kw">pub</span> <span class="ident">tm_zone</span>: <span class="ident">c_int</span>,   <span class="comment">// 40</span>
-}
+<span class="attribute">#[repr(C)]
+</span><span class="kw">struct </span>guest_tm {
+    <span class="kw">pub </span>tm_sec: c_int,    <span class="comment">// 0
+    </span><span class="kw">pub </span>tm_min: c_int,    <span class="comment">// 4
+    </span><span class="kw">pub </span>tm_hour: c_int,   <span class="comment">// 8
+    </span><span class="kw">pub </span>tm_mday: c_int,   <span class="comment">// 12
+    </span><span class="kw">pub </span>tm_mon: c_int,    <span class="comment">// 16
+    </span><span class="kw">pub </span>tm_year: c_int,   <span class="comment">// 20
+    </span><span class="kw">pub </span>tm_wday: c_int,   <span class="comment">// 24
+    </span><span class="kw">pub </span>tm_yday: c_int,   <span class="comment">// 28
+    </span><span class="kw">pub </span>tm_isdst: c_int,  <span class="comment">// 32
+    </span><span class="kw">pub </span>tm_gmtoff: c_int, <span class="comment">// 36
+    </span><span class="kw">pub </span>tm_zone: c_int,   <span class="comment">// 40
+</span>}
 
-<span class="doccomment">/// emscripten: _tvset</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_tvset</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>) {
+<span class="doccomment">/// emscripten: _tvset
+</span><span class="kw">pub fn </span>_tvset(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;) {
     <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_tvset UNIMPLEMENTED&quot;</span>);
 }
 
-<span class="doccomment">/// formats time as a C string</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">fmt_time</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time</span>: <span class="ident">u32</span>) -&gt; <span class="kw-2">*const</span> <span class="ident">c_char</span> {
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">date</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">time</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">guest_tm</span>);
+<span class="doccomment">/// formats time as a C string
+</span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">unsafe fn </span>fmt_time(ctx: FunctionEnvMut&lt;EmEnv&gt;, time: u32) -&gt; <span class="kw-2">*const </span>c_char {
+    <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+    <span class="kw">let </span>date = <span class="kw-2">&amp;*</span>(<span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time) <span class="kw">as </span><span class="kw-2">*mut </span>guest_tm);
 
-    <span class="kw">let</span> <span class="ident">days</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="string">&quot;Sun&quot;</span>, <span class="string">&quot;Mon&quot;</span>, <span class="string">&quot;Tue&quot;</span>, <span class="string">&quot;Wed&quot;</span>, <span class="string">&quot;Thu&quot;</span>, <span class="string">&quot;Fri&quot;</span>, <span class="string">&quot;Sat&quot;</span>];
-    <span class="kw">let</span> <span class="ident">months</span> <span class="op">=</span> <span class="macro">vec!</span>[
+    <span class="kw">let </span>days = <span class="macro">vec!</span>[<span class="string">&quot;Sun&quot;</span>, <span class="string">&quot;Mon&quot;</span>, <span class="string">&quot;Tue&quot;</span>, <span class="string">&quot;Wed&quot;</span>, <span class="string">&quot;Thu&quot;</span>, <span class="string">&quot;Fri&quot;</span>, <span class="string">&quot;Sat&quot;</span>];
+    <span class="kw">let </span>months = <span class="macro">vec!</span>[
         <span class="string">&quot;Jan&quot;</span>, <span class="string">&quot;Feb&quot;</span>, <span class="string">&quot;Mar&quot;</span>, <span class="string">&quot;Apr&quot;</span>, <span class="string">&quot;May&quot;</span>, <span class="string">&quot;Jun&quot;</span>, <span class="string">&quot;Jul&quot;</span>, <span class="string">&quot;Aug&quot;</span>, <span class="string">&quot;Sep&quot;</span>, <span class="string">&quot;Oct&quot;</span>, <span class="string">&quot;Nov&quot;</span>, <span class="string">&quot;Dec&quot;</span>,
     ];
-    <span class="kw">let</span> <span class="ident">year</span> <span class="op">=</span> <span class="number">1900</span> <span class="op">+</span> <span class="ident">date</span>.<span class="ident">tm_year</span>;
+    <span class="kw">let </span>year = <span class="number">1900 </span>+ date.tm_year;
 
-    <span class="kw">let</span> <span class="ident">time_str</span> <span class="op">=</span> <span class="macro">format!</span>(
-        <span class="comment">// NOTE: TODO: Hack! The 14 accompanying chars are needed for some reason</span>
-        <span class="string">&quot;{} {} {:2} {:02}:{:02}:{:02} {:4}\n\0\0\0\0\0\0\0\0\0\0\0\0\0&quot;</span>,
-        <span class="ident">days</span>[<span class="ident">date</span>.<span class="ident">tm_wday</span> <span class="kw">as</span> <span class="ident">usize</span>],
-        <span class="ident">months</span>[<span class="ident">date</span>.<span class="ident">tm_mon</span> <span class="kw">as</span> <span class="ident">usize</span>],
-        <span class="ident">date</span>.<span class="ident">tm_mday</span>,
-        <span class="ident">date</span>.<span class="ident">tm_hour</span>,
-        <span class="ident">date</span>.<span class="ident">tm_min</span>,
-        <span class="ident">date</span>.<span class="ident">tm_sec</span>,
-        <span class="ident">year</span>
+    <span class="kw">let </span>time_str = <span class="macro">format!</span>(
+        <span class="comment">// NOTE: TODO: Hack! The 14 accompanying chars are needed for some reason
+        </span><span class="string">&quot;{} {} {:2} {:02}:{:02}:{:02} {:4}\n\0\0\0\0\0\0\0\0\0\0\0\0\0&quot;</span>,
+        days[date.tm_wday <span class="kw">as </span>usize],
+        months[date.tm_mon <span class="kw">as </span>usize],
+        date.tm_mday,
+        date.tm_hour,
+        date.tm_min,
+        date.tm_sec,
+        year
     );
 
-    <span class="ident">time_str</span>[<span class="number">0</span>..<span class="number">26</span>].<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw">_</span>
+    time_str[<span class="number">0</span>..<span class="number">26</span>].as_ptr() <span class="kw">as _
+</span>}
+
+<span class="doccomment">/// emscripten: _asctime
+</span><span class="kw">pub fn </span>_asctime(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, time: u32) -&gt; u32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_asctime {}&quot;</span>, time);
+
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>time_str_ptr = fmt_time(ctx.as_mut(), time);
+        copy_cstr_into_wasm(<span class="kw-2">&amp;mut </span>ctx, time_str_ptr)
+
+        <span class="comment">// let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;
+        // use std::ffi::CStr;
+        // debug!(&quot;#### cstr = {:?}&quot;, CStr::from_ptr(c_str));
+    </span>}
 }
 
-<span class="doccomment">/// emscripten: _asctime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_asctime</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_asctime {}&quot;</span>, <span class="ident">time</span>);
+<span class="doccomment">/// emscripten: _asctime_r
+</span><span class="kw">pub fn </span>_asctime_r(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, time: u32, buf: u32) -&gt; u32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_asctime_r {}, {}&quot;</span>, time, buf);
 
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">time_str_ptr</span> <span class="op">=</span> <span class="ident">fmt_time</span>(<span class="ident">ctx</span>.<span class="ident">as_mut</span>(), <span class="ident">time</span>);
-        <span class="ident">copy_cstr_into_wasm</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">time_str_ptr</span>)
+    <span class="kw">unsafe </span>{
+        <span class="comment">// NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt
+        //      to write out more than 26 bytes (including the null terminator).
+        //      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html
+        //      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.
+        </span><span class="kw">let </span>time_str_ptr = fmt_time(ctx.as_mut(), time);
+        write_to_buf(ctx, time_str_ptr, buf, <span class="number">26</span>)
 
-        <span class="comment">// let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;</span>
-        <span class="comment">// use std::ffi::CStr;</span>
-        <span class="comment">// debug!(&quot;#### cstr = {:?}&quot;, CStr::from_ptr(c_str));</span>
-    }
+        <span class="comment">// let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;
+        // use std::ffi::CStr;
+        // debug!(&quot;#### cstr = {:?}&quot;, CStr::from_ptr(c_str));
+    </span>}
 }
 
-<span class="doccomment">/// emscripten: _asctime_r</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_asctime_r</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_asctime_r {}, {}&quot;</span>, <span class="ident">time</span>, <span class="ident">buf</span>);
+<span class="doccomment">/// emscripten: _localtime
+</span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>_localtime(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, time_p: u32) -&gt; c_int {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_localtime {}&quot;</span>, time_p);
+    <span class="comment">// NOTE: emscripten seems to want tzset() called in this function
+    //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
-    <span class="kw">unsafe</span> {
-        <span class="comment">// NOTE: asctime_r is specced to behave in an undefined manner if the algorithm would attempt</span>
-        <span class="comment">//      to write out more than 26 bytes (including the null terminator).</span>
-        <span class="comment">//      See http://pubs.opengroup.org/onlinepubs/9699919799/functions/asctime.html</span>
-        <span class="comment">//      Our undefined behavior is to truncate the write to at most 26 bytes, including null terminator.</span>
-        <span class="kw">let</span> <span class="ident">time_str_ptr</span> <span class="op">=</span> <span class="ident">fmt_time</span>(<span class="ident">ctx</span>.<span class="ident">as_mut</span>(), <span class="ident">time</span>);
-        <span class="ident">write_to_buf</span>(<span class="ident">ctx</span>, <span class="ident">time_str_ptr</span>, <span class="ident">buf</span>, <span class="number">26</span>)
-
-        <span class="comment">// let c_str = emscripten_memory_pointer!(ctx, ctx.data().memory(0), res) as *mut i8;</span>
-        <span class="comment">// use std::ffi::CStr;</span>
-        <span class="comment">// debug!(&quot;#### cstr = {:?}&quot;, CStr::from_ptr(c_str));</span>
-    }
-}
-
-<span class="doccomment">/// emscripten: _localtime</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_localtime</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) -&gt; <span class="ident">c_int</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_localtime {}&quot;</span>, <span class="ident">time_p</span>);
-    <span class="comment">// NOTE: emscripten seems to want tzset() called in this function</span>
-    <span class="comment">//      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r</span>
-
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">timespec</span> <span class="op">=</span> <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">time_p_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">time_p</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i64</span>;
-        <span class="kw">let</span> <span class="ident">seconds</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">time_p_addr</span>;
-        <span class="ident">time::OffsetDateTime::from_unix_timestamp</span>(<span class="ident">seconds</span>)
+    </span><span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+    <span class="kw">let </span>timespec = <span class="kw">unsafe </span>{
+        <span class="kw">let </span>time_p_addr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time_p) <span class="kw">as </span><span class="kw-2">*mut </span>i64;
+        <span class="kw">let </span>seconds = <span class="kw-2">*</span>time_p_addr;
+        time::OffsetDateTime::from_unix_timestamp(seconds)
     };
 
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">tm_struct_offset</span> <span class="op">=</span> <span class="ident">env::call_malloc</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">guest_tm</span><span class="op">&gt;</span>() <span class="kw">as</span> <span class="kw">_</span>);
-        <span class="kw">let</span> <span class="ident">tm_struct_ptr</span> <span class="op">=</span>
-            <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">tm_struct_offset</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">guest_tm</span>;
-        <span class="comment">// debug!(</span>
-        <span class="comment">//     &quot;&gt;&gt;&gt;&gt;&gt;&gt;&gt; time = {}, {}, {}, {}, {}, {}, {}, {}&quot;,</span>
-        <span class="comment">//     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,</span>
-        <span class="comment">//     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,</span>
-        <span class="comment">// );</span>
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_sec</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">second</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_min</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">minute</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_hour</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">hour</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_mon</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">month</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_mday</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">day</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_year</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">year</span>();
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_wday</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">weekday</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_yday</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">ordinal</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_isdst</span> <span class="op">=</span> <span class="op">-</span><span class="number">1</span>; <span class="comment">// DST information unknown with time 0.2+</span>
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_gmtoff</span> <span class="op">=</span> <span class="number">0</span>;
-        (<span class="kw-2">*</span><span class="ident">tm_struct_ptr</span>).<span class="ident">tm_zone</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>tm_struct_offset = env::call_malloc(<span class="kw-2">&amp;mut </span>ctx, mem::size_of::&lt;guest_tm&gt;() <span class="kw">as _</span>);
+        <span class="kw">let </span>tm_struct_ptr =
+            <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), tm_struct_offset) <span class="kw">as </span><span class="kw-2">*mut </span>guest_tm;
+        <span class="comment">// debug!(
+        //     &quot;&gt;&gt;&gt;&gt;&gt;&gt;&gt; time = {}, {}, {}, {}, {}, {}, {}, {}&quot;,
+        //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
+        //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
+        // );
+        </span>(<span class="kw-2">*</span>tm_struct_ptr).tm_sec = timespec.second() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_min = timespec.minute() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_hour = timespec.hour() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_mon = timespec.month() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_mday = timespec.day() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_year = timespec.year();
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_wday = timespec.weekday() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_yday = timespec.ordinal() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_isdst = -<span class="number">1</span>; <span class="comment">// DST information unknown with time 0.2+
+        </span>(<span class="kw-2">*</span>tm_struct_ptr).tm_gmtoff = <span class="number">0</span>;
+        (<span class="kw-2">*</span>tm_struct_ptr).tm_zone = <span class="number">0</span>;
 
-        <span class="ident">tm_struct_offset</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
+        tm_struct_offset <span class="kw">as _
+    </span>}
 }
-<span class="doccomment">/// emscripten: _localtime_r</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_localtime_r</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">result</span>: <span class="ident">u32</span>) -&gt; <span class="ident">c_int</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_localtime_r {}&quot;</span>, <span class="ident">time_p</span>);
+<span class="doccomment">/// emscripten: _localtime_r
+</span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>_localtime_r(ctx: FunctionEnvMut&lt;EmEnv&gt;, time_p: u32, result: u32) -&gt; c_int {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_localtime_r {}&quot;</span>, time_p);
 
-    <span class="comment">// NOTE: emscripten seems to want tzset() called in this function</span>
-    <span class="comment">//      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r</span>
+    <span class="comment">// NOTE: emscripten seems to want tzset() called in this function
+    //      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r
 
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">seconds</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">time_p</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">i32</span>;
-        <span class="kw">let</span> <span class="ident">timespec</span> <span class="op">=</span> <span class="ident">time::OffsetDateTime::from_unix_timestamp_nanos</span>(<span class="kw-2">*</span><span class="ident">seconds</span> <span class="kw">as</span> <span class="kw">_</span>);
+    </span><span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>seconds = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time_p) <span class="kw">as </span><span class="kw-2">*const </span>i32;
+        <span class="kw">let </span>timespec = time::OffsetDateTime::from_unix_timestamp_nanos(<span class="kw-2">*</span>seconds <span class="kw">as _</span>);
 
-        <span class="comment">// debug!(</span>
-        <span class="comment">//     &quot;&gt;&gt;&gt;&gt;&gt;&gt;&gt; time = {}, {}, {}, {}, {}, {}, {}, {}&quot;,</span>
-        <span class="comment">//     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,</span>
-        <span class="comment">//     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,</span>
-        <span class="comment">// );</span>
+        <span class="comment">// debug!(
+        //     &quot;&gt;&gt;&gt;&gt;&gt;&gt;&gt; time = {}, {}, {}, {}, {}, {}, {}, {}&quot;,
+        //     result_tm.tm_sec, result_tm.tm_min, result_tm.tm_hour, result_tm.tm_mday,
+        //     result_tm.tm_mon, result_tm.tm_year, result_tm.tm_wday, result_tm.tm_yday,
+        // );
 
-        <span class="kw">let</span> <span class="ident">result_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">result</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">guest_tm</span>;
+        </span><span class="kw">let </span>result_addr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), result) <span class="kw">as </span><span class="kw-2">*mut </span>guest_tm;
 
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_sec</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">second</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_min</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">minute</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_hour</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">hour</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_mon</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">month</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_mday</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">day</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_year</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">year</span>();
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_wday</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">weekday</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_yday</span> <span class="op">=</span> <span class="ident">timespec</span>.<span class="ident">ordinal</span>() <span class="kw">as</span> <span class="kw">_</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_isdst</span> <span class="op">=</span> <span class="op">-</span><span class="number">1</span>; <span class="comment">// DST information unknown with time 0.2+</span>
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_gmtoff</span> <span class="op">=</span> <span class="number">0</span>;
-        (<span class="kw-2">*</span><span class="ident">result_addr</span>).<span class="ident">tm_zone</span> <span class="op">=</span> <span class="number">0</span>;
+        (<span class="kw-2">*</span>result_addr).tm_sec = timespec.second() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_min = timespec.minute() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_hour = timespec.hour() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_mon = timespec.month() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_mday = timespec.day() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_year = timespec.year();
+        (<span class="kw-2">*</span>result_addr).tm_wday = timespec.weekday() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_yday = timespec.ordinal() <span class="kw">as _</span>;
+        (<span class="kw-2">*</span>result_addr).tm_isdst = -<span class="number">1</span>; <span class="comment">// DST information unknown with time 0.2+
+        </span>(<span class="kw-2">*</span>result_addr).tm_gmtoff = <span class="number">0</span>;
+        (<span class="kw-2">*</span>result_addr).tm_zone = <span class="number">0</span>;
 
-        <span class="ident">result</span> <span class="kw">as</span> <span class="kw">_</span>
-    }
-}
-
-<span class="doccomment">/// emscripten: _time</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_time</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) -&gt; <span class="ident">i32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_time {}&quot;</span>, <span class="ident">time_p</span>);
-
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">time_p_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">time_p</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">i64</span>;
-        <span class="ident">libc_time</span>(<span class="ident">time_p_addr</span>) <span class="kw">as</span> <span class="ident">i32</span> <span class="comment">// TODO review i64</span>
-    }
+        result <span class="kw">as _
+    </span>}
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime_r</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_ctime_r {} {}&quot;</span>, <span class="ident">time_p</span>, <span class="ident">buf</span>);
+<span class="doccomment">/// emscripten: _time
+</span><span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>_time(ctx: FunctionEnvMut&lt;EmEnv&gt;, time_p: u32) -&gt; i32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_time {}&quot;</span>, time_p);
 
-    <span class="comment">// var stack = stackSave();</span>
-    <span class="kw">let</span> (<span class="ident">result_offset</span>, <span class="ident">_result_slice</span>): (<span class="ident">u32</span>, <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) <span class="op">=</span>
-        <span class="kw">unsafe</span> { <span class="ident">allocate_on_stack</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="number">44</span>) };
-    <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> <span class="ident">_localtime_r</span>(<span class="ident">ctx</span>.<span class="ident">as_mut</span>(), <span class="ident">time_p</span>, <span class="ident">result_offset</span>) <span class="kw">as</span> <span class="ident">u32</span>;
-    <span class="ident">_asctime_r</span>(<span class="ident">ctx</span>, <span class="ident">time</span>, <span class="ident">buf</span>)
-    <span class="comment">// stackRestore(stack);</span>
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+        <span class="kw">let </span>time_p_addr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time_p) <span class="kw">as </span><span class="kw-2">*mut </span>i64;
+        libc_time(time_p_addr) <span class="kw">as </span>i32 <span class="comment">// TODO review i64
+    </span>}
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_ctime {}&quot;</span>, <span class="ident">time_p</span>);
-    <span class="kw">let</span> <span class="ident">tm_current</span> <span class="op">=</span> <span class="number">2414544</span>;
-    <span class="ident">_ctime_r</span>(<span class="ident">ctx</span>, <span class="ident">time_p</span>, <span class="ident">tm_current</span>)
+<span class="kw">pub fn </span>_ctime_r(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;EmEnv&gt;, time_p: u32, buf: u32) -&gt; u32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_ctime_r {} {}&quot;</span>, time_p, buf);
+
+    <span class="comment">// var stack = stackSave();
+    </span><span class="kw">let </span>(result_offset, _result_slice): (u32, <span class="kw-2">&amp;mut </span>[u8]) =
+        <span class="kw">unsafe </span>{ allocate_on_stack(<span class="kw-2">&amp;mut </span>ctx, <span class="number">44</span>) };
+    <span class="kw">let </span>time = _localtime_r(ctx.as_mut(), time_p, result_offset) <span class="kw">as </span>u32;
+    _asctime_r(ctx, time, buf)
+    <span class="comment">// stackRestore(stack);
+</span>}
+
+<span class="kw">pub fn </span>_ctime(ctx: FunctionEnvMut&lt;EmEnv&gt;, time_p: u32) -&gt; u32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_ctime {}&quot;</span>, time_p);
+    <span class="kw">let </span>tm_current = <span class="number">2414544</span>;
+    _ctime_r(ctx, time_p, tm_current)
 }
 
-<span class="doccomment">/// emscripten: _timegm</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_timegm</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">time_ptr</span>: <span class="ident">u32</span>) -&gt; <span class="ident">i32</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_timegm {}&quot;</span>, <span class="ident">time_ptr</span>);
+<span class="doccomment">/// emscripten: _timegm
+</span><span class="attribute">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
+#[allow(clippy::cast_ptr_alignment)]
+</span><span class="kw">pub fn </span>_timegm(ctx: FunctionEnvMut&lt;EmEnv&gt;, time_ptr: u32) -&gt; i32 {
+    <span class="macro">debug!</span>(<span class="string">&quot;emscripten::_timegm {}&quot;</span>, time_ptr);
 
-    <span class="kw">unsafe</span> {
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-        <span class="kw">let</span> <span class="ident">time_p_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">time_ptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">guest_tm</span>;
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+        <span class="kw">let </span>time_p_addr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time_ptr) <span class="kw">as </span><span class="kw-2">*mut </span>guest_tm;
 
-        <span class="kw">let</span> <span class="ident">x</span>: <span class="kw-2">*mut</span> <span class="ident">c_char</span> <span class="op">=</span> <span class="ident">CString::new</span>(<span class="string">&quot;&quot;</span>).<span class="ident">expect</span>(<span class="string">&quot;CString::new failed&quot;</span>).<span class="ident">into_raw</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rust_tm</span> <span class="op">=</span> <span class="ident">libc_tm</span> {
-            <span class="ident">tm_sec</span>: <span class="number">0</span>,
-            <span class="ident">tm_min</span>: <span class="number">0</span>,
-            <span class="ident">tm_hour</span>: <span class="number">0</span>,
-            <span class="ident">tm_mday</span>: <span class="number">0</span>,
-            <span class="ident">tm_mon</span>: <span class="number">0</span>,
-            <span class="ident">tm_year</span>: <span class="number">0</span>,
-            <span class="ident">tm_wday</span>: <span class="number">0</span>,
-            <span class="ident">tm_yday</span>: <span class="number">0</span>,
-            <span class="ident">tm_isdst</span>: <span class="number">0</span>,
-            <span class="ident">tm_gmtoff</span>: <span class="number">0</span>,
-            <span class="ident">tm_zone</span>: <span class="ident">x</span>,
+        <span class="kw">let </span>x: <span class="kw-2">*mut </span>c_char = CString::new(<span class="string">&quot;&quot;</span>).expect(<span class="string">&quot;CString::new failed&quot;</span>).into_raw();
+        <span class="kw">let </span><span class="kw-2">mut </span>rust_tm = libc_tm {
+            tm_sec: <span class="number">0</span>,
+            tm_min: <span class="number">0</span>,
+            tm_hour: <span class="number">0</span>,
+            tm_mday: <span class="number">0</span>,
+            tm_mon: <span class="number">0</span>,
+            tm_year: <span class="number">0</span>,
+            tm_wday: <span class="number">0</span>,
+            tm_yday: <span class="number">0</span>,
+            tm_isdst: <span class="number">0</span>,
+            tm_gmtoff: <span class="number">0</span>,
+            tm_zone: x,
         };
 
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">libc_timegm</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rust_tm</span>) <span class="kw">as</span> <span class="ident">i32</span>;
-        <span class="kw">if</span> <span class="ident">result</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_sec</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_sec</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_min</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_min</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_hour</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_hour</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_mday</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_mday</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_mon</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_mon</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_year</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_year</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_wday</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_wday</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_yday</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_yday</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_isdst</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_isdst</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_gmtoff</span> <span class="op">=</span> <span class="ident">rust_tm</span>.<span class="ident">tm_gmtoff</span> <span class="kw">as</span> <span class="kw">_</span>;
-            (<span class="kw-2">*</span><span class="ident">time_p_addr</span>).<span class="ident">tm_zone</span> <span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">let </span>result = libc_timegm(<span class="kw-2">&amp;mut </span>rust_tm) <span class="kw">as </span>i32;
+        <span class="kw">if </span>result != <span class="number">0 </span>{
+            (<span class="kw-2">*</span>time_p_addr).tm_sec = rust_tm.tm_sec;
+            (<span class="kw-2">*</span>time_p_addr).tm_min = rust_tm.tm_min;
+            (<span class="kw-2">*</span>time_p_addr).tm_hour = rust_tm.tm_hour;
+            (<span class="kw-2">*</span>time_p_addr).tm_mday = rust_tm.tm_mday;
+            (<span class="kw-2">*</span>time_p_addr).tm_mon = rust_tm.tm_mon;
+            (<span class="kw-2">*</span>time_p_addr).tm_year = rust_tm.tm_year;
+            (<span class="kw-2">*</span>time_p_addr).tm_wday = rust_tm.tm_wday;
+            (<span class="kw-2">*</span>time_p_addr).tm_yday = rust_tm.tm_yday;
+            (<span class="kw-2">*</span>time_p_addr).tm_isdst = rust_tm.tm_isdst;
+            (<span class="kw-2">*</span>time_p_addr).tm_gmtoff = rust_tm.tm_gmtoff <span class="kw">as _</span>;
+            (<span class="kw-2">*</span>time_p_addr).tm_zone = <span class="number">0</span>;
         }
-        <span class="ident">result</span>
+        result
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_timegm</span>(<span class="kw-2">mut</span> <span class="ident">_ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>, <span class="ident">_time_ptr</span>: <span class="ident">c_int</span>) -&gt; <span class="ident">i32</span> {
+<span class="attribute">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+</span><span class="kw">pub fn </span>_timegm(<span class="kw-2">mut </span>_ctx: FunctionEnvMut&lt;EmEnv&gt;, _time_ptr: c_int) -&gt; i32 {
     <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}&quot;</span>,
-        <span class="ident">_time_ptr</span>
+        _time_ptr
     );
-    <span class="op">-</span><span class="number">1</span>
-}
+    -<span class="number">1
+</span>}
 
-<span class="doccomment">/// emscripten: _strftime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_strftime</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">s_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">maxsize</span>: <span class="ident">u32</span>,
-    <span class="ident">format_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">tm_ptr</span>: <span class="ident">c_int</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="doccomment">/// emscripten: _strftime
+</span><span class="kw">pub fn </span>_strftime(
+    ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+) -&gt; i32 {
     <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::_strftime {} {} {} {}&quot;</span>,
-        <span class="ident">s_ptr</span>, <span class="ident">maxsize</span>, <span class="ident">format_ptr</span>, <span class="ident">tm_ptr</span>
+        s_ptr, maxsize, format_ptr, tm_ptr
     );
 
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">memory</span>(<span class="number">0</span>);
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-    <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">s_ptr</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">c_char</span>;
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-    <span class="kw">let</span> <span class="ident">format</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">format_ptr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">c_char</span>;
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::cast_ptr_alignment</span>)]</span>
-    <span class="kw">let</span> <span class="ident">tm</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer!</span>(<span class="ident">memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>), <span class="ident">tm_ptr</span>) <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">guest_tm</span>;
+    <span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
+    <span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+    </span><span class="kw">let </span>s = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), s_ptr) <span class="kw">as </span><span class="kw-2">*mut </span>c_char;
+    <span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+    </span><span class="kw">let </span>format = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), format_ptr) <span class="kw">as </span><span class="kw-2">*const </span>c_char;
+    <span class="attribute">#[allow(clippy::cast_ptr_alignment)]
+    </span><span class="kw">let </span>tm = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), tm_ptr) <span class="kw">as </span><span class="kw-2">*const </span>guest_tm;
 
-    <span class="kw">let</span> <span class="ident">format_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::ffi::CStr::from_ptr</span>(<span class="ident">format</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>() };
+    <span class="kw">let </span>format_string = <span class="kw">unsafe </span>{ std::ffi::CStr::from_ptr(format).to_str().unwrap() };
 
-    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; format_string: {:?}&quot;</span>, <span class="ident">format_string</span>);
+    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; format_string: {:?}&quot;</span>, format_string);
 
-    <span class="kw">let</span> <span class="ident">tm</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">tm</span> };
+    <span class="kw">let </span>tm = <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span>tm };
 
-    <span class="kw">let</span> <span class="ident">rust_date</span> <span class="op">=</span> <span class="ident">time::Date::try_from_ymd</span>(<span class="ident">tm</span>.<span class="ident">tm_year</span>, <span class="ident">tm</span>.<span class="ident">tm_mon</span> <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">tm</span>.<span class="ident">tm_mday</span> <span class="kw">as</span> <span class="ident">u8</span>);
-    <span class="kw">if</span> <span class="ident">rust_date</span>.<span class="ident">is_err</span>() {
-        <span class="kw">return</span> <span class="number">0</span>;
+    <span class="kw">let </span>rust_date = time::Date::try_from_ymd(tm.tm_year, tm.tm_mon <span class="kw">as </span>u8, tm.tm_mday <span class="kw">as </span>u8);
+    <span class="kw">if </span>rust_date.is_err() {
+        <span class="kw">return </span><span class="number">0</span>;
     }
-    <span class="kw">let</span> <span class="ident">rust_time</span> <span class="op">=</span> <span class="ident">time::Time::try_from_hms</span>(<span class="ident">tm</span>.<span class="ident">tm_hour</span> <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">tm</span>.<span class="ident">tm_min</span> <span class="kw">as</span> <span class="ident">u8</span>, <span class="ident">tm</span>.<span class="ident">tm_sec</span> <span class="kw">as</span> <span class="ident">u8</span>);
-    <span class="kw">if</span> <span class="ident">rust_time</span>.<span class="ident">is_err</span>() {
-        <span class="kw">return</span> <span class="number">0</span>;
+    <span class="kw">let </span>rust_time = time::Time::try_from_hms(tm.tm_hour <span class="kw">as </span>u8, tm.tm_min <span class="kw">as </span>u8, tm.tm_sec <span class="kw">as </span>u8);
+    <span class="kw">if </span>rust_time.is_err() {
+        <span class="kw">return </span><span class="number">0</span>;
     }
-    <span class="kw">let</span> <span class="ident">rust_datetime</span> <span class="op">=</span> <span class="ident">time::PrimitiveDateTime::new</span>(<span class="ident">rust_date</span>.<span class="ident">unwrap</span>(), <span class="ident">rust_time</span>.<span class="ident">unwrap</span>());
-    <span class="kw">let</span> <span class="ident">rust_odt</span> <span class="op">=</span> <span class="ident">rust_datetime</span>.<span class="ident">assume_offset</span>(<span class="ident">time::UtcOffset::seconds</span>(<span class="ident">tm</span>.<span class="ident">tm_gmtoff</span>));
+    <span class="kw">let </span>rust_datetime = time::PrimitiveDateTime::new(rust_date.unwrap(), rust_time.unwrap());
+    <span class="kw">let </span>rust_odt = rust_datetime.assume_offset(time::UtcOffset::seconds(tm.tm_gmtoff));
 
-    <span class="kw">let</span> <span class="ident">result_str</span> <span class="op">=</span> <span class="ident">rust_odt</span>.<span class="ident">format</span>(<span class="ident">format_string</span>);
+    <span class="kw">let </span>result_str = rust_odt.format(format_string);
 
-    <span class="comment">// pad for null?</span>
-    <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">result_str</span>.<span class="ident">chars</span>().<span class="ident">count</span>();
-    <span class="kw">if</span> <span class="ident">bytes</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">&gt;</span> <span class="ident">maxsize</span> {
-        <span class="number">0</span>
-    } <span class="kw">else</span> {
-        <span class="comment">// write output string</span>
-        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">c</span>) <span class="kw">in</span> <span class="ident">result_str</span>.<span class="ident">chars</span>().<span class="ident">enumerate</span>() {
-            <span class="kw">unsafe</span> { <span class="kw-2">*</span><span class="ident">s</span>.<span class="ident">add</span>(<span class="ident">i</span>) <span class="op">=</span> <span class="ident">c</span> <span class="kw">as</span> <span class="ident">c_char</span> };
+    <span class="comment">// pad for null?
+    </span><span class="kw">let </span>bytes = result_str.chars().count();
+    <span class="kw">if </span>bytes <span class="kw">as </span>u32 &gt; maxsize {
+        <span class="number">0
+    </span>} <span class="kw">else </span>{
+        <span class="comment">// write output string
+        </span><span class="kw">for </span>(i, c) <span class="kw">in </span>result_str.chars().enumerate() {
+            <span class="kw">unsafe </span>{ <span class="kw-2">*</span>s.add(i) = c <span class="kw">as </span>c_char };
         }
-        <span class="comment">// null terminate?</span>
-        <span class="ident">bytes</span> <span class="kw">as</span> <span class="ident">i32</span>
+        <span class="comment">// null terminate?
+        </span>bytes <span class="kw">as </span>i32
     }
 }
 
-<span class="doccomment">/// emscripten: _strftime_l</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_strftime_l</span>(
-    <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EmEnv</span><span class="op">&gt;</span>,
-    <span class="ident">s_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">maxsize</span>: <span class="ident">u32</span>,
-    <span class="ident">format_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">tm_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">_last</span>: <span class="ident">c_int</span>,
-) -&gt; <span class="ident">i32</span> {
+<span class="doccomment">/// emscripten: _strftime_l
+</span><span class="kw">pub fn </span>_strftime_l(
+    ctx: FunctionEnvMut&lt;EmEnv&gt;,
+    s_ptr: c_int,
+    maxsize: u32,
+    format_ptr: c_int,
+    tm_ptr: c_int,
+    _last: c_int,
+) -&gt; i32 {
     <span class="macro">debug!</span>(
         <span class="string">&quot;emscripten::_strftime_l {} {} {} {}&quot;</span>,
-        <span class="ident">s_ptr</span>, <span class="ident">maxsize</span>, <span class="ident">format_ptr</span>, <span class="ident">tm_ptr</span>
+        s_ptr, maxsize, format_ptr, tm_ptr
     );
 
-    <span class="ident">_strftime</span>(<span class="ident">ctx</span>, <span class="ident">s_ptr</span>, <span class="ident">maxsize</span>, <span class="ident">format_ptr</span>, <span class="ident">tm_ptr</span>)
+    _strftime(ctx, s_ptr, maxsize, format_ptr, tm_ptr)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_emscripten" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli-compiler/src/utils.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli-compiler/src/utils.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_cli/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_cli/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -92,97 +92,97 @@
 <span id="90">90</span>
 <span id="91">91</span>
 <span id="92">92</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Utility functions for the WebAssembly module</span>
-<span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">bail</span>, <span class="prelude-ty">Result</span>};
-<span class="kw">use</span> <span class="ident">std::env</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+</pre><pre class="rust"><code><span class="doccomment">//! Utility functions for the WebAssembly module
+</span><span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>std::env;
+<span class="kw">use </span>std::path::PathBuf;
 
-<span class="doccomment">/// Whether or not Wasmer should print with color</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">wasmer_should_print_color</span>() -&gt; <span class="ident">bool</span> {
-    <span class="ident">env::var</span>(<span class="string">&quot;WASMER_COLOR&quot;</span>)
-        .<span class="ident">ok</span>()
-        .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">inner</span><span class="op">|</span> <span class="ident">inner</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>().<span class="ident">ok</span>())
-        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">atty::is</span>(<span class="ident">atty::Stream::Stdout</span>))
+<span class="doccomment">/// Whether or not Wasmer should print with color
+</span><span class="kw">pub fn </span>wasmer_should_print_color() -&gt; bool {
+    env::var(<span class="string">&quot;WASMER_COLOR&quot;</span>)
+        .ok()
+        .and_then(|inner| inner.parse::&lt;bool&gt;().ok())
+        .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
 }
 
-<span class="kw">fn</span> <span class="ident">retrieve_alias_pathbuf</span>(<span class="ident">alias</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">real_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pb_metadata</span>) <span class="op">=</span> <span class="ident">pb</span>.<span class="ident">metadata</span>() {
-        <span class="kw">if</span> <span class="op">!</span><span class="ident">pb_metadata</span>.<span class="ident">is_dir</span>() {
-            <span class="macro">bail!</span>(<span class="string">&quot;\&quot;{}\&quot; exists, but it is not a directory&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
+<span class="kw">fn </span>retrieve_alias_pathbuf(alias: <span class="kw-2">&amp;</span>str, real_dir: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(String, PathBuf)&gt; {
+    <span class="kw">let </span>pb = PathBuf::from(<span class="kw-2">&amp;</span>real_dir);
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(pb_metadata) = pb.metadata() {
+        <span class="kw">if </span>!pb_metadata.is_dir() {
+            <span class="macro">bail!</span>(<span class="string">&quot;\&quot;{}\&quot; exists, but it is not a directory&quot;</span>, <span class="kw-2">&amp;</span>real_dir);
         }
-    } <span class="kw">else</span> {
-        <span class="macro">bail!</span>(<span class="string">&quot;Directory \&quot;{}\&quot; does not exist&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
+    } <span class="kw">else </span>{
+        <span class="macro">bail!</span>(<span class="string">&quot;Directory \&quot;{}\&quot; does not exist&quot;</span>, <span class="kw-2">&amp;</span>real_dir);
     }
-    <span class="prelude-val">Ok</span>((<span class="ident">alias</span>.<span class="ident">to_string</span>(), <span class="ident">pb</span>))
+    <span class="prelude-val">Ok</span>((alias.to_string(), pb))
 }
 
-<span class="doccomment">/// Parses a mapdir from a string</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_mapdir</span>(<span class="ident">entry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span> {
-    <span class="comment">// We try first splitting by `::`</span>
-    <span class="kw">if</span> <span class="kw">let</span> [<span class="ident">alias</span>, <span class="ident">real_dir</span>] <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">split</span>(<span class="string">&quot;::&quot;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
-        <span class="ident">retrieve_alias_pathbuf</span>(<span class="ident">alias</span>, <span class="ident">real_dir</span>)
+<span class="doccomment">/// Parses a mapdir from a string
+</span><span class="kw">pub fn </span>parse_mapdir(entry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(String, PathBuf)&gt; {
+    <span class="comment">// We try first splitting by `::`
+    </span><span class="kw">if let </span>[alias, real_dir] = entry.split(<span class="string">&quot;::&quot;</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
+        retrieve_alias_pathbuf(alias, real_dir)
     }
-    <span class="comment">// And then we try splitting by `:` (for compatibility with previous API)</span>
-    <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> [<span class="ident">alias</span>, <span class="ident">real_dir</span>] <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">split</span>(<span class="string">&#39;:&#39;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
-        <span class="ident">retrieve_alias_pathbuf</span>(<span class="ident">alias</span>, <span class="ident">real_dir</span>)
-    } <span class="kw">else</span> {
+    <span class="comment">// And then we try splitting by `:` (for compatibility with previous API)
+    </span><span class="kw">else if let </span>[alias, real_dir] = entry.split(<span class="string">&#39;:&#39;</span>).collect::&lt;Vec&lt;<span class="kw-2">&amp;</span>str&gt;&gt;()[..] {
+        retrieve_alias_pathbuf(alias, real_dir)
+    } <span class="kw">else </span>{
         <span class="macro">bail!</span>(
             <span class="string">&quot;Directory mappings must consist of two paths separate by a `::` or `:`. Found {}&quot;</span>,
-            <span class="kw-2">&amp;</span><span class="ident">entry</span>
+            <span class="kw-2">&amp;</span>entry
         )
     }
 }
 
-<span class="doccomment">/// Parses an environment variable.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_envvar</span>(<span class="ident">entry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>)<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">trim</span>();
+<span class="doccomment">/// Parses an environment variable.
+</span><span class="kw">pub fn </span>parse_envvar(entry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(String, String)&gt; {
+    <span class="kw">let </span>entry = entry.trim();
 
-    <span class="kw">match</span> <span class="ident">entry</span>.<span class="ident">find</span>(<span class="string">&#39;=&#39;</span>) {
-        <span class="prelude-val">None</span> =&gt; <span class="macro">bail!</span>(
+    <span class="kw">match </span>entry.find(<span class="string">&#39;=&#39;</span>) {
+        <span class="prelude-val">None </span>=&gt; <span class="macro">bail!</span>(
             <span class="string">&quot;Environment variable must be of the form `&lt;name&gt;=&lt;value&gt;`; found `{}`&quot;</span>,
-            <span class="kw-2">&amp;</span><span class="ident">entry</span>
+            <span class="kw-2">&amp;</span>entry
         ),
 
         <span class="prelude-val">Some</span>(<span class="number">0</span>) =&gt; <span class="macro">bail!</span>(
             <span class="string">&quot;Environment variable is not well formed, the `name` is missing in `&lt;name&gt;=&lt;value&gt;`; got `{}`&quot;</span>,
-            <span class="kw-2">&amp;</span><span class="ident">entry</span>
+            <span class="kw-2">&amp;</span>entry
         ),
 
-        <span class="prelude-val">Some</span>(<span class="ident">position</span>) <span class="kw">if</span> <span class="ident">position</span> <span class="op">==</span> <span class="ident">entry</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> =&gt; <span class="macro">bail!</span>(
+        <span class="prelude-val">Some</span>(position) <span class="kw">if </span>position == entry.len() - <span class="number">1 </span>=&gt; <span class="macro">bail!</span>(
             <span class="string">&quot;Environment variable is not well formed, the `value` is missing in `&lt;name&gt;=&lt;value&gt;`; got `{}`&quot;</span>,
-            <span class="kw-2">&amp;</span><span class="ident">entry</span>
+            <span class="kw-2">&amp;</span>entry
         ),
 
-        <span class="prelude-val">Some</span>(<span class="ident">position</span>) =&gt; <span class="prelude-val">Ok</span>((<span class="ident">entry</span>[..<span class="ident">position</span>].<span class="ident">into</span>(), <span class="ident">entry</span>[<span class="ident">position</span> <span class="op">+</span> <span class="number">1</span>..].<span class="ident">into</span>())),
+        <span class="prelude-val">Some</span>(position) =&gt; <span class="prelude-val">Ok</span>((entry[..position].into(), entry[position + <span class="number">1</span>..].into())),
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::parse_envvar</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">super</span>::parse_envvar;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_parse_envvar</span>() {
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_parse_envvar() {
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_envvar</span>(<span class="string">&quot;A&quot;</span>).<span class="ident">unwrap_err</span>().<span class="ident">to_string</span>(),
-            <span class="string">&quot;Environment variable must be of the form `&lt;name&gt;=&lt;value&gt;`; found `A`&quot;</span>
-        );
+            parse_envvar(<span class="string">&quot;A&quot;</span>).unwrap_err().to_string(),
+            <span class="string">&quot;Environment variable must be of the form `&lt;name&gt;=&lt;value&gt;`; found `A`&quot;
+        </span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_envvar</span>(<span class="string">&quot;=A&quot;</span>).<span class="ident">unwrap_err</span>().<span class="ident">to_string</span>(),
-            <span class="string">&quot;Environment variable is not well formed, the `name` is missing in `&lt;name&gt;=&lt;value&gt;`; got `=A`&quot;</span>
-        );
+            parse_envvar(<span class="string">&quot;=A&quot;</span>).unwrap_err().to_string(),
+            <span class="string">&quot;Environment variable is not well formed, the `name` is missing in `&lt;name&gt;=&lt;value&gt;`; got `=A`&quot;
+        </span>);
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_envvar</span>(<span class="string">&quot;A=&quot;</span>).<span class="ident">unwrap_err</span>().<span class="ident">to_string</span>(),
-            <span class="string">&quot;Environment variable is not well formed, the `value` is missing in `&lt;name&gt;=&lt;value&gt;`; got `A=`&quot;</span>
-        );
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_envvar</span>(<span class="string">&quot;A=B&quot;</span>).<span class="ident">unwrap</span>(), (<span class="string">&quot;A&quot;</span>.<span class="ident">into</span>(), <span class="string">&quot;B&quot;</span>.<span class="ident">into</span>()));
-        <span class="macro">assert_eq!</span>(<span class="ident">parse_envvar</span>(<span class="string">&quot;   A=B\t&quot;</span>).<span class="ident">unwrap</span>(), (<span class="string">&quot;A&quot;</span>.<span class="ident">into</span>(), <span class="string">&quot;B&quot;</span>.<span class="ident">into</span>()));
+            parse_envvar(<span class="string">&quot;A=&quot;</span>).unwrap_err().to_string(),
+            <span class="string">&quot;Environment variable is not well formed, the `value` is missing in `&lt;name&gt;=&lt;value&gt;`; got `A=`&quot;
+        </span>);
+        <span class="macro">assert_eq!</span>(parse_envvar(<span class="string">&quot;A=B&quot;</span>).unwrap(), (<span class="string">&quot;A&quot;</span>.into(), <span class="string">&quot;B&quot;</span>.into()));
+        <span class="macro">assert_eq!</span>(parse_envvar(<span class="string">&quot;   A=B\t&quot;</span>).unwrap(), (<span class="string">&quot;A&quot;</span>.into(), <span class="string">&quot;B&quot;</span>.into()));
         <span class="macro">assert_eq!</span>(
-            <span class="ident">parse_envvar</span>(<span class="string">&quot;A=B=C=D&quot;</span>).<span class="ident">unwrap</span>(),
-            (<span class="string">&quot;A&quot;</span>.<span class="ident">into</span>(), <span class="string">&quot;B=C=D&quot;</span>.<span class="ident">into</span>())
+            parse_envvar(<span class="string">&quot;A=B=C=D&quot;</span>).unwrap(),
+            (<span class="string">&quot;A&quot;</span>.into(), <span class="string">&quot;B=C=D&quot;</span>.into())
         );
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

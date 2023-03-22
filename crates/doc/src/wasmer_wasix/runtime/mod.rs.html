@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/runtime/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/runtime/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -163,168 +163,168 @@
 <span id="161">161</span>
 <span id="162">162</span>
 <span id="163">163</span>
-</pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">task_manager</span>;
+</pre><pre class="rust"><code><span class="kw">pub mod </span>task_manager;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">http::DynHttpClient</span>, <span class="ident">os::TtyBridge</span>, <span class="ident">WasiTtyState</span>};
+<span class="kw">use crate</span>::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="self">self</span>::task_manager</span>::{<span class="ident">SpawnType</span>, <span class="ident">SpawnedMemory</span>, <span class="ident">VirtualTaskManager</span>};
+<span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">fmt</span>,
-    <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
+<span class="kw">use </span>std::{
+    fmt,
+    sync::{Arc, Mutex},
 };
 
-<span class="kw">use</span> <span class="ident">derivative::Derivative</span>;
-<span class="kw">use</span> <span class="ident">virtual_net</span>::{<span class="ident">DynVirtualNetworking</span>, <span class="ident">VirtualNetworking</span>};
+<span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ArcTunables</span> <span class="op">=</span> <span class="ident">std::sync::Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer::Tunables</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">pub type </span>ArcTunables = std::sync::Arc&lt;<span class="kw">dyn </span>wasmer::Tunables + Send + Sync&gt;;
 
-<span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is</span>
-<span class="doccomment">/// unimplemented.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasiRuntime</span>
-<span class="kw">where</span>
-    <span class="self">Self</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Sync</span>,
+<span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is
+/// unimplemented.
+</span><span class="attribute">#[allow(unused_variables)]
+</span><span class="kw">pub trait </span>WasiRuntime
+<span class="kw">where
+    </span><span class="self">Self</span>: fmt::Debug + Sync,
 {
-    <span class="doccomment">/// Provides access to all the networking related functions such as sockets.</span>
-    <span class="doccomment">/// By default networking is not implemented.</span>
-    <span class="kw">fn</span> <span class="ident">networking</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">DynVirtualNetworking</span>;
+    <span class="doccomment">/// Provides access to all the networking related functions such as sockets.
+    /// By default networking is not implemented.
+    </span><span class="kw">fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DynVirtualNetworking;
 
-    <span class="doccomment">/// Retrieve the active [`VirtualTaskManager`].</span>
-    <span class="kw">fn</span> <span class="ident">task_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Retrieve the active [`VirtualTaskManager`].
+    </span><span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;;
 
-    <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.</span>
-    <span class="kw">fn</span> <span class="ident">engine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer::Engine</span><span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
-    }
+    <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.
+    </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
+        <span class="prelude-val">None
+    </span>}
 
-    <span class="doccomment">/// Create a new [`wasmer::Store`].</span>
-    <span class="kw">fn</span> <span class="ident">new_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">wasmer::Store</span> {
-        <span class="macro">cfg_if::cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">engine</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">engine</span>() {
-                    <span class="ident">wasmer::Store::new</span>(<span class="ident">engine</span>)
-                } <span class="kw">else</span> {
-                    <span class="ident">wasmer::Store::default</span>()
+    <span class="doccomment">/// Create a new [`wasmer::Store`].
+    </span><span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {
+        <span class="macro">cfg_if::cfg_if! </span>{
+            <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)] </span>{
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(engine) = <span class="self">self</span>.engine() {
+                    wasmer::Store::new(engine)
+                } <span class="kw">else </span>{
+                    wasmer::Store::default()
                 }
-            } <span class="kw">else</span> {
-                <span class="ident">wasmer::Store::default</span>()
+            } <span class="kw">else </span>{
+                wasmer::Store::default()
             }
         }
     }
 
-    <span class="doccomment">/// Returns a HTTP client</span>
-    <span class="kw">fn</span> <span class="ident">http_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">DynHttpClient</span><span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
+    <span class="doccomment">/// Returns a HTTP client
+    </span><span class="kw">fn </span>http_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DynHttpClient&gt; {
+        <span class="prelude-val">None
+    </span>}
+
+    <span class="doccomment">/// Get access to the TTY used by the environment.
+    </span><span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>TtyBridge + Send + Sync)&gt; {
+        <span class="prelude-val">None
+    </span>}
+}
+
+<span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>DefaultTty {
+    state: Mutex&lt;WasiTtyState&gt;,
+}
+
+<span class="kw">impl </span>TtyBridge <span class="kw">for </span>DefaultTty {
+    <span class="kw">fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.echo = <span class="bool-val">false</span>;
+        state.line_buffered = <span class="bool-val">false</span>;
+        state.line_feeds = <span class="bool-val">false
+    </span>}
+
+    <span class="kw">fn </span>tty_get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiTtyState {
+        <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.clone()
     }
 
-    <span class="doccomment">/// Get access to the TTY used by the environment.</span>
-    <span class="kw">fn</span> <span class="ident">tty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">TtyBridge</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>)<span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
+    <span class="kw">fn </span>tty_set(<span class="kw-2">&amp;</span><span class="self">self</span>, tty_state: WasiTtyState) {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        <span class="kw-2">*</span>state = tty_state;
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DefaultTty</span> {
-    <span class="ident">state</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">WasiTtyState</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+</span><span class="kw">pub struct </span>PluggableRuntime {
+    <span class="kw">pub </span>rt: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
+    <span class="kw">pub </span>networking: DynVirtualNetworking,
+    <span class="kw">pub </span>http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
+    <span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
+    <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">TtyBridge</span> <span class="kw">for</span> <span class="ident">DefaultTty</span> {
-    <span class="kw">fn</span> <span class="ident">reset</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">state</span>.<span class="ident">echo</span> <span class="op">=</span> <span class="bool-val">false</span>;
-        <span class="ident">state</span>.<span class="ident">line_buffered</span> <span class="op">=</span> <span class="bool-val">false</span>;
-        <span class="ident">state</span>.<span class="ident">line_feeds</span> <span class="op">=</span> <span class="bool-val">false</span>
-    }
-
-    <span class="kw">fn</span> <span class="ident">tty_get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiTtyState</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="ident">state</span>.<span class="ident">clone</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">tty_set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tty_state</span>: <span class="ident">WasiTtyState</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw-2">*</span><span class="ident">state</span> <span class="op">=</span> <span class="ident">tty_state</span>;
-    }
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Derivative</span>)]</span>
-<span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PluggableRuntime</span> {
-    <span class="kw">pub</span> <span class="ident">rt</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">networking</span>: <span class="ident">DynVirtualNetworking</span>,
-    <span class="kw">pub</span> <span class="ident">http_client</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">DynHttpClient</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">engine</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer::Engine</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">derivative</span>(<span class="ident">Debug</span> <span class="op">=</span> <span class="string">&quot;ignore&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">tty</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">TtyBridge</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">PluggableRuntime</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">rt</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="comment">// TODO: the cfg flags below should instead be handled by separate implementations.</span>
-        <span class="macro">cfg_if::cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-vnet&quot;</span>)]</span> {
-                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">virtual_net::host::LocalNetworking::default</span>());
-            } <span class="kw">else</span> {
-                <span class="kw">let</span> <span class="ident">networking</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">virtual_net::UnsupportedVirtualNetworking::default</span>());
+<span class="kw">impl </span>PluggableRuntime {
+    <span class="kw">pub fn </span>new(rt: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;) -&gt; <span class="self">Self </span>{
+        <span class="comment">// TODO: the cfg flags below should instead be handled by separate implementations.
+        </span><span class="macro">cfg_if::cfg_if! </span>{
+            <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;host-vnet&quot;</span>)] </span>{
+                <span class="kw">let </span>networking = Arc::new(virtual_net::host::LocalNetworking::default());
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
-        <span class="macro">cfg_if::cfg_if!</span> {
-            <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-reqwest&quot;</span>)]</span> {
-                <span class="kw">let</span> <span class="ident">http_client</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc::new</span>(
-                    <span class="ident"><span class="kw">crate</span>::http::reqwest::ReqwestHttpClient::default</span>()) <span class="kw">as</span> <span class="ident">DynHttpClient</span>
+        <span class="macro">cfg_if::cfg_if! </span>{
+            <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;host-reqwest&quot;</span>)] </span>{
+                <span class="kw">let </span>http_client = <span class="prelude-val">Some</span>(Arc::new(
+                    <span class="kw">crate</span>::http::reqwest::ReqwestHttpClient::default()) <span class="kw">as </span>DynHttpClient
                 );
-            } <span class="kw">else</span> {
-                <span class="kw">let</span> <span class="ident">http_client</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>http_client = <span class="prelude-val">None</span>;
             }
         }
 
-        <span class="self">Self</span> {
-            <span class="ident">rt</span>,
-            <span class="ident">networking</span>,
-            <span class="ident">http_client</span>,
-            <span class="ident">engine</span>: <span class="prelude-val">None</span>,
-            <span class="ident">tty</span>: <span class="prelude-val">None</span>,
+        <span class="self">Self </span>{
+            rt,
+            networking,
+            http_client,
+            engine: <span class="prelude-val">None</span>,
+            tty: <span class="prelude-val">None</span>,
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_networking_implementation</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">net</span>: <span class="ident">I</span>)
-    <span class="kw">where</span>
-        <span class="ident">I</span>: <span class="ident">VirtualNetworking</span> <span class="op">+</span> <span class="ident">Sync</span>,
+    <span class="kw">pub fn </span>set_networking_implementation&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, net: I)
+    <span class="kw">where
+        </span>I: VirtualNetworking + Sync,
     {
-        <span class="self">self</span>.<span class="ident">networking</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">net</span>)
+        <span class="self">self</span>.networking = Arc::new(net)
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_engine</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">engine</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer::Engine</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">engine</span> <span class="op">=</span> <span class="ident">engine</span>;
+    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;) {
+        <span class="self">self</span>.engine = engine;
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_tty</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">tty</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">TtyBridge</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">tty</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">tty</span>);
+    <span class="kw">pub fn </span>set_tty(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tty: Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;) {
+        <span class="self">self</span>.tty = <span class="prelude-val">Some</span>(tty);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">WasiRuntime</span> <span class="kw">for</span> <span class="ident">PluggableRuntime</span> {
-    <span class="kw">fn</span> <span class="ident">networking</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">DynVirtualNetworking</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">networking</span>
+<span class="kw">impl </span>WasiRuntime <span class="kw">for </span>PluggableRuntime {
+    <span class="kw">fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DynVirtualNetworking {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.networking
     }
 
-    <span class="kw">fn</span> <span class="ident">http_client</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">DynHttpClient</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">http_client</span>.<span class="ident">as_ref</span>()
+    <span class="kw">fn </span>http_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DynHttpClient&gt; {
+        <span class="self">self</span>.http_client.as_ref()
     }
 
-    <span class="kw">fn</span> <span class="ident">engine</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer::Engine</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">engine</span>.<span class="ident">clone</span>()
+    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
+        <span class="self">self</span>.engine.clone()
     }
 
-    <span class="kw">fn</span> <span class="ident">task_manager</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">rt</span>
+    <span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.rt
     }
 
-    <span class="kw">fn</span> <span class="ident">tty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">TtyBridge</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>)<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">tty</span>.<span class="ident">as_deref</span>()
+    <span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>TtyBridge + Send + Sync)&gt; {
+        <span class="self">self</span>.tty.as_deref()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

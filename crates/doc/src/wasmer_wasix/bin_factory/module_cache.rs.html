@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bin_factory/module_cache.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module_cache.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bin_factory/module_cache.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>module_cache.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -321,326 +321,326 @@
 <span id="319">319</span>
 <span id="320">320</span>
 <span id="321">321</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">cell::RefCell</span>,
-    <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
-    <span class="ident">ops::DerefMut</span>,
-    <span class="ident">path::PathBuf</span>,
-    <span class="ident">sync::RwLock</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+    path::PathBuf,
+    sync::RwLock,
 };
 
-<span class="kw">use</span> <span class="ident">wasmer::Module</span>;
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi::Snapshot0Clockid</span>;
+<span class="kw">use </span>wasmer::Module;
+<span class="kw">use </span>wasmer_wasix_types::wasi::Snapshot0Clockid;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::BinaryPackage</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">syscalls::platform_clock_time_get</span>, <span class="ident">WasiRuntime</span>};
+<span class="kw">use </span><span class="kw">super</span>::BinaryPackage;
+<span class="kw">use crate</span>::{syscalls::platform_clock_time_get, WasiRuntime};
 
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DEFAULT_COMPILED_PATH</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;~/.wasmer/compiled&quot;</span>;
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DEFAULT_WEBC_PATH</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;~/.wasmer/webc&quot;</span>;
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DEFAULT_CACHE_TIME</span>: <span class="ident">std::time::Duration</span> <span class="op">=</span> <span class="ident">std::time::Duration::from_secs</span>(<span class="number">30</span>);
+<span class="kw">pub const </span>DEFAULT_COMPILED_PATH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;~/.wasmer/compiled&quot;</span>;
+<span class="kw">pub const </span>DEFAULT_WEBC_PATH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;~/.wasmer/webc&quot;</span>;
+<span class="kw">pub const </span>DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_secs(<span class="number">30</span>);
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleCache</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_compile_dir</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cached_modules</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Module</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>ModuleCache {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_compile_dir: String,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cached_modules: <span class="prelude-ty">Option</span>&lt;RwLock&lt;HashMap&lt;String, Module&gt;&gt;&gt;,
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_webc</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">BinaryPackage</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_webc_dir</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc: RwLock&lt;HashMap&lt;String, BinaryPackage&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc_dir: String,
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache_time</span>: <span class="ident">std::time::Duration</span>,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_time: std::time::Duration,
 }
 
-<span class="comment">// FIXME: remove impls!</span>
-<span class="comment">// Added as a stopgap to get the crate to compile again with the &quot;js&quot; feature.</span>
-<span class="comment">// wasmer::Module holds a JsValue, which makes it non-sync.</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">ModuleCache</span> {}
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">ModuleCache</span> {}
+<span class="comment">// FIXME: remove impls!
+// Added as a stopgap to get the crate to compile again with the &quot;js&quot; feature.
+// wasmer::Module holds a JsValue, which makes it non-sync.
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>ModuleCache {}
+<span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+</span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>ModuleCache {}
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ModuleCache</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident">ModuleCache::new</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
+<span class="kw">impl </span>Default <span class="kw">for </span>ModuleCache {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        ModuleCache::new(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
     }
 }
 
-<span class="macro">thread_local!</span> {
-    <span class="kw">static</span> <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>: <span class="ident">std::cell::RefCell</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Module</span><span class="op">&gt;</span><span class="op">&gt;</span>
-        <span class="op">=</span> <span class="ident">RefCell::new</span>(<span class="ident">HashMap::new</span>());
+<span class="macro">thread_local! </span>{
+    <span class="kw">static </span>THREAD_LOCAL_CACHED_MODULES: std::cell::RefCell&lt;HashMap&lt;String, Module&gt;&gt;
+        = RefCell::new(HashMap::new());
 }
 
-<span class="kw">impl</span> <span class="ident">ModuleCache</span> {
-    <span class="doccomment">/// Create a new [`ModuleCache`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">cache_compile_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-        <span class="ident">cache_webc_dir</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-        <span class="ident">use_shared_cache</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="ident">ModuleCache</span> {
-        <span class="kw">let</span> <span class="ident">cache_compile_dir</span> <span class="op">=</span> <span class="ident">shellexpand::tilde</span>(
-            <span class="ident">cache_compile_dir</span>
-                .<span class="ident">as_deref</span>()
-                .<span class="ident">unwrap_or</span>(<span class="ident">DEFAULT_COMPILED_PATH</span>),
+<span class="kw">impl </span>ModuleCache {
+    <span class="doccomment">/// Create a new [`ModuleCache`].
+    ///
+    /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
+    </span><span class="kw">pub fn </span>new(
+        cache_compile_dir: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        cache_webc_dir: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        use_shared_cache: bool,
+    ) -&gt; ModuleCache {
+        <span class="kw">let </span>cache_compile_dir = shellexpand::tilde(
+            cache_compile_dir
+                .as_deref()
+                .unwrap_or(DEFAULT_COMPILED_PATH),
         )
-        .<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="ident">PathBuf::from</span>(<span class="ident">cache_compile_dir</span>.<span class="ident">clone</span>()));
+        .to_string();
+        <span class="kw">let _ </span>= std::fs::create_dir_all(PathBuf::from(cache_compile_dir.clone()));
 
-        <span class="kw">let</span> <span class="ident">cache_webc_dir</span> <span class="op">=</span>
-            <span class="ident">shellexpand::tilde</span>(<span class="ident">cache_webc_dir</span>.<span class="ident">as_deref</span>().<span class="ident">unwrap_or</span>(<span class="ident">DEFAULT_WEBC_PATH</span>)).<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="ident">PathBuf::from</span>(<span class="ident">cache_webc_dir</span>.<span class="ident">clone</span>()));
+        <span class="kw">let </span>cache_webc_dir =
+            shellexpand::tilde(cache_webc_dir.as_deref().unwrap_or(DEFAULT_WEBC_PATH)).to_string();
+        <span class="kw">let _ </span>= std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
 
-        <span class="kw">let</span> <span class="ident">cached_modules</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">use_shared_cache</span> {
-            <span class="prelude-val">Some</span>(<span class="ident">RwLock::new</span>(<span class="ident">HashMap::default</span>()))
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        };
+        <span class="kw">let </span>cached_modules = <span class="kw">if </span>use_shared_cache {
+            <span class="prelude-val">Some</span>(RwLock::new(HashMap::default()))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
 
-        <span class="ident">ModuleCache</span> {
-            <span class="ident">cached_modules</span>,
-            <span class="ident">cache_compile_dir</span>,
-            <span class="ident">cache_webc</span>: <span class="ident">RwLock::new</span>(<span class="ident">HashMap::default</span>()),
-            <span class="ident">cache_webc_dir</span>,
-            <span class="ident">cache_time</span>: <span class="ident">DEFAULT_CACHE_TIME</span>,
+        ModuleCache {
+            cached_modules,
+            cache_compile_dir,
+            cache_webc: RwLock::new(HashMap::default()),
+            cache_webc_dir,
+            cache_time: DEFAULT_CACHE_TIME,
         }
     }
 
-    <span class="doccomment">/// Adds a package manually to the module cache</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_webc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">webc</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">package</span>: <span class="ident">BinaryPackage</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">cache_webc</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">webc</span>.<span class="ident">to_string</span>(), <span class="ident">package</span>);
+    <span class="doccomment">/// Adds a package manually to the module cache
+    </span><span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;</span><span class="self">self</span>, webc: <span class="kw-2">&amp;</span>str, package: BinaryPackage) {
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.cache_webc.write().unwrap();
+        cache.insert(webc.to_string(), package);
     }
 
-    <span class="comment">// TODO: should return Result&lt;_, anyhow::Error&gt;</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_webc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">webc</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">to_string</span>();
+    <span class="comment">// TODO: should return Result&lt;_, anyhow::Error&gt;
+    </span><span class="kw">pub fn </span>get_webc(<span class="kw-2">&amp;</span><span class="self">self</span>, webc: <span class="kw-2">&amp;</span>str, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
+        <span class="kw">let </span>name = webc.to_string();
 
-        <span class="comment">// Fast path</span>
-        {
-            <span class="kw">let</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">cache_webc</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">when_cached</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">when_cached</span>.<span class="ident">as_ref</span>() {
+        <span class="comment">// Fast path
+        </span>{
+            <span class="kw">let </span>cache = <span class="self">self</span>.cache_webc.read().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(when_cached) = data.when_cached.as_ref() {
                     <span class="comment">/* get the current platform time at this point because of the lock conflict
                      * now time remains the same and the lock from a differnt thread can cause when_cached to go ahead
                      * and cause a panic
-                     */</span>
-                    <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">Snapshot0Clockid::Monotonic</span>, <span class="number">1_000_000</span>)
-                        .<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
-                    <span class="kw">let</span> <span class="ident">delta</span> <span class="op">=</span> <span class="ident">now</span>.<span class="ident">saturating_sub</span>(<span class="kw-2">*</span><span class="ident">when_cached</span>); <span class="comment">//saturating sub for delta and  to prevent panic</span>
-                    <span class="kw">if</span> <span class="ident">delta</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">cache_time</span>.<span class="ident">as_nanos</span>() {
-                        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>());
+                     */
+                    </span><span class="kw">let </span>now = platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>)
+                        .unwrap() <span class="kw">as </span>u128;
+                    <span class="kw">let </span>delta = now.saturating_sub(<span class="kw-2">*</span>when_cached); <span class="comment">//saturating sub for delta and  to prevent panic
+                    </span><span class="kw">if </span>delta &lt;= <span class="self">self</span>.cache_time.as_nanos() {
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
                     }
-                } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>());
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
                 }
             }
         }
 
-        <span class="comment">// Slow path</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">cache_webc</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="self">self</span>.<span class="ident">get_webc_slow</span>(<span class="ident">webc</span>, <span class="ident">runtime</span>, <span class="ident">cache</span>.<span class="ident">deref_mut</span>())
+        <span class="comment">// Slow path
+        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.cache_webc.write().unwrap();
+        <span class="self">self</span>.get_webc_slow(webc, runtime, cache.deref_mut())
     }
 
-    <span class="kw">fn</span> <span class="ident">get_webc_slow</span>(
+    <span class="kw">fn </span>get_webc_slow(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">webc</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span>,
-        <span class="ident">cache</span>: <span class="kw-2">&amp;mut</span> <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">BinaryPackage</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">Snapshot0Clockid::Monotonic</span>, <span class="number">1_000_000</span>).<span class="ident">unwrap</span>() <span class="kw">as</span> <span class="ident">u128</span>;
+        webc: <span class="kw-2">&amp;</span>str,
+        runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
+        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;String, BinaryPackage&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
+        <span class="kw">let </span>name = webc.to_string();
+        <span class="kw">let </span>now = platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>).unwrap() <span class="kw">as </span>u128;
 
-        <span class="comment">// Check the cache (again)</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">when_cached</span>) <span class="op">=</span> <span class="ident">data</span>.<span class="ident">when_cached</span>.<span class="ident">as_ref</span>() {
-                <span class="kw">let</span> <span class="ident">delta</span> <span class="op">=</span> <span class="ident">now</span> <span class="op">-</span> <span class="kw-2">*</span><span class="ident">when_cached</span>;
-                <span class="kw">if</span> <span class="ident">delta</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">cache_time</span>.<span class="ident">as_nanos</span>() {
-                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>());
+        <span class="comment">// Check the cache (again)
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(when_cached) = data.when_cached.as_ref() {
+                <span class="kw">let </span>delta = now - <span class="kw-2">*</span>when_cached;
+                <span class="kw">if </span>delta &lt;= <span class="self">self</span>.cache_time.as_nanos() {
+                    <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
                 }
-            } <span class="kw">else</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>());
+            } <span class="kw">else </span>{
+                <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
             }
         }
 
-        <span class="comment">// Now try for the WebC</span>
-        {
-            <span class="kw">let</span> <span class="ident">wapm_name</span> <span class="op">=</span> <span class="ident">name</span>
-                .<span class="ident">split_once</span>(<span class="string">&#39;:&#39;</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="number">0</span>)
-                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">name</span>.<span class="ident">as_str</span>());
-            <span class="kw">let</span> <span class="ident">cache_webc_dir</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">cache_webc_dir</span>.<span class="ident">as_str</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">data</span>) <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::wapm::fetch_webc_task</span>(<span class="ident">cache_webc_dir</span>, <span class="ident">wapm_name</span>, <span class="ident">runtime</span>) {
-                <span class="comment">// If the binary has no entry but it inherits from another module</span>
-                <span class="comment">// that does have an entry then we fall back to that inherited entry point</span>
-                <span class="comment">// (this convention is recursive down the list of inheritance until it finds the first entry point)</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">already</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Default::default</span>();
-                <span class="kw">while</span> <span class="ident">data</span>.<span class="ident">entry</span>.<span class="ident">is_none</span>() {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inherits</span> <span class="op">=</span> <span class="ident">data</span>.<span class="ident">uses</span>.<span class="ident">iter</span>().<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">webc</span><span class="op">|</span> {
-                        <span class="kw">if</span> <span class="op">!</span><span class="ident">already</span>.<span class="ident">contains</span>(<span class="ident">webc</span>) {
-                            <span class="ident">already</span>.<span class="ident">insert</span>(<span class="ident">webc</span>.<span class="ident">clone</span>());
-                            <span class="self">self</span>.<span class="ident">get_webc_slow</span>(<span class="ident">webc</span>, <span class="ident">runtime</span>, <span class="ident">cache</span>)
-                        } <span class="kw">else</span> {
-                            <span class="prelude-val">None</span>
-                        }
+        <span class="comment">// Now try for the WebC
+        </span>{
+            <span class="kw">let </span>wapm_name = name
+                .split_once(<span class="string">&#39;:&#39;</span>)
+                .map(|a| a.<span class="number">0</span>)
+                .unwrap_or_else(|| name.as_str());
+            <span class="kw">let </span>cache_webc_dir = <span class="self">self</span>.cache_webc_dir.as_str();
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>data) = <span class="kw">crate</span>::wapm::fetch_webc_task(cache_webc_dir, wapm_name, runtime) {
+                <span class="comment">// If the binary has no entry but it inherits from another module
+                // that does have an entry then we fall back to that inherited entry point
+                // (this convention is recursive down the list of inheritance until it finds the first entry point)
+                </span><span class="kw">let </span><span class="kw-2">mut </span>already: HashSet&lt;String&gt; = Default::default();
+                <span class="kw">while </span>data.entry.is_none() {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inherits = data.uses.iter().filter_map(|webc| {
+                        <span class="kw">if </span>!already.contains(webc) {
+                            already.insert(webc.clone());
+                            <span class="self">self</span>.get_webc_slow(webc, runtime, cache)
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>}
                     });
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">inherits</span>) <span class="op">=</span> <span class="ident">inherits</span>.<span class="ident">next</span>() {
-                        <span class="ident">data</span>.<span class="ident">entry</span> <span class="op">=</span> <span class="ident">inherits</span>.<span class="ident">entry</span>.<span class="ident">clone</span>();
-                    } <span class="kw">else</span> {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(inherits) = inherits.next() {
+                        data.entry = inherits.entry.clone();
+                    } <span class="kw">else </span>{
                         <span class="kw">break</span>;
                     }
                 }
 
-                <span class="comment">// If the package is the same then don&#39;t replace it</span>
-                <span class="comment">// as we don&#39;t want to duplicate the memory usage</span>
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">existing</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
-                    <span class="kw">if</span> <span class="ident">existing</span>.<span class="ident">hash</span>() <span class="op">==</span> <span class="ident">data</span>.<span class="ident">hash</span>() <span class="op">&amp;&amp;</span> <span class="ident">existing</span>.<span class="ident">version</span> <span class="op">==</span> <span class="ident">data</span>.<span class="ident">version</span> {
-                        <span class="ident">existing</span>.<span class="ident">when_cached</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">now</span>);
-                        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">existing</span>.<span class="ident">clone</span>());
+                <span class="comment">// If the package is the same then don&#39;t replace it
+                // as we don&#39;t want to duplicate the memory usage
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = cache.get_mut(<span class="kw-2">&amp;</span>name) {
+                    <span class="kw">if </span>existing.hash() == data.hash() &amp;&amp; existing.version == data.version {
+                        existing.when_cached = <span class="prelude-val">Some</span>(now);
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(existing.clone());
                     }
                 }
-                <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">name</span>, <span class="ident">data</span>.<span class="ident">clone</span>());
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>);
+                cache.insert(name, data.clone());
+                <span class="kw">return </span><span class="prelude-val">Some</span>(data);
             }
         }
 
-        <span class="comment">// If we have an old one that use that (ignoring the TTL)</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>());
+        <span class="comment">// If we have an old one that use that (ignoring the TTL)
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
         }
 
-        <span class="comment">// Otherwise - its not found</span>
-        <span class="prelude-val">None</span>
-    }
+        <span class="comment">// Otherwise - its not found
+        </span><span class="prelude-val">None
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_compiled_module</span>(
+    <span class="kw">pub fn </span>get_compiled_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">wasmer::AsEngineRef</span>,
-        <span class="ident">data_hash</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, <span class="ident">data_hash</span>, <span class="ident">compiler</span>);
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>wasmer::AsEngineRef,
+        data_hash: <span class="kw-2">&amp;</span>str,
+        compiler: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Module&gt; {
+        <span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, data_hash, compiler);
 
-        <span class="comment">// fastest path</span>
-        {
-            <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cache</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">borrow</span>();
-                <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">key</span>).<span class="ident">cloned</span>()
+        <span class="comment">// fastest path
+        </span>{
+            <span class="kw">let </span>module = THREAD_LOCAL_CACHED_MODULES.with(|cache| {
+                <span class="kw">let </span>cache = cache.borrow();
+                cache.get(<span class="kw-2">&amp;</span>key).cloned()
             });
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>) <span class="op">=</span> <span class="ident">module</span> {
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(module) = module {
+                <span class="kw">return </span><span class="prelude-val">Some</span>(module);
             }
         }
 
-        <span class="comment">// fast path</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cache</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cached_modules</span> {
-            <span class="kw">let</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">key</span>) {
-                <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cache</span><span class="op">|</span> {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">borrow_mut</span>();
-                    <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
+        <span class="comment">// fast path
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cached_modules {
+            <span class="kw">let </span>cache = cache.read().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(module) = cache.get(<span class="kw-2">&amp;</span>key) {
+                THREAD_LOCAL_CACHED_MODULES.with(|cache| {
+                    <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.borrow_mut();
+                    cache.insert(key.clone(), module.clone());
                 });
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>.<span class="ident">clone</span>());
+                <span class="kw">return </span><span class="prelude-val">Some</span>(module.clone());
             }
         }
 
-        <span class="comment">// slow path</span>
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="self">self</span>.<span class="ident">cache_compile_dir</span>.<span class="ident">as_str</span>())
-            .<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, <span class="ident">key</span>).<span class="ident">as_str</span>());
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">path</span>.<span class="ident">as_path</span>()) {
-            <span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file found: {:?} [len={}]&quot;</span>, <span class="ident">path</span>.<span class="ident">as_path</span>(), <span class="ident">data</span>.<span class="ident">len</span>());
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">decoder</span> <span class="op">=</span> <span class="ident">weezl::decode::Decoder::new</span>(<span class="ident">weezl::BitOrder::Msb</span>, <span class="number">8</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">decoder</span>.<span class="ident">decode</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>[..]) {
-                <span class="kw">let</span> <span class="ident">module_bytes</span> <span class="op">=</span> <span class="ident">bytes::Bytes::from</span>(<span class="ident">data</span>);
+        <span class="comment">// slow path
+        </span><span class="kw">let </span>path = std::path::Path::new(<span class="self">self</span>.cache_compile_dir.as_str())
+            .join(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, key).as_str());
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(data) = std::fs::read(path.as_path()) {
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file found: {:?} [len={}]&quot;</span>, path.as_path(), data.len());
+            <span class="kw">let </span><span class="kw-2">mut </span>decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(data) = decoder.decode(<span class="kw-2">&amp;</span>data[..]) {
+                <span class="kw">let </span>module_bytes = bytes::Bytes::from(data);
 
-                <span class="comment">// Load the module</span>
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize</span>(<span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">module_bytes</span>[..]).<span class="ident">unwrap</span>() };
+                <span class="comment">// Load the module
+                </span><span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize(engine, <span class="kw-2">&amp;</span>module_bytes[..]).unwrap() };
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cache</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cached_modules</span> {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cached_modules {
+                    <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.write().unwrap();
+                    cache.insert(key.clone(), module.clone());
                 }
 
-                <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cache</span><span class="op">|</span> {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">borrow_mut</span>();
-                    <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
+                THREAD_LOCAL_CACHED_MODULES.with(|cache| {
+                    <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.borrow_mut();
+                    cache.insert(key.clone(), module.clone());
                 });
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>);
+                <span class="kw">return </span><span class="prelude-val">Some</span>(module);
             }
         }
 
-        <span class="comment">// Not found</span>
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file not found: {:?}&quot;</span>, <span class="ident">path</span>);
-        <span class="prelude-val">None</span>
-    }
+        <span class="comment">// Not found
+        </span><span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file not found: {:?}&quot;</span>, path);
+        <span class="prelude-val">None
+    </span>}
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_compiled_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data_hash</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) {
-        <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, <span class="ident">data_hash</span>, <span class="ident">compiler</span>);
+    <span class="kw">pub fn </span>set_compiled_module(<span class="kw-2">&amp;</span><span class="self">self</span>, data_hash: <span class="kw-2">&amp;</span>str, compiler: <span class="kw-2">&amp;</span>str, module: <span class="kw-2">&amp;</span>Module) {
+        <span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, data_hash, compiler);
 
-        <span class="comment">// Add the module to the local thread cache</span>
-        <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cache</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">borrow_mut</span>();
-            <span class="kw">let</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">deref_mut</span>();
-            <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
+        <span class="comment">// Add the module to the local thread cache
+        </span>THREAD_LOCAL_CACHED_MODULES.with(|cache| {
+            <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.borrow_mut();
+            <span class="kw">let </span>cache = cache.deref_mut();
+            cache.insert(key.clone(), module.clone());
         });
 
-        <span class="comment">// Serialize the compiled module into bytes and insert it into the cache</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cache</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cached_modules</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-            <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
+        <span class="comment">// Serialize the compiled module into bytes and insert it into the cache
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cached_modules {
+            <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.write().unwrap();
+            cache.insert(key.clone(), module.clone());
         }
 
-        <span class="comment">// We should also attempt to store it in the cache directory</span>
-        <span class="kw">let</span> <span class="ident">compiled_bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">serialize</span>().<span class="ident">unwrap</span>();
+        <span class="comment">// We should also attempt to store it in the cache directory
+        </span><span class="kw">let </span>compiled_bytes = module.serialize().unwrap();
 
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="self">self</span>.<span class="ident">cache_compile_dir</span>.<span class="ident">as_str</span>())
-            .<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, <span class="ident">key</span>).<span class="ident">as_str</span>());
-        <span class="comment">// TODO: forward error!</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="ident">path</span>.<span class="ident">parent</span>().<span class="ident">unwrap</span>());
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">encoder</span> <span class="op">=</span> <span class="ident">weezl::encode::Encoder::new</span>(<span class="ident">weezl::BitOrder::Msb</span>, <span class="number">8</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">compiled_bytes</span>) <span class="op">=</span> <span class="ident">encoder</span>.<span class="ident">encode</span>(<span class="kw-2">&amp;</span><span class="ident">compiled_bytes</span>[..]) {
-            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::write</span>(<span class="ident">path</span>, <span class="kw-2">&amp;</span><span class="ident">compiled_bytes</span>[..]);
+        <span class="kw">let </span>path = std::path::Path::new(<span class="self">self</span>.cache_compile_dir.as_str())
+            .join(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, key).as_str());
+        <span class="comment">// TODO: forward error!
+        </span><span class="kw">let _ </span>= std::fs::create_dir_all(path.parent().unwrap());
+        <span class="kw">let </span><span class="kw-2">mut </span>encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(compiled_bytes) = encoder.encode(<span class="kw-2">&amp;</span>compiled_bytes[..]) {
+            <span class="kw">let _ </span>= std::fs::write(path, <span class="kw-2">&amp;</span>compiled_bytes[..]);
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
+<span class="attribute">#[cfg(test)]
+#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-    <span class="kw">use</span> <span class="ident">tracing_subscriber</span>::{
-        <span class="ident">filter</span>, <span class="ident">prelude::__tracing_subscriber_SubscriberExt</span>, <span class="ident">util::SubscriberInitExt</span>, <span class="ident">Layer</span>,
+    <span class="kw">use </span>tracing_subscriber::{
+        filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
     };
 
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">runtime::task_manager::tokio::TokioTaskManager</span>, <span class="ident">PluggableRuntime</span>};
+    <span class="kw">use crate</span>::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_module_cache</span>() {
-        <span class="ident">tracing_subscriber::registry</span>()
-            .<span class="ident">with</span>(
-                <span class="ident">tracing_subscriber::fmt::layer</span>()
-                    .<span class="ident">pretty</span>()
-                    .<span class="ident">with_filter</span>(<span class="ident">filter::LevelFilter::INFO</span>),
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_module_cache() {
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .pretty()
+                    .with_filter(filter::LevelFilter::INFO),
             )
-            .<span class="ident">init</span>();
+            .init();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">ModuleCache::new</span>(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>);
-        <span class="ident">cache</span>.<span class="ident">cache_time</span> <span class="op">=</span> <span class="ident">std::time::Duration::from_millis</span>(<span class="number">500</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = ModuleCache::new(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>);
+        cache.cache_time = std::time::Duration::from_millis(<span class="number">500</span>);
 
-        <span class="kw">let</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntime::new</span>(<span class="ident">Arc::new</span>(<span class="ident">TokioTaskManager::shared</span>()));
-        <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">task_manager</span>();
+        <span class="kw">let </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        <span class="kw">let </span>tasks = rt.task_manager();
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">2</span> {
-            <span class="kw">let</span> <span class="ident">webc</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get_webc</span>(<span class="string">&quot;sharrattj/dash&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">rt</span>).<span class="ident">unwrap</span>();
-            <span class="ident">store</span>.<span class="ident">push</span>(<span class="ident">webc</span>);
-            <span class="ident">tasks</span>
-                .<span class="ident">runtime</span>()
-                .<span class="ident">block_on</span>(<span class="ident">tasks</span>.<span class="ident">sleep_now</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)));
+        <span class="kw">let </span><span class="kw-2">mut </span>store = Vec::new();
+        <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
+            <span class="kw">let </span>webc = cache.get_webc(<span class="string">&quot;sharrattj/dash&quot;</span>, <span class="kw-2">&amp;</span>rt).unwrap();
+            store.push(webc);
+            tasks
+                .runtime()
+                .block_on(tasks.sleep_now(Duration::from_secs(<span class="number">1</span>)));
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

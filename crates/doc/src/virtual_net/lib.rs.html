@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vnet/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_net/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vnet/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../virtual_net/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../virtual_net/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -532,539 +532,539 @@
 <span id="532">532</span>
 <span id="533">533</span>
 <span id="534">534</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::mem::MaybeUninit</span>;
-<span class="kw">use</span> <span class="ident">std::net::IpAddr</span>;
-<span class="kw">use</span> <span class="ident">std::net::Ipv4Addr</span>;
-<span class="kw">use</span> <span class="ident">std::net::Ipv6Addr</span>;
-<span class="kw">use</span> <span class="ident">std::net::Shutdown</span>;
-<span class="kw">use</span> <span class="ident">std::net::SocketAddr</span>;
-<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
-<span class="kw">use</span> <span class="ident">std::task::Context</span>;
-<span class="kw">use</span> <span class="ident">std::task::Poll</span>;
-<span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="kw">use</span> <span class="ident">thiserror::Error</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::mem::MaybeUninit;
+<span class="kw">use </span>std::net::IpAddr;
+<span class="kw">use </span>std::net::Ipv4Addr;
+<span class="kw">use </span>std::net::Ipv6Addr;
+<span class="kw">use </span>std::net::Shutdown;
+<span class="kw">use </span>std::net::SocketAddr;
+<span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::task::Context;
+<span class="kw">use </span>std::task::Poll;
+<span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>thiserror::Error;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bytes::BytesMut</span>;
+<span class="kw">pub use </span>bytes::Bytes;
+<span class="kw">pub use </span>bytes::BytesMut;
 
-<span class="kw">pub</span> <span class="kw">type</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span>;
+<span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, NetworkError&gt;;
 
-<span class="doccomment">/// Represents an IP address and its netmask</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">Debug</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Ord</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">IpCidr</span> {
-    <span class="kw">pub</span> <span class="ident">ip</span>: <span class="ident">IpAddr</span>,
-    <span class="kw">pub</span> <span class="ident">prefix</span>: <span class="ident">u8</span>,
+<span class="doccomment">/// Represents an IP address and its netmask
+</span><span class="attribute">#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+</span><span class="kw">pub struct </span>IpCidr {
+    <span class="kw">pub </span>ip: IpAddr,
+    <span class="kw">pub </span>prefix: u8,
 }
 
-<span class="doccomment">/// Represents a routing entry in the routing table of the interface</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">IpRoute</span> {
-    <span class="kw">pub</span> <span class="ident">cidr</span>: <span class="ident">IpCidr</span>,
-    <span class="kw">pub</span> <span class="ident">via_router</span>: <span class="ident">IpAddr</span>,
-    <span class="kw">pub</span> <span class="ident">preferred_until</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">expires_at</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Represents a routing entry in the routing table of the interface
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>IpRoute {
+    <span class="kw">pub </span>cidr: IpCidr,
+    <span class="kw">pub </span>via_router: IpAddr,
+    <span class="kw">pub </span>preferred_until: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="kw">pub </span>expires_at: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
 }
 
-<span class="doccomment">/// An implementation of virtual networking</span>
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualNetworking</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Bridges this local network with a remote network, which is required in</span>
-    <span class="doccomment">/// order to make lower level networking calls (such as UDP/TCP)</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">bridge</span>(
+<span class="doccomment">/// An implementation of virtual networking
+</span><span class="attribute">#[async_trait::async_trait]
+#[allow(unused_variables)]
+</span><span class="kw">pub trait </span>VirtualNetworking: fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Bridges this local network with a remote network, which is required in
+    /// order to make lower level networking calls (such as UDP/TCP)
+    </span><span class="kw">async fn </span>bridge(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">network</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">access_token</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">security</span>: <span class="ident">StreamSecurity</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+        network: <span class="kw-2">&amp;</span>str,
+        access_token: <span class="kw-2">&amp;</span>str,
+        security: StreamSecurity,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Disconnects from the remote network essentially unbridging it</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">unbridge</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Disconnects from the remote network essentially unbridging it
+    </span><span class="kw">async fn </span>unbridge(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Acquires an IP address on the network and configures the routing tables</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">dhcp_acquire</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">IpAddr</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Acquires an IP address on the network and configures the routing tables
+    </span><span class="kw">async fn </span>dhcp_acquire(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpAddr&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Adds a static IP address to the interface with a netmask prefix</span>
-    <span class="kw">fn</span> <span class="ident">ip_add</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ip</span>: <span class="ident">IpAddr</span>, <span class="ident">prefix</span>: <span class="ident">u8</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Adds a static IP address to the interface with a netmask prefix
+    </span><span class="kw">fn </span>ip_add(<span class="kw-2">&amp;</span><span class="self">self</span>, ip: IpAddr, prefix: u8) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Removes a static (or dynamic) IP address from the interface</span>
-    <span class="kw">fn</span> <span class="ident">ip_remove</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ip</span>: <span class="ident">IpAddr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Removes a static (or dynamic) IP address from the interface
+    </span><span class="kw">fn </span>ip_remove(<span class="kw-2">&amp;</span><span class="self">self</span>, ip: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Clears all the assigned IP addresses for this interface</span>
-    <span class="kw">fn</span> <span class="ident">ip_clear</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Clears all the assigned IP addresses for this interface
+    </span><span class="kw">fn </span>ip_clear(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Lists all the IP addresses currently assigned to this interface</span>
-    <span class="kw">fn</span> <span class="ident">ip_list</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">IpCidr</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Lists all the IP addresses currently assigned to this interface
+    </span><span class="kw">fn </span>ip_list(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpCidr&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Returns the hardware MAC address for this interface</span>
-    <span class="kw">fn</span> <span class="ident">mac</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="number">6</span>]<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Returns the hardware MAC address for this interface
+    </span><span class="kw">fn </span>mac(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;[u8; <span class="number">6</span>]&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Adds a default gateway to the routing table</span>
-    <span class="kw">fn</span> <span class="ident">gateway_set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ip</span>: <span class="ident">IpAddr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Adds a default gateway to the routing table
+    </span><span class="kw">fn </span>gateway_set(<span class="kw-2">&amp;</span><span class="self">self</span>, ip: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Adds a specific route to the routing table</span>
-    <span class="kw">fn</span> <span class="ident">route_add</span>(
+    <span class="doccomment">/// Adds a specific route to the routing table
+    </span><span class="kw">fn </span>route_add(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">cidr</span>: <span class="ident">IpCidr</span>,
-        <span class="ident">via_router</span>: <span class="ident">IpAddr</span>,
-        <span class="ident">preferred_until</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>,
-        <span class="ident">expires_at</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+        cidr: IpCidr,
+        via_router: IpAddr,
+        preferred_until: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+        expires_at: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Removes a routing rule from the routing table</span>
-    <span class="kw">fn</span> <span class="ident">route_remove</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cidr</span>: <span class="ident">IpAddr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Removes a routing rule from the routing table
+    </span><span class="kw">fn </span>route_remove(<span class="kw-2">&amp;</span><span class="self">self</span>, cidr: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Clears the routing table for this interface</span>
-    <span class="kw">fn</span> <span class="ident">route_clear</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Clears the routing table for this interface
+    </span><span class="kw">fn </span>route_clear(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Lists all the routes defined in the routing table for this interface</span>
-    <span class="kw">fn</span> <span class="ident">route_list</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">IpRoute</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Lists all the routes defined in the routing table for this interface
+    </span><span class="kw">fn </span>route_list(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpRoute&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Creates a low level socket that can read and write Ethernet packets</span>
-    <span class="doccomment">/// directly to the interface</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">bind_raw</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualRawSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Creates a low level socket that can read and write Ethernet packets
+    /// directly to the interface
+    </span><span class="kw">async fn </span>bind_raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualRawSocket + Sync&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Lists for TCP connections on a specific IP and Port combination</span>
-    <span class="doccomment">/// Multiple servers (processes or threads) can bind to the same port if they each set</span>
-    <span class="doccomment">/// the reuse-port and-or reuse-addr flags</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">listen_tcp</span>(
+    <span class="doccomment">/// Lists for TCP connections on a specific IP and Port combination
+    /// Multiple servers (processes or threads) can bind to the same port if they each set
+    /// the reuse-port and-or reuse-addr flags
+    </span><span class="kw">async fn </span>listen_tcp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-        <span class="ident">only_v6</span>: <span class="ident">bool</span>,
-        <span class="ident">reuse_port</span>: <span class="ident">bool</span>,
-        <span class="ident">reuse_addr</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpListener</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Opens a UDP socket that listens on a specific IP and Port combination</span>
-    <span class="doccomment">/// Multiple servers (processes or threads) can bind to the same port if they each set</span>
-    <span class="doccomment">/// the reuse-port and-or reuse-addr flags</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">bind_udp</span>(
+    <span class="doccomment">/// Opens a UDP socket that listens on a specific IP and Port combination
+    /// Multiple servers (processes or threads) can bind to the same port if they each set
+    /// the reuse-port and-or reuse-addr flags
+    </span><span class="kw">async fn </span>bind_udp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-        <span class="ident">reuse_port</span>: <span class="ident">bool</span>,
-        <span class="ident">reuse_addr</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualUdpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Creates a socket that can be used to send and receive ICMP packets</span>
-    <span class="doccomment">/// from a paritcular IP address</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">bind_icmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">addr</span>: <span class="ident">IpAddr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualIcmpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+    <span class="doccomment">/// Creates a socket that can be used to send and receive ICMP packets
+    /// from a paritcular IP address
+    </span><span class="kw">async fn </span>bind_icmp(<span class="kw-2">&amp;</span><span class="self">self</span>, addr: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualIcmpSocket + Sync&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Opens a TCP connection to a particular destination IP address and port</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">connect_tcp</span>(
+    <span class="doccomment">/// Opens a TCP connection to a particular destination IP address and port
+    </span><span class="kw">async fn </span>connect_tcp(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-        <span class="ident">peer</span>: <span class="ident">SocketAddr</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+        addr: SocketAddr,
+        peer: SocketAddr,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 
-    <span class="doccomment">/// Performs DNS resolution for a specific hostname</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">resolve</span>(
+    <span class="doccomment">/// Performs DNS resolution for a specific hostname
+    </span><span class="kw">async fn </span>resolve(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">host</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">port</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u16</span><span class="op">&gt;</span>,
-        <span class="ident">dns_server</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IpAddr</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">IpAddr</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">NetworkError::Unsupported</span>)
+        host: <span class="kw-2">&amp;</span>str,
+        port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+        dns_server: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpAddr&gt;&gt; {
+        <span class="prelude-val">Err</span>(NetworkError::Unsupported)
     }
 }
 
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">DynVirtualNetworking</span> <span class="op">=</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualNetworking</span><span class="op">&gt;</span>;
+<span class="kw">pub type </span>DynVirtualNetworking = Arc&lt;<span class="kw">dyn </span>VirtualNetworking&gt;;
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualTcpListener</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Tries to accept a new connection</span>
-    <span class="kw">fn</span> <span class="ident">try_accept</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">pub trait </span>VirtualTcpListener: fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Tries to accept a new connection
+    </span><span class="kw">fn </span>try_accept(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt;&gt;;
 
-    <span class="doccomment">/// Polls the socket for new connections</span>
-    <span class="kw">fn</span> <span class="ident">poll_accept</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualTcpSocket</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Polls the socket for new connections
+    </span><span class="kw">fn </span>poll_accept(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt;&gt;;
 
-    <span class="doccomment">/// Polls the socket for when there is data to be received</span>
-    <span class="kw">fn</span> <span class="ident">poll_accept_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Polls the socket for when there is data to be received
+    </span><span class="kw">fn </span>poll_accept_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Returns the local address of this TCP listener</span>
-    <span class="kw">fn</span> <span class="ident">addr_local</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the local address of this TCP listener
+    </span><span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt;;
 
-    <span class="doccomment">/// Sets how many network hops the packets are permitted for new connections</span>
-    <span class="kw">fn</span> <span class="ident">set_ttl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u8</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Sets how many network hops the packets are permitted for new connections
+    </span><span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u8) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Returns the maximum number of network hops before packets are dropped</span>
-    <span class="kw">fn</span> <span class="ident">ttl</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the maximum number of network hops before packets are dropped
+    </span><span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u8&gt;;
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualSocket</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Sets how many network hops the packets are permitted for new connections</span>
-    <span class="kw">fn</span> <span class="ident">set_ttl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+<span class="kw">pub trait </span>VirtualSocket: fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Sets how many network hops the packets are permitted for new connections
+    </span><span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Returns the maximum number of network hops before packets are dropped</span>
-    <span class="kw">fn</span> <span class="ident">ttl</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the maximum number of network hops before packets are dropped
+    </span><span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt;;
 
-    <span class="doccomment">/// Returns the local address for this socket</span>
-    <span class="kw">fn</span> <span class="ident">addr_local</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the local address for this socket
+    </span><span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt;;
 
-    <span class="doccomment">/// Returns the status/state of the socket</span>
-    <span class="kw">fn</span> <span class="ident">status</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketStatus</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the status/state of the socket
+    </span><span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketStatus&gt;;
 
-    <span class="doccomment">/// Polls the socket for when there is data to be received</span>
-    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Polls the socket for when there is data to be received
+    </span><span class="kw">fn </span>poll_read_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Polls the socket for when the backpressure allows for writing to the socket</span>
-    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Polls the socket for when the backpressure allows for writing to the socket
+    </span><span class="kw">fn </span>poll_write_ready(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; std::task::Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SocketStatus</span> {
-    <span class="ident">Opening</span>,
-    <span class="ident">Opened</span>,
-    <span class="ident">Closed</span>,
-    <span class="ident">Failed</span>,
+<span class="attribute">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>SocketStatus {
+    Opening,
+    Opened,
+    Closed,
+    Failed,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">StreamSecurity</span> {
-    <span class="ident">Unencrypted</span>,
-    <span class="ident">AnyEncyption</span>,
-    <span class="ident">ClassicEncryption</span>,
-    <span class="ident">DoubleEncryption</span>,
+<span class="attribute">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>StreamSecurity {
+    Unencrypted,
+    AnyEncyption,
+    ClassicEncryption,
+    DoubleEncryption,
 }
 
-<span class="doccomment">/// Connected sockets have a persistent connection to a remote peer</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualConnectedSocket</span>: <span class="ident">VirtualSocket</span> <span class="op">+</span> <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Determines how long the socket will remain in a TIME_WAIT</span>
-    <span class="doccomment">/// after it disconnects (only the one that initiates the close will</span>
-    <span class="doccomment">/// be in a TIME_WAIT state thus the clients should always do this rather</span>
-    <span class="doccomment">/// than the server)</span>
-    <span class="kw">fn</span> <span class="ident">set_linger</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">linger</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+<span class="doccomment">/// Connected sockets have a persistent connection to a remote peer
+</span><span class="kw">pub trait </span>VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Determines how long the socket will remain in a TIME_WAIT
+    /// after it disconnects (only the one that initiates the close will
+    /// be in a TIME_WAIT state thus the clients should always do this rather
+    /// than the server)
+    </span><span class="kw">fn </span>set_linger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, linger: <span class="prelude-ty">Option</span>&lt;Duration&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Returns how long the socket will remain in a TIME_WAIT</span>
-    <span class="doccomment">/// after it disconnects</span>
-    <span class="kw">fn</span> <span class="ident">linger</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns how long the socket will remain in a TIME_WAIT
+    /// after it disconnects
+    </span><span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt;;
 
-    <span class="doccomment">/// Tries to send out a datagram or stream of bytes on this socket</span>
-    <span class="kw">fn</span> <span class="ident">try_send</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Tries to send out a datagram or stream of bytes on this socket
+    </span><span class="kw">fn </span>try_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket</span>
-    <span class="kw">fn</span> <span class="ident">poll_send</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket
+    </span><span class="kw">fn </span>poll_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Attempts to flush the object, ensuring that any buffered data reach</span>
-    <span class="doccomment">/// their destination.</span>
-    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    </span><span class="kw">fn </span>poll_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;;
 
-    <span class="doccomment">/// Closes the socket</span>
-    <span class="kw">fn</span> <span class="ident">close</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Closes the socket
+    </span><span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Recv a packet from the socket</span>
-    <span class="kw">fn</span> <span class="ident">poll_recv</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Recv a packet from the socket
+    </span><span class="kw">fn </span>poll_recv&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Recv a packet from the socket</span>
-    <span class="kw">fn</span> <span class="ident">try_recv</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Recv a packet from the socket
+    </span><span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 }
 
-<span class="doccomment">/// Connectionless sockets are able to send and receive datagrams and stream</span>
-<span class="doccomment">/// bytes to multiple addresses at the same time (peer-to-peer)</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualConnectionlessSocket</span>: <span class="ident">VirtualSocket</span> <span class="op">+</span> <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket</span>
-    <span class="doccomment">/// to a specific address</span>
-    <span class="kw">fn</span> <span class="ident">poll_send_to</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Connectionless sockets are able to send and receive datagrams and stream
+/// bytes to multiple addresses at the same time (peer-to-peer)
+</span><span class="kw">pub trait </span>VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket
+    /// to a specific address
+    </span><span class="kw">fn </span>poll_send_to(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        data: <span class="kw-2">&amp;</span>[u8],
+        addr: SocketAddr,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket</span>
-    <span class="doccomment">/// to a specific address</span>
-    <span class="kw">fn</span> <span class="ident">try_send_to</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="ident">addr</span>: <span class="ident">SocketAddr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket
+    /// to a specific address
+    </span><span class="kw">fn </span>try_send_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8], addr: SocketAddr) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="doccomment">/// Recv a packet from the socket</span>
-    <span class="kw">fn</span> <span class="ident">poll_recv_from</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">usize</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Recv a packet from the socket
+    </span><span class="kw">fn </span>poll_recv_from&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;&gt;;
 
-    <span class="doccomment">/// Recv a packet from the socket</span>
-    <span class="kw">fn</span> <span class="ident">try_recv_from</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">usize</span>, <span class="ident">SocketAddr</span>)<span class="op">&gt;</span>;
+    <span class="doccomment">/// Recv a packet from the socket
+    </span><span class="kw">fn </span>try_recv_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;;
 }
 
-<span class="doccomment">/// ICMP sockets are low level devices bound to a specific address</span>
-<span class="doccomment">/// that can send and receive ICMP packets</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualIcmpSocket</span>:
-    <span class="ident">VirtualConnectionlessSocket</span> <span class="op">+</span> <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
-{
+<span class="doccomment">/// ICMP sockets are low level devices bound to a specific address
+/// that can send and receive ICMP packets
+</span><span class="kw">pub trait </span>VirtualIcmpSocket:
+    VirtualConnectionlessSocket + fmt::Debug + Send + Sync + <span class="lifetime">&#39;static
+</span>{
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualRawSocket</span>: <span class="ident">VirtualSocket</span> <span class="op">+</span> <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket</span>
-    <span class="kw">fn</span> <span class="ident">poll_send</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">pub trait </span>VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket
+    </span><span class="kw">fn </span>poll_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket</span>
-    <span class="kw">fn</span> <span class="ident">try_send</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Sends out a datagram or stream of bytes on this socket
+    </span><span class="kw">fn </span>try_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="doccomment">/// Attempts to flush the object, ensuring that any buffered data reach</span>
-    <span class="doccomment">/// their destination.</span>
-    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    </span><span class="kw">fn </span>poll_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;()&gt;&gt;;
 
-    <span class="doccomment">/// Attempts to flush the object, ensuring that any buffered data reach</span>
-    <span class="doccomment">/// their destination.</span>
-    <span class="kw">fn</span> <span class="ident">try_flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    </span><span class="kw">fn </span>try_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Recv a packet from the socket</span>
-    <span class="kw">fn</span> <span class="ident">poll_recv</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Recv a packet from the socket
+    </span><span class="kw">fn </span>poll_recv&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 
-    <span class="doccomment">/// Recv a packet from the socket</span>
-    <span class="kw">fn</span> <span class="ident">try_recv</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Recv a packet from the socket
+    </span><span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="doccomment">/// Tells the raw socket and its backing switch that all packets</span>
-    <span class="doccomment">/// should be received by this socket even if they are not</span>
-    <span class="doccomment">/// destined for this device</span>
-    <span class="kw">fn</span> <span class="ident">set_promiscuous</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">promiscuous</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Tells the raw socket and its backing switch that all packets
+    /// should be received by this socket even if they are not
+    /// destined for this device
+    </span><span class="kw">fn </span>set_promiscuous(<span class="kw-2">&amp;mut </span><span class="self">self</span>, promiscuous: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Returns if the socket is running in promiscuous mode whereby it</span>
-    <span class="doccomment">/// will receive all packets even if they are not destined for the</span>
-    <span class="doccomment">/// local interface</span>
-    <span class="kw">fn</span> <span class="ident">promiscuous</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns if the socket is running in promiscuous mode whereby it
+    /// will receive all packets even if they are not destined for the
+    /// local interface
+    </span><span class="kw">fn </span>promiscuous(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualTcpSocket</span>: <span class="ident">VirtualConnectedSocket</span> <span class="op">+</span> <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="doccomment">/// Sets the receive buffer size which acts as a trottle for how</span>
-    <span class="doccomment">/// much data is buffered on this side of the pipe</span>
-    <span class="kw">fn</span> <span class="ident">set_recv_buf_size</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+<span class="kw">pub trait </span>VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Sets the receive buffer size which acts as a trottle for how
+    /// much data is buffered on this side of the pipe
+    </span><span class="kw">fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Size of the receive buffer that holds all data that has not</span>
-    <span class="doccomment">/// yet been read</span>
-    <span class="kw">fn</span> <span class="ident">recv_buf_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Size of the receive buffer that holds all data that has not
+    /// yet been read
+    </span><span class="kw">fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="doccomment">/// Sets the size of the send buffer which will hold the bytes of</span>
-    <span class="doccomment">/// data while they are being sent over to the peer</span>
-    <span class="kw">fn</span> <span class="ident">set_send_buf_size</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">size</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Sets the size of the send buffer which will hold the bytes of
+    /// data while they are being sent over to the peer
+    </span><span class="kw">fn </span>set_send_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Size of the send buffer that holds all data that is currently</span>
-    <span class="doccomment">/// being transmitted.</span>
-    <span class="kw">fn</span> <span class="ident">send_buf_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Size of the send buffer that holds all data that is currently
+    /// being transmitted.
+    </span><span class="kw">fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="doccomment">/// When NO_DELAY is set the data that needs to be transmitted to</span>
-    <span class="doccomment">/// the peer is sent immediately rather than waiting for a bigger</span>
-    <span class="doccomment">/// batch of data, this reduces latency but increases encapsulation</span>
-    <span class="doccomment">/// overhead.</span>
-    <span class="kw">fn</span> <span class="ident">set_nodelay</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reuse</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// When NO_DELAY is set the data that needs to be transmitted to
+    /// the peer is sent immediately rather than waiting for a bigger
+    /// batch of data, this reduces latency but increases encapsulation
+    /// overhead.
+    </span><span class="kw">fn </span>set_nodelay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reuse: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Indicates if the NO_DELAY flag is set which means that data</span>
-    <span class="doccomment">/// is immediately sent to the peer without waiting. This reduces</span>
-    <span class="doccomment">/// latency but increases encapsulation overhead.</span>
-    <span class="kw">fn</span> <span class="ident">nodelay</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Indicates if the NO_DELAY flag is set which means that data
+    /// is immediately sent to the peer without waiting. This reduces
+    /// latency but increases encapsulation overhead.
+    </span><span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 
-    <span class="doccomment">/// Returns the address (IP and Port) of the peer socket that this</span>
-    <span class="doccomment">/// is conencted to</span>
-    <span class="kw">fn</span> <span class="ident">addr_peer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the address (IP and Port) of the peer socket that this
+    /// is conencted to
+    </span><span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt;;
 
-    <span class="doccomment">/// Shuts down either the READER or WRITER sides of the socket</span>
-    <span class="doccomment">/// connection.</span>
-    <span class="kw">fn</span> <span class="ident">shutdown</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">how</span>: <span class="ident">Shutdown</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Shuts down either the READER or WRITER sides of the socket
+    /// connection.
+    </span><span class="kw">fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, how: Shutdown) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Return true if the socket is closed</span>
-    <span class="kw">fn</span> <span class="ident">is_closed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span>;
+    <span class="doccomment">/// Return true if the socket is closed
+    </span><span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 }
 
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualUdpSocket</span>:
-    <span class="ident">VirtualConnectionlessSocket</span> <span class="op">+</span> <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>
-{
-    <span class="doccomment">/// Sets a flag that means that the UDP socket is able</span>
-    <span class="doccomment">/// to receive and process broadcast packets.</span>
-    <span class="kw">fn</span> <span class="ident">set_broadcast</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">broadcast</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+<span class="kw">pub trait </span>VirtualUdpSocket:
+    VirtualConnectionlessSocket + fmt::Debug + Send + Sync + <span class="lifetime">&#39;static
+</span>{
+    <span class="doccomment">/// Sets a flag that means that the UDP socket is able
+    /// to receive and process broadcast packets.
+    </span><span class="kw">fn </span>set_broadcast(<span class="kw-2">&amp;mut </span><span class="self">self</span>, broadcast: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Indicates if the SO_BROADCAST flag is set which means</span>
-    <span class="doccomment">/// that the UDP socket will receive and process broadcast</span>
-    <span class="doccomment">/// packets</span>
-    <span class="kw">fn</span> <span class="ident">broadcast</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Indicates if the SO_BROADCAST flag is set which means
+    /// that the UDP socket will receive and process broadcast
+    /// packets
+    </span><span class="kw">fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 
-    <span class="doccomment">/// Sets a flag that indicates if multicast packets that</span>
-    <span class="doccomment">/// this socket is a member of will be looped back to</span>
-    <span class="doccomment">/// the sending socket. This applies to IPv4 addresses</span>
-    <span class="kw">fn</span> <span class="ident">set_multicast_loop_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Sets a flag that indicates if multicast packets that
+    /// this socket is a member of will be looped back to
+    /// the sending socket. This applies to IPv4 addresses
+    </span><span class="kw">fn </span>set_multicast_loop_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, val: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Gets a flag that indicates if multicast packets that</span>
-    <span class="doccomment">/// this socket is a member of will be looped back to</span>
-    <span class="doccomment">/// the sending socket. This applies to IPv4 addresses</span>
-    <span class="kw">fn</span> <span class="ident">multicast_loop_v4</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Gets a flag that indicates if multicast packets that
+    /// this socket is a member of will be looped back to
+    /// the sending socket. This applies to IPv4 addresses
+    </span><span class="kw">fn </span>multicast_loop_v4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 
-    <span class="doccomment">/// Sets a flag that indicates if multicast packets that</span>
-    <span class="doccomment">/// this socket is a member of will be looped back to</span>
-    <span class="doccomment">/// the sending socket. This applies to IPv6 addresses</span>
-    <span class="kw">fn</span> <span class="ident">set_multicast_loop_v6</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Sets a flag that indicates if multicast packets that
+    /// this socket is a member of will be looped back to
+    /// the sending socket. This applies to IPv6 addresses
+    </span><span class="kw">fn </span>set_multicast_loop_v6(<span class="kw-2">&amp;mut </span><span class="self">self</span>, val: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Gets a flag that indicates if multicast packets that</span>
-    <span class="doccomment">/// this socket is a member of will be looped back to</span>
-    <span class="doccomment">/// the sending socket. This applies to IPv6 addresses</span>
-    <span class="kw">fn</span> <span class="ident">multicast_loop_v6</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Gets a flag that indicates if multicast packets that
+    /// this socket is a member of will be looped back to
+    /// the sending socket. This applies to IPv6 addresses
+    </span><span class="kw">fn </span>multicast_loop_v6(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 
-    <span class="doccomment">/// Sets the TTL for IPv4 multicast packets which is the</span>
-    <span class="doccomment">/// number of network hops before the packet is dropped</span>
-    <span class="kw">fn</span> <span class="ident">set_multicast_ttl_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ttl</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Sets the TTL for IPv4 multicast packets which is the
+    /// number of network hops before the packet is dropped
+    </span><span class="kw">fn </span>set_multicast_ttl_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Gets the TTL for IPv4 multicast packets which is the</span>
-    <span class="doccomment">/// number of network hops before the packet is dropped</span>
-    <span class="kw">fn</span> <span class="ident">multicast_ttl_v4</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Gets the TTL for IPv4 multicast packets which is the
+    /// number of network hops before the packet is dropped
+    </span><span class="kw">fn </span>multicast_ttl_v4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt;;
 
-    <span class="doccomment">/// Tells this interface that it will subscribe to a</span>
-    <span class="doccomment">/// particular multicast address. This applies to IPv4 addresses</span>
-    <span class="kw">fn</span> <span class="ident">join_multicast_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv4Addr</span>, <span class="ident">iface</span>: <span class="ident">Ipv4Addr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Tells this interface that it will subscribe to a
+    /// particular multicast address. This applies to IPv4 addresses
+    </span><span class="kw">fn </span>join_multicast_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv4Addr, iface: Ipv4Addr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Tells this interface that it will unsubscribe to a</span>
-    <span class="doccomment">/// particular multicast address. This applies to IPv4 addresses</span>
-    <span class="kw">fn</span> <span class="ident">leave_multicast_v4</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv4Addr</span>, <span class="ident">iface</span>: <span class="ident">Ipv4Addr</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Tells this interface that it will unsubscribe to a
+    /// particular multicast address. This applies to IPv4 addresses
+    </span><span class="kw">fn </span>leave_multicast_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv4Addr, iface: Ipv4Addr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Tells this interface that it will subscribe to a</span>
-    <span class="doccomment">/// particular multicast address. This applies to IPv6 addresses</span>
-    <span class="kw">fn</span> <span class="ident">join_multicast_v6</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv6Addr</span>, <span class="ident">iface</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Tells this interface that it will subscribe to a
+    /// particular multicast address. This applies to IPv6 addresses
+    </span><span class="kw">fn </span>join_multicast_v6(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv6Addr, iface: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Tells this interface that it will unsubscribe to a</span>
-    <span class="doccomment">/// particular multicast address. This applies to IPv6 addresses</span>
-    <span class="kw">fn</span> <span class="ident">leave_multicast_v6</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">multiaddr</span>: <span class="ident">Ipv6Addr</span>, <span class="ident">iface</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+    <span class="doccomment">/// Tells this interface that it will unsubscribe to a
+    /// particular multicast address. This applies to IPv6 addresses
+    </span><span class="kw">fn </span>leave_multicast_v6(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv6Addr, iface: u32) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
-    <span class="doccomment">/// Returns the remote address of this UDP socket if it has been</span>
-    <span class="doccomment">/// connected to a specific target destination address</span>
-    <span class="kw">fn</span> <span class="ident">addr_peer</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+    <span class="doccomment">/// Returns the remote address of this UDP socket if it has been
+    /// connected to a specific target destination address
+    </span><span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt;;
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UnsupportedVirtualNetworking</span> {}
+<span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>UnsupportedVirtualNetworking {}
 
-<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
-<span class="kw">impl</span> <span class="ident">VirtualNetworking</span> <span class="kw">for</span> <span class="ident">UnsupportedVirtualNetworking</span> {}
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl </span>VirtualNetworking <span class="kw">for </span>UnsupportedVirtualNetworking {}
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NetworkError</span> {
-    <span class="doccomment">/// The handle given was not usable</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid fd&quot;</span>)]</span>
-    <span class="ident">InvalidFd</span>,
-    <span class="doccomment">/// File exists</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;file exists&quot;</span>)]</span>
-    <span class="ident">AlreadyExists</span>,
-    <span class="doccomment">/// The filesystem has failed to lock a resource.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;lock error&quot;</span>)]</span>
-    <span class="ident">Lock</span>,
-    <span class="doccomment">/// Something failed when doing IO. These errors can generally not be handled.</span>
-    <span class="doccomment">/// It may work if tried again.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;io error&quot;</span>)]</span>
-    <span class="ident">IOError</span>,
-    <span class="doccomment">/// The address was in use</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;address is in use&quot;</span>)]</span>
-    <span class="ident">AddressInUse</span>,
-    <span class="doccomment">/// The address could not be found</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;address could not be found&quot;</span>)]</span>
-    <span class="ident">AddressNotAvailable</span>,
-    <span class="doccomment">/// A pipe was closed</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;broken pipe (was closed)&quot;</span>)]</span>
-    <span class="ident">BrokenPipe</span>,
-    <span class="doccomment">/// Insufficient memory</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;Insufficient memory&quot;</span>)]</span>
-    <span class="ident">InsufficientMemory</span>,
-    <span class="doccomment">/// The connection was aborted</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection aborted&quot;</span>)]</span>
-    <span class="ident">ConnectionAborted</span>,
-    <span class="doccomment">/// The connection request was refused</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection refused&quot;</span>)]</span>
-    <span class="ident">ConnectionRefused</span>,
-    <span class="doccomment">/// The connection was reset</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection reset&quot;</span>)]</span>
-    <span class="ident">ConnectionReset</span>,
-    <span class="doccomment">/// The operation was interrupted before it could finish</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;operation interrupted&quot;</span>)]</span>
-    <span class="ident">Interrupted</span>,
-    <span class="doccomment">/// Invalid internal data, if the argument data is invalid, use `InvalidInput`</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid internal data&quot;</span>)]</span>
-    <span class="ident">InvalidData</span>,
-    <span class="doccomment">/// The provided data is invalid</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid input&quot;</span>)]</span>
-    <span class="ident">InvalidInput</span>,
-    <span class="doccomment">/// Could not perform the operation because there was not an open connection</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection is not open&quot;</span>)]</span>
-    <span class="ident">NotConnected</span>,
-    <span class="doccomment">/// The requested device couldn&#39;t be accessed</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;can&#39;t access device&quot;</span>)]</span>
-    <span class="ident">NoDevice</span>,
-    <span class="doccomment">/// Caller was not allowed to perform this operation</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;permission denied&quot;</span>)]</span>
-    <span class="ident">PermissionDenied</span>,
-    <span class="doccomment">/// The operation did not complete within the given amount of time</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;time out&quot;</span>)]</span>
-    <span class="ident">TimedOut</span>,
-    <span class="doccomment">/// Found EOF when EOF was not expected</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unexpected eof&quot;</span>)]</span>
-    <span class="ident">UnexpectedEof</span>,
-    <span class="doccomment">/// Operation would block, this error lets the caller know that they can try again</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;blocking operation. try again&quot;</span>)]</span>
-    <span class="ident">WouldBlock</span>,
-    <span class="doccomment">/// A call to write returned 0</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;write returned 0&quot;</span>)]</span>
-    <span class="ident">WriteZero</span>,
-    <span class="doccomment">/// Too many open files</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;too many open files&quot;</span>)]</span>
-    <span class="ident">TooManyOpenFiles</span>,
-    <span class="doccomment">/// The operation is not supported.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unsupported&quot;</span>)]</span>
-    <span class="ident">Unsupported</span>,
-    <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unknown error found&quot;</span>)]</span>
-    <span class="ident">UnknownError</span>,
+<span class="attribute">#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>NetworkError {
+    <span class="doccomment">/// The handle given was not usable
+    </span><span class="attribute">#[error(<span class="string">&quot;invalid fd&quot;</span>)]
+    </span>InvalidFd,
+    <span class="doccomment">/// File exists
+    </span><span class="attribute">#[error(<span class="string">&quot;file exists&quot;</span>)]
+    </span>AlreadyExists,
+    <span class="doccomment">/// The filesystem has failed to lock a resource.
+    </span><span class="attribute">#[error(<span class="string">&quot;lock error&quot;</span>)]
+    </span>Lock,
+    <span class="doccomment">/// Something failed when doing IO. These errors can generally not be handled.
+    /// It may work if tried again.
+    </span><span class="attribute">#[error(<span class="string">&quot;io error&quot;</span>)]
+    </span>IOError,
+    <span class="doccomment">/// The address was in use
+    </span><span class="attribute">#[error(<span class="string">&quot;address is in use&quot;</span>)]
+    </span>AddressInUse,
+    <span class="doccomment">/// The address could not be found
+    </span><span class="attribute">#[error(<span class="string">&quot;address could not be found&quot;</span>)]
+    </span>AddressNotAvailable,
+    <span class="doccomment">/// A pipe was closed
+    </span><span class="attribute">#[error(<span class="string">&quot;broken pipe (was closed)&quot;</span>)]
+    </span>BrokenPipe,
+    <span class="doccomment">/// Insufficient memory
+    </span><span class="attribute">#[error(<span class="string">&quot;Insufficient memory&quot;</span>)]
+    </span>InsufficientMemory,
+    <span class="doccomment">/// The connection was aborted
+    </span><span class="attribute">#[error(<span class="string">&quot;connection aborted&quot;</span>)]
+    </span>ConnectionAborted,
+    <span class="doccomment">/// The connection request was refused
+    </span><span class="attribute">#[error(<span class="string">&quot;connection refused&quot;</span>)]
+    </span>ConnectionRefused,
+    <span class="doccomment">/// The connection was reset
+    </span><span class="attribute">#[error(<span class="string">&quot;connection reset&quot;</span>)]
+    </span>ConnectionReset,
+    <span class="doccomment">/// The operation was interrupted before it could finish
+    </span><span class="attribute">#[error(<span class="string">&quot;operation interrupted&quot;</span>)]
+    </span>Interrupted,
+    <span class="doccomment">/// Invalid internal data, if the argument data is invalid, use `InvalidInput`
+    </span><span class="attribute">#[error(<span class="string">&quot;invalid internal data&quot;</span>)]
+    </span>InvalidData,
+    <span class="doccomment">/// The provided data is invalid
+    </span><span class="attribute">#[error(<span class="string">&quot;invalid input&quot;</span>)]
+    </span>InvalidInput,
+    <span class="doccomment">/// Could not perform the operation because there was not an open connection
+    </span><span class="attribute">#[error(<span class="string">&quot;connection is not open&quot;</span>)]
+    </span>NotConnected,
+    <span class="doccomment">/// The requested device couldn&#39;t be accessed
+    </span><span class="attribute">#[error(<span class="string">&quot;can&#39;t access device&quot;</span>)]
+    </span>NoDevice,
+    <span class="doccomment">/// Caller was not allowed to perform this operation
+    </span><span class="attribute">#[error(<span class="string">&quot;permission denied&quot;</span>)]
+    </span>PermissionDenied,
+    <span class="doccomment">/// The operation did not complete within the given amount of time
+    </span><span class="attribute">#[error(<span class="string">&quot;time out&quot;</span>)]
+    </span>TimedOut,
+    <span class="doccomment">/// Found EOF when EOF was not expected
+    </span><span class="attribute">#[error(<span class="string">&quot;unexpected eof&quot;</span>)]
+    </span>UnexpectedEof,
+    <span class="doccomment">/// Operation would block, this error lets the caller know that they can try again
+    </span><span class="attribute">#[error(<span class="string">&quot;blocking operation. try again&quot;</span>)]
+    </span>WouldBlock,
+    <span class="doccomment">/// A call to write returned 0
+    </span><span class="attribute">#[error(<span class="string">&quot;write returned 0&quot;</span>)]
+    </span>WriteZero,
+    <span class="doccomment">/// Too many open files
+    </span><span class="attribute">#[error(<span class="string">&quot;too many open files&quot;</span>)]
+    </span>TooManyOpenFiles,
+    <span class="doccomment">/// The operation is not supported.
+    </span><span class="attribute">#[error(<span class="string">&quot;unsupported&quot;</span>)]
+    </span>Unsupported,
+    <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.
+    </span><span class="attribute">#[error(<span class="string">&quot;unknown error found&quot;</span>)]
+    </span>UnknownError,
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-net&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">host</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;host-net&quot;</span>)]
+</span><span class="kw">pub mod </span>host;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_net" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="virtual_net" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

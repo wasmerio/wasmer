@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/fs/fd.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/fs/fd.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>fd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -134,139 +134,139 @@
 <span id="132">132</span>
 <span id="133">133</span>
 <span id="134">134</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">borrow::Cow</span>,
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">path::PathBuf</span>,
-    <span class="ident">sync</span>::{<span class="ident">atomic::AtomicU64</span>, <span class="ident">Arc</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockReadGuard</span>, <span class="ident">RwLockWriteGuard</span>},
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::PathBuf,
+    sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde_derive</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">Pipe</span>, <span class="ident">VirtualFile</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi</span>::{<span class="ident">Fd</span> <span class="kw">as</span> <span class="ident">WasiFd</span>, <span class="ident">Fdflags</span>, <span class="ident">Filestat</span>, <span class="ident">Rights</span>};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
+<span class="kw">use </span>virtual_fs::{Pipe, VirtualFile};
+<span class="kw">use </span>wasmer_wasix_types::wasi::{Fd <span class="kw">as </span>WasiFd, Fdflags, Filestat, Rights};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::net::socket::InodeSocket</span>;
+<span class="kw">use </span><span class="kw">crate</span>::net::socket::InodeSocket;
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">InodeGuard</span>, <span class="ident">InodeWeakGuard</span>, <span class="ident">NotificationInner</span>};
+<span class="kw">use super</span>::{InodeGuard, InodeWeakGuard, NotificationInner};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Fd</span> {
-    <span class="kw">pub</span> <span class="ident">rights</span>: <span class="ident">Rights</span>,
-    <span class="kw">pub</span> <span class="ident">rights_inheriting</span>: <span class="ident">Rights</span>,
-    <span class="kw">pub</span> <span class="ident">flags</span>: <span class="ident">Fdflags</span>,
-    <span class="kw">pub</span> <span class="ident">offset</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicU64</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Flags that determine how the [`Fd`] can be used.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.</span>
-    <span class="kw">pub</span> <span class="ident">open_flags</span>: <span class="ident">u16</span>,
-    <span class="kw">pub</span> <span class="ident">inode</span>: <span class="ident">InodeGuard</span>,
-    <span class="kw">pub</span> <span class="ident">is_stdio</span>: <span class="ident">bool</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>Fd {
+    <span class="kw">pub </span>rights: Rights,
+    <span class="kw">pub </span>rights_inheriting: Rights,
+    <span class="kw">pub </span>flags: Fdflags,
+    <span class="kw">pub </span>offset: Arc&lt;AtomicU64&gt;,
+    <span class="doccomment">/// Flags that determine how the [`Fd`] can be used.
+    ///
+    /// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.
+    </span><span class="kw">pub </span>open_flags: u16,
+    <span class="kw">pub </span>inode: InodeGuard,
+    <span class="kw">pub </span>is_stdio: bool,
 }
 
-<span class="kw">impl</span> <span class="ident">Fd</span> {
-    <span class="doccomment">/// This [`Fd`] can be used with read system calls.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">READ</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">1</span>;
-    <span class="doccomment">/// This [`Fd`] can be used with write system calls.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WRITE</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">2</span>;
-    <span class="doccomment">/// This [`Fd`] can append in write system calls. Note that the append</span>
-    <span class="doccomment">/// permission implies the write permission.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">APPEND</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">4</span>;
-    <span class="doccomment">/// This [`Fd`] will delete everything before writing. Note that truncate</span>
-    <span class="doccomment">/// permissions require the write permission.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This permission is currently unused when deserializing [`WasiState`].</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TRUNCATE</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">8</span>;
-    <span class="doccomment">/// This [`Fd`] may create a file before writing to it. Note that create</span>
-    <span class="doccomment">/// permissions require write permissions.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This permission is currently unused when deserializing [`WasiState`].</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">CREATE</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="number">16</span>;
+<span class="kw">impl </span>Fd {
+    <span class="doccomment">/// This [`Fd`] can be used with read system calls.
+    </span><span class="kw">pub const </span>READ: u16 = <span class="number">1</span>;
+    <span class="doccomment">/// This [`Fd`] can be used with write system calls.
+    </span><span class="kw">pub const </span>WRITE: u16 = <span class="number">2</span>;
+    <span class="doccomment">/// This [`Fd`] can append in write system calls. Note that the append
+    /// permission implies the write permission.
+    </span><span class="kw">pub const </span>APPEND: u16 = <span class="number">4</span>;
+    <span class="doccomment">/// This [`Fd`] will delete everything before writing. Note that truncate
+    /// permissions require the write permission.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
+    </span><span class="kw">pub const </span>TRUNCATE: u16 = <span class="number">8</span>;
+    <span class="doccomment">/// This [`Fd`] may create a file before writing to it. Note that create
+    /// permissions require write permissions.
+    ///
+    /// This permission is currently unused when deserializing [`WasiState`].
+    </span><span class="kw">pub const </span>CREATE: u16 = <span class="number">16</span>;
 }
 
-<span class="doccomment">/// A file that Wasi knows about that may or may not be open</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InodeVal</span> {
-    <span class="kw">pub</span> <span class="ident">stat</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Filestat</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">is_preopened</span>: <span class="ident">bool</span>,
-    <span class="kw">pub</span> <span class="ident">name</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Kind</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A file that Wasi knows about that may or may not be open
+</span><span class="attribute">#[derive(Debug)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>InodeVal {
+    <span class="kw">pub </span>stat: RwLock&lt;Filestat&gt;,
+    <span class="kw">pub </span>is_preopened: bool,
+    <span class="kw">pub </span>name: Cow&lt;<span class="lifetime">&#39;static</span>, str&gt;,
+    <span class="kw">pub </span>kind: RwLock&lt;Kind&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">InodeVal</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">RwLockReadGuard</span><span class="op">&lt;</span><span class="ident">Kind</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">kind</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()
+<span class="kw">impl </span>InodeVal {
+    <span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RwLockReadGuard&lt;Kind&gt; {
+        <span class="self">self</span>.kind.read().unwrap()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">RwLockWriteGuard</span><span class="op">&lt;</span><span class="ident">Kind</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">kind</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>()
+    <span class="kw">pub fn </span>write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RwLockWriteGuard&lt;Kind&gt; {
+        <span class="self">self</span>.kind.write().unwrap()
     }
 }
 
-<span class="doccomment">/// The core of the filesystem abstraction.  Includes directories,</span>
-<span class="doccomment">/// files, and symlinks.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Kind</span> {
-    <span class="ident">File</span> {
-        <span class="doccomment">/// The open file, if it&#39;s open</span>
-        <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
-        <span class="ident">handle</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// The path on the host system where the file is located</span>
-        <span class="doccomment">/// This is deprecated and will be removed soon</span>
-        <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-        <span class="doccomment">/// Marks the file as a special file that only one `fd` can exist for</span>
-        <span class="doccomment">/// This is useful when dealing with host-provided special files that</span>
-        <span class="doccomment">/// should be looked up by path</span>
-        <span class="doccomment">/// TOOD: clarify here?</span>
-        <span class="ident">fd</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
+<span class="doccomment">/// The core of the filesystem abstraction.  Includes directories,
+/// files, and symlinks.
+</span><span class="attribute">#[derive(Debug)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub enum </span>Kind {
+    File {
+        <span class="doccomment">/// The open file, if it&#39;s open
+        </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip))]
+        </span>handle: <span class="prelude-ty">Option</span>&lt;Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;&gt;&gt;,
+        <span class="doccomment">/// The path on the host system where the file is located
+        /// This is deprecated and will be removed soon
+        </span>path: PathBuf,
+        <span class="doccomment">/// Marks the file as a special file that only one `fd` can exist for
+        /// This is useful when dealing with host-provided special files that
+        /// should be looked up by path
+        /// TOOD: clarify here?
+        </span>fd: <span class="prelude-ty">Option</span>&lt;u32&gt;,
     },
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
-    <span class="ident">Socket</span> {
-        <span class="doccomment">/// Represents a networking socket</span>
-        <span class="ident">socket</span>: <span class="ident">InodeSocket</span>,
+    <span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip))]
+    </span>Socket {
+        <span class="doccomment">/// Represents a networking socket
+        </span>socket: InodeSocket,
     },
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">serde</span>(<span class="ident">skip</span>))]</span>
-    <span class="ident">Pipe</span> {
-        <span class="doccomment">/// Reference to the pipe</span>
-        <span class="ident">pipe</span>: <span class="ident">Pipe</span>,
+    <span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip))]
+    </span>Pipe {
+        <span class="doccomment">/// Reference to the pipe
+        </span>pipe: Pipe,
     },
-    <span class="ident">Dir</span> {
-        <span class="doccomment">/// Parent directory</span>
-        <span class="ident">parent</span>: <span class="ident">InodeWeakGuard</span>,
-        <span class="doccomment">/// The path on the host system where the directory is located</span>
-        <span class="comment">// TODO: wrap it like VirtualFile</span>
-        <span class="ident">path</span>: <span class="ident">PathBuf</span>,
-        <span class="doccomment">/// The entries of a directory are lazily filled.</span>
-        <span class="ident">entries</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">InodeGuard</span><span class="op">&gt;</span>,
+    Dir {
+        <span class="doccomment">/// Parent directory
+        </span>parent: InodeWeakGuard,
+        <span class="doccomment">/// The path on the host system where the directory is located
+        </span><span class="comment">// TODO: wrap it like VirtualFile
+        </span>path: PathBuf,
+        <span class="doccomment">/// The entries of a directory are lazily filled.
+        </span>entries: HashMap&lt;String, InodeGuard&gt;,
     },
-    <span class="doccomment">/// The same as Dir but without the irrelevant bits</span>
-    <span class="doccomment">/// The root is immutable after creation; generally the Kind::Root</span>
-    <span class="doccomment">/// branch of whatever code you&#39;re writing will be a simpler version of</span>
-    <span class="doccomment">/// your Kind::Dir logic</span>
-    <span class="ident">Root</span> {
-        <span class="ident">entries</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">InodeGuard</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The same as Dir but without the irrelevant bits
+    /// The root is immutable after creation; generally the Kind::Root
+    /// branch of whatever code you&#39;re writing will be a simpler version of
+    /// your Kind::Dir logic
+    </span>Root {
+        entries: HashMap&lt;String, InodeGuard&gt;,
     },
-    <span class="doccomment">/// The first two fields are data _about_ the symlink</span>
-    <span class="doccomment">/// the last field is the data _inside_ the symlink</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// `base_po_dir` should never be the root because:</span>
-    <span class="doccomment">/// - Right now symlinks are not allowed in the immutable root</span>
-    <span class="doccomment">/// - There is always a closer pre-opened dir to the symlink file (by definition of the root being a collection of preopened dirs)</span>
-    <span class="ident">Symlink</span> {
-        <span class="doccomment">/// The preopened dir that this symlink file is relative to (via `path_to_symlink`)</span>
-        <span class="ident">base_po_dir</span>: <span class="ident">WasiFd</span>,
-        <span class="doccomment">/// The path to the symlink from the `base_po_dir`</span>
-        <span class="ident">path_to_symlink</span>: <span class="ident">PathBuf</span>,
-        <span class="doccomment">/// the value of the symlink as a relative path</span>
-        <span class="ident">relative_path</span>: <span class="ident">PathBuf</span>,
+    <span class="doccomment">/// The first two fields are data _about_ the symlink
+    /// the last field is the data _inside_ the symlink
+    ///
+    /// `base_po_dir` should never be the root because:
+    /// - Right now symlinks are not allowed in the immutable root
+    /// - There is always a closer pre-opened dir to the symlink file (by definition of the root being a collection of preopened dirs)
+    </span>Symlink {
+        <span class="doccomment">/// The preopened dir that this symlink file is relative to (via `path_to_symlink`)
+        </span>base_po_dir: WasiFd,
+        <span class="doccomment">/// The path to the symlink from the `base_po_dir`
+        </span>path_to_symlink: PathBuf,
+        <span class="doccomment">/// the value of the symlink as a relative path
+        </span>relative_path: PathBuf,
     },
-    <span class="ident">Buffer</span> {
-        <span class="ident">buffer</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    Buffer {
+        buffer: Vec&lt;u8&gt;,
     },
-    <span class="ident">EventNotifications</span>(<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NotificationInner</span><span class="op">&gt;</span>),
+    EventNotifications(Arc&lt;NotificationInner&gt;),
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

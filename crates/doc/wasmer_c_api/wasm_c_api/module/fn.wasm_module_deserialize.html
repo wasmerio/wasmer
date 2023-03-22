@@ -1,7 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Deserializes a serialized module binary into a `wasm_module_t`."><meta name="keywords" content="rust, rustlang, rust-lang, wasm_module_deserialize"><title>wasm_module_deserialize in wasmer_c_api::wasm_c_api::module - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Deserializes a serialized module binary into a `wasm_module_t`."><meta name="keywords" content="rust, rustlang, rust-lang, wasm_module_deserialize"><title>wasm_module_deserialize in wasmer_c_api::wasm_c_api::module - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_c_api/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><div class="sidebar-elems"><h2 class="location"><a href="index.html">In wasmer_c_api::wasm_c_api::module</a></h2></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_c_api/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn"><span class="in-band">Function <a href="../../index.html">wasmer_c_api</a>::<wbr><a href="../index.html">wasm_c_api</a>::<wbr><a href="index.html">module</a>::<wbr><a class="fn" href="#">wasm_module_deserialize</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../../../src/wasmer_c_api/wasm_c_api/module.rs.html#455-466">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><div class="docblock item-decl"><pre class="rust fn"><code>#[no_mangle]
-pub unsafe extern &quot;C&quot; fn wasm_module_deserialize(<br>&nbsp;&nbsp;&nbsp;&nbsp;store: &amp;<a class="struct" href="../store/struct.wasm_store_t.html" title="struct wasmer_c_api::wasm_c_api::store::wasm_store_t">wasm_store_t</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;bytes: <a class="enum" href="https://doc.rust-lang.org/1.64.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../types/struct.wasm_byte_vec_t.html" title="struct wasmer_c_api::wasm_c_api::types::wasm_byte_vec_t">wasm_byte_vec_t</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.64.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.64.0/core/ptr/non_null/struct.NonNull.html" title="struct core::ptr::non_null::NonNull">NonNull</a>&lt;<a class="struct" href="struct.wasm_module_t.html" title="struct wasmer_c_api::wasm_c_api::module::wasm_module_t">wasm_module_t</a>&gt;&gt;</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Deserializes a serialized module binary into a <code>wasm_module_t</code>.</p>
+pub unsafe extern &quot;C&quot; fn wasm_module_deserialize(<br>&nbsp;&nbsp;&nbsp;&nbsp;store: &amp;<a class="struct" href="../store/struct.wasm_store_t.html" title="struct wasmer_c_api::wasm_c_api::store::wasm_store_t">wasm_store_t</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;bytes: <a class="enum" href="https://doc.rust-lang.org/1.65.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;<a class="struct" href="../types/struct.wasm_byte_vec_t.html" title="struct wasmer_c_api::wasm_c_api::types::wasm_byte_vec_t">wasm_byte_vec_t</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.65.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.65.0/core/ptr/non_null/struct.NonNull.html" title="struct core::ptr::non_null::NonNull">NonNull</a>&lt;<a class="struct" href="struct.wasm_module_t.html" title="struct wasmer_c_api::wasm_c_api::module::wasm_module_t">wasm_module_t</a>&gt;&gt;</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Deserializes a serialized module binary into a <code>wasm_module_t</code>.</p>
 <p>Note: the module has to be serialized before with the
 <code>wasm_module_serialize</code> function.</p>
 <h2 id="safety"><a href="#safety">Safety</a></h2>
@@ -14,59 +14,59 @@ memory.</li>
 </ol>
 <p>And as such, the <code>wasm_module_deserialize</code> method is unsafe.</p>
 <h2 id="example"><a href="#example">Example</a></h2>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="ident">int</span> <span class="ident">main</span>() {
-    <span class="comment">// Create the engine and the store.</span>
-    <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
-    <span class="ident">wasm_store_t</span><span class="op">*</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">wasm_store_new</span>(<span class="ident">engine</span>);
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>int main() {
+    <span class="comment">// Create the engine and the store.
+    </span>wasm_engine_t* engine = wasm_engine_new();
+    wasm_store_t* store = wasm_store_new(engine);
 
-    <span class="comment">// Create a WebAssembly module from a WAT definition.</span>
-   <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;
-   <span class="ident">wasmer_byte_vec_new_from_string</span>(
-       <span class="kw-2">&amp;</span><span class="ident">wat</span>,
-       <span class="string">&quot;(module\n&quot;</span>
-       <span class="string">&quot;  (func (export \&quot;function\&quot;) (param i32 i64))\n&quot;</span>
-       <span class="string">&quot;  (global (export \&quot;global\&quot;) i32 (i32.const 7))\n&quot;</span>
-       <span class="string">&quot;  (table (export \&quot;table\&quot;) 0 funcref)\n&quot;</span>
-       <span class="string">&quot;  (memory (export \&quot;memory\&quot;) 1))&quot;</span>
+    <span class="comment">// Create a WebAssembly module from a WAT definition.
+   </span>wasm_byte_vec_t wat;
+   wasmer_byte_vec_new_from_string(
+       <span class="kw-2">&amp;</span>wat,
+       <span class="string">&quot;(module\n&quot;
+       &quot;  (func (export \&quot;function\&quot;) (param i32 i64))\n&quot;
+       &quot;  (global (export \&quot;global\&quot;) i32 (i32.const 7))\n&quot;
+       &quot;  (table (export \&quot;table\&quot;) 0 funcref)\n&quot;
+       &quot;  (memory (export \&quot;memory\&quot;) 1))&quot;
+   </span>);
+   wasm_byte_vec_t wasm;
+   wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+
+   <span class="comment">// Create the module.
+   </span>wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
+   assert(module);
+
+   <span class="comment">// Serialize the module into bytes.
+   </span>wasm_byte_vec_t serialized_module;
+   wasm_module_serialize(module, <span class="kw-2">&amp;</span>serialized_module);
+   assert(serialized_module.size &gt; <span class="number">0</span>);
+
+   <span class="comment">// Free the module.
+   </span>wasm_module_delete(module);
+
+   <span class="comment">// Deserialize the serialized module. Note that the store must
+   // be the same as the one used to serialize.
+   </span>wasm_module_t* deserialized_module = wasm_module_deserialize(
+       store,
+       <span class="kw-2">&amp;</span>serialized_module
    );
-   <span class="ident">wasm_byte_vec_t</span> <span class="ident">wasm</span>;
-   <span class="ident">wat2wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+   wasm_byte_vec_delete(<span class="kw-2">&amp;</span>serialized_module);
+   assert(deserialized_module);
 
-   <span class="comment">// Create the module.</span>
-   <span class="ident">wasm_module_t</span><span class="op">*</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">wasm_module_new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
-   <span class="ident">assert</span>(<span class="ident">module</span>);
+   <span class="comment">// Check we have our 4 export types.
+   </span>wasm_exporttype_vec_t export_types;
+   wasm_module_exports(deserialized_module, <span class="kw-2">&amp;</span>export_types);
 
-   <span class="comment">// Serialize the module into bytes.</span>
-   <span class="ident">wasm_byte_vec_t</span> <span class="ident">serialized_module</span>;
-   <span class="ident">wasm_module_serialize</span>(<span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">serialized_module</span>);
-   <span class="ident">assert</span>(<span class="ident">serialized_module</span>.<span class="ident">size</span> <span class="op">&gt;</span> <span class="number">0</span>);
+   assert(export_types.size == <span class="number">4</span>);
 
-   <span class="comment">// Free the module.</span>
-   <span class="ident">wasm_module_delete</span>(<span class="ident">module</span>);
+   <span class="comment">// Free everything.
+   </span>wasm_exporttype_vec_delete(<span class="kw-2">&amp;</span>export_types);
+   wasm_module_delete(deserialized_module);
+   wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+   wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+   wasm_store_delete(store);
+   wasm_engine_delete(engine);
 
-   <span class="comment">// Deserialize the serialized module. Note that the store must</span>
-   <span class="comment">// be the same as the one used to serialize.</span>
-   <span class="ident">wasm_module_t</span><span class="op">*</span> <span class="ident">deserialized_module</span> <span class="op">=</span> <span class="ident">wasm_module_deserialize</span>(
-       <span class="ident">store</span>,
-       <span class="kw-2">&amp;</span><span class="ident">serialized_module</span>
-   );
-   <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">serialized_module</span>);
-   <span class="ident">assert</span>(<span class="ident">deserialized_module</span>);
-
-   <span class="comment">// Check we have our 4 export types.</span>
-   <span class="ident">wasm_exporttype_vec_t</span> <span class="ident">export_types</span>;
-   <span class="ident">wasm_module_exports</span>(<span class="ident">deserialized_module</span>, <span class="kw-2">&amp;</span><span class="ident">export_types</span>);
-
-   <span class="ident">assert</span>(<span class="ident">export_types</span>.<span class="ident">size</span> <span class="op">==</span> <span class="number">4</span>);
-
-   <span class="comment">// Free everything.</span>
-   <span class="ident">wasm_exporttype_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">export_types</span>);
-   <span class="ident">wasm_module_delete</span>(<span class="ident">deserialized_module</span>);
-   <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);
-   <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>);
-   <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
-   <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
-
-    <span class="kw">return</span> <span class="number">0</span>;
+    <span class="kw">return </span><span class="number">0</span>;
 }</code></pre></div>
-</div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

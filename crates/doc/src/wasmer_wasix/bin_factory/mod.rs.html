@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bin_factory/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bin_factory/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -106,111 +106,111 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::HashMap</span>,
-    <span class="ident">ops::Deref</span>,
-    <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>},
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{Arc, RwLock},
 };
 
-<span class="kw">use</span> <span class="ident">virtual_fs</span>::{<span class="ident">AsyncReadExt</span>, <span class="ident">FileSystem</span>};
+<span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
 
-<span class="kw">mod</span> <span class="ident">binary_package</span>;
-<span class="kw">mod</span> <span class="ident">exec</span>;
-<span class="kw">mod</span> <span class="ident">module_cache</span>;
+<span class="kw">mod </span>binary_package;
+<span class="kw">mod </span>exec;
+<span class="kw">mod </span>module_cache;
 
-<span class="kw">use</span> <span class="ident">sha2</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>sha2::<span class="kw-2">*</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">binary_package</span>::<span class="kw-2">*</span>,
-    <span class="ident">exec</span>::{<span class="ident">spawn_exec</span>, <span class="ident">spawn_exec_module</span>},
-    <span class="ident">module_cache::ModuleCache</span>,
+<span class="kw">pub use </span><span class="self">self</span>::{
+    binary_package::<span class="kw-2">*</span>,
+    exec::{spawn_exec, spawn_exec_module},
+    module_cache::ModuleCache,
 };
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">os::command::Commands</span>, <span class="ident">WasiRuntime</span>};
+<span class="kw">use crate</span>::{os::command::Commands, WasiRuntime};
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BinFactory</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">commands</span>: <span class="ident">Commands</span>,
-    <span class="ident">runtime</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">cache</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleCache</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">local</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>BinFactory {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) commands: Commands,
+    runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache: Arc&lt;ModuleCache&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) local: Arc&lt;RwLock&lt;HashMap&lt;String, <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt;&gt;&gt;&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">BinFactory</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">compiled_modules</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleCache</span><span class="op">&gt;</span>,
-        <span class="ident">runtime</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">BinFactory</span> {
-        <span class="ident">BinFactory</span> {
-            <span class="ident">commands</span>: <span class="ident">Commands::new_with_builtins</span>(<span class="ident">runtime</span>.<span class="ident">clone</span>(), <span class="ident">compiled_modules</span>.<span class="ident">clone</span>()),
-            <span class="ident">runtime</span>,
-            <span class="ident">cache</span>: <span class="ident">compiled_modules</span>,
-            <span class="ident">local</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">HashMap::new</span>())),
+<span class="kw">impl </span>BinFactory {
+    <span class="kw">pub fn </span>new(
+        compiled_modules: Arc&lt;ModuleCache&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    ) -&gt; BinFactory {
+        BinFactory {
+            commands: Commands::new_with_builtins(runtime.clone(), compiled_modules.clone()),
+            runtime,
+            cache: compiled_modules,
+            local: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">runtime</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span> {
-        <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">deref</span>()
+    <span class="kw">pub fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime {
+        <span class="self">self</span>.runtime.deref()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_binary</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">binary</span>: <span class="ident">BinaryPackage</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">local</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-        <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">name</span>.<span class="ident">to_string</span>(), <span class="prelude-val">Some</span>(<span class="ident">binary</span>));
+    <span class="kw">pub fn </span>set_binary(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, binary: BinaryPackage) {
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
+        cache.insert(name.to_string(), <span class="prelude-val">Some</span>(binary));
     }
 
-    <span class="comment">// TODO: remove allow once BinFactory is refactored</span>
-    <span class="comment">// currently fine because a BinFactory is only used by a single process tree</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::await_holding_lock</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_binary</span>(
+    <span class="comment">// TODO: remove allow once BinFactory is refactored
+    // currently fine because a BinFactory is only used by a single process tree
+    </span><span class="attribute">#[allow(clippy::await_holding_lock)]
+    </span><span class="kw">pub async fn </span>get_binary(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-        <span class="ident">fs</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">name</span>.<span class="ident">to_string</span>();
+        name: <span class="kw-2">&amp;</span>str,
+        fs: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
+        <span class="kw">let </span>name = name.to_string();
 
-        <span class="comment">// Fast path</span>
-        {
-            <span class="kw">let</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">local</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
-                <span class="kw">return</span> <span class="ident">data</span>.<span class="ident">clone</span>();
+        <span class="comment">// Fast path
+        </span>{
+            <span class="kw">let </span>cache = <span class="self">self</span>.local.read().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+                <span class="kw">return </span>data.clone();
             }
         }
 
-        <span class="comment">// Slow path</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">local</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+        <span class="comment">// Slow path
+        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
 
-        <span class="comment">// Check the cache</span>
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">name</span>) {
-            <span class="kw">return</span> <span class="ident">data</span>.<span class="ident">clone</span>();
+        <span class="comment">// Check the cache
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+            <span class="kw">return </span>data.clone();
         }
 
-        <span class="comment">// Check the filesystem for the file</span>
-        <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">starts_with</span>(<span class="string">&#39;/&#39;</span>) {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">fs</span>) <span class="op">=</span> <span class="ident">fs</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">file</span>) <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">new_open_options</span>().<span class="ident">read</span>(<span class="bool-val">true</span>).<span class="ident">open</span>(<span class="ident">name</span>.<span class="ident">clone</span>()) {
-                    <span class="comment">// Read the file</span>
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">file</span>.<span class="ident">size</span>() <span class="kw">as</span> <span class="ident">usize</span>);
-                    <span class="comment">// TODO: log error?</span>
-                    <span class="kw">if</span> <span class="ident">file</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">data</span>).<span class="kw">await</span>.<span class="ident">is_ok</span>() {
-                        <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="ident">name</span>.<span class="ident">split</span>(<span class="string">&#39;/&#39;</span>).<span class="ident">last</span>().<span class="ident">unwrap_or</span>(<span class="ident">name</span>.<span class="ident">as_str</span>());
-                        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">BinaryPackage::new</span>(<span class="ident">package_name</span>, <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">into</span>()));
-                        <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">name</span>, <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>()));
-                        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>);
+        <span class="comment">// Check the filesystem for the file
+        </span><span class="kw">if </span>name.starts_with(<span class="string">&#39;/&#39;</span>) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(fs) = fs {
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>file) = fs.new_open_options().read(<span class="bool-val">true</span>).open(name.clone()) {
+                    <span class="comment">// Read the file
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(file.size() <span class="kw">as </span>usize);
+                    <span class="comment">// TODO: log error?
+                    </span><span class="kw">if </span>file.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.is_ok() {
+                        <span class="kw">let </span>package_name = name.split(<span class="string">&#39;/&#39;</span>).last().unwrap_or(name.as_str());
+                        <span class="kw">let </span>data = BinaryPackage::new(package_name, <span class="prelude-val">Some</span>(data.into()));
+                        cache.insert(name, <span class="prelude-val">Some</span>(data.clone()));
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(data);
                     }
                 }
             }
         }
 
-        <span class="comment">// NAK</span>
-        <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">name</span>, <span class="prelude-val">None</span>);
-        <span class="prelude-val">None</span>
-    }
+        <span class="comment">// NAK
+        </span>cache.insert(name, <span class="prelude-val">None</span>);
+        <span class="prelude-val">None
+    </span>}
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">hash_of_binary</span>(<span class="ident">data</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">String</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hasher</span> <span class="op">=</span> <span class="ident">Sha256::default</span>();
-    <span class="ident">hasher</span>.<span class="ident">update</span>(<span class="ident">data</span>.<span class="ident">as_ref</span>());
-    <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">hasher</span>.<span class="ident">finalize</span>();
-    <span class="ident">hex::encode</span>(<span class="kw-2">&amp;</span><span class="ident">hash</span>[..])
+<span class="kw">pub fn </span>hash_of_binary(data: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; String {
+    <span class="kw">let </span><span class="kw-2">mut </span>hasher = Sha256::default();
+    hasher.update(data.as_ref());
+    <span class="kw">let </span>hash = hasher.finalize();
+    hex::encode(<span class="kw-2">&amp;</span>hash[..])
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

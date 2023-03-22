@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/le.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>le.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wai-bindgen-wasmer/src/le.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>le.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wai_bindgen_wasmer/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wai_bindgen_wasmer/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -198,205 +198,205 @@
 <span id="198">198</span>
 <span id="199">199</span>
 <span id="200">200</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AllBytesValid</span>;
-<span class="kw">use</span> <span class="ident">std::cmp::Ordering</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
-<span class="kw">use</span> <span class="ident">std::slice</span>;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::AllBytesValid;
+<span class="kw">use </span>std::cmp::Ordering;
+<span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::mem;
+<span class="kw">use </span>std::slice;
 
-<span class="doccomment">/// Helper type representing a 1-byte-aligned little-endian value in memory.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This type is used in slice types for Wasmer host bindings. Guest types are</span>
-<span class="doccomment">/// not guaranteed to be either aligned or in the native endianness. This type</span>
-<span class="doccomment">/// wraps these types and provides explicit getters/setters to interact with the</span>
-<span class="doccomment">/// underlying value in a safe host-agnostic manner.</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">packed</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">T</span>);
+<span class="doccomment">/// Helper type representing a 1-byte-aligned little-endian value in memory.
+///
+/// This type is used in slice types for Wasmer host bindings. Guest types are
+/// not guaranteed to be either aligned or in the native endianness. This type
+/// wraps these types and provides explicit getters/setters to interact with the
+/// underlying value in a safe host-agnostic manner.
+</span><span class="attribute">#[repr(packed)]
+</span><span class="kw">pub struct </span>Le&lt;T&gt;(T);
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">Endian</span>,
+<span class="kw">impl</span>&lt;T&gt; Le&lt;T&gt;
+<span class="kw">where
+    </span>T: Endian,
 {
-    <span class="doccomment">/// Creates a new `Le&lt;T&gt;` value where the internals are stored in a way</span>
-    <span class="doccomment">/// that&#39;s safe to copy into wasm linear memory.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">t</span>: <span class="ident">T</span>) -&gt; <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="ident">Le</span>(<span class="ident">t</span>.<span class="ident">into_le</span>())
+    <span class="doccomment">/// Creates a new `Le&lt;T&gt;` value where the internals are stored in a way
+    /// that&#39;s safe to copy into wasm linear memory.
+    </span><span class="kw">pub fn </span>new(t: T) -&gt; Le&lt;T&gt; {
+        Le(t.into_le())
     }
 
-    <span class="doccomment">/// Reads the value stored in this `Le&lt;T&gt;`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This will perform a correct read even if the underlying memory is</span>
-    <span class="doccomment">/// unaligned, and it will also convert to the host&#39;s endianness for the</span>
-    <span class="doccomment">/// right representation of `T`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">T</span> {
-        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">from_le</span>()
+    <span class="doccomment">/// Reads the value stored in this `Le&lt;T&gt;`.
+    ///
+    /// This will perform a correct read even if the underlying memory is
+    /// unaligned, and it will also convert to the host&#39;s endianness for the
+    /// right representation of `T`.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; T {
+        <span class="self">self</span>.<span class="number">0</span>.from_le()
     }
 
-    <span class="doccomment">/// Writes the `val` to this slot.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This will work correctly even if the underlying memory is unaligned and</span>
-    <span class="doccomment">/// it will also automatically convert the `val` provided to an endianness</span>
-    <span class="doccomment">/// appropriate for WebAssembly (little-endian).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">val</span>: <span class="ident">T</span>) {
-        <span class="self">self</span>.<span class="number">0</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">into_le</span>();
+    <span class="doccomment">/// Writes the `val` to this slot.
+    ///
+    /// This will work correctly even if the underlying memory is unaligned and
+    /// it will also automatically convert the `val` provided to an endianness
+    /// appropriate for WebAssembly (little-endian).
+    </span><span class="kw">pub fn </span>set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, val: T) {
+        <span class="self">self</span>.<span class="number">0 </span>= val.into_le();
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_slice</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>] {
-        <span class="comment">// SAFETY: The invariants we uphold here are:</span>
-        <span class="comment">//</span>
-        <span class="comment">// * the lifetime of the input is the same as the output, so we&#39;re only</span>
-        <span class="comment">//   dealing with valid memory.</span>
-        <span class="comment">// * the alignment of the input is the same as the output (1)</span>
-        <span class="comment">// * the input isn&#39;t being truncated and we&#39;re consuming all of it (it</span>
-        <span class="comment">//   must be a multiple of the size of `Le&lt;T&gt;`)</span>
-        <span class="comment">// * all byte-patterns for `Le&lt;T&gt;` are valid. This is guaranteed by the</span>
-        <span class="comment">//   `AllBytesValid` supertrait of `Endian`.</span>
-        <span class="kw">unsafe</span> {
-            <span class="macro">assert_eq!</span>(<span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(), <span class="number">1</span>);
-            <span class="macro">assert!</span>(<span class="ident">bytes</span>.<span class="ident">len</span>() <span class="op">%</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span>);
-            <span class="kw">fn</span> <span class="ident">all_bytes_valid</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AllBytesValid</span><span class="op">&gt;</span>() {}
-            <span class="ident">all_bytes_valid</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_slice(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="kw-2">&amp;</span>[Le&lt;T&gt;] {
+        <span class="comment">// SAFETY: The invariants we uphold here are:
+        //
+        // * the lifetime of the input is the same as the output, so we&#39;re only
+        //   dealing with valid memory.
+        // * the alignment of the input is the same as the output (1)
+        // * the input isn&#39;t being truncated and we&#39;re consuming all of it (it
+        //   must be a multiple of the size of `Le&lt;T&gt;`)
+        // * all byte-patterns for `Le&lt;T&gt;` are valid. This is guaranteed by the
+        //   `AllBytesValid` supertrait of `Endian`.
+        </span><span class="kw">unsafe </span>{
+            <span class="macro">assert_eq!</span>(mem::align_of::&lt;Le&lt;T&gt;&gt;(), <span class="number">1</span>);
+            <span class="macro">assert!</span>(bytes.len() % mem::size_of::&lt;Le&lt;T&gt;&gt;() == <span class="number">0</span>);
+            <span class="kw">fn </span>all_bytes_valid&lt;T: AllBytesValid&gt;() {}
+            all_bytes_valid::&lt;Le&lt;T&gt;&gt;();
 
-            <span class="ident">slice::from_raw_parts</span>(
-                <span class="ident">bytes</span>.<span class="ident">as_ptr</span>().<span class="ident">cast</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
-                <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="op">/</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
+            slice::from_raw_parts(
+                bytes.as_ptr().cast::&lt;Le&lt;T&gt;&gt;(),
+                bytes.len() / mem::size_of::&lt;Le&lt;T&gt;&gt;(),
             )
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_slice_mut</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="kw-2">&amp;mut</span> [<span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>] {
-        <span class="comment">// SAFETY: see `from_slice` above</span>
-        <span class="comment">//</span>
-        <span class="comment">// Note that both the input and the output are `mut`, helping to</span>
-        <span class="comment">// maintain the guarantee of uniqueness.</span>
-        <span class="kw">unsafe</span> {
-            <span class="macro">assert_eq!</span>(<span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(), <span class="number">1</span>);
-            <span class="macro">assert!</span>(<span class="ident">bytes</span>.<span class="ident">len</span>() <span class="op">%</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>() <span class="op">==</span> <span class="number">0</span>);
-            <span class="ident">slice::from_raw_parts_mut</span>(
-                <span class="ident">bytes</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">cast</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
-                <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="op">/</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>(),
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_slice_mut(bytes: <span class="kw-2">&amp;mut </span>[u8]) -&gt; <span class="kw-2">&amp;mut </span>[Le&lt;T&gt;] {
+        <span class="comment">// SAFETY: see `from_slice` above
+        //
+        // Note that both the input and the output are `mut`, helping to
+        // maintain the guarantee of uniqueness.
+        </span><span class="kw">unsafe </span>{
+            <span class="macro">assert_eq!</span>(mem::align_of::&lt;Le&lt;T&gt;&gt;(), <span class="number">1</span>);
+            <span class="macro">assert!</span>(bytes.len() % mem::size_of::&lt;Le&lt;T&gt;&gt;() == <span class="number">0</span>);
+            slice::from_raw_parts_mut(
+                bytes.as_mut_ptr().cast::&lt;Le&lt;T&gt;&gt;(),
+                bytes.len() / mem::size_of::&lt;Le&lt;T&gt;&gt;(),
             )
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw-2">*</span><span class="self">self</span>
+<span class="kw">impl</span>&lt;T: Copy&gt; Clone <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="kw-2">*</span><span class="self">self
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;T: Copy&gt; Copy <span class="kw">for </span>Le&lt;T&gt; {}
+
+<span class="kw">impl</span>&lt;T: Endian + PartialEq&gt; PartialEq <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>Le&lt;T&gt;) -&gt; bool {
+        <span class="self">self</span>.get() == other.get()
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Copy</span><span class="op">&gt;</span> <span class="ident">Copy</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span> <span class="op">+</span> <span class="ident">PartialEq</span><span class="op">&gt;</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">get</span>() <span class="op">==</span> <span class="ident">other</span>.<span class="ident">get</span>()
+<span class="kw">impl</span>&lt;T: Endian + PartialEq&gt; PartialEq&lt;T&gt; <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>T) -&gt; bool {
+        <span class="self">self</span>.get() == <span class="kw-2">*</span>other
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span> <span class="op">+</span> <span class="ident">PartialEq</span><span class="op">&gt;</span> <span class="ident">PartialEq</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>) -&gt; <span class="ident">bool</span> {
-        <span class="self">self</span>.<span class="ident">get</span>() <span class="op">==</span> <span class="kw-2">*</span><span class="ident">other</span>
+<span class="kw">impl</span>&lt;T: Endian + Eq&gt; Eq <span class="kw">for </span>Le&lt;T&gt; {}
+
+<span class="kw">impl</span>&lt;T: Endian + PartialOrd&gt; PartialOrd <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>partial_cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>Le&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Ordering&gt; {
+        <span class="self">self</span>.get().partial_cmp(<span class="kw-2">&amp;</span>other.get())
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span> <span class="op">+</span> <span class="ident">Eq</span><span class="op">&gt;</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
-
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span> <span class="op">+</span> <span class="ident">PartialOrd</span><span class="op">&gt;</span> <span class="ident">PartialOrd</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ordering</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">get</span>().<span class="ident">partial_cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">get</span>())
+<span class="kw">impl</span>&lt;T: Endian + Ord&gt; Ord <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>cmp(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>Le&lt;T&gt;) -&gt; Ordering {
+        <span class="self">self</span>.get().cmp(<span class="kw-2">&amp;</span>other.get())
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span> <span class="op">+</span> <span class="ident">Ord</span><span class="op">&gt;</span> <span class="ident">Ord</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) -&gt; <span class="ident">Ordering</span> {
-        <span class="self">self</span>.<span class="ident">get</span>().<span class="ident">cmp</span>(<span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">get</span>())
+<span class="kw">impl</span>&lt;T: Endian + fmt::Debug&gt; fmt::Debug <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="self">self</span>.get().fmt(f)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span> <span class="op">+</span> <span class="ident">fmt::Debug</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="self">self</span>.<span class="ident">get</span>().<span class="ident">fmt</span>(<span class="ident">f</span>)
+<span class="kw">impl</span>&lt;T: Endian&gt; From&lt;T&gt; <span class="kw">for </span>Le&lt;T&gt; {
+    <span class="kw">fn </span>from(t: T) -&gt; Le&lt;T&gt; {
+        Le::new(t)
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Endian</span><span class="op">&gt;</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">t</span>: <span class="ident">T</span>) -&gt; <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-        <span class="ident">Le::new</span>(<span class="ident">t</span>)
-    }
+<span class="kw">unsafe impl</span>&lt;T: AllBytesValid&gt; AllBytesValid <span class="kw">for </span>Le&lt;T&gt; {}
+
+<span class="doccomment">/// Trait used for the implementation of the `Le` type.
+</span><span class="kw">pub trait </span>Endian: AllBytesValid + Copy + Sized {
+    <span class="doccomment">/// Converts this value and any aggregate fields (if any) into little-endian
+    /// byte order
+    </span><span class="kw">fn </span>into_le(<span class="self">self</span>) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Converts this value and any aggregate fields (if any) from
+    /// little-endian byte order
+    </span><span class="attribute">#[allow(clippy::wrong_self_convention)]
+    </span><span class="kw">fn </span>from_le(<span class="self">self</span>) -&gt; <span class="self">Self</span>;
 }
 
-<span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AllBytesValid</span><span class="op">&gt;</span> <span class="ident">AllBytesValid</span> <span class="kw">for</span> <span class="ident">Le</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
-
-<span class="doccomment">/// Trait used for the implementation of the `Le` type.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Endian</span>: <span class="ident">AllBytesValid</span> <span class="op">+</span> <span class="ident">Copy</span> <span class="op">+</span> <span class="ident">Sized</span> {
-    <span class="doccomment">/// Converts this value and any aggregate fields (if any) into little-endian</span>
-    <span class="doccomment">/// byte order</span>
-    <span class="kw">fn</span> <span class="ident">into_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span>;
-    <span class="doccomment">/// Converts this value and any aggregate fields (if any) from</span>
-    <span class="doccomment">/// little-endian byte order</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::wrong_self_convention</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">from_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span>;
-}
-
-<span class="macro">macro_rules!</span> <span class="ident">primitives</span> {
-    ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ident</span>)<span class="kw-2">*</span>) =&gt; ($(
-        <span class="kw">impl</span> <span class="ident">Endian</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span> {
-            <span class="attribute">#[<span class="ident">inline</span>]</span>
-            <span class="kw">fn</span> <span class="ident">into_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-                <span class="ident"><span class="self">Self</span>::from_ne_bytes</span>(<span class="self">self</span>.<span class="ident">to_le_bytes</span>())
+<span class="macro">macro_rules! </span>primitives {
+    ($(<span class="macro-nonterminal">$t</span>:ident)<span class="kw-2">*</span>) =&gt; ($(
+        <span class="kw">impl </span>Endian <span class="kw">for </span><span class="macro-nonterminal">$t </span>{
+            <span class="attribute">#[inline]
+            </span><span class="kw">fn </span>into_le(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+                <span class="self">Self</span>::from_ne_bytes(<span class="self">self</span>.to_le_bytes())
             }
 
-            <span class="attribute">#[<span class="ident">inline</span>]</span>
-            <span class="kw">fn</span> <span class="ident">from_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-                <span class="ident"><span class="self">Self</span>::from_le_bytes</span>(<span class="self">self</span>.<span class="ident">to_ne_bytes</span>())
+            <span class="attribute">#[inline]
+            </span><span class="kw">fn </span>from_le(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+                <span class="self">Self</span>::from_le_bytes(<span class="self">self</span>.to_ne_bytes())
             }
         }
     )<span class="kw-2">*</span>)
 }
 
-<span class="macro">primitives!</span> {
-    <span class="ident">u8</span> <span class="ident">i8</span>
-    <span class="ident">u16</span> <span class="ident">i16</span>
-    <span class="ident">u32</span> <span class="ident">i32</span>
-    <span class="ident">u64</span> <span class="ident">i64</span>
-    <span class="ident">f32</span> <span class="ident">f64</span>
+<span class="macro">primitives! </span>{
+    u8 i8
+    u16 i16
+    u32 i32
+    u64 i64
+    f32 f64
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::unused_unit</span>)]</span>
-<span class="macro">macro_rules!</span> <span class="ident">tuples</span> {
-    ($(($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">ident</span>)<span class="kw-2">*</span>))<span class="kw-2">*</span>) =&gt; ($(
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_snake_case</span>)]</span>
-        <span class="kw">impl</span> <span class="op">&lt;</span>$(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>:<span class="ident">Endian</span>,)<span class="kw-2">*</span><span class="op">&gt;</span> <span class="ident">Endian</span> <span class="kw">for</span> ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>,)<span class="kw-2">*</span>) {
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::unused_unit</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">into_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-                <span class="kw">let</span> ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>,)<span class="kw-2">*</span>) <span class="op">=</span> <span class="self">self</span>;
-                <span class="comment">// Needed for single element &quot;tuples&quot;.</span>
-                ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>.<span class="ident">into_le</span>(),)<span class="kw-2">*</span>)
+<span class="attribute">#[allow(clippy::unused_unit)]
+</span><span class="macro">macro_rules! </span>tuples {
+    ($(($(<span class="macro-nonterminal">$t</span>:ident)<span class="kw-2">*</span>))<span class="kw-2">*</span>) =&gt; ($(
+        <span class="attribute">#[allow(non_snake_case)]
+        </span><span class="kw">impl </span>&lt;$(<span class="macro-nonterminal">$t</span>:Endian,)<span class="kw-2">*</span>&gt; Endian <span class="kw">for </span>($(<span class="macro-nonterminal">$t</span>,)<span class="kw-2">*</span>) {
+            <span class="attribute">#[allow(clippy::unused_unit)]
+            </span><span class="kw">fn </span>into_le(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+                <span class="kw">let </span>($(<span class="macro-nonterminal">$t</span>,)<span class="kw-2">*</span>) = <span class="self">self</span>;
+                <span class="comment">// Needed for single element &quot;tuples&quot;.
+                </span>($(<span class="macro-nonterminal">$t</span>.into_le(),)<span class="kw-2">*</span>)
             }
 
-            <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::unused_unit</span>)]</span>
-            <span class="kw">fn</span> <span class="ident">from_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-                <span class="kw">let</span> ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>,)<span class="kw-2">*</span>) <span class="op">=</span> <span class="self">self</span>;
-                <span class="comment">// Needed for single element &quot;tuples&quot;.</span>
-                ($(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">t</span>.<span class="ident">from_le</span>(),)<span class="kw-2">*</span>)
+            <span class="attribute">#[allow(clippy::unused_unit)]
+            </span><span class="kw">fn </span>from_le(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+                <span class="kw">let </span>($(<span class="macro-nonterminal">$t</span>,)<span class="kw-2">*</span>) = <span class="self">self</span>;
+                <span class="comment">// Needed for single element &quot;tuples&quot;.
+                </span>($(<span class="macro-nonterminal">$t</span>.from_le(),)<span class="kw-2">*</span>)
             }
         }
     )<span class="kw-2">*</span>)
 }
 
-<span class="macro">tuples!</span> {
+<span class="macro">tuples! </span>{
     ()
-    (<span class="ident">T1</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span> <span class="ident">T8</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span> <span class="ident">T8</span> <span class="ident">T9</span>)
-    (<span class="ident">T1</span> <span class="ident">T2</span> <span class="ident">T3</span> <span class="ident">T4</span> <span class="ident">T5</span> <span class="ident">T6</span> <span class="ident">T7</span> <span class="ident">T8</span> <span class="ident">T9</span> <span class="ident">T10</span>)
+    (T1)
+    (T1 T2)
+    (T1 T2 T3)
+    (T1 T2 T3 T4)
+    (T1 T2 T3 T4 T5)
+    (T1 T2 T3 T4 T5 T6)
+    (T1 T2 T3 T4 T5 T6 T7)
+    (T1 T2 T3 T4 T5 T6 T7 T8)
+    (T1 T2 T3 T4 T5 T6 T7 T8 T9)
+    (T1 T2 T3 T4 T5 T6 T7 T8 T9 T10)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wai_bindgen_wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

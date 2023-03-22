@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bindings/wasix_http_client_v1.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasix_http_client_v1.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/bindings/wasix_http_client_v1.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>wasix_http_client_v1.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_wasix/index.html"><div class="logo-container">
                     <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_wasix/index.html">
                         <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
@@ -675,680 +675,680 @@
 <span id="673">673</span>
 <span id="674">674</span>
 <span id="675">675</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">Get</span>,
-    <span class="ident">Head</span>,
-    <span class="ident">Post</span>,
-    <span class="ident">Put</span>,
-    <span class="ident">Delete</span>,
-    <span class="ident">Connect</span>,
-    <span class="ident">Options</span>,
-    <span class="ident">Trace</span>,
-    <span class="ident">Patch</span>,
-    <span class="ident">Other</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>),
+</pre><pre class="rust"><code><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>Method&lt;<span class="lifetime">&#39;a</span>&gt; {
+    Get,
+    Head,
+    Post,
+    Put,
+    Delete,
+    Connect,
+    Options,
+    Trace,
+    Patch,
+    Other(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str),
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Method::Get</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Get&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Head</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Head&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Post</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Post&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Put</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Put&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Delete</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Delete&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Connect</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Connect&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Options</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Options&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Trace</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Trace&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Patch</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Patch&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">Method::Other</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Method::Other&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>Method&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            Method::Get =&gt; f.debug_tuple(<span class="string">&quot;Method::Get&quot;</span>).finish(),
+            Method::Head =&gt; f.debug_tuple(<span class="string">&quot;Method::Head&quot;</span>).finish(),
+            Method::Post =&gt; f.debug_tuple(<span class="string">&quot;Method::Post&quot;</span>).finish(),
+            Method::Put =&gt; f.debug_tuple(<span class="string">&quot;Method::Put&quot;</span>).finish(),
+            Method::Delete =&gt; f.debug_tuple(<span class="string">&quot;Method::Delete&quot;</span>).finish(),
+            Method::Connect =&gt; f.debug_tuple(<span class="string">&quot;Method::Connect&quot;</span>).finish(),
+            Method::Options =&gt; f.debug_tuple(<span class="string">&quot;Method::Options&quot;</span>).finish(),
+            Method::Trace =&gt; f.debug_tuple(<span class="string">&quot;Method::Trace&quot;</span>).finish(),
+            Method::Patch =&gt; f.debug_tuple(<span class="string">&quot;Method::Patch&quot;</span>).finish(),
+            Method::Other(e) =&gt; f.debug_tuple(<span class="string">&quot;Method::Other&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HeaderParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">key</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
-    <span class="kw">pub</span> <span class="ident">value</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>HeaderParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub </span>key: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    <span class="kw">pub </span>value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">HeaderParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;HeaderParam&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">key</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">value</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>HeaderParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;HeaderParam&quot;</span>)
+            .field(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
+            .field(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.value)
+            .finish()
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HeaderResult</span> {
-    <span class="kw">pub</span> <span class="ident">key</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">value</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>HeaderResult {
+    <span class="kw">pub </span>key: String,
+    <span class="kw">pub </span>value: Vec&lt;u8&gt;,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">HeaderResult</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;HeaderResult&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">key</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">value</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>HeaderResult {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;HeaderResult&quot;</span>)
+            .field(<span class="string">&quot;key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.key)
+            .field(<span class="string">&quot;value&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.value)
+            .finish()
     }
 }
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HeaderListParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">HeaderParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">HeaderListResult</span> <span class="op">=</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">HeaderResult</span><span class="op">&gt;</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Fd</span> <span class="op">=</span> <span class="ident">u32</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">TimeoutMs</span> <span class="op">=</span> <span class="ident">u32</span>;
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RedirectFollow</span> {
-    <span class="kw">pub</span> <span class="ident">max</span>: <span class="ident">u32</span>,
+<span class="kw">pub type </span>HeaderListParam&lt;<span class="lifetime">&#39;a</span>&gt; = Vec&lt;HeaderParam&lt;<span class="lifetime">&#39;a</span>&gt;&gt;;
+<span class="kw">pub type </span>HeaderListResult = Vec&lt;HeaderResult&gt;;
+<span class="kw">pub type </span>Fd = u32;
+<span class="kw">pub type </span>TimeoutMs = u32;
+<span class="attribute">#[repr(C)]
+#[derive(Copy, Clone)]
+</span><span class="kw">pub struct </span>RedirectFollow {
+    <span class="kw">pub </span>max: u32,
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">RedirectFollow</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;RedirectFollow&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;max&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">max</span>)
-            .<span class="ident">finish</span>()
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>RedirectFollow {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;RedirectFollow&quot;</span>)
+            .field(<span class="string">&quot;max&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.max)
+            .finish()
     }
 }
-<span class="kw">impl</span> <span class="ident">wai_bindgen_wasmer::Endian</span> <span class="kw">for</span> <span class="ident">RedirectFollow</span> {
-    <span class="kw">fn</span> <span class="ident">into_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">max</span>: <span class="self">self</span>.<span class="ident">max</span>.<span class="ident">into_le</span>(),
+<span class="kw">impl </span>wai_bindgen_wasmer::Endian <span class="kw">for </span>RedirectFollow {
+    <span class="kw">fn </span>into_le(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            max: <span class="self">self</span>.max.into_le(),
         }
     }
-    <span class="kw">fn</span> <span class="ident">from_le</span>(<span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">max</span>: <span class="self">self</span>.<span class="ident">max</span>.<span class="ident">from_le</span>(),
-        }
-    }
-}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">wai_bindgen_wasmer::AllBytesValid</span> <span class="kw">for</span> <span class="ident">RedirectFollow</span> {}
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RedirectPolicy</span> {
-    <span class="ident">NoFollow</span>,
-    <span class="ident">Follow</span>(<span class="ident">RedirectFollow</span>),
-}
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">RedirectPolicy</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">RedirectPolicy::NoFollow</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;RedirectPolicy::NoFollow&quot;</span>).<span class="ident">finish</span>(),
-            <span class="ident">RedirectPolicy::Follow</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;RedirectPolicy::Follow&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+    <span class="kw">fn </span>from_le(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            max: <span class="self">self</span>.max.from_le(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">BodyParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">Data</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>]),
-    <span class="ident">Fd</span>(<span class="ident">Fd</span>),
+<span class="kw">unsafe impl </span>wai_bindgen_wasmer::AllBytesValid <span class="kw">for </span>RedirectFollow {}
+<span class="attribute">#[derive(Clone, Copy)]
+</span><span class="kw">pub enum </span>RedirectPolicy {
+    NoFollow,
+    Follow(RedirectFollow),
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">BodyParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">BodyParam::Data</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyParam::Data&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
-            <span class="ident">BodyParam::Fd</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyParam::Fd&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>RedirectPolicy {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            RedirectPolicy::NoFollow =&gt; f.debug_tuple(<span class="string">&quot;RedirectPolicy::NoFollow&quot;</span>).finish(),
+            RedirectPolicy::Follow(e) =&gt; f.debug_tuple(<span class="string">&quot;RedirectPolicy::Follow&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">BodyResult</span> {
-    <span class="ident">Data</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
-    <span class="ident">Fd</span>(<span class="ident">Fd</span>),
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>BodyParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    Data(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+    Fd(Fd),
 }
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">BodyResult</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">BodyResult::Data</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyResult::Data&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
-            <span class="ident">BodyResult::Fd</span>(<span class="ident">e</span>) =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;BodyResult::Fd&quot;</span>).<span class="ident">field</span>(<span class="ident">e</span>).<span class="ident">finish</span>(),
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>BodyParam&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            BodyParam::Data(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyParam::Data&quot;</span>).field(e).finish(),
+            BodyParam::Fd(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyParam::Fd&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>,
-    <span class="kw">pub</span> <span class="ident">method</span>: <span class="ident">Method</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">headers</span>: <span class="ident">HeaderListParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BodyParam</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">timeout</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TimeoutMs</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">redirect_policy</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">RedirectPolicy</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub enum </span>BodyResult {
+    Data(Vec&lt;u8&gt;),
+    Fd(Fd),
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Request&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;url&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">url</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;method&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">method</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">headers</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">body</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;timeout&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">timeout</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;redirect-policy&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">redirect_policy</span>)
-            .<span class="ident">finish</span>()
-    }
-}
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Response</span> {
-    <span class="kw">pub</span> <span class="ident">status</span>: <span class="ident">u16</span>,
-    <span class="kw">pub</span> <span class="ident">headers</span>: <span class="ident">HeaderListResult</span>,
-    <span class="kw">pub</span> <span class="ident">body</span>: <span class="ident">BodyResult</span>,
-    <span class="kw">pub</span> <span class="ident">redirect_urls</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-}
-<span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Response</span> {
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Response&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">status</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">headers</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">body</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;redirect-urls&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">redirect_urls</span>)
-            .<span class="ident">finish</span>()
-    }
-}
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">WasixHttpClientV1</span>: <span class="ident">Sized</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> {
-    <span class="kw">type</span> <span class="ident">Client</span>: <span class="ident">std::fmt::Debug</span>;
-    <span class="kw">fn</span> <span class="ident">client_new</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::Client</span>, <span class="ident">String</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">client_send</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">self_</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::Client</span>,
-        <span class="ident">request</span>: <span class="ident">Request</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span>, <span class="ident">String</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">drop_client</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">state</span>: <span class="ident"><span class="self">Self</span>::Client</span>) {
-        <span class="ident">drop</span>(<span class="ident">state</span>);
-    }
-}
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasixHttpClientV1Tables</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">client_table</span>: <span class="ident">wai_bindgen_wasmer::Table</span><span class="op">&lt;</span><span class="ident">T::Client</span><span class="op">&gt;</span>,
-}
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span><span class="op">&gt;</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WasixHttpClientV1Tables</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">client_table</span>: <span class="ident">Default::default</span>(),
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>BodyResult {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            BodyResult::Data(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyResult::Data&quot;</span>).field(e).finish(),
+            BodyResult::Fd(e) =&gt; f.debug_tuple(<span class="string">&quot;BodyResult::Fd&quot;</span>).field(e).finish(),
         }
     }
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">WasixHttpClientV1Tables</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::default</span>()
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>Request&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub </span>url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    <span class="kw">pub </span>method: Method&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>headers: HeaderListParam&lt;<span class="lifetime">&#39;a</span>&gt;,
+    <span class="kw">pub </span>body: <span class="prelude-ty">Option</span>&lt;BodyParam&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+    <span class="kw">pub </span>timeout: <span class="prelude-ty">Option</span>&lt;TimeoutMs&gt;,
+    <span class="kw">pub </span>redirect_policy: <span class="prelude-ty">Option</span>&lt;RedirectPolicy&gt;,
+}
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; core::fmt::Debug <span class="kw">for </span>Request&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Request&quot;</span>)
+            .field(<span class="string">&quot;url&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.url)
+            .field(<span class="string">&quot;method&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.method)
+            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.headers)
+            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.body)
+            .field(<span class="string">&quot;timeout&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.timeout)
+            .field(<span class="string">&quot;redirect-policy&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.redirect_policy)
+            .finish()
     }
 }
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LazyInitialized</span> {
-    <span class="ident">memory</span>: <span class="ident">wasmer::Memory</span>,
-    <span class="ident">func_canonical_abi_realloc</span>: <span class="ident">wasmer::TypedFunction</span><span class="op">&lt;</span>(<span class="ident">i32</span>, <span class="ident">i32</span>, <span class="ident">i32</span>, <span class="ident">i32</span>), <span class="ident">i32</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>Response {
+    <span class="kw">pub </span>status: u16,
+    <span class="kw">pub </span>headers: HeaderListResult,
+    <span class="kw">pub </span>body: BodyResult,
+    <span class="kw">pub </span>redirect_urls: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
 }
-<span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;The returned initializer function must be called
-      with the instance and the store before starting the runtime&quot;</span>]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_to_imports</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(
-    <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">wasmer::AsStoreMut</span>,
-    <span class="ident">imports</span>: <span class="kw-2">&amp;mut</span> <span class="ident">wasmer::Imports</span>,
-    <span class="ident">data</span>: <span class="ident">T</span>,
-) -&gt; <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer::Instance</span>, <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">wasmer::AsStoreRef</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span>,
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Response {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        f.debug_struct(<span class="string">&quot;Response&quot;</span>)
+            .field(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.status)
+            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.headers)
+            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.body)
+            .field(<span class="string">&quot;redirect-urls&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.redirect_urls)
+            .finish()
+    }
+}
+<span class="kw">pub trait </span>WasixHttpClientV1: Sized + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="kw">type </span>Client: std::fmt::Debug;
+    <span class="kw">fn </span>client_new(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Client, String&gt;;
+    <span class="kw">fn </span>client_send(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        self_: <span class="kw-2">&amp;</span><span class="self">Self</span>::Client,
+        request: Request&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Response, String&gt;;
+    <span class="kw">fn </span>drop_client(<span class="kw-2">&amp;mut </span><span class="self">self</span>, state: <span class="self">Self</span>::Client) {
+        drop(state);
+    }
+}
+<span class="kw">pub struct </span>WasixHttpClientV1Tables&lt;T: WasixHttpClientV1&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) client_table: wai_bindgen_wasmer::Table&lt;T::Client&gt;,
+}
+<span class="kw">impl</span>&lt;T: WasixHttpClientV1&gt; Default <span class="kw">for </span>WasixHttpClientV1Tables&lt;T&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            client_table: Default::default(),
+        }
+    }
+}
+<span class="kw">impl</span>&lt;T: WasixHttpClientV1&gt; Clone <span class="kw">for </span>WasixHttpClientV1Tables&lt;T&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::default()
+    }
+}
+<span class="kw">pub struct </span>LazyInitialized {
+    memory: wasmer::Memory,
+    func_canonical_abi_realloc: wasmer::TypedFunction&lt;(i32, i32, i32, i32), i32&gt;,
+}
+<span class="attribute">#[must_use = <span class="string">&quot;The returned initializer function must be called
+      with the instance and the store before starting the runtime&quot;</span>]
+</span><span class="kw">pub fn </span>add_to_imports&lt;T&gt;(
+    store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut,
+    imports: <span class="kw-2">&amp;mut </span>wasmer::Imports,
+    data: T,
+) -&gt; Box&lt;<span class="kw">dyn </span>FnOnce(<span class="kw-2">&amp;</span>wasmer::Instance, <span class="kw-2">&amp;</span><span class="kw">dyn </span>wasmer::AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;&gt;
+<span class="kw">where
+    </span>T: WasixHttpClientV1,
 {
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-    <span class="kw">struct</span> <span class="ident">EnvWrapper</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span><span class="op">&gt;</span> {
-        <span class="ident">data</span>: <span class="ident">T</span>,
-        <span class="ident">tables</span>: <span class="ident">std::rc::Rc</span><span class="op">&lt;</span><span class="ident">core::cell::RefCell</span><span class="op">&lt;</span><span class="ident">WasixHttpClientV1Tables</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">lazy</span>: <span class="ident">std::rc::Rc</span><span class="op">&lt;</span><span class="ident">OnceCell</span><span class="op">&lt;</span><span class="ident">LazyInitialized</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="attribute">#[derive(Clone)]
+    </span><span class="kw">struct </span>EnvWrapper&lt;T: WasixHttpClientV1&gt; {
+        data: T,
+        tables: std::rc::Rc&lt;core::cell::RefCell&lt;WasixHttpClientV1Tables&lt;T&gt;&gt;&gt;,
+        lazy: std::rc::Rc&lt;OnceCell&lt;LazyInitialized&gt;&gt;,
     }
-    <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span><span class="op">&gt;</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">EnvWrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
-    <span class="kw">unsafe</span> <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasixHttpClientV1</span><span class="op">&gt;</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">EnvWrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {}
-    <span class="kw">let</span> <span class="ident">lazy</span> <span class="op">=</span> <span class="ident">std::rc::Rc::new</span>(<span class="ident">OnceCell::new</span>());
-    <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">EnvWrapper</span> {
-        <span class="ident">data</span>,
-        <span class="ident">tables</span>: <span class="ident">std::rc::Rc::default</span>(),
-        <span class="ident">lazy</span>: <span class="ident">std::rc::Rc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">lazy</span>),
+    <span class="kw">unsafe impl</span>&lt;T: WasixHttpClientV1&gt; Send <span class="kw">for </span>EnvWrapper&lt;T&gt; {}
+    <span class="kw">unsafe impl</span>&lt;T: WasixHttpClientV1&gt; Sync <span class="kw">for </span>EnvWrapper&lt;T&gt; {}
+    <span class="kw">let </span>lazy = std::rc::Rc::new(OnceCell::new());
+    <span class="kw">let </span>env = EnvWrapper {
+        data,
+        tables: std::rc::Rc::default(),
+        lazy: std::rc::Rc::clone(<span class="kw-2">&amp;</span>lazy),
     };
-    <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">wasmer::FunctionEnv::new</span>(<span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">store</span>, <span class="ident">env</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">exports</span> <span class="op">=</span> <span class="ident">wasmer::Exports::new</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>();
-    <span class="ident">exports</span>.<span class="ident">insert</span>(
+    <span class="kw">let </span>env = wasmer::FunctionEnv::new(<span class="kw-2">&amp;mut *</span>store, env);
+    <span class="kw">let </span><span class="kw-2">mut </span>exports = wasmer::Exports::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>store = store.as_store_mut();
+    exports.insert(
         <span class="string">&quot;client::new&quot;</span>,
-        <span class="ident">wasmer::Function::new_typed_with_env</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>,
-            <span class="kw-2">&amp;</span><span class="ident">env</span>,
-            <span class="kw">move</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">store</span>: <span class="ident">wasmer::FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EnvWrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-                  <span class="ident">arg0</span>: <span class="ident">i32</span><span class="op">|</span>
-                  -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">wasmer::RuntimeError</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">wai_bindgen_wasmer::tracing::span!</span>(
-                    <span class="ident">wai_bindgen_wasmer::tracing::Level::TRACE</span>,
+        wasmer::Function::new_typed_with_env(
+            <span class="kw-2">&amp;mut </span>store,
+            <span class="kw-2">&amp;</span>env,
+            <span class="kw">move </span>|<span class="kw-2">mut </span>store: wasmer::FunctionEnvMut&lt;EnvWrapper&lt;T&gt;&gt;,
+                  arg0: i32|
+                  -&gt; <span class="prelude-ty">Result</span>&lt;(), wasmer::RuntimeError&gt; {
+                <span class="kw">let </span>span = <span class="macro">wai_bindgen_wasmer::tracing::span!</span>(
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
                     <span class="string">&quot;wai-bindgen abi&quot;</span>,
-                    <span class="ident">module</span> <span class="op">=</span> <span class="string">&quot;wasix_http_client_v1&quot;</span>,
-                    <span class="ident">function</span> <span class="op">=</span> <span class="string">&quot;client::new&quot;</span>,
+                    module = <span class="string">&quot;wasix_http_client_v1&quot;</span>,
+                    function = <span class="string">&quot;client::new&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">_enter</span> <span class="op">=</span> <span class="ident">span</span>.<span class="ident">enter</span>();
-                <span class="kw">let</span> <span class="ident">func_canonical_abi_realloc</span> <span class="op">=</span> <span class="ident">store</span>
-                    .<span class="ident">data</span>()
-                    .<span class="ident">lazy</span>
-                    .<span class="ident">get</span>()
-                    .<span class="ident">unwrap</span>()
-                    .<span class="ident">func_canonical_abi_realloc</span>
-                    .<span class="ident">clone</span>();
-                <span class="kw">let</span> <span class="ident">_memory</span>: <span class="ident">wasmer::Memory</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">data</span>().<span class="ident">lazy</span>.<span class="ident">get</span>().<span class="ident">unwrap</span>().<span class="ident">memory</span>.<span class="ident">clone</span>();
-                <span class="kw">let</span> <span class="ident">data_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">data_mut</span>();
-                <span class="kw">let</span> <span class="ident">tables</span> <span class="op">=</span> <span class="ident">data_mut</span>.<span class="ident">tables</span>.<span class="ident">borrow_mut</span>();
-                <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">data_mut</span>.<span class="ident">data</span>;
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">host</span>.<span class="ident">client_new</span>();
-                <span class="ident">drop</span>(<span class="ident">tables</span>);
+                <span class="kw">let </span>_enter = span.enter();
+                <span class="kw">let </span>func_canonical_abi_realloc = store
+                    .data()
+                    .lazy
+                    .get()
+                    .unwrap()
+                    .func_canonical_abi_realloc
+                    .clone();
+                <span class="kw">let </span>_memory: wasmer::Memory = store.data().lazy.get().unwrap().memory.clone();
+                <span class="kw">let </span>data_mut = store.data_mut();
+                <span class="kw">let </span>tables = data_mut.tables.borrow_mut();
+                <span class="kw">let </span>host = <span class="kw-2">&amp;mut </span>data_mut.data;
+                <span class="kw">let </span>result = host.client_new();
+                drop(tables);
                 <span class="macro">wai_bindgen_wasmer::tracing::event!</span>(
-                    <span class="ident">wai_bindgen_wasmer::tracing::Level::TRACE</span>,
-                    <span class="ident">result</span> <span class="op">=</span> <span class="ident">wai_bindgen_wasmer::tracing::field::debug</span>(<span class="kw-2">&amp;</span><span class="ident">result</span>),
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    result = wai_bindgen_wasmer::tracing::field::debug(<span class="kw-2">&amp;</span>result),
                 );
-                <span class="kw">match</span> <span class="ident">result</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>({
-                            <span class="kw">let</span> <span class="ident">data_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">data_mut</span>();
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tables</span> <span class="op">=</span> <span class="ident">data_mut</span>.<span class="ident">tables</span>.<span class="ident">borrow_mut</span>();
-                            <span class="ident">tables</span>.<span class="ident">client_table</span>.<span class="ident">insert</span>(<span class="ident">e</span>) <span class="kw">as</span> <span class="ident">i32</span>
+                <span class="kw">match </span>result {
+                    <span class="prelude-val">Ok</span>(e) =&gt; {
+                        <span class="kw">let </span>val = wai_bindgen_wasmer::rt::as_i32({
+                            <span class="kw">let </span>data_mut = store.data_mut();
+                            <span class="kw">let </span><span class="kw-2">mut </span>tables = data_mut.tables.borrow_mut();
+                            tables.client_table.insert(e) <span class="kw">as </span>i32
                         });
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>
-                            .<span class="ident">store</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">0</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">4</span>, <span class="ident">val</span>)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg0 + <span class="number">0</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">0i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                        caller_memory.store(arg0 + <span class="number">4</span>, val)<span class="question-mark">?</span>;
                     }
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>
-                            .<span class="ident">store</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">0</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">vec0</span> <span class="op">=</span> <span class="ident">e</span>;
-                        <span class="kw">let</span> <span class="ident">ptr0</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg0 + <span class="number">0</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">1i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>vec0 = e;
+                        <span class="kw">let </span>ptr0 = func_canonical_abi_realloc.call(
+                            <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                             <span class="number">0</span>,
                             <span class="number">0</span>,
                             <span class="number">1</span>,
-                            <span class="ident">vec0</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                            vec0.len() <span class="kw">as </span>i32,
                         )<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>.<span class="ident">store_many</span>(<span class="ident">ptr0</span>, <span class="ident">vec0</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
-                        <span class="ident">caller_memory</span>
-                            .<span class="ident">store</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">8</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">vec0</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>))<span class="question-mark">?</span>;
-                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">4</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">ptr0</span>))<span class="question-mark">?</span>;
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory.store_many(ptr0, vec0.as_bytes())<span class="question-mark">?</span>;
+                        caller_memory
+                            .store(arg0 + <span class="number">8</span>, wai_bindgen_wasmer::rt::as_i32(vec0.len() <span class="kw">as </span>i32))<span class="question-mark">?</span>;
+                        caller_memory.store(arg0 + <span class="number">4</span>, wai_bindgen_wasmer::rt::as_i32(ptr0))<span class="question-mark">?</span>;
                     }
                 };
                 <span class="prelude-val">Ok</span>(())
             },
         ),
     );
-    <span class="ident">exports</span>.<span class="ident">insert</span>(
+    exports.insert(
         <span class="string">&quot;client::send&quot;</span>,
-        <span class="ident">wasmer::Function::new_typed_with_env</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>,
-            <span class="kw-2">&amp;</span><span class="ident">env</span>,
-            <span class="kw">move</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">store</span>: <span class="ident">wasmer::FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EnvWrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-                  <span class="ident">arg0</span>: <span class="ident">i32</span>,
-                  <span class="ident">arg1</span>: <span class="ident">i32</span><span class="op">|</span>
-                  -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">wasmer::RuntimeError</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">span</span> <span class="op">=</span> <span class="macro">wai_bindgen_wasmer::tracing::span!</span>(
-                    <span class="ident">wai_bindgen_wasmer::tracing::Level::TRACE</span>,
+        wasmer::Function::new_typed_with_env(
+            <span class="kw-2">&amp;mut </span>store,
+            <span class="kw-2">&amp;</span>env,
+            <span class="kw">move </span>|<span class="kw-2">mut </span>store: wasmer::FunctionEnvMut&lt;EnvWrapper&lt;T&gt;&gt;,
+                  arg0: i32,
+                  arg1: i32|
+                  -&gt; <span class="prelude-ty">Result</span>&lt;(), wasmer::RuntimeError&gt; {
+                <span class="kw">let </span>span = <span class="macro">wai_bindgen_wasmer::tracing::span!</span>(
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
                     <span class="string">&quot;wai-bindgen abi&quot;</span>,
-                    <span class="ident">module</span> <span class="op">=</span> <span class="string">&quot;wasix_http_client_v1&quot;</span>,
-                    <span class="ident">function</span> <span class="op">=</span> <span class="string">&quot;client::send&quot;</span>,
+                    module = <span class="string">&quot;wasix_http_client_v1&quot;</span>,
+                    function = <span class="string">&quot;client::send&quot;</span>,
                 );
-                <span class="kw">let</span> <span class="ident">_enter</span> <span class="op">=</span> <span class="ident">span</span>.<span class="ident">enter</span>();
-                <span class="kw">let</span> <span class="ident">func_canonical_abi_realloc</span> <span class="op">=</span> <span class="ident">store</span>
-                    .<span class="ident">data</span>()
-                    .<span class="ident">lazy</span>
-                    .<span class="ident">get</span>()
-                    .<span class="ident">unwrap</span>()
-                    .<span class="ident">func_canonical_abi_realloc</span>
-                    .<span class="ident">clone</span>();
-                <span class="kw">let</span> (<span class="ident">data_mut</span>, <span class="ident">alt_store</span>) <span class="op">=</span> <span class="ident">store</span>.<span class="ident">data_and_store_mut</span>();
-                <span class="kw">let</span> <span class="ident">_memory</span>: <span class="ident">wasmer::Memory</span> <span class="op">=</span> <span class="ident">data_mut</span>.<span class="ident">lazy</span>.<span class="ident">get</span>().<span class="ident">unwrap</span>().<span class="ident">memory</span>.<span class="ident">clone</span>();
-                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">alt_store</span>);
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">_bc</span> <span class="op">=</span> <span class="ident">wai_bindgen_wasmer::BorrowChecker::new</span>(<span class="kw">unsafe</span> {
-                    <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>()
+                <span class="kw">let </span>_enter = span.enter();
+                <span class="kw">let </span>func_canonical_abi_realloc = store
+                    .data()
+                    .lazy
+                    .get()
+                    .unwrap()
+                    .func_canonical_abi_realloc
+                    .clone();
+                <span class="kw">let </span>(data_mut, alt_store) = store.data_and_store_mut();
+                <span class="kw">let </span>_memory: wasmer::Memory = data_mut.lazy.get().unwrap().memory.clone();
+                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>alt_store);
+                <span class="kw">let </span><span class="kw-2">mut </span>_bc = wai_bindgen_wasmer::BorrowChecker::new(<span class="kw">unsafe </span>{
+                    _memory_view.data_unchecked_mut()
                 });
-                <span class="kw">let</span> <span class="ident">tables</span> <span class="op">=</span> <span class="ident">data_mut</span>.<span class="ident">tables</span>.<span class="ident">borrow_mut</span>();
-                <span class="kw">let</span> <span class="ident">load0</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">0</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">load1</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">4</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">load2</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">8</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">ptr3</span> <span class="op">=</span> <span class="ident">load1</span>;
-                <span class="kw">let</span> <span class="ident">len3</span> <span class="op">=</span> <span class="ident">load2</span>;
-                <span class="kw">let</span> <span class="ident">load4</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">12</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">load8</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">24</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">load9</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">28</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">len16</span> <span class="op">=</span> <span class="ident">load9</span>;
-                <span class="kw">let</span> <span class="ident">base16</span> <span class="op">=</span> <span class="ident">load8</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result16</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">len16</span> <span class="kw">as</span> <span class="ident">usize</span>);
-                <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">len16</span> {
-                    <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">base16</span> <span class="op">+</span> <span class="ident">i</span> <span class="op">*</span> <span class="number">16</span>;
-                    <span class="ident">result16</span>.<span class="ident">push</span>({
-                        <span class="kw">let</span> <span class="ident">load10</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">base</span> <span class="op">+</span> <span class="number">0</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">load11</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">base</span> <span class="op">+</span> <span class="number">4</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">ptr12</span> <span class="op">=</span> <span class="ident">load10</span>;
-                        <span class="kw">let</span> <span class="ident">len12</span> <span class="op">=</span> <span class="ident">load11</span>;
-                        <span class="kw">let</span> <span class="ident">load13</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">base</span> <span class="op">+</span> <span class="number">8</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">load14</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">base</span> <span class="op">+</span> <span class="number">12</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">ptr15</span> <span class="op">=</span> <span class="ident">load13</span>;
-                        <span class="kw">let</span> <span class="ident">len15</span> <span class="op">=</span> <span class="ident">load14</span>;
-                        <span class="ident">HeaderParam</span> {
-                            <span class="ident">key</span>: <span class="ident">_bc</span>.<span class="ident">slice_str</span>(<span class="ident">ptr12</span>, <span class="ident">len12</span>)<span class="question-mark">?</span>,
-                            <span class="ident">value</span>: <span class="ident">_bc</span>.<span class="ident">slice</span>(<span class="ident">ptr15</span>, <span class="ident">len15</span>)<span class="question-mark">?</span>,
+                <span class="kw">let </span>tables = data_mut.tables.borrow_mut();
+                <span class="kw">let </span>load0 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">0</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>load1 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">4</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>load2 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">8</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>ptr3 = load1;
+                <span class="kw">let </span>len3 = load2;
+                <span class="kw">let </span>load4 = _bc.load::&lt;u8&gt;(arg0 + <span class="number">12</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>load8 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">24</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>load9 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">28</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>len16 = load9;
+                <span class="kw">let </span>base16 = load8;
+                <span class="kw">let </span><span class="kw-2">mut </span>result16 = Vec::with_capacity(len16 <span class="kw">as </span>usize);
+                <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..len16 {
+                    <span class="kw">let </span>base = base16 + i * <span class="number">16</span>;
+                    result16.push({
+                        <span class="kw">let </span>load10 = _bc.load::&lt;i32&gt;(base + <span class="number">0</span>)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>load11 = _bc.load::&lt;i32&gt;(base + <span class="number">4</span>)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>ptr12 = load10;
+                        <span class="kw">let </span>len12 = load11;
+                        <span class="kw">let </span>load13 = _bc.load::&lt;i32&gt;(base + <span class="number">8</span>)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>load14 = _bc.load::&lt;i32&gt;(base + <span class="number">12</span>)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>ptr15 = load13;
+                        <span class="kw">let </span>len15 = load14;
+                        HeaderParam {
+                            key: _bc.slice_str(ptr12, len12)<span class="question-mark">?</span>,
+                            value: _bc.slice(ptr15, len15)<span class="question-mark">?</span>,
                         }
                     });
                 }
-                <span class="kw">let</span> <span class="ident">load17</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">32</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">load23</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">48</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">load25</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">56</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">param0</span> <span class="op">=</span> <span class="ident">tables</span>
-                    .<span class="ident">client_table</span>
-                    .<span class="ident">get</span>((<span class="ident">load0</span>) <span class="kw">as</span> <span class="ident">u32</span>)
-                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">wasmer::RuntimeError::new</span>(<span class="string">&quot;invalid handle index&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">param1</span> <span class="op">=</span> <span class="ident">Request</span> {
-                    <span class="ident">url</span>: <span class="ident">_bc</span>.<span class="ident">slice_str</span>(<span class="ident">ptr3</span>, <span class="ident">len3</span>)<span class="question-mark">?</span>,
-                    <span class="ident">method</span>: <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="ident">load4</span>) {
-                        <span class="number">0</span> =&gt; <span class="ident">Method::Get</span>,
-                        <span class="number">1</span> =&gt; <span class="ident">Method::Head</span>,
-                        <span class="number">2</span> =&gt; <span class="ident">Method::Post</span>,
-                        <span class="number">3</span> =&gt; <span class="ident">Method::Put</span>,
-                        <span class="number">4</span> =&gt; <span class="ident">Method::Delete</span>,
-                        <span class="number">5</span> =&gt; <span class="ident">Method::Connect</span>,
-                        <span class="number">6</span> =&gt; <span class="ident">Method::Options</span>,
-                        <span class="number">7</span> =&gt; <span class="ident">Method::Trace</span>,
-                        <span class="number">8</span> =&gt; <span class="ident">Method::Patch</span>,
-                        <span class="number">9</span> =&gt; <span class="ident">Method::Other</span>({
-                            <span class="kw">let</span> <span class="ident">load5</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">16</span>)<span class="question-mark">?</span>;
-                            <span class="kw">let</span> <span class="ident">load6</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">20</span>)<span class="question-mark">?</span>;
-                            <span class="kw">let</span> <span class="ident">ptr7</span> <span class="op">=</span> <span class="ident">load5</span>;
-                            <span class="kw">let</span> <span class="ident">len7</span> <span class="op">=</span> <span class="ident">load6</span>;
-                            <span class="ident">_bc</span>.<span class="ident">slice_str</span>(<span class="ident">ptr7</span>, <span class="ident">len7</span>)<span class="question-mark">?</span>
-                        }),
-                        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">invalid_variant</span>(<span class="string">&quot;Method&quot;</span>)),
+                <span class="kw">let </span>load17 = _bc.load::&lt;u8&gt;(arg0 + <span class="number">32</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>load23 = _bc.load::&lt;u8&gt;(arg0 + <span class="number">48</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>load25 = _bc.load::&lt;u8&gt;(arg0 + <span class="number">56</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>param0 = tables
+                    .client_table
+                    .get((load0) <span class="kw">as </span>u32)
+                    .ok_or_else(|| wasmer::RuntimeError::new(<span class="string">&quot;invalid handle index&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let </span>param1 = Request {
+                    url: _bc.slice_str(ptr3, len3)<span class="question-mark">?</span>,
+                    method: <span class="kw">match </span>i32::from(load4) {
+                        <span class="number">0 </span>=&gt; Method::Get,
+                        <span class="number">1 </span>=&gt; Method::Head,
+                        <span class="number">2 </span>=&gt; Method::Post,
+                        <span class="number">3 </span>=&gt; Method::Put,
+                        <span class="number">4 </span>=&gt; Method::Delete,
+                        <span class="number">5 </span>=&gt; Method::Connect,
+                        <span class="number">6 </span>=&gt; Method::Options,
+                        <span class="number">7 </span>=&gt; Method::Trace,
+                        <span class="number">8 </span>=&gt; Method::Patch,
+                        <span class="number">9 </span>=&gt; Method::Other({
+                            <span class="kw">let </span>load5 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">16</span>)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>load6 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">20</span>)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>ptr7 = load5;
+                            <span class="kw">let </span>len7 = load6;
+                            _bc.slice_str(ptr7, len7)<span class="question-mark">?
+                        </span>}),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_variant(<span class="string">&quot;Method&quot;</span>)),
                     },
-                    <span class="ident">headers</span>: <span class="ident">result16</span>,
-                    <span class="ident">body</span>: <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="ident">load17</span>) {
-                        <span class="number">0</span> =&gt; <span class="prelude-val">None</span>,
-                        <span class="number">1</span> =&gt; <span class="prelude-val">Some</span>({
-                            <span class="kw">let</span> <span class="ident">load18</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">36</span>)<span class="question-mark">?</span>;
-                            <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="ident">load18</span>) {
-                                <span class="number">0</span> =&gt; <span class="ident">BodyParam::Data</span>({
-                                    <span class="kw">let</span> <span class="ident">load19</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">40</span>)<span class="question-mark">?</span>;
-                                    <span class="kw">let</span> <span class="ident">load20</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">44</span>)<span class="question-mark">?</span>;
-                                    <span class="kw">let</span> <span class="ident">ptr21</span> <span class="op">=</span> <span class="ident">load19</span>;
-                                    <span class="kw">let</span> <span class="ident">len21</span> <span class="op">=</span> <span class="ident">load20</span>;
-                                    <span class="ident">_bc</span>.<span class="ident">slice</span>(<span class="ident">ptr21</span>, <span class="ident">len21</span>)<span class="question-mark">?</span>
+                    headers: result16,
+                    body: <span class="kw">match </span>i32::from(load17) {
+                        <span class="number">0 </span>=&gt; <span class="prelude-val">None</span>,
+                        <span class="number">1 </span>=&gt; <span class="prelude-val">Some</span>({
+                            <span class="kw">let </span>load18 = _bc.load::&lt;u8&gt;(arg0 + <span class="number">36</span>)<span class="question-mark">?</span>;
+                            <span class="kw">match </span>i32::from(load18) {
+                                <span class="number">0 </span>=&gt; BodyParam::Data({
+                                    <span class="kw">let </span>load19 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">40</span>)<span class="question-mark">?</span>;
+                                    <span class="kw">let </span>load20 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">44</span>)<span class="question-mark">?</span>;
+                                    <span class="kw">let </span>ptr21 = load19;
+                                    <span class="kw">let </span>len21 = load20;
+                                    _bc.slice(ptr21, len21)<span class="question-mark">?
+                                </span>}),
+                                <span class="number">1 </span>=&gt; BodyParam::Fd({
+                                    <span class="kw">let </span>load22 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">40</span>)<span class="question-mark">?</span>;
+                                    load22 <span class="kw">as </span>u32
                                 }),
-                                <span class="number">1</span> =&gt; <span class="ident">BodyParam::Fd</span>({
-                                    <span class="kw">let</span> <span class="ident">load22</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">40</span>)<span class="question-mark">?</span>;
-                                    <span class="ident">load22</span> <span class="kw">as</span> <span class="ident">u32</span>
-                                }),
-                                <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">invalid_variant</span>(<span class="string">&quot;BodyParam&quot;</span>)),
+                                <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_variant(<span class="string">&quot;BodyParam&quot;</span>)),
                             }
                         }),
-                        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">invalid_variant</span>(<span class="string">&quot;option&quot;</span>)),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_variant(<span class="string">&quot;option&quot;</span>)),
                     },
-                    <span class="ident">timeout</span>: <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="ident">load23</span>) {
-                        <span class="number">0</span> =&gt; <span class="prelude-val">None</span>,
-                        <span class="number">1</span> =&gt; <span class="prelude-val">Some</span>({
-                            <span class="kw">let</span> <span class="ident">load24</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">52</span>)<span class="question-mark">?</span>;
-                            <span class="ident">load24</span> <span class="kw">as</span> <span class="ident">u32</span>
+                    timeout: <span class="kw">match </span>i32::from(load23) {
+                        <span class="number">0 </span>=&gt; <span class="prelude-val">None</span>,
+                        <span class="number">1 </span>=&gt; <span class="prelude-val">Some</span>({
+                            <span class="kw">let </span>load24 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">52</span>)<span class="question-mark">?</span>;
+                            load24 <span class="kw">as </span>u32
                         }),
-                        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">invalid_variant</span>(<span class="string">&quot;option&quot;</span>)),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_variant(<span class="string">&quot;option&quot;</span>)),
                     },
-                    <span class="ident">redirect_policy</span>: <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="ident">load25</span>) {
-                        <span class="number">0</span> =&gt; <span class="prelude-val">None</span>,
-                        <span class="number">1</span> =&gt; <span class="prelude-val">Some</span>({
-                            <span class="kw">let</span> <span class="ident">load26</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">60</span>)<span class="question-mark">?</span>;
-                            <span class="kw">match</span> <span class="ident">i32::from</span>(<span class="ident">load26</span>) {
-                                <span class="number">0</span> =&gt; <span class="ident">RedirectPolicy::NoFollow</span>,
-                                <span class="number">1</span> =&gt; <span class="ident">RedirectPolicy::Follow</span>({
-                                    <span class="kw">let</span> <span class="ident">load27</span> <span class="op">=</span> <span class="ident">_bc</span>.<span class="ident">load</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="ident">arg0</span> <span class="op">+</span> <span class="number">64</span>)<span class="question-mark">?</span>;
-                                    <span class="ident">RedirectFollow</span> { <span class="ident">max</span>: <span class="ident">load27</span> <span class="kw">as</span> <span class="ident">u32</span> }
+                    redirect_policy: <span class="kw">match </span>i32::from(load25) {
+                        <span class="number">0 </span>=&gt; <span class="prelude-val">None</span>,
+                        <span class="number">1 </span>=&gt; <span class="prelude-val">Some</span>({
+                            <span class="kw">let </span>load26 = _bc.load::&lt;u8&gt;(arg0 + <span class="number">60</span>)<span class="question-mark">?</span>;
+                            <span class="kw">match </span>i32::from(load26) {
+                                <span class="number">0 </span>=&gt; RedirectPolicy::NoFollow,
+                                <span class="number">1 </span>=&gt; RedirectPolicy::Follow({
+                                    <span class="kw">let </span>load27 = _bc.load::&lt;i32&gt;(arg0 + <span class="number">64</span>)<span class="question-mark">?</span>;
+                                    RedirectFollow { max: load27 <span class="kw">as </span>u32 }
                                 }),
-                                <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">invalid_variant</span>(<span class="string">&quot;RedirectPolicy&quot;</span>)),
+                                <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_variant(<span class="string">&quot;RedirectPolicy&quot;</span>)),
                             }
                         }),
-                        <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">invalid_variant</span>(<span class="string">&quot;option&quot;</span>)),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(invalid_variant(<span class="string">&quot;option&quot;</span>)),
                     },
                 };
                 <span class="macro">wai_bindgen_wasmer::tracing::event!</span>(
-                    <span class="ident">wai_bindgen_wasmer::tracing::Level::TRACE</span>,
-                    <span class="ident">self_</span> <span class="op">=</span> <span class="ident">wai_bindgen_wasmer::tracing::field::debug</span>(<span class="kw-2">&amp;</span><span class="ident">param0</span>),
-                    <span class="ident">request</span> <span class="op">=</span> <span class="ident">wai_bindgen_wasmer::tracing::field::debug</span>(<span class="kw-2">&amp;</span><span class="ident">param1</span>),
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    self_ = wai_bindgen_wasmer::tracing::field::debug(<span class="kw-2">&amp;</span>param0),
+                    request = wai_bindgen_wasmer::tracing::field::debug(<span class="kw-2">&amp;</span>param1),
                 );
-                <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">data_mut</span>.<span class="ident">data</span>;
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">host</span>.<span class="ident">client_send</span>(<span class="ident">param0</span>, <span class="ident">param1</span>);
-                <span class="ident">drop</span>(<span class="ident">tables</span>);
+                <span class="kw">let </span>host = <span class="kw-2">&amp;mut </span>data_mut.data;
+                <span class="kw">let </span>result = host.client_send(param0, param1);
+                drop(tables);
                 <span class="macro">wai_bindgen_wasmer::tracing::event!</span>(
-                    <span class="ident">wai_bindgen_wasmer::tracing::Level::TRACE</span>,
-                    <span class="ident">result</span> <span class="op">=</span> <span class="ident">wai_bindgen_wasmer::tracing::field::debug</span>(<span class="kw-2">&amp;</span><span class="ident">result</span>),
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    result = wai_bindgen_wasmer::tracing::field::debug(<span class="kw-2">&amp;</span>result),
                 );
-                <span class="kw">match</span> <span class="ident">result</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>
-                            .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">0</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">Response</span> {
-                            <span class="ident">status</span>: <span class="ident">status28</span>,
-                            <span class="ident">headers</span>: <span class="ident">headers28</span>,
-                            <span class="ident">body</span>: <span class="ident">body28</span>,
-                            <span class="ident">redirect_urls</span>: <span class="ident">redirect_urls28</span>,
-                        } <span class="op">=</span> <span class="ident">e</span>;
-                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                            <span class="ident">arg1</span> <span class="op">+</span> <span class="number">4</span>,
-                            <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">status28</span>))
-                                <span class="kw">as</span> <span class="ident">u16</span>,
+                <span class="kw">match </span>result {
+                    <span class="prelude-val">Ok</span>(e) =&gt; {
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg1 + <span class="number">0</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">0i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>Response {
+                            status: status28,
+                            headers: headers28,
+                            body: body28,
+                            redirect_urls: redirect_urls28,
+                        } = e;
+                        caller_memory.store(
+                            arg1 + <span class="number">4</span>,
+                            wai_bindgen_wasmer::rt::as_i32(wai_bindgen_wasmer::rt::as_i32(status28))
+                                <span class="kw">as </span>u16,
                         )<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">vec32</span> <span class="op">=</span> <span class="ident">headers28</span>;
-                        <span class="kw">let</span> <span class="ident">len32</span> <span class="op">=</span> <span class="ident">vec32</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                        <span class="kw">let</span> <span class="ident">result32</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                        <span class="kw">let </span>vec32 = headers28;
+                        <span class="kw">let </span>len32 = vec32.len() <span class="kw">as </span>i32;
+                        <span class="kw">let </span>result32 = func_canonical_abi_realloc.call(
+                            <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                             <span class="number">0</span>,
                             <span class="number">0</span>,
                             <span class="number">4</span>,
-                            <span class="ident">len32</span> <span class="op">*</span> <span class="number">16</span>,
+                            len32 * <span class="number">16</span>,
                         )<span class="question-mark">?</span>;
-                        <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">e</span>) <span class="kw">in</span> <span class="ident">vec32</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
-                            <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">result32</span> <span class="op">+</span> (<span class="ident">i</span> <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">16</span>;
+                        <span class="kw">for </span>(i, e) <span class="kw">in </span>vec32.into_iter().enumerate() {
+                            <span class="kw">let </span>base = result32 + (i <span class="kw">as </span>i32) * <span class="number">16</span>;
                             {
-                                <span class="kw">let</span> <span class="ident">HeaderResult</span> {
-                                    <span class="ident">key</span>: <span class="ident">key29</span>,
-                                    <span class="ident">value</span>: <span class="ident">value29</span>,
-                                } <span class="op">=</span> <span class="ident">e</span>;
-                                <span class="kw">let</span> <span class="ident">vec30</span> <span class="op">=</span> <span class="ident">key29</span>;
-                                <span class="kw">let</span> <span class="ident">ptr30</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                                    <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                                <span class="kw">let </span>HeaderResult {
+                                    key: key29,
+                                    value: value29,
+                                } = e;
+                                <span class="kw">let </span>vec30 = key29;
+                                <span class="kw">let </span>ptr30 = func_canonical_abi_realloc.call(
+                                    <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                                     <span class="number">0</span>,
                                     <span class="number">0</span>,
                                     <span class="number">1</span>,
-                                    <span class="ident">vec30</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                                    vec30.len() <span class="kw">as </span>i32,
                                 )<span class="question-mark">?</span>;
-                                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                <span class="ident">caller_memory</span>.<span class="ident">store_many</span>(<span class="ident">ptr30</span>, <span class="ident">vec30</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                    <span class="ident">base</span> <span class="op">+</span> <span class="number">4</span>,
-                                    <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">vec30</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>),
+                                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                caller_memory.store_many(ptr30, vec30.as_bytes())<span class="question-mark">?</span>;
+                                caller_memory.store(
+                                    base + <span class="number">4</span>,
+                                    wai_bindgen_wasmer::rt::as_i32(vec30.len() <span class="kw">as </span>i32),
                                 )<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">base</span> <span class="op">+</span> <span class="number">0</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">ptr30</span>))<span class="question-mark">?</span>;
-                                <span class="kw">let</span> <span class="ident">vec31</span> <span class="op">=</span> <span class="ident">value29</span>;
-                                <span class="kw">let</span> <span class="ident">ptr31</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                                    <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                                caller_memory
+                                    .store(base + <span class="number">0</span>, wai_bindgen_wasmer::rt::as_i32(ptr30))<span class="question-mark">?</span>;
+                                <span class="kw">let </span>vec31 = value29;
+                                <span class="kw">let </span>ptr31 = func_canonical_abi_realloc.call(
+                                    <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                                     <span class="number">0</span>,
                                     <span class="number">0</span>,
                                     <span class="number">1</span>,
-                                    (<span class="ident">vec31</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">1</span>,
+                                    (vec31.len() <span class="kw">as </span>i32) * <span class="number">1</span>,
                                 )<span class="question-mark">?</span>;
-                                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                <span class="ident">caller_memory</span>.<span class="ident">store_many</span>(<span class="ident">ptr31</span>, <span class="kw-2">&amp;</span><span class="ident">vec31</span>)<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                    <span class="ident">base</span> <span class="op">+</span> <span class="number">12</span>,
-                                    <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">vec31</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>),
+                                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                caller_memory.store_many(ptr31, <span class="kw-2">&amp;</span>vec31)<span class="question-mark">?</span>;
+                                caller_memory.store(
+                                    base + <span class="number">12</span>,
+                                    wai_bindgen_wasmer::rt::as_i32(vec31.len() <span class="kw">as </span>i32),
                                 )<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">base</span> <span class="op">+</span> <span class="number">8</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">ptr31</span>))<span class="question-mark">?</span>;
+                                caller_memory
+                                    .store(base + <span class="number">8</span>, wai_bindgen_wasmer::rt::as_i32(ptr31))<span class="question-mark">?</span>;
                             }
                         }
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">12</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">len32</span>))<span class="question-mark">?</span>;
-                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">8</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">result32</span>))<span class="question-mark">?</span>;
-                        <span class="kw">match</span> <span class="ident">body28</span> {
-                            <span class="ident">BodyResult::Data</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">16</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                                <span class="kw">let</span> <span class="ident">vec33</span> <span class="op">=</span> <span class="ident">e</span>;
-                                <span class="kw">let</span> <span class="ident">ptr33</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                                    <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory.store(arg1 + <span class="number">12</span>, wai_bindgen_wasmer::rt::as_i32(len32))<span class="question-mark">?</span>;
+                        caller_memory.store(arg1 + <span class="number">8</span>, wai_bindgen_wasmer::rt::as_i32(result32))<span class="question-mark">?</span>;
+                        <span class="kw">match </span>body28 {
+                            BodyResult::Data(e) =&gt; {
+                                caller_memory
+                                    .store(arg1 + <span class="number">16</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">0i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>vec33 = e;
+                                <span class="kw">let </span>ptr33 = func_canonical_abi_realloc.call(
+                                    <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                                     <span class="number">0</span>,
                                     <span class="number">0</span>,
                                     <span class="number">1</span>,
-                                    (<span class="ident">vec33</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">1</span>,
+                                    (vec33.len() <span class="kw">as </span>i32) * <span class="number">1</span>,
                                 )<span class="question-mark">?</span>;
-                                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                <span class="ident">caller_memory</span>.<span class="ident">store_many</span>(<span class="ident">ptr33</span>, <span class="kw-2">&amp;</span><span class="ident">vec33</span>)<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                    <span class="ident">arg1</span> <span class="op">+</span> <span class="number">24</span>,
-                                    <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">vec33</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>),
+                                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                caller_memory.store_many(ptr33, <span class="kw-2">&amp;</span>vec33)<span class="question-mark">?</span>;
+                                caller_memory.store(
+                                    arg1 + <span class="number">24</span>,
+                                    wai_bindgen_wasmer::rt::as_i32(vec33.len() <span class="kw">as </span>i32),
                                 )<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">20</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">ptr33</span>))<span class="question-mark">?</span>;
+                                caller_memory
+                                    .store(arg1 + <span class="number">20</span>, wai_bindgen_wasmer::rt::as_i32(ptr33))<span class="question-mark">?</span>;
                             }
-                            <span class="ident">BodyResult::Fd</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">16</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                    <span class="ident">arg1</span> <span class="op">+</span> <span class="number">20</span>,
-                                    <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(
-                                        <span class="ident">e</span>,
+                            BodyResult::Fd(e) =&gt; {
+                                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                caller_memory
+                                    .store(arg1 + <span class="number">16</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">1i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                                caller_memory.store(
+                                    arg1 + <span class="number">20</span>,
+                                    wai_bindgen_wasmer::rt::as_i32(wai_bindgen_wasmer::rt::as_i32(
+                                        e,
                                     )),
                                 )<span class="question-mark">?</span>;
                             }
                         };
-                        <span class="kw">match</span> <span class="ident">redirect_urls28</span> {
-                            <span class="prelude-val">Some</span>(<span class="ident">e</span>) =&gt; {
-                                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">28</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                                <span class="kw">let</span> <span class="ident">vec35</span> <span class="op">=</span> <span class="ident">e</span>;
-                                <span class="kw">let</span> <span class="ident">len35</span> <span class="op">=</span> <span class="ident">vec35</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>;
-                                <span class="kw">let</span> <span class="ident">result35</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                                    <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                        <span class="kw">match </span>redirect_urls28 {
+                            <span class="prelude-val">Some</span>(e) =&gt; {
+                                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                caller_memory
+                                    .store(arg1 + <span class="number">28</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">1i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>vec35 = e;
+                                <span class="kw">let </span>len35 = vec35.len() <span class="kw">as </span>i32;
+                                <span class="kw">let </span>result35 = func_canonical_abi_realloc.call(
+                                    <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                                     <span class="number">0</span>,
                                     <span class="number">0</span>,
                                     <span class="number">4</span>,
-                                    <span class="ident">len35</span> <span class="op">*</span> <span class="number">8</span>,
+                                    len35 * <span class="number">8</span>,
                                 )<span class="question-mark">?</span>;
-                                <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">e</span>) <span class="kw">in</span> <span class="ident">vec35</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
-                                    <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">result35</span> <span class="op">+</span> (<span class="ident">i</span> <span class="kw">as</span> <span class="ident">i32</span>) <span class="op">*</span> <span class="number">8</span>;
+                                <span class="kw">for </span>(i, e) <span class="kw">in </span>vec35.into_iter().enumerate() {
+                                    <span class="kw">let </span>base = result35 + (i <span class="kw">as </span>i32) * <span class="number">8</span>;
                                     {
-                                        <span class="kw">let</span> <span class="ident">vec34</span> <span class="op">=</span> <span class="ident">e</span>;
-                                        <span class="kw">let</span> <span class="ident">ptr34</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                                            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                                        <span class="kw">let </span>vec34 = e;
+                                        <span class="kw">let </span>ptr34 = func_canonical_abi_realloc.call(
+                                            <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                                             <span class="number">0</span>,
                                             <span class="number">0</span>,
                                             <span class="number">1</span>,
-                                            <span class="ident">vec34</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                                            vec34.len() <span class="kw">as </span>i32,
                                         )<span class="question-mark">?</span>;
-                                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span>
-                                            <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                        <span class="ident">caller_memory</span>.<span class="ident">store_many</span>(<span class="ident">ptr34</span>, <span class="ident">vec34</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
-                                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                            <span class="ident">base</span> <span class="op">+</span> <span class="number">4</span>,
-                                            <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">vec34</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>),
+                                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                        <span class="kw">let </span>caller_memory =
+                                            <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                        caller_memory.store_many(ptr34, vec34.as_bytes())<span class="question-mark">?</span>;
+                                        caller_memory.store(
+                                            base + <span class="number">4</span>,
+                                            wai_bindgen_wasmer::rt::as_i32(vec34.len() <span class="kw">as </span>i32),
                                         )<span class="question-mark">?</span>;
-                                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                            <span class="ident">base</span> <span class="op">+</span> <span class="number">0</span>,
-                                            <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">ptr34</span>),
+                                        caller_memory.store(
+                                            base + <span class="number">0</span>,
+                                            wai_bindgen_wasmer::rt::as_i32(ptr34),
                                         )<span class="question-mark">?</span>;
                                     }
                                 }
-                                <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">36</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">len35</span>))<span class="question-mark">?</span>;
-                                <span class="ident">caller_memory</span>
-                                    .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">32</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">result35</span>))<span class="question-mark">?</span>;
+                                <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                caller_memory
+                                    .store(arg1 + <span class="number">36</span>, wai_bindgen_wasmer::rt::as_i32(len35))<span class="question-mark">?</span>;
+                                caller_memory
+                                    .store(arg1 + <span class="number">32</span>, wai_bindgen_wasmer::rt::as_i32(result35))<span class="question-mark">?</span>;
                             }
-                            <span class="prelude-val">None</span> =&gt; {
-                                <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> ();
+                            <span class="prelude-val">None </span>=&gt; {
+                                <span class="kw">let </span>e = ();
                                 {
-                                    <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                                    <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span>
-                                        <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                                    <span class="ident">caller_memory</span>.<span class="ident">store</span>(
-                                        <span class="ident">arg1</span> <span class="op">+</span> <span class="number">28</span>,
-                                        <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">0i32</span>) <span class="kw">as</span> <span class="ident">u8</span>,
+                                    <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                                    <span class="kw">let </span>caller_memory =
+                                        <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                                    caller_memory.store(
+                                        arg1 + <span class="number">28</span>,
+                                        wai_bindgen_wasmer::rt::as_i32(<span class="number">0i32</span>) <span class="kw">as </span>u8,
                                     )<span class="question-mark">?</span>;
-                                    <span class="kw">let</span> () <span class="op">=</span> <span class="ident">e</span>;
+                                    <span class="kw">let </span>() = e;
                                 }
                             }
                         };
                     }
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>
-                            .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">0</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="number">1i32</span>) <span class="kw">as</span> <span class="ident">u8</span>)<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">vec36</span> <span class="op">=</span> <span class="ident">e</span>;
-                        <span class="kw">let</span> <span class="ident">ptr36</span> <span class="op">=</span> <span class="ident">func_canonical_abi_realloc</span>.<span class="ident">call</span>(
-                            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>(),
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg1 + <span class="number">0</span>, wai_bindgen_wasmer::rt::as_i32(<span class="number">1i32</span>) <span class="kw">as </span>u8)<span class="question-mark">?</span>;
+                        <span class="kw">let </span>vec36 = e;
+                        <span class="kw">let </span>ptr36 = func_canonical_abi_realloc.call(
+                            <span class="kw-2">&amp;mut </span>store.as_store_mut(),
                             <span class="number">0</span>,
                             <span class="number">0</span>,
                             <span class="number">1</span>,
-                            <span class="ident">vec36</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>,
+                            vec36.len() <span class="kw">as </span>i32,
                         )<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="ident">_memory_view</span> <span class="op">=</span> <span class="ident">_memory</span>.<span class="ident">view</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
-                        <span class="kw">let</span> <span class="ident">caller_memory</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">_memory_view</span>.<span class="ident">data_unchecked_mut</span>() };
-                        <span class="ident">caller_memory</span>.<span class="ident">store_many</span>(<span class="ident">ptr36</span>, <span class="ident">vec36</span>.<span class="ident">as_bytes</span>())<span class="question-mark">?</span>;
-                        <span class="ident">caller_memory</span>
-                            .<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">8</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">vec36</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">i32</span>))<span class="question-mark">?</span>;
-                        <span class="ident">caller_memory</span>.<span class="ident">store</span>(<span class="ident">arg1</span> <span class="op">+</span> <span class="number">4</span>, <span class="ident">wai_bindgen_wasmer::rt::as_i32</span>(<span class="ident">ptr36</span>))<span class="question-mark">?</span>;
+                        <span class="kw">let </span>_memory_view = _memory.view(<span class="kw-2">&amp;</span>store);
+                        <span class="kw">let </span>caller_memory = <span class="kw">unsafe </span>{ _memory_view.data_unchecked_mut() };
+                        caller_memory.store_many(ptr36, vec36.as_bytes())<span class="question-mark">?</span>;
+                        caller_memory
+                            .store(arg1 + <span class="number">8</span>, wai_bindgen_wasmer::rt::as_i32(vec36.len() <span class="kw">as </span>i32))<span class="question-mark">?</span>;
+                        caller_memory.store(arg1 + <span class="number">4</span>, wai_bindgen_wasmer::rt::as_i32(ptr36))<span class="question-mark">?</span>;
                     }
                 };
                 <span class="prelude-val">Ok</span>(())
             },
         ),
     );
-    <span class="ident">imports</span>.<span class="ident">register_namespace</span>(<span class="string">&quot;wasix_http_client_v1&quot;</span>, <span class="ident">exports</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">canonical_abi</span> <span class="op">=</span> <span class="ident">imports</span>
-        .<span class="ident">get_namespace_exports</span>(<span class="string">&quot;canonical_abi&quot;</span>)
-        .<span class="ident">unwrap_or_else</span>(<span class="ident">wasmer::Exports::new</span>);
-    <span class="ident">canonical_abi</span>.<span class="ident">insert</span>(
+    imports.register_namespace(<span class="string">&quot;wasix_http_client_v1&quot;</span>, exports);
+    <span class="kw">let </span><span class="kw-2">mut </span>canonical_abi = imports
+        .get_namespace_exports(<span class="string">&quot;canonical_abi&quot;</span>)
+        .unwrap_or_else(wasmer::Exports::new);
+    canonical_abi.insert(
         <span class="string">&quot;resource_drop_client&quot;</span>,
-        <span class="ident">wasmer::Function::new_typed_with_env</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">store</span>,
-            <span class="kw-2">&amp;</span><span class="ident">env</span>,
-            <span class="kw">move</span> <span class="op">|</span><span class="kw-2">mut</span> <span class="ident">store</span>: <span class="ident">wasmer::FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">EnvWrapper</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-                  <span class="ident">handle</span>: <span class="ident">u32</span><span class="op">|</span>
-                  -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">wasmer::RuntimeError</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">data_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">data_mut</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tables</span> <span class="op">=</span> <span class="ident">data_mut</span>.<span class="ident">tables</span>.<span class="ident">borrow_mut</span>();
-                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">tables</span>.<span class="ident">client_table</span>.<span class="ident">remove</span>(<span class="ident">handle</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                    <span class="ident">wasmer::RuntimeError::new</span>(<span class="macro">format!</span>(<span class="string">&quot;failed to remove handle: {}&quot;</span>, <span class="ident">e</span>))
+        wasmer::Function::new_typed_with_env(
+            <span class="kw-2">&amp;mut </span>store,
+            <span class="kw-2">&amp;</span>env,
+            <span class="kw">move </span>|<span class="kw-2">mut </span>store: wasmer::FunctionEnvMut&lt;EnvWrapper&lt;T&gt;&gt;,
+                  handle: u32|
+                  -&gt; <span class="prelude-ty">Result</span>&lt;(), wasmer::RuntimeError&gt; {
+                <span class="kw">let </span>data_mut = store.data_mut();
+                <span class="kw">let </span><span class="kw-2">mut </span>tables = data_mut.tables.borrow_mut();
+                <span class="kw">let </span>handle = tables.client_table.remove(handle).map_err(|e| {
+                    wasmer::RuntimeError::new(<span class="macro">format!</span>(<span class="string">&quot;failed to remove handle: {}&quot;</span>, e))
                 })<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">data_mut</span>.<span class="ident">data</span>;
-                <span class="ident">host</span>.<span class="ident">drop_client</span>(<span class="ident">handle</span>);
+                <span class="kw">let </span>host = <span class="kw-2">&amp;mut </span>data_mut.data;
+                host.drop_client(handle);
                 <span class="prelude-val">Ok</span>(())
             },
         ),
     );
-    <span class="ident">imports</span>.<span class="ident">register_namespace</span>(<span class="string">&quot;canonical_abi&quot;</span>, <span class="ident">canonical_abi</span>);
-    <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">_instance</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer::Instance</span>, <span class="ident">_store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">wasmer::AsStoreRef</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">_instance</span>.<span class="ident">exports</span>.<span class="ident">get_memory</span>(<span class="string">&quot;memory&quot;</span>)<span class="question-mark">?</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">func_canonical_abi_realloc</span> <span class="op">=</span> <span class="ident">_instance</span>
-            .<span class="ident">exports</span>
-            .<span class="ident">get_typed_function</span>(<span class="kw-2">&amp;</span><span class="ident">_store</span>.<span class="ident">as_store_ref</span>(), <span class="string">&quot;canonical_abi_realloc&quot;</span>)
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">clone</span>();
-        <span class="ident">lazy</span>.<span class="ident">set</span>(<span class="ident">LazyInitialized</span> {
-            <span class="ident">memory</span>,
-            <span class="ident">func_canonical_abi_realloc</span>,
+    imports.register_namespace(<span class="string">&quot;canonical_abi&quot;</span>, canonical_abi);
+    <span class="kw">let </span>f = <span class="kw">move </span>|_instance: <span class="kw-2">&amp;</span>wasmer::Instance, _store: <span class="kw-2">&amp;</span><span class="kw">dyn </span>wasmer::AsStoreRef| {
+        <span class="kw">let </span>memory = _instance.exports.get_memory(<span class="string">&quot;memory&quot;</span>)<span class="question-mark">?</span>.clone();
+        <span class="kw">let </span>func_canonical_abi_realloc = _instance
+            .exports
+            .get_typed_function(<span class="kw-2">&amp;</span>_store.as_store_ref(), <span class="string">&quot;canonical_abi_realloc&quot;</span>)
+            .unwrap()
+            .clone();
+        lazy.set(LazyInitialized {
+            memory,
+            func_canonical_abi_realloc,
         })
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Couldn&#39;t set lazy initialized data&quot;</span>))<span class="question-mark">?</span>;
+        .map_err(|_e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Couldn&#39;t set lazy initialized data&quot;</span>))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     };
-    <span class="ident">Box::new</span>(<span class="ident">f</span>)
+    Box::new(f)
 }
-<span class="kw">use</span> <span class="ident">wai_bindgen_wasmer::once_cell::unsync::OnceCell</span>;
-<span class="kw">use</span> <span class="ident">wai_bindgen_wasmer::rt::invalid_variant</span>;
-<span class="kw">use</span> <span class="ident">wai_bindgen_wasmer::rt::RawMem</span>;
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer::AsStoreMut</span> <span class="kw">as</span> <span class="kw">_</span>;
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer::AsStoreRef</span> <span class="kw">as</span> <span class="kw">_</span>;
+<span class="kw">use </span>wai_bindgen_wasmer::once_cell::unsync::OnceCell;
+<span class="kw">use </span>wai_bindgen_wasmer::rt::invalid_variant;
+<span class="kw">use </span>wai_bindgen_wasmer::rt::RawMem;
+<span class="attribute">#[allow(unused_imports)]
+</span><span class="kw">use </span>wasmer::AsStoreMut <span class="kw">as _</span>;
+<span class="attribute">#[allow(unused_imports)]
+</span><span class="kw">use </span>wasmer::AsStoreRef <span class="kw">as _</span>;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

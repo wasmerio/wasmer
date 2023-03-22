@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/libcalls.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>libcalls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/libcalls.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>libcalls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -857,864 +857,864 @@
 <span id="857">857</span>
 <span id="858">858</span>
 <span id="859">859</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Runtime library calls.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Note that Wasm compilers may sometimes perform these inline rather than</span>
-<span class="doccomment">//! calling them, particularly when CPUs have special instructions which compute</span>
-<span class="doccomment">//! them directly.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! These functions are called by compiled Wasm code, and therefore must take</span>
-<span class="doccomment">//! certain care about some things:</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! * They must always be `pub extern &quot;C&quot;` and should only contain basic, raw</span>
-<span class="doccomment">//!   i32/i64/f32/f64/pointer parameters that are safe to pass across the system</span>
-<span class="doccomment">//!   ABI!</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! * If any nested function propagates an `Err(trap)` out to the library</span>
-<span class="doccomment">//!   function frame, we need to raise it. This involves some nasty and quite</span>
-<span class="doccomment">//!   unsafe code under the covers! Notable, after raising the trap, drops</span>
-<span class="doccomment">//!   **will not** be run for local variables! This can lead to things like</span>
-<span class="doccomment">//!   leaking `VMInstance`s which leads to never deallocating JIT code,</span>
-<span class="doccomment">//!   instances, and modules! Therefore, always use nested blocks to ensure</span>
-<span class="doccomment">//!   drops run before raising a trap:</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!   ```ignore</span>
-<span class="doccomment">//!   pub extern &quot;C&quot; fn my_lib_function(...) {</span>
-<span class="doccomment">//!       let result = {</span>
-<span class="doccomment">//!           // Do everything in here so drops run at the end of the block.</span>
-<span class="doccomment">//!           ...</span>
-<span class="doccomment">//!       };</span>
-<span class="doccomment">//!       if let Err(trap) = result {</span>
-<span class="doccomment">//!           // Now we can safely raise the trap without leaking!</span>
-<span class="doccomment">//!           raise_lib_trap(trap);</span>
-<span class="doccomment">//!       }</span>
-<span class="doccomment">//!   }</span>
-<span class="doccomment">//!   ```</span>
+</span><span class="doccomment">//! Runtime library calls.
+//!
+//! Note that Wasm compilers may sometimes perform these inline rather than
+//! calling them, particularly when CPUs have special instructions which compute
+//! them directly.
+//!
+//! These functions are called by compiled Wasm code, and therefore must take
+//! certain care about some things:
+//!
+//! * They must always be `pub extern &quot;C&quot;` and should only contain basic, raw
+//!   i32/i64/f32/f64/pointer parameters that are safe to pass across the system
+//!   ABI!
+//!
+//! * If any nested function propagates an `Err(trap)` out to the library
+//!   function frame, we need to raise it. This involves some nasty and quite
+//!   unsafe code under the covers! Notable, after raising the trap, drops
+//!   **will not** be run for local variables! This can lead to things like
+//!   leaking `VMInstance`s which leads to never deallocating JIT code,
+//!   instances, and modules! Therefore, always use nested blocks to ensure
+//!   drops run before raising a trap:
+//!
+//!   ```ignore
+//!   pub extern &quot;C&quot; fn my_lib_function(...) {
+//!       let result = {
+//!           // Do everything in here so drops run at the end of the block.
+//!           ...
+//!       };
+//!       if let Err(trap) = result {
+//!           // Now we can safely raise the trap without leaking!
+//!           raise_lib_trap(trap);
+//!       }
+//!   }
+//!   ```
 
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span> <span class="comment">// For some reason lint fails saying that `LibCall` is not documented, when it actually is</span>
+</span><span class="attribute">#![allow(missing_docs)] </span><span class="comment">// For some reason lint fails saying that `LibCall` is not documented, when it actually is
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::probestack::PROBESTACK</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table</span>::{<span class="ident">RawTableElement</span>, <span class="ident">TableElement</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::{<span class="ident">raise_lib_trap</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext::VMContext</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">on_host_stack</span>, <span class="ident">VMFuncRef</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::LibCall</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">DataIndex</span>, <span class="ident">ElemIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">TableIndex</span>, <span class="ident">Type</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::probestack::PROBESTACK;
+<span class="kw">use </span><span class="kw">crate</span>::table::{RawTableElement, TableElement};
+<span class="kw">use </span><span class="kw">crate</span>::trap::{raise_lib_trap, Trap, TrapCode};
+<span class="kw">use </span><span class="kw">crate</span>::vmcontext::VMContext;
+<span class="kw">use crate</span>::{on_host_stack, VMFuncRef};
+<span class="kw">pub use </span>wasmer_types::LibCall;
+<span class="kw">use </span>wasmer_types::{
+    DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    TableIndex, Type,
 };
 
-<span class="doccomment">/// Implementation of f32.ceil</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f32_ceil</span>(<span class="ident">x</span>: <span class="ident">f32</span>) -&gt; <span class="ident">f32</span> {
-    <span class="ident">x</span>.<span class="ident">ceil</span>()
+<span class="doccomment">/// Implementation of f32.ceil
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_ceil(x: f32) -&gt; f32 {
+    x.ceil()
 }
 
-<span class="doccomment">/// Implementation of f32.floor</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f32_floor</span>(<span class="ident">x</span>: <span class="ident">f32</span>) -&gt; <span class="ident">f32</span> {
-    <span class="ident">x</span>.<span class="ident">floor</span>()
+<span class="doccomment">/// Implementation of f32.floor
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_floor(x: f32) -&gt; f32 {
+    x.floor()
 }
 
-<span class="doccomment">/// Implementation of f32.trunc</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f32_trunc</span>(<span class="ident">x</span>: <span class="ident">f32</span>) -&gt; <span class="ident">f32</span> {
-    <span class="ident">x</span>.<span class="ident">trunc</span>()
+<span class="doccomment">/// Implementation of f32.trunc
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_trunc(x: f32) -&gt; f32 {
+    x.trunc()
 }
 
-<span class="doccomment">/// Implementation of f32.nearest</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::float_arithmetic</span>, <span class="ident">clippy::float_cmp</span>)]</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f32_nearest</span>(<span class="ident">x</span>: <span class="ident">f32</span>) -&gt; <span class="ident">f32</span> {
-    <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.</span>
-    <span class="kw">if</span> <span class="ident">x</span> <span class="op">==</span> <span class="number">0.0</span> {
-        <span class="comment">// Preserve the sign of zero.</span>
-        <span class="ident">x</span>
-    } <span class="kw">else</span> {
-        <span class="comment">// Nearest is either ceil or floor depending on which is nearest or even.</span>
-        <span class="kw">let</span> <span class="ident">u</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">ceil</span>();
-        <span class="kw">let</span> <span class="ident">d</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">floor</span>();
-        <span class="kw">let</span> <span class="ident">um</span> <span class="op">=</span> (<span class="ident">x</span> <span class="op">-</span> <span class="ident">u</span>).<span class="ident">abs</span>();
-        <span class="kw">let</span> <span class="ident">dm</span> <span class="op">=</span> (<span class="ident">x</span> <span class="op">-</span> <span class="ident">d</span>).<span class="ident">abs</span>();
-        <span class="kw">if</span> <span class="ident">um</span> <span class="op">&lt;</span> <span class="ident">dm</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">um</span> <span class="op">==</span> <span class="ident">dm</span> <span class="op">&amp;&amp;</span> {
-                <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">u</span> <span class="op">/</span> <span class="number">2.</span>;
-                <span class="ident">h</span>.<span class="ident">floor</span>() <span class="op">==</span> <span class="ident">h</span>
+<span class="doccomment">/// Implementation of f32.nearest
+</span><span class="attribute">#[allow(clippy::float_arithmetic, clippy::float_cmp)]
+#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f32_nearest(x: f32) -&gt; f32 {
+    <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.
+    </span><span class="kw">if </span>x == <span class="number">0.0 </span>{
+        <span class="comment">// Preserve the sign of zero.
+        </span>x
+    } <span class="kw">else </span>{
+        <span class="comment">// Nearest is either ceil or floor depending on which is nearest or even.
+        </span><span class="kw">let </span>u = x.ceil();
+        <span class="kw">let </span>d = x.floor();
+        <span class="kw">let </span>um = (x - u).abs();
+        <span class="kw">let </span>dm = (x - d).abs();
+        <span class="kw">if </span>um &lt; dm
+            || (um == dm &amp;&amp; {
+                <span class="kw">let </span>h = u / <span class="number">2.</span>;
+                h.floor() == h
             })
         {
-            <span class="ident">u</span>
-        } <span class="kw">else</span> {
-            <span class="ident">d</span>
+            u
+        } <span class="kw">else </span>{
+            d
         }
     }
 }
 
-<span class="doccomment">/// Implementation of f64.ceil</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f64_ceil</span>(<span class="ident">x</span>: <span class="ident">f64</span>) -&gt; <span class="ident">f64</span> {
-    <span class="ident">x</span>.<span class="ident">ceil</span>()
+<span class="doccomment">/// Implementation of f64.ceil
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_ceil(x: f64) -&gt; f64 {
+    x.ceil()
 }
 
-<span class="doccomment">/// Implementation of f64.floor</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f64_floor</span>(<span class="ident">x</span>: <span class="ident">f64</span>) -&gt; <span class="ident">f64</span> {
-    <span class="ident">x</span>.<span class="ident">floor</span>()
+<span class="doccomment">/// Implementation of f64.floor
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_floor(x: f64) -&gt; f64 {
+    x.floor()
 }
 
-<span class="doccomment">/// Implementation of f64.trunc</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f64_trunc</span>(<span class="ident">x</span>: <span class="ident">f64</span>) -&gt; <span class="ident">f64</span> {
-    <span class="ident">x</span>.<span class="ident">trunc</span>()
+<span class="doccomment">/// Implementation of f64.trunc
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_trunc(x: f64) -&gt; f64 {
+    x.trunc()
 }
 
-<span class="doccomment">/// Implementation of f64.nearest</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::float_arithmetic</span>, <span class="ident">clippy::float_cmp</span>)]</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_f64_nearest</span>(<span class="ident">x</span>: <span class="ident">f64</span>) -&gt; <span class="ident">f64</span> {
-    <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.</span>
-    <span class="kw">if</span> <span class="ident">x</span> <span class="op">==</span> <span class="number">0.0</span> {
-        <span class="comment">// Preserve the sign of zero.</span>
-        <span class="ident">x</span>
-    } <span class="kw">else</span> {
-        <span class="comment">// Nearest is either ceil or floor depending on which is nearest or even.</span>
-        <span class="kw">let</span> <span class="ident">u</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">ceil</span>();
-        <span class="kw">let</span> <span class="ident">d</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">floor</span>();
-        <span class="kw">let</span> <span class="ident">um</span> <span class="op">=</span> (<span class="ident">x</span> <span class="op">-</span> <span class="ident">u</span>).<span class="ident">abs</span>();
-        <span class="kw">let</span> <span class="ident">dm</span> <span class="op">=</span> (<span class="ident">x</span> <span class="op">-</span> <span class="ident">d</span>).<span class="ident">abs</span>();
-        <span class="kw">if</span> <span class="ident">um</span> <span class="op">&lt;</span> <span class="ident">dm</span>
-            <span class="op">|</span><span class="op">|</span> (<span class="ident">um</span> <span class="op">==</span> <span class="ident">dm</span> <span class="op">&amp;&amp;</span> {
-                <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">u</span> <span class="op">/</span> <span class="number">2.</span>;
-                <span class="ident">h</span>.<span class="ident">floor</span>() <span class="op">==</span> <span class="ident">h</span>
+<span class="doccomment">/// Implementation of f64.nearest
+</span><span class="attribute">#[allow(clippy::float_arithmetic, clippy::float_cmp)]
+#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_f64_nearest(x: f64) -&gt; f64 {
+    <span class="comment">// Rust doesn&#39;t have a nearest function, so do it manually.
+    </span><span class="kw">if </span>x == <span class="number">0.0 </span>{
+        <span class="comment">// Preserve the sign of zero.
+        </span>x
+    } <span class="kw">else </span>{
+        <span class="comment">// Nearest is either ceil or floor depending on which is nearest or even.
+        </span><span class="kw">let </span>u = x.ceil();
+        <span class="kw">let </span>d = x.floor();
+        <span class="kw">let </span>um = (x - u).abs();
+        <span class="kw">let </span>dm = (x - d).abs();
+        <span class="kw">if </span>um &lt; dm
+            || (um == dm &amp;&amp; {
+                <span class="kw">let </span>h = u / <span class="number">2.</span>;
+                h.floor() == h
             })
         {
-            <span class="ident">u</span>
-        } <span class="kw">else</span> {
-            <span class="ident">d</span>
+            u
+        } <span class="kw">else </span>{
+            d
         }
     }
 }
 
-<span class="doccomment">/// Implementation of memory.grow for locally-defined 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_grow</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">delta</span>: <span class="ident">u32</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.grow for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_grow(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    delta: u32,
+    memory_index: u32,
+) -&gt; u32 {
+    on_host_stack(|| {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>
-            .<span class="ident">memory_grow</span>(<span class="ident">memory_index</span>, <span class="ident">delta</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">pages</span><span class="op">|</span> <span class="ident">pages</span>.<span class="number">0</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
+        instance
+            .memory_grow(memory_index, delta)
+            .map(|pages| pages.<span class="number">0</span>)
+            .unwrap_or(u32::max_value())
     })
 }
 
-<span class="doccomment">/// Implementation of memory.grow for imported 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_grow</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">delta</span>: <span class="ident">u32</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.grow for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_grow(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    delta: u32,
+    memory_index: u32,
+) -&gt; u32 {
+    on_host_stack(|| {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>
-            .<span class="ident">imported_memory_grow</span>(<span class="ident">memory_index</span>, <span class="ident">delta</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">pages</span><span class="op">|</span> <span class="ident">pages</span>.<span class="number">0</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
+        instance
+            .imported_memory_grow(memory_index, delta)
+            .map(|pages| pages.<span class="number">0</span>)
+            .unwrap_or(u32::max_value())
     })
 }
 
-<span class="doccomment">/// Implementation of memory.size for locally-defined 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_size</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">memory_index</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.size for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_size(vmctx: <span class="kw-2">*mut </span>VMContext, memory_index: u32) -&gt; u32 {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+    <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-    <span class="ident">instance</span>.<span class="ident">memory_size</span>(<span class="ident">memory_index</span>).<span class="number">0</span>
-}
+    instance.memory_size(memory_index).<span class="number">0
+</span>}
 
-<span class="doccomment">/// Implementation of memory.size for imported 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_size</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.size for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_size(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+) -&gt; u32 {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+    <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
 
-    <span class="ident">instance</span>.<span class="ident">imported_memory_size</span>(<span class="ident">memory_index</span>).<span class="number">0</span>
-}
+    instance.imported_memory_size(memory_index).<span class="number">0
+</span>}
 
-<span class="doccomment">/// Implementation of `table.copy`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_copy</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">dst_table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">src_table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">src</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `table.copy`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_copy(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    dst_table_index: u32,
+    src_table_index: u32,
+    dst: u32,
+    src: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">dst_table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">dst_table_index</span>);
-        <span class="kw">let</span> <span class="ident">src_table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">src_table_index</span>);
-        <span class="kw">if</span> <span class="ident">dst_table_index</span> <span class="op">==</span> <span class="ident">src_table_index</span> {
-            <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>().<span class="ident">get_table</span>(<span class="ident">dst_table_index</span>);
-            <span class="ident">table</span>.<span class="ident">copy_within</span>(<span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="ident">dst_table</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>().<span class="ident">get_table</span>(<span class="ident">dst_table_index</span>);
-            <span class="kw">let</span> <span class="ident">src_table</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>().<span class="ident">get_table</span>(<span class="ident">src_table_index</span>);
-            <span class="ident">dst_table</span>.<span class="ident">copy</span>(<span class="ident">src_table</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>dst_table_index = TableIndex::from_u32(dst_table_index);
+        <span class="kw">let </span>src_table_index = TableIndex::from_u32(src_table_index);
+        <span class="kw">if </span>dst_table_index == src_table_index {
+            <span class="kw">let </span>table = (<span class="kw-2">*</span>vmctx).instance_mut().get_table(dst_table_index);
+            table.copy_within(dst, src, len)
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>dst_table = (<span class="kw-2">*</span>vmctx).instance_mut().get_table(dst_table_index);
+            <span class="kw">let </span>src_table = (<span class="kw-2">*</span>vmctx).instance_mut().get_table(src_table_index);
+            dst_table.copy(src_table, dst, src, len)
         }
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `table.init`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_init</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">elem_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">src</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `table.init`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_init(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+    elem_index: u32,
+    dst: u32,
+    src: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
-        <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex::from_u32</span>(<span class="ident">elem_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="ident">instance</span>.<span class="ident">table_init</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
+        <span class="kw">let </span>elem_index = ElemIndex::from_u32(elem_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        instance.table_init(table_index, elem_index, dst, src, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `table.fill`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_fill</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">start_idx</span>: <span class="ident">u32</span>,
-    <span class="ident">item</span>: <span class="ident">RawTableElement</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `table.fill`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_fill(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+    start_idx: u32,
+    item: RawTableElement,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-            <span class="ident">Type::ExternRef</span> =&gt; <span class="ident">TableElement::ExternRef</span>(<span class="ident">item</span>.<span class="ident">extern_ref</span>),
-            <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="ident">item</span>.<span class="ident">func_ref</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>elem = <span class="kw">match </span>instance.get_table(table_index).ty().ty {
+            Type::ExternRef =&gt; TableElement::ExternRef(item.extern_ref),
+            Type::FuncRef =&gt; TableElement::FuncRef(item.func_ref),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
         };
 
-        <span class="ident">instance</span>.<span class="ident">table_fill</span>(<span class="ident">table_index</span>, <span class="ident">start_idx</span>, <span class="ident">elem</span>, <span class="ident">len</span>)
+        instance.table_fill(table_index, start_idx, elem, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `table.size`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_size</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">table_index</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
+<span class="doccomment">/// Implementation of `table.size`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_size(vmctx: <span class="kw-2">*mut </span>VMContext, table_index: u32) -&gt; u32 {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+    <span class="kw">let </span>table_index = LocalTableIndex::from_u32(table_index);
 
-    <span class="ident">instance</span>.<span class="ident">table_size</span>(<span class="ident">table_index</span>)
+    instance.table_size(table_index)
 }
 
-<span class="doccomment">/// Implementation of `table.size` for imported tables.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_table_size</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
+<span class="doccomment">/// Implementation of `table.size` for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_size(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+) -&gt; u32 {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+    <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
 
-    <span class="ident">instance</span>.<span class="ident">imported_table_size</span>(<span class="ident">table_index</span>)
+    instance.imported_table_size(table_index)
 }
 
-<span class="doccomment">/// Implementation of `table.get`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_get</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">elem_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">RawTableElement</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
+<span class="doccomment">/// Implementation of `table.get`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_get(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+    elem_index: u32,
+) -&gt; RawTableElement {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+    <span class="kw">let </span>table_index = LocalTableIndex::from_u32(table_index);
 
-    <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
-    <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">table_get</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>) {
-        <span class="prelude-val">Some</span>(<span class="ident">table_ref</span>) =&gt; <span class="ident">table_ref</span>.<span class="ident">into</span>(),
-        <span class="prelude-val">None</span> =&gt; <span class="ident">raise_lib_trap</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>)),
+    <span class="comment">// TODO: type checking, maybe have specialized accessors
+    </span><span class="kw">match </span>instance.table_get(table_index, elem_index) {
+        <span class="prelude-val">Some</span>(table_ref) =&gt; table_ref.into(),
+        <span class="prelude-val">None </span>=&gt; raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
-<span class="doccomment">/// Implementation of `table.get` for imported tables.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_table_get</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">elem_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">RawTableElement</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
+<span class="doccomment">/// Implementation of `table.get` for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_get(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+    elem_index: u32,
+) -&gt; RawTableElement {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+    <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
 
-    <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
-    <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">imported_table_get</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>) {
-        <span class="prelude-val">Some</span>(<span class="ident">table_ref</span>) =&gt; <span class="ident">table_ref</span>.<span class="ident">into</span>(),
-        <span class="prelude-val">None</span> =&gt; <span class="ident">raise_lib_trap</span>(<span class="ident">Trap::lib</span>(<span class="ident">TrapCode::TableAccessOutOfBounds</span>)),
+    <span class="comment">// TODO: type checking, maybe have specialized accessors
+    </span><span class="kw">match </span>instance.imported_table_get(table_index, elem_index) {
+        <span class="prelude-val">Some</span>(table_ref) =&gt; table_ref.into(),
+        <span class="prelude-val">None </span>=&gt; raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
-<span class="doccomment">/// Implementation of `table.set`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// It is the caller&#39;s responsibility to increment the ref count of any ref counted</span>
-<span class="doccomment">/// type before passing it to this function.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_set</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">elem_index</span>: <span class="ident">u32</span>,
-    <span class="ident">value</span>: <span class="ident">RawTableElement</span>,
+<span class="doccomment">/// Implementation of `table.set`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+///
+/// It is the caller&#39;s responsibility to increment the ref count of any ref counted
+/// type before passing it to this function.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_set(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+    elem_index: u32,
+    value: RawTableElement,
 ) {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">instance</span>
-        .<span class="ident">module_ref</span>()
-        .<span class="ident">local_table_index</span>(<span class="ident">table_index</span>)
-        .<span class="ident">unwrap</span>();
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+    <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
+    <span class="kw">let </span>table_index = instance
+        .module_ref()
+        .local_table_index(table_index)
+        .unwrap();
 
-    <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_local_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-        <span class="ident">Type::ExternRef</span> =&gt; <span class="ident">TableElement::ExternRef</span>(<span class="ident">value</span>.<span class="ident">extern_ref</span>),
-        <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="ident">value</span>.<span class="ident">func_ref</span>),
-        <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+    <span class="kw">let </span>elem = <span class="kw">match </span>instance.get_local_table(table_index).ty().ty {
+        Type::ExternRef =&gt; TableElement::ExternRef(value.extern_ref),
+        Type::FuncRef =&gt; TableElement::FuncRef(value.func_ref),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
     };
 
-    <span class="comment">// TODO: type checking, maybe have specialized accessors</span>
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">table_set</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>, <span class="ident">elem</span>);
+    <span class="comment">// TODO: type checking, maybe have specialized accessors
+    </span><span class="kw">let </span>result = instance.table_set(table_index, elem_index, elem);
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `table.set` for imported tables.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_table_set</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-    <span class="ident">elem_index</span>: <span class="ident">u32</span>,
-    <span class="ident">value</span>: <span class="ident">RawTableElement</span>,
+<span class="doccomment">/// Implementation of `table.set` for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_set(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    table_index: u32,
+    elem_index: u32,
+    value: RawTableElement,
 ) {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-    <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
-    <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-        <span class="ident">Type::ExternRef</span> =&gt; <span class="ident">TableElement::ExternRef</span>(<span class="ident">value</span>.<span class="ident">extern_ref</span>),
-        <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="ident">value</span>.<span class="ident">func_ref</span>),
-        <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+    <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
+    <span class="kw">let </span>elem = <span class="kw">match </span>instance.get_table(table_index).ty().ty {
+        Type::ExternRef =&gt; TableElement::ExternRef(value.extern_ref),
+        Type::FuncRef =&gt; TableElement::FuncRef(value.func_ref),
+        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
     };
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">imported_table_set</span>(<span class="ident">table_index</span>, <span class="ident">elem_index</span>, <span class="ident">elem</span>);
+    <span class="kw">let </span>result = instance.imported_table_set(table_index, elem_index, elem);
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `table.grow` for locally-defined tables.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_table_grow</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">init_value</span>: <span class="ident">RawTableElement</span>,
-    <span class="ident">delta</span>: <span class="ident">u32</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">LocalTableIndex::from_u32</span>(<span class="ident">table_index</span>);
+<span class="doccomment">/// Implementation of `table.grow` for locally-defined tables.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_table_grow(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    init_value: RawTableElement,
+    delta: u32,
+    table_index: u32,
+) -&gt; u32 {
+    on_host_stack(|| {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>table_index = LocalTableIndex::from_u32(table_index);
 
-        <span class="kw">let</span> <span class="ident">init_value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_local_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-            <span class="ident">Type::ExternRef</span> =&gt; <span class="ident">TableElement::ExternRef</span>(<span class="ident">init_value</span>.<span class="ident">extern_ref</span>),
-            <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="ident">init_value</span>.<span class="ident">func_ref</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+        <span class="kw">let </span>init_value = <span class="kw">match </span>instance.get_local_table(table_index).ty().ty {
+            Type::ExternRef =&gt; TableElement::ExternRef(init_value.extern_ref),
+            Type::FuncRef =&gt; TableElement::FuncRef(init_value.func_ref),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
         };
 
-        <span class="ident">instance</span>
-            .<span class="ident">table_grow</span>(<span class="ident">table_index</span>, <span class="ident">delta</span>, <span class="ident">init_value</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
+        instance
+            .table_grow(table_index, delta, init_value)
+            .unwrap_or(u32::max_value())
     })
 }
 
-<span class="doccomment">/// Implementation of `table.grow` for imported tables.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_table_grow</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">init_value</span>: <span class="ident">RawTableElement</span>,
-    <span class="ident">delta</span>: <span class="ident">u32</span>,
-    <span class="ident">table_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::from_u32</span>(<span class="ident">table_index</span>);
-        <span class="kw">let</span> <span class="ident">init_value</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>).<span class="ident">ty</span>().<span class="ident">ty</span> {
-            <span class="ident">Type::ExternRef</span> =&gt; <span class="ident">TableElement::ExternRef</span>(<span class="ident">init_value</span>.<span class="ident">extern_ref</span>),
-            <span class="ident">Type::FuncRef</span> =&gt; <span class="ident">TableElement::FuncRef</span>(<span class="ident">init_value</span>.<span class="ident">func_ref</span>),
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
+<span class="doccomment">/// Implementation of `table.grow` for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_table_grow(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    init_value: RawTableElement,
+    delta: u32,
+    table_index: u32,
+) -&gt; u32 {
+    on_host_stack(|| {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>table_index = TableIndex::from_u32(table_index);
+        <span class="kw">let </span>init_value = <span class="kw">match </span>instance.get_table(table_index).ty().ty {
+            Type::ExternRef =&gt; TableElement::ExternRef(init_value.extern_ref),
+            Type::FuncRef =&gt; TableElement::FuncRef(init_value.func_ref),
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unrecognized table type: does not contain references&quot;</span>),
         };
 
-        <span class="ident">instance</span>
-            .<span class="ident">imported_table_grow</span>(<span class="ident">table_index</span>, <span class="ident">delta</span>, <span class="ident">init_value</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">u32::max_value</span>())
+        instance
+            .imported_table_grow(table_index, delta, init_value)
+            .unwrap_or(u32::max_value())
     })
 }
 
-<span class="doccomment">/// Implementation of `func.ref`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_func_ref</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">function_index</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">VMFuncRef</span> {
-    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-    <span class="kw">let</span> <span class="ident">function_index</span> <span class="op">=</span> <span class="ident">FunctionIndex::from_u32</span>(<span class="ident">function_index</span>);
+<span class="doccomment">/// Implementation of `func.ref`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_func_ref(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    function_index: u32,
+) -&gt; VMFuncRef {
+    <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+    <span class="kw">let </span>function_index = FunctionIndex::from_u32(function_index);
 
-    <span class="ident">instance</span>.<span class="ident">func_ref</span>(<span class="ident">function_index</span>).<span class="ident">unwrap</span>()
+    instance.func_ref(function_index).unwrap()
 }
 
-<span class="doccomment">/// Implementation of `elem.drop`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_elem_drop</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">elem_index</span>: <span class="ident">u32</span>) {
-    <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">elem_index</span> <span class="op">=</span> <span class="ident">ElemIndex::from_u32</span>(<span class="ident">elem_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">elem_drop</span>(<span class="ident">elem_index</span>);
+<span class="doccomment">/// Implementation of `elem.drop`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_elem_drop(vmctx: <span class="kw-2">*mut </span>VMContext, elem_index: u32) {
+    on_host_stack(|| {
+        <span class="kw">let </span>elem_index = ElemIndex::from_u32(elem_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.elem_drop(elem_index);
     })
 }
 
-<span class="doccomment">/// Implementation of `memory.copy` for locally defined memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_copy</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">src</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `memory.copy` for locally defined memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_copy(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    src: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">local_memory_copy</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.local_memory_copy(memory_index, dst, src, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `memory.copy` for imported memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_copy</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">src</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `memory.copy` for imported memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_copy(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    src: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">imported_memory_copy</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.imported_memory_copy(memory_index, dst, src, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `memory.fill` for locally defined memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_fill</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `memory.fill` for locally defined memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_fill(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">local_memory_fill</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.local_memory_fill(memory_index, dst, val, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `memory.fill` for imported memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_fill</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `memory.fill` for imported memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_fill(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">imported_memory_fill</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.imported_memory_fill(memory_index, dst, val, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `memory.init`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_init</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">data_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">src</span>: <span class="ident">u32</span>,
-    <span class="ident">len</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Implementation of `memory.init`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_init(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    data_index: u32,
+    dst: u32,
+    src: u32,
+    len: u32,
 ) {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
-        <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">data_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">memory_init</span>(<span class="ident">memory_index</span>, <span class="ident">data_index</span>, <span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>)
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+        <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.memory_init(memory_index, data_index, dst, src, len)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
 }
 
-<span class="doccomment">/// Implementation of `data.drop`.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_data_drop</span>(<span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>, <span class="ident">data_index</span>: <span class="ident">u32</span>) {
-    <span class="ident">on_host_stack</span>(<span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">data_index</span> <span class="op">=</span> <span class="ident">DataIndex::from_u32</span>(<span class="ident">data_index</span>);
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance</span>();
-        <span class="ident">instance</span>.<span class="ident">data_drop</span>(<span class="ident">data_index</span>)
+<span class="doccomment">/// Implementation of `data.drop`.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_data_drop(vmctx: <span class="kw-2">*mut </span>VMContext, data_index: u32) {
+    on_host_stack(|| {
+        <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        instance.data_drop(data_index)
     })
 }
 
-<span class="doccomment">/// Implementation for raising a trap</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or</span>
-<span class="doccomment">/// `wasmer_call_trampoline` must have been previously called.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_raise_trap</span>(<span class="ident">trap_code</span>: <span class="ident">TrapCode</span>) -&gt; <span class="op">!</span> {
-    <span class="kw">let</span> <span class="ident">trap</span> <span class="op">=</span> <span class="ident">Trap::lib</span>(<span class="ident">trap_code</span>);
-    <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>)
+<span class="doccomment">/// Implementation for raising a trap
+///
+/// # Safety
+///
+/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
+/// `wasmer_call_trampoline` must have been previously called.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_raise_trap(trap_code: TrapCode) -&gt; ! {
+    <span class="kw">let </span>trap = Trap::lib(trap_code);
+    raise_lib_trap(trap)
 }
 
-<span class="doccomment">/// Probestack check</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This function does not follow the standard function ABI, and is called as</span>
-<span class="doccomment">/// part of the function prologue.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">wasmer_vm_probestack</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">PROBESTACK</span>;
+<span class="doccomment">/// Probestack check
+///
+/// # Safety
+///
+/// This function does not follow the standard function ABI, and is called as
+/// part of the function prologue.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub static </span>wasmer_vm_probestack: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>() = PROBESTACK;
 
-<span class="doccomment">/// Implementation of memory.wait32 for locally-defined 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_atomic_wait32</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u32</span>,
-    <span class="ident">timeout</span>: <span class="ident">i64</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.wait32 for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait32(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u32,
+    timeout: i64,
+) -&gt; u32 {
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>.<span class="ident">local_memory_wait32</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">timeout</span>)
+        instance.local_memory_wait32(memory_index, dst, val, timeout)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
-    <span class="ident">result</span>.<span class="ident">unwrap</span>()
+    result.unwrap()
 }
 
-<span class="doccomment">/// Implementation of memory.wait32 for imported 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_atomic_wait32</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u32</span>,
-    <span class="ident">timeout</span>: <span class="ident">i64</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.wait32 for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait32(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u32,
+    timeout: i64,
+) -&gt; u32 {
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>.<span class="ident">imported_memory_wait32</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">timeout</span>)
+        instance.imported_memory_wait32(memory_index, dst, val, timeout)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
-    <span class="ident">result</span>.<span class="ident">unwrap</span>()
+    result.unwrap()
 }
 
-<span class="doccomment">/// Implementation of memory.wait64 for locally-defined 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_atomic_wait64</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u64</span>,
-    <span class="ident">timeout</span>: <span class="ident">i64</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.wait64 for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait64(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u64,
+    timeout: i64,
+) -&gt; u32 {
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>.<span class="ident">local_memory_wait64</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">timeout</span>)
+        instance.local_memory_wait64(memory_index, dst, val, timeout)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
-    <span class="ident">result</span>.<span class="ident">unwrap</span>()
+    result.unwrap()
 }
 
-<span class="doccomment">/// Implementation of memory.wait64 for imported 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_atomic_wait64</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">val</span>: <span class="ident">u64</span>,
-    <span class="ident">timeout</span>: <span class="ident">i64</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.wait64 for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait64(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u64,
+    timeout: i64,
+) -&gt; u32 {
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>.<span class="ident">imported_memory_wait64</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">timeout</span>)
+        instance.imported_memory_wait64(memory_index, dst, val, timeout)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
-    <span class="ident">result</span>.<span class="ident">unwrap</span>()
+    result.unwrap()
 }
 
-<span class="doccomment">/// Implementation of memory.notfy for locally-defined 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_memory32_atomic_notify</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">cnt</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">LocalMemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.notfy for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_notify(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    cnt: u32,
+) -&gt; u32 {
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>.<span class="ident">local_memory_notify</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">cnt</span>)
+        instance.local_memory_notify(memory_index, dst, cnt)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
-    <span class="ident">result</span>.<span class="ident">unwrap</span>()
+    result.unwrap()
 }
 
-<span class="doccomment">/// Implementation of memory.notfy for imported 32-bit memories.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// `vmctx` must be dereferenceable.</span>
-<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_vm_imported_memory32_atomic_notify</span>(
-    <span class="ident">vmctx</span>: <span class="kw-2">*mut</span> <span class="ident">VMContext</span>,
-    <span class="ident">memory_index</span>: <span class="ident">u32</span>,
-    <span class="ident">dst</span>: <span class="ident">u32</span>,
-    <span class="ident">cnt</span>: <span class="ident">u32</span>,
-) -&gt; <span class="ident">u32</span> {
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">vmctx</span>).<span class="ident">instance_mut</span>();
-        <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memory_index</span>);
+<span class="doccomment">/// Implementation of memory.notfy for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+</span><span class="attribute">#[no_mangle]
+</span><span class="kw">pub unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_notify(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    memory_index: u32,
+    dst: u32,
+    cnt: u32,
+) -&gt; u32 {
+    <span class="kw">let </span>result = {
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+        <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
 
-        <span class="ident">instance</span>.<span class="ident">imported_memory_notify</span>(<span class="ident">memory_index</span>, <span class="ident">dst</span>, <span class="ident">cnt</span>)
+        instance.imported_memory_notify(memory_index, dst, cnt)
     };
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
-        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+        raise_lib_trap(trap);
     }
-    <span class="ident">result</span>.<span class="ident">unwrap</span>()
+    result.unwrap()
 }
 
-<span class="doccomment">/// The function pointer to a libcall</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">function_pointer</span>(<span class="ident">libcall</span>: <span class="ident">LibCall</span>) -&gt; <span class="ident">usize</span> {
-    <span class="kw">match</span> <span class="ident">libcall</span> {
-        <span class="ident">LibCall::CeilF32</span> =&gt; <span class="ident">wasmer_vm_f32_ceil</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::CeilF64</span> =&gt; <span class="ident">wasmer_vm_f64_ceil</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::FloorF32</span> =&gt; <span class="ident">wasmer_vm_f32_floor</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::FloorF64</span> =&gt; <span class="ident">wasmer_vm_f64_floor</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::NearestF32</span> =&gt; <span class="ident">wasmer_vm_f32_nearest</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::NearestF64</span> =&gt; <span class="ident">wasmer_vm_f64_nearest</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TruncF32</span> =&gt; <span class="ident">wasmer_vm_f32_trunc</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TruncF64</span> =&gt; <span class="ident">wasmer_vm_f64_trunc</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32Size</span> =&gt; <span class="ident">wasmer_vm_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedMemory32Size</span> =&gt; <span class="ident">wasmer_vm_imported_memory32_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableCopy</span> =&gt; <span class="ident">wasmer_vm_table_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableInit</span> =&gt; <span class="ident">wasmer_vm_table_init</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableFill</span> =&gt; <span class="ident">wasmer_vm_table_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableSize</span> =&gt; <span class="ident">wasmer_vm_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedTableSize</span> =&gt; <span class="ident">wasmer_vm_imported_table_size</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableGet</span> =&gt; <span class="ident">wasmer_vm_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedTableGet</span> =&gt; <span class="ident">wasmer_vm_imported_table_get</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableSet</span> =&gt; <span class="ident">wasmer_vm_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedTableSet</span> =&gt; <span class="ident">wasmer_vm_imported_table_set</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::TableGrow</span> =&gt; <span class="ident">wasmer_vm_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedTableGrow</span> =&gt; <span class="ident">wasmer_vm_imported_table_grow</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::FuncRef</span> =&gt; <span class="ident">wasmer_vm_func_ref</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ElemDrop</span> =&gt; <span class="ident">wasmer_vm_elem_drop</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32Copy</span> =&gt; <span class="ident">wasmer_vm_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedMemory32Copy</span> =&gt; <span class="ident">wasmer_vm_imported_memory32_copy</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32Fill</span> =&gt; <span class="ident">wasmer_vm_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedMemory32Fill</span> =&gt; <span class="ident">wasmer_vm_imported_memory32_fill</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32Init</span> =&gt; <span class="ident">wasmer_vm_memory32_init</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::DataDrop</span> =&gt; <span class="ident">wasmer_vm_data_drop</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Probestack</span> =&gt; <span class="ident">wasmer_vm_probestack</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::RaiseTrap</span> =&gt; <span class="ident">wasmer_vm_raise_trap</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32AtomicWait32</span> =&gt; <span class="ident">wasmer_vm_memory32_atomic_wait32</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedMemory32AtomicWait32</span> =&gt; <span class="ident">wasmer_vm_imported_memory32_atomic_wait32</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32AtomicWait64</span> =&gt; <span class="ident">wasmer_vm_memory32_atomic_wait64</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedMemory32AtomicWait64</span> =&gt; <span class="ident">wasmer_vm_imported_memory32_atomic_wait64</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::Memory32AtomicNotify</span> =&gt; <span class="ident">wasmer_vm_memory32_atomic_notify</span> <span class="kw">as</span> <span class="ident">usize</span>,
-        <span class="ident">LibCall::ImportedMemory32AtomicNotify</span> =&gt; <span class="ident">wasmer_vm_imported_memory32_atomic_notify</span> <span class="kw">as</span> <span class="ident">usize</span>,
+<span class="doccomment">/// The function pointer to a libcall
+</span><span class="kw">pub fn </span>function_pointer(libcall: LibCall) -&gt; usize {
+    <span class="kw">match </span>libcall {
+        LibCall::CeilF32 =&gt; wasmer_vm_f32_ceil <span class="kw">as </span>usize,
+        LibCall::CeilF64 =&gt; wasmer_vm_f64_ceil <span class="kw">as </span>usize,
+        LibCall::FloorF32 =&gt; wasmer_vm_f32_floor <span class="kw">as </span>usize,
+        LibCall::FloorF64 =&gt; wasmer_vm_f64_floor <span class="kw">as </span>usize,
+        LibCall::NearestF32 =&gt; wasmer_vm_f32_nearest <span class="kw">as </span>usize,
+        LibCall::NearestF64 =&gt; wasmer_vm_f64_nearest <span class="kw">as </span>usize,
+        LibCall::TruncF32 =&gt; wasmer_vm_f32_trunc <span class="kw">as </span>usize,
+        LibCall::TruncF64 =&gt; wasmer_vm_f64_trunc <span class="kw">as </span>usize,
+        LibCall::Memory32Size =&gt; wasmer_vm_memory32_size <span class="kw">as </span>usize,
+        LibCall::ImportedMemory32Size =&gt; wasmer_vm_imported_memory32_size <span class="kw">as </span>usize,
+        LibCall::TableCopy =&gt; wasmer_vm_table_copy <span class="kw">as </span>usize,
+        LibCall::TableInit =&gt; wasmer_vm_table_init <span class="kw">as </span>usize,
+        LibCall::TableFill =&gt; wasmer_vm_table_fill <span class="kw">as </span>usize,
+        LibCall::TableSize =&gt; wasmer_vm_table_size <span class="kw">as </span>usize,
+        LibCall::ImportedTableSize =&gt; wasmer_vm_imported_table_size <span class="kw">as </span>usize,
+        LibCall::TableGet =&gt; wasmer_vm_table_get <span class="kw">as </span>usize,
+        LibCall::ImportedTableGet =&gt; wasmer_vm_imported_table_get <span class="kw">as </span>usize,
+        LibCall::TableSet =&gt; wasmer_vm_table_set <span class="kw">as </span>usize,
+        LibCall::ImportedTableSet =&gt; wasmer_vm_imported_table_set <span class="kw">as </span>usize,
+        LibCall::TableGrow =&gt; wasmer_vm_table_grow <span class="kw">as </span>usize,
+        LibCall::ImportedTableGrow =&gt; wasmer_vm_imported_table_grow <span class="kw">as </span>usize,
+        LibCall::FuncRef =&gt; wasmer_vm_func_ref <span class="kw">as </span>usize,
+        LibCall::ElemDrop =&gt; wasmer_vm_elem_drop <span class="kw">as </span>usize,
+        LibCall::Memory32Copy =&gt; wasmer_vm_memory32_copy <span class="kw">as </span>usize,
+        LibCall::ImportedMemory32Copy =&gt; wasmer_vm_imported_memory32_copy <span class="kw">as </span>usize,
+        LibCall::Memory32Fill =&gt; wasmer_vm_memory32_fill <span class="kw">as </span>usize,
+        LibCall::ImportedMemory32Fill =&gt; wasmer_vm_imported_memory32_fill <span class="kw">as </span>usize,
+        LibCall::Memory32Init =&gt; wasmer_vm_memory32_init <span class="kw">as </span>usize,
+        LibCall::DataDrop =&gt; wasmer_vm_data_drop <span class="kw">as </span>usize,
+        LibCall::Probestack =&gt; wasmer_vm_probestack <span class="kw">as </span>usize,
+        LibCall::RaiseTrap =&gt; wasmer_vm_raise_trap <span class="kw">as </span>usize,
+        LibCall::Memory32AtomicWait32 =&gt; wasmer_vm_memory32_atomic_wait32 <span class="kw">as </span>usize,
+        LibCall::ImportedMemory32AtomicWait32 =&gt; wasmer_vm_imported_memory32_atomic_wait32 <span class="kw">as </span>usize,
+        LibCall::Memory32AtomicWait64 =&gt; wasmer_vm_memory32_atomic_wait64 <span class="kw">as </span>usize,
+        LibCall::ImportedMemory32AtomicWait64 =&gt; wasmer_vm_imported_memory32_atomic_wait64 <span class="kw">as </span>usize,
+        LibCall::Memory32AtomicNotify =&gt; wasmer_vm_memory32_atomic_notify <span class="kw">as </span>usize,
+        LibCall::ImportedMemory32AtomicNotify =&gt; wasmer_vm_imported_memory32_atomic_notify <span class="kw">as </span>usize,
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

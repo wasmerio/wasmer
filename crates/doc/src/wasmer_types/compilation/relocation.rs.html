@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/relocation.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>relocation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/compilation/relocation.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>relocation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_types/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -168,175 +168,193 @@
 <span id="168">168</span>
 <span id="169">169</span>
 <span id="170">170</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent</span>
-<span class="doccomment">//! code and data of a program and adjusting the code and data to reflect the</span>
-<span class="doccomment">//! assigned addresses.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! [Learn more](https://en.wikipedia.org/wiki/Relocation_(computing)).</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Each time a `Compiler` compiles a WebAssembly function (into machine code),</span>
-<span class="doccomment">//! it also attaches if there are any relocations that need to be patched into</span>
-<span class="doccomment">//! the generated machine code, so a given frontend (JIT or native) can</span>
-<span class="doccomment">//! do the corresponding work to run it.</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent
+//! code and data of a program and adjusting the code and data to reflect the
+//! assigned addresses.
+//!
+//! [Learn more](https://en.wikipedia.org/wiki/Relocation_(computing)).
+//!
+//! Each time a `Compiler` compiles a WebAssembly function (into machine code),
+//! it also attaches if there are any relocations that need to be patched into
+//! the generated machine code, so a given frontend (JIT or native) can
+//! do the corresponding work to run it.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::section::SectionIndex</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::fmt</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::vec::Vec</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Addend</span>, <span class="ident">CodeOffset</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">LibCall</span>, <span class="ident">LocalFunctionIndex</span>};
-<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+</span><span class="kw">use </span><span class="kw">super</span>::section::SectionIndex;
+<span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
+<span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
+<span class="kw">use crate</span>::{Addend, CodeOffset};
+<span class="kw">use crate</span>::{LibCall, LocalFunctionIndex};
+<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="doccomment">/// Relocation kinds for every ISA.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RelocationKind</span> {
-    <span class="doccomment">/// absolute 4-byte</span>
-    <span class="ident">Abs4</span>,
-    <span class="doccomment">/// absolute 8-byte</span>
-    <span class="ident">Abs8</span>,
-    <span class="doccomment">/// x86 PC-relative 4-byte</span>
-    <span class="ident">X86PCRel4</span>,
-    <span class="doccomment">/// x86 PC-relative 8-byte</span>
-    <span class="ident">X86PCRel8</span>,
-    <span class="doccomment">/// x86 call to PC-relative 4-byte</span>
-    <span class="ident">X86CallPCRel4</span>,
-    <span class="doccomment">/// x86 call to PLT-relative 4-byte</span>
-    <span class="ident">X86CallPLTRel4</span>,
-    <span class="doccomment">/// x86 GOT PC-relative 4-byte</span>
-    <span class="ident">X86GOTPCRel4</span>,
-    <span class="doccomment">/// Arm32 call target</span>
-    <span class="ident">Arm32Call</span>,
-    <span class="doccomment">/// Arm64 call target</span>
-    <span class="ident">Arm64Call</span>,
-    <span class="doccomment">/// Arm64 movk/z part 0</span>
-    <span class="ident">Arm64Movw0</span>,
-    <span class="doccomment">/// Arm64 movk/z part 1</span>
-    <span class="ident">Arm64Movw1</span>,
-    <span class="doccomment">/// Arm64 movk/z part 2</span>
-    <span class="ident">Arm64Movw2</span>,
-    <span class="doccomment">/// Arm64 movk/z part 3</span>
-    <span class="ident">Arm64Movw3</span>,
-    <span class="comment">// /// RISC-V call target</span>
-    <span class="comment">// RiscvCall,</span>
-    <span class="doccomment">/// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.</span>
-    <span class="ident">ElfX86_64TlsGd</span>,
-    <span class="comment">// /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.</span>
-    <span class="comment">// MachOX86_64Tlv,</span>
+<span class="doccomment">/// Relocation kinds for every ISA.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>RelocationKind {
+    <span class="doccomment">/// absolute 4-byte
+    </span>Abs4,
+    <span class="doccomment">/// absolute 8-byte
+    </span>Abs8,
+    <span class="doccomment">/// x86 PC-relative 4-byte
+    </span>X86PCRel4,
+    <span class="doccomment">/// x86 PC-relative 8-byte
+    </span>X86PCRel8,
+    <span class="doccomment">/// x86 call to PC-relative 4-byte
+    </span>X86CallPCRel4,
+    <span class="doccomment">/// x86 call to PLT-relative 4-byte
+    </span>X86CallPLTRel4,
+    <span class="doccomment">/// x86 GOT PC-relative 4-byte
+    </span>X86GOTPCRel4,
+    <span class="doccomment">/// Arm32 call target
+    </span>Arm32Call,
+    <span class="doccomment">/// Arm64 call target
+    </span>Arm64Call,
+    <span class="doccomment">/// Arm64 movk/z part 0
+    </span>Arm64Movw0,
+    <span class="doccomment">/// Arm64 movk/z part 1
+    </span>Arm64Movw1,
+    <span class="doccomment">/// Arm64 movk/z part 2
+    </span>Arm64Movw2,
+    <span class="doccomment">/// Arm64 movk/z part 3
+    </span>Arm64Movw3,
+    <span class="doccomment">/// RISC-V PC-relative high 20bit
+    </span>RiscvPCRelHi20,
+    <span class="doccomment">/// RISC-V PC-relative low 12bit, I-type
+    </span>RiscvPCRelLo12I,
+    <span class="doccomment">/// RISC-V call target
+    </span>RiscvCall,
+    <span class="doccomment">/// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
+    </span>ElfX86_64TlsGd,
+    <span class="comment">// /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
+    // MachOX86_64Tlv,
+</span>}
+
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>RelocationKind {
+    <span class="doccomment">/// Display trait implementation drops the arch, since its used in contexts where the arch is
+    /// already unambiguous, e.g. clif syntax with isa specified. In other contexts, use Debug.
+    </span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
+            <span class="self">Self</span>::Abs4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Abs4&quot;</span>),
+            <span class="self">Self</span>::Abs8 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Abs8&quot;</span>),
+            <span class="self">Self</span>::X86PCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;PCRel4&quot;</span>),
+            <span class="self">Self</span>::X86PCRel8 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;PCRel8&quot;</span>),
+            <span class="self">Self</span>::X86CallPCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;CallPCRel4&quot;</span>),
+            <span class="self">Self</span>::X86CallPLTRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;CallPLTRel4&quot;</span>),
+            <span class="self">Self</span>::X86GOTPCRel4 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;GOTPCRel4&quot;</span>),
+            <span class="self">Self</span>::Arm32Call | <span class="self">Self</span>::Arm64Call | <span class="self">Self</span>::RiscvCall =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Call&quot;</span>),
+            <span class="self">Self</span>::Arm64Movw0 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG0&quot;</span>),
+            <span class="self">Self</span>::Arm64Movw1 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG1&quot;</span>),
+            <span class="self">Self</span>::Arm64Movw2 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG2&quot;</span>),
+            <span class="self">Self</span>::Arm64Movw3 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Arm64MovwG3&quot;</span>),
+            <span class="self">Self</span>::ElfX86_64TlsGd =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;ElfX86_64TlsGd&quot;</span>),
+            <span class="self">Self</span>::RiscvPCRelHi20 =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;RiscvPCRelHi20&quot;</span>),
+            <span class="self">Self</span>::RiscvPCRelLo12I =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;RiscvPCRelLo12I&quot;</span>),
+            <span class="comment">// Self::MachOX86_64Tlv =&gt; write!(f, &quot;MachOX86_64Tlv&quot;),
+        </span>}
+    }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">RelocationKind</span> {
-    <span class="doccomment">/// Display trait implementation drops the arch, since its used in contexts where the arch is</span>
-    <span class="doccomment">/// already unambiguous, e.g. clif syntax with isa specified. In other contexts, use Debug.</span>
-    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
-        <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::Abs4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Abs4&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Abs8</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Abs8&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::X86PCRel4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;PCRel4&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::X86PCRel8</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;PCRel8&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::X86CallPCRel4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPCRel4&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::X86CallPLTRel4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;CallPLTRel4&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::X86GOTPCRel4</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;GOTPCRel4&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Arm32Call</span> <span class="op">|</span> <span class="ident"><span class="self">Self</span>::Arm64Call</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Call&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Arm64Movw0</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG0&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Arm64Movw1</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG1&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Arm64Movw2</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG2&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::Arm64Movw3</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Arm64MovwG3&quot;</span>),
-            <span class="ident"><span class="self">Self</span>::ElfX86_64TlsGd</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;ElfX86_64TlsGd&quot;</span>),
-            <span class="comment">// Self::MachOX86_64Tlv =&gt; write!(f, &quot;MachOX86_64Tlv&quot;),</span>
+<span class="doccomment">/// A record of a relocation to perform.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>Relocation {
+    <span class="doccomment">/// The relocation kind.
+    </span><span class="kw">pub </span>kind: RelocationKind,
+    <span class="doccomment">/// Relocation target.
+    </span><span class="kw">pub </span>reloc_target: RelocationTarget,
+    <span class="doccomment">/// The offset where to apply the relocation.
+    </span><span class="kw">pub </span>offset: CodeOffset,
+    <span class="doccomment">/// The addend to add to the relocation value.
+    </span><span class="kw">pub </span>addend: Addend,
+}
+
+<span class="doccomment">/// Destination function. Can be either user function or some special one, like `memory.grow`.
+</span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+</span><span class="kw">pub enum </span>RelocationTarget {
+    <span class="doccomment">/// A relocation to a function defined locally in the wasm (not an imported one).
+    </span>LocalFunc(LocalFunctionIndex),
+    <span class="doccomment">/// A compiler-generated libcall.
+    </span>LibCall(LibCall),
+    <span class="doccomment">/// Custom sections generated by the compiler
+    </span>CustomSection(SectionIndex),
+}
+
+<span class="kw">impl </span>Relocation {
+    <span class="doccomment">/// Given a function start address, provide the relocation relative
+    /// to that address.
+    ///
+    /// The function returns the relocation address and the delta.
+    </span><span class="kw">pub fn </span>for_address(<span class="kw-2">&amp;</span><span class="self">self</span>, start: usize, target_func_address: u64) -&gt; (usize, u64) {
+        <span class="kw">match </span><span class="self">self</span>.kind {
+            RelocationKind::Abs8
+            | RelocationKind::Arm64Movw0
+            | RelocationKind::Arm64Movw1
+            | RelocationKind::Arm64Movw2
+            | RelocationKind::Arm64Movw3
+            | RelocationKind::RiscvPCRelLo12I =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_abs = target_func_address
+                    .checked_add(reloc_addend <span class="kw">as </span>u64)
+                    .unwrap();
+                (reloc_address, reloc_abs)
+            }
+            RelocationKind::X86PCRel4 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta_u32 = (target_func_address <span class="kw">as </span>u32)
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u32)
+                    .checked_add(reloc_addend <span class="kw">as </span>u32)
+                    .unwrap();
+                (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
+            }
+            RelocationKind::X86PCRel8 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta = target_func_address
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u64)
+                    .checked_add(reloc_addend <span class="kw">as </span>u64)
+                    .unwrap();
+                (reloc_address, reloc_delta)
+            }
+            RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta_u32 = (target_func_address <span class="kw">as </span>u32)
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u32)
+                    .wrapping_add(reloc_addend <span class="kw">as </span>u32);
+                (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
+            }
+            RelocationKind::Arm64Call
+            | RelocationKind::RiscvCall
+            | RelocationKind::RiscvPCRelHi20 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta_u32 = target_func_address
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u64)
+                    .wrapping_add(reloc_addend <span class="kw">as </span>u64);
+                (reloc_address, reloc_delta_u32)
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Relocation kind unsupported&quot;</span>),
         }
     }
 }
 
-<span class="doccomment">/// A record of a relocation to perform.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Relocation</span> {
-    <span class="doccomment">/// The relocation kind.</span>
-    <span class="kw">pub</span> <span class="ident">kind</span>: <span class="ident">RelocationKind</span>,
-    <span class="doccomment">/// Relocation target.</span>
-    <span class="kw">pub</span> <span class="ident">reloc_target</span>: <span class="ident">RelocationTarget</span>,
-    <span class="doccomment">/// The offset where to apply the relocation.</span>
-    <span class="kw">pub</span> <span class="ident">offset</span>: <span class="ident">CodeOffset</span>,
-    <span class="doccomment">/// The addend to add to the relocation value.</span>
-    <span class="kw">pub</span> <span class="ident">addend</span>: <span class="ident">Addend</span>,
-}
-
-<span class="doccomment">/// Destination function. Can be either user function or some special one, like `memory.grow`.</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>, <span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="attribute">#[<span class="ident">archive</span>(<span class="kw">as</span> <span class="op">=</span> <span class="string">&quot;Self&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">RelocationTarget</span> {
-    <span class="doccomment">/// A relocation to a function defined locally in the wasm (not an imported one).</span>
-    <span class="ident">LocalFunc</span>(<span class="ident">LocalFunctionIndex</span>),
-    <span class="doccomment">/// A compiler-generated libcall.</span>
-    <span class="ident">LibCall</span>(<span class="ident">LibCall</span>),
-    <span class="doccomment">/// Custom sections generated by the compiler</span>
-    <span class="ident">CustomSection</span>(<span class="ident">SectionIndex</span>),
-}
-
-<span class="kw">impl</span> <span class="ident">Relocation</span> {
-    <span class="doccomment">/// Given a function start address, provide the relocation relative</span>
-    <span class="doccomment">/// to that address.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The function returns the relocation address and the delta.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_address</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">target_func_address</span>: <span class="ident">u64</span>) -&gt; (<span class="ident">usize</span>, <span class="ident">u64</span>) {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kind</span> {
-            <span class="ident">RelocationKind::Abs8</span>
-            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw0</span>
-            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw1</span>
-            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw2</span>
-            <span class="op">|</span> <span class="ident">RelocationKind::Arm64Movw3</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">reloc_address</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_addend</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">addend</span> <span class="kw">as</span> <span class="ident">isize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_abs</span> <span class="op">=</span> <span class="ident">target_func_address</span>
-                    .<span class="ident">checked_add</span>(<span class="ident">reloc_addend</span> <span class="kw">as</span> <span class="ident">u64</span>)
-                    .<span class="ident">unwrap</span>();
-                (<span class="ident">reloc_address</span>, <span class="ident">reloc_abs</span>)
-            }
-            <span class="ident">RelocationKind::X86PCRel4</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">reloc_address</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_addend</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">addend</span> <span class="kw">as</span> <span class="ident">isize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_delta_u32</span> <span class="op">=</span> (<span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u32</span>)
-                    .<span class="ident">wrapping_sub</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="ident">u32</span>)
-                    .<span class="ident">checked_add</span>(<span class="ident">reloc_addend</span> <span class="kw">as</span> <span class="ident">u32</span>)
-                    .<span class="ident">unwrap</span>();
-                (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta_u32</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            }
-            <span class="ident">RelocationKind::X86PCRel8</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">reloc_address</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_addend</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">addend</span> <span class="kw">as</span> <span class="ident">isize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_delta</span> <span class="op">=</span> <span class="ident">target_func_address</span>
-                    .<span class="ident">wrapping_sub</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="ident">u64</span>)
-                    .<span class="ident">checked_add</span>(<span class="ident">reloc_addend</span> <span class="kw">as</span> <span class="ident">u64</span>)
-                    .<span class="ident">unwrap</span>();
-                (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta</span>)
-            }
-            <span class="ident">RelocationKind::X86CallPCRel4</span> <span class="op">|</span> <span class="ident">RelocationKind::X86CallPLTRel4</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">reloc_address</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_addend</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">addend</span> <span class="kw">as</span> <span class="ident">isize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_delta_u32</span> <span class="op">=</span> (<span class="ident">target_func_address</span> <span class="kw">as</span> <span class="ident">u32</span>)
-                    .<span class="ident">wrapping_sub</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="ident">u32</span>)
-                    .<span class="ident">wrapping_add</span>(<span class="ident">reloc_addend</span> <span class="kw">as</span> <span class="ident">u32</span>);
-                (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta_u32</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            }
-            <span class="ident">RelocationKind::Arm64Call</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">reloc_address</span> <span class="op">=</span> <span class="ident">start</span> <span class="op">+</span> <span class="self">self</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_addend</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">addend</span> <span class="kw">as</span> <span class="ident">isize</span>;
-                <span class="kw">let</span> <span class="ident">reloc_delta_u32</span> <span class="op">=</span> <span class="ident">target_func_address</span>
-                    .<span class="ident">wrapping_sub</span>(<span class="ident">reloc_address</span> <span class="kw">as</span> <span class="ident">u64</span>)
-                    .<span class="ident">wrapping_add</span>(<span class="ident">reloc_addend</span> <span class="kw">as</span> <span class="ident">u64</span>);
-                (<span class="ident">reloc_address</span>, <span class="ident">reloc_delta_u32</span>)
-            }
-            <span class="kw">_</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Relocation kind unsupported&quot;</span>),
-        }
-    }
-}
-
-<span class="doccomment">/// Relocations to apply to function bodies.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Relocations</span> <span class="op">=</span> <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="doccomment">/// Relocations to apply to function bodies.
+</span><span class="kw">pub type </span>Relocations = PrimaryMap&lt;LocalFunctionIndex, Vec&lt;Relocation&gt;&gt;;
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

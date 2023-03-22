@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/vmoffsets.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>vmoffsets.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/vmoffsets.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>vmoffsets.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_types/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_types/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -782,789 +782,789 @@
 <span id="782">782</span>
 <span id="783">783</span>
 <span id="784">784</span>
-</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
-<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+</pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-<span class="doccomment">//! Offsets and sizes of various structs in wasmer-vm&#39;s vmcontext</span>
-<span class="doccomment">//! module.</span>
+</span><span class="doccomment">//! Offsets and sizes of various structs in wasmer-vm&#39;s vmcontext
+//! module.
 
-<span class="attribute">#![<span class="ident">deny</span>(<span class="ident">broken_intra_doc_links</span>)]</span>
+</span><span class="attribute">#![deny(broken_intra_doc_links)]
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalGlobalIndex</span>, <span class="ident">LocalMemoryIndex</span>, <span class="ident">LocalTableIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
+</span><span class="kw">use crate</span>::{
+    FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    ModuleInfo, SignatureIndex, TableIndex,
 };
-<span class="kw">use</span> <span class="ident">more_asserts::assert_lt</span>;
-<span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
+<span class="kw">use </span>more_asserts::assert_lt;
+<span class="kw">use </span>std::convert::TryFrom;
 
-<span class="doccomment">/// An index type for builtin functions.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMBuiltinFunctionIndex</span>(<span class="ident">u32</span>);
+<span class="doccomment">/// An index type for builtin functions.
+</span><span class="attribute">#[derive(Copy, Clone, Debug)]
+</span><span class="kw">pub struct </span>VMBuiltinFunctionIndex(u32);
 
-<span class="kw">impl</span> <span class="ident">VMBuiltinFunctionIndex</span> {
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.grow` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory32_grow_index</span>() -&gt; <span class="self">Self</span> {
+<span class="kw">impl </span>VMBuiltinFunctionIndex {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.grow` builtin function.
+    </span><span class="kw">pub const fn </span>get_memory32_grow_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">0</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.grow` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory32_grow_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.grow` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_memory32_grow_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">1</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.size` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory32_size_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.size` builtin function.
+    </span><span class="kw">pub const fn </span>get_memory32_size_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">2</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.size` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory32_size_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.size` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_memory32_size_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">3</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.copy` when both tables are locally</span>
-    <span class="doccomment">/// defined.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_copy_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.copy` when both tables are locally
+    /// defined.
+    </span><span class="kw">pub const fn </span>get_table_copy_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">4</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.init`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_init_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.init`.
+    </span><span class="kw">pub const fn </span>get_table_init_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">5</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `elem.drop`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_elem_drop_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `elem.drop`.
+    </span><span class="kw">pub const fn </span>get_elem_drop_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">6</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.copy` for locally defined memories.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_copy_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.copy` for locally defined memories.
+    </span><span class="kw">pub const fn </span>get_memory_copy_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">7</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.copy` for imported memories.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_copy_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.copy` for imported memories.
+    </span><span class="kw">pub const fn </span>get_imported_memory_copy_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">8</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.fill` for locally defined memories.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_fill_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.fill` for locally defined memories.
+    </span><span class="kw">pub const fn </span>get_memory_fill_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">9</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.fill` for imported memories.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_fill_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.fill` for imported memories.
+    </span><span class="kw">pub const fn </span>get_imported_memory_fill_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">10</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.init` instruction.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_init_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `memory.init` instruction.
+    </span><span class="kw">pub const fn </span>get_memory_init_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">11</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `data.drop` instruction.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_data_drop_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `data.drop` instruction.
+    </span><span class="kw">pub const fn </span>get_data_drop_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">12</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `raise_trap` instruction.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_raise_trap_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `raise_trap` instruction.
+    </span><span class="kw">pub const fn </span>get_raise_trap_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">13</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.size` instruction for local tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_size_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.size` instruction for local tables.
+    </span><span class="kw">pub const fn </span>get_table_size_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">14</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.size` instruction for imported tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_table_size_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.size` instruction for imported tables.
+    </span><span class="kw">pub const fn </span>get_imported_table_size_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">15</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.grow` instruction for local tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_grow_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.grow` instruction for local tables.
+    </span><span class="kw">pub const fn </span>get_table_grow_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">16</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.grow` instruction for imported tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_table_grow_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.grow` instruction for imported tables.
+    </span><span class="kw">pub const fn </span>get_imported_table_grow_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">17</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.get` instruction for local tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_get_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.get` instruction for local tables.
+    </span><span class="kw">pub const fn </span>get_table_get_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">18</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.get` instruction for imported tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_table_get_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.get` instruction for imported tables.
+    </span><span class="kw">pub const fn </span>get_imported_table_get_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">19</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.set` instruction for local tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_set_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.set` instruction for local tables.
+    </span><span class="kw">pub const fn </span>get_table_set_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">20</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.set` instruction for imported tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_table_set_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.set` instruction for imported tables.
+    </span><span class="kw">pub const fn </span>get_imported_table_set_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">21</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `func.ref` instruction.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_func_ref_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `func.ref` instruction.
+    </span><span class="kw">pub const fn </span>get_func_ref_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">22</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s `table.fill` instruction for local tables.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_fill_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s `table.fill` instruction for local tables.
+    </span><span class="kw">pub const fn </span>get_table_fill_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">23</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.wait32` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_atomic_wait32_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.wait32` builtin function.
+    </span><span class="kw">pub const fn </span>get_memory_atomic_wait32_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">24</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.wait32` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_atomic_wait32_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.wait32` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_memory_atomic_wait32_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">25</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.wait64` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_atomic_wait64_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.wait64` builtin function.
+    </span><span class="kw">pub const fn </span>get_memory_atomic_wait64_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">26</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.wait64` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_atomic_wait64_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.wait64` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_memory_atomic_wait64_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">27</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.notify` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_atomic_notify_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.notify` builtin function.
+    </span><span class="kw">pub const fn </span>get_memory_atomic_notify_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">28</span>)
     }
-    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.notify` builtin function.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_atomic_notify_index</span>() -&gt; <span class="self">Self</span> {
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.notify` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_memory_atomic_notify_index() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(<span class="number">29</span>)
     }
-    <span class="doccomment">/// Returns the total number of builtin functions.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">builtin_functions_total_number</span>() -&gt; <span class="ident">u32</span> {
-        <span class="number">30</span>
-    }
+    <span class="doccomment">/// Returns the total number of builtin functions.
+    </span><span class="kw">pub const fn </span>builtin_functions_total_number() -&gt; u32 {
+        <span class="number">30
+    </span>}
 
-    <span class="doccomment">/// Return the index as an u32 number.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="number">0</span>
-    }
+    <span class="doccomment">/// Return the index as an u32 number.
+    </span><span class="kw">pub const fn </span>index(<span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;32&quot;</span>)]</span>
-<span class="kw">fn</span> <span class="ident">cast_to_u32</span>(<span class="ident">sz</span>: <span class="ident">usize</span>) -&gt; <span class="ident">u32</span> {
-    <span class="ident">u32::try_from</span>(<span class="ident">sz</span>).<span class="ident">unwrap</span>()
+<span class="attribute">#[cfg(target_pointer_width = <span class="string">&quot;32&quot;</span>)]
+</span><span class="kw">fn </span>cast_to_u32(sz: usize) -&gt; u32 {
+    u32::try_from(sz).unwrap()
 }
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>)]</span>
-<span class="kw">fn</span> <span class="ident">cast_to_u32</span>(<span class="ident">sz</span>: <span class="ident">usize</span>) -&gt; <span class="ident">u32</span> {
-    <span class="ident">u32::try_from</span>(<span class="ident">sz</span>).<span class="ident">expect</span>(<span class="string">&quot;overflow in cast from usize to u32&quot;</span>)
-}
-
-<span class="doccomment">/// Align an offset used in this module to a specific byte-width by rounding up</span>
-<span class="attribute">#[<span class="ident">inline</span>]</span>
-<span class="kw">const</span> <span class="kw">fn</span> <span class="ident">align</span>(<span class="ident">offset</span>: <span class="ident">u32</span>, <span class="ident">width</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-    (<span class="ident">offset</span> <span class="op">+</span> (<span class="ident">width</span> <span class="op">-</span> <span class="number">1</span>)) <span class="op">/</span> <span class="ident">width</span> <span class="op">*</span> <span class="ident">width</span>
+<span class="attribute">#[cfg(target_pointer_width = <span class="string">&quot;64&quot;</span>)]
+</span><span class="kw">fn </span>cast_to_u32(sz: usize) -&gt; u32 {
+    u32::try_from(sz).expect(<span class="string">&quot;overflow in cast from usize to u32&quot;</span>)
 }
 
-<span class="doccomment">/// This class computes offsets to fields within VMContext and other</span>
-<span class="doccomment">/// related structs that JIT code accesses directly.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The size in bytes of a pointer on the target.</span>
-    <span class="ident">pointer_size</span>: <span class="ident">u8</span>,
-    <span class="doccomment">/// The number of signature declarations in the module.</span>
-    <span class="ident">num_signature_ids</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of imported functions in the module.</span>
-    <span class="ident">num_imported_functions</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of imported tables in the module.</span>
-    <span class="ident">num_imported_tables</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of imported memories in the module.</span>
-    <span class="ident">num_imported_memories</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of imported globals in the module.</span>
-    <span class="ident">num_imported_globals</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of defined tables in the module.</span>
-    <span class="ident">num_local_tables</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of defined memories in the module.</span>
-    <span class="ident">num_local_memories</span>: <span class="ident">u32</span>,
-    <span class="doccomment">/// The number of defined globals in the module.</span>
-    <span class="ident">num_local_globals</span>: <span class="ident">u32</span>,
-
-    <span class="ident">vmctx_signature_ids_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_imported_functions_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_imported_tables_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_imported_memories_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_imported_globals_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_tables_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_memories_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_globals_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_builtin_functions_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_trap_handler_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_gas_limiter_pointer</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_stack_limit_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">vmctx_stack_limit_initial_begin</span>: <span class="ident">u32</span>,
-    <span class="ident">size_of_vmctx</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// Align an offset used in this module to a specific byte-width by rounding up
+</span><span class="attribute">#[inline]
+</span><span class="kw">const fn </span>align(offset: u32, width: u32) -&gt; u32 {
+    (offset + (width - <span class="number">1</span>)) / width * width
 }
 
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// Return a new `VMOffsets` instance, for a given pointer size.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">pointer_size</span>: <span class="ident">u8</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">Self</span> {
-            <span class="ident">pointer_size</span>,
-            <span class="ident">num_signature_ids</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">signatures</span>.<span class="ident">len</span>()),
-            <span class="ident">num_imported_functions</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">num_imported_functions</span>),
-            <span class="ident">num_imported_tables</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">num_imported_tables</span>),
-            <span class="ident">num_imported_memories</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">num_imported_memories</span>),
-            <span class="ident">num_imported_globals</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">num_imported_globals</span>),
-            <span class="ident">num_local_tables</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">tables</span>.<span class="ident">len</span>()),
-            <span class="ident">num_local_memories</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">memories</span>.<span class="ident">len</span>()),
-            <span class="ident">num_local_globals</span>: <span class="ident">cast_to_u32</span>(<span class="ident">module</span>.<span class="ident">globals</span>.<span class="ident">len</span>()),
-            <span class="ident">vmctx_signature_ids_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_functions_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_tables_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_memories_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_globals_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_tables_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_memories_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_globals_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_builtin_functions_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_trap_handler_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_gas_limiter_pointer</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_stack_limit_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_stack_limit_initial_begin</span>: <span class="number">0</span>,
-            <span class="ident">size_of_vmctx</span>: <span class="number">0</span>,
+<span class="doccomment">/// This class computes offsets to fields within VMContext and other
+/// related structs that JIT code accesses directly.
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>VMOffsets {
+    <span class="doccomment">/// The size in bytes of a pointer on the target.
+    </span>pointer_size: u8,
+    <span class="doccomment">/// The number of signature declarations in the module.
+    </span>num_signature_ids: u32,
+    <span class="doccomment">/// The number of imported functions in the module.
+    </span>num_imported_functions: u32,
+    <span class="doccomment">/// The number of imported tables in the module.
+    </span>num_imported_tables: u32,
+    <span class="doccomment">/// The number of imported memories in the module.
+    </span>num_imported_memories: u32,
+    <span class="doccomment">/// The number of imported globals in the module.
+    </span>num_imported_globals: u32,
+    <span class="doccomment">/// The number of defined tables in the module.
+    </span>num_local_tables: u32,
+    <span class="doccomment">/// The number of defined memories in the module.
+    </span>num_local_memories: u32,
+    <span class="doccomment">/// The number of defined globals in the module.
+    </span>num_local_globals: u32,
+
+    vmctx_signature_ids_begin: u32,
+    vmctx_imported_functions_begin: u32,
+    vmctx_imported_tables_begin: u32,
+    vmctx_imported_memories_begin: u32,
+    vmctx_imported_globals_begin: u32,
+    vmctx_tables_begin: u32,
+    vmctx_memories_begin: u32,
+    vmctx_globals_begin: u32,
+    vmctx_builtin_functions_begin: u32,
+    vmctx_trap_handler_begin: u32,
+    vmctx_gas_limiter_pointer: u32,
+    vmctx_stack_limit_begin: u32,
+    vmctx_stack_limit_initial_begin: u32,
+    size_of_vmctx: u32,
+}
+
+<span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// Return a new `VMOffsets` instance, for a given pointer size.
+    </span><span class="kw">pub fn </span>new(pointer_size: u8, module: <span class="kw-2">&amp;</span>ModuleInfo) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="self">Self </span>{
+            pointer_size,
+            num_signature_ids: cast_to_u32(module.signatures.len()),
+            num_imported_functions: cast_to_u32(module.num_imported_functions),
+            num_imported_tables: cast_to_u32(module.num_imported_tables),
+            num_imported_memories: cast_to_u32(module.num_imported_memories),
+            num_imported_globals: cast_to_u32(module.num_imported_globals),
+            num_local_tables: cast_to_u32(module.tables.len()),
+            num_local_memories: cast_to_u32(module.memories.len()),
+            num_local_globals: cast_to_u32(module.globals.len()),
+            vmctx_signature_ids_begin: <span class="number">0</span>,
+            vmctx_imported_functions_begin: <span class="number">0</span>,
+            vmctx_imported_tables_begin: <span class="number">0</span>,
+            vmctx_imported_memories_begin: <span class="number">0</span>,
+            vmctx_imported_globals_begin: <span class="number">0</span>,
+            vmctx_tables_begin: <span class="number">0</span>,
+            vmctx_memories_begin: <span class="number">0</span>,
+            vmctx_globals_begin: <span class="number">0</span>,
+            vmctx_builtin_functions_begin: <span class="number">0</span>,
+            vmctx_trap_handler_begin: <span class="number">0</span>,
+            vmctx_gas_limiter_pointer: <span class="number">0</span>,
+            vmctx_stack_limit_begin: <span class="number">0</span>,
+            vmctx_stack_limit_initial_begin: <span class="number">0</span>,
+            size_of_vmctx: <span class="number">0</span>,
         };
-        <span class="ident">ret</span>.<span class="ident">precompute</span>();
-        <span class="ident">ret</span>
+        ret.precompute();
+        ret
     }
 
-    <span class="doccomment">/// Return a new `VMOffsets` instance, for a given pointer size</span>
-    <span class="doccomment">/// skipping the `ModuleInfo`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Note: This should only when generating code for trampolines.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_for_trampolines</span>(<span class="ident">pointer_size</span>: <span class="ident">u8</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">pointer_size</span>,
-            <span class="ident">num_signature_ids</span>: <span class="number">0</span>,
-            <span class="ident">num_imported_functions</span>: <span class="number">0</span>,
-            <span class="ident">num_imported_tables</span>: <span class="number">0</span>,
-            <span class="ident">num_imported_memories</span>: <span class="number">0</span>,
-            <span class="ident">num_imported_globals</span>: <span class="number">0</span>,
-            <span class="ident">num_local_tables</span>: <span class="number">0</span>,
-            <span class="ident">num_local_memories</span>: <span class="number">0</span>,
-            <span class="ident">num_local_globals</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_signature_ids_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_functions_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_tables_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_memories_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_imported_globals_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_tables_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_memories_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_globals_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_builtin_functions_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_trap_handler_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_gas_limiter_pointer</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_stack_limit_begin</span>: <span class="number">0</span>,
-            <span class="ident">vmctx_stack_limit_initial_begin</span>: <span class="number">0</span>,
-            <span class="ident">size_of_vmctx</span>: <span class="number">0</span>,
+    <span class="doccomment">/// Return a new `VMOffsets` instance, for a given pointer size
+    /// skipping the `ModuleInfo`.
+    ///
+    /// Note: This should only when generating code for trampolines.
+    </span><span class="kw">pub fn </span>new_for_trampolines(pointer_size: u8) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            pointer_size,
+            num_signature_ids: <span class="number">0</span>,
+            num_imported_functions: <span class="number">0</span>,
+            num_imported_tables: <span class="number">0</span>,
+            num_imported_memories: <span class="number">0</span>,
+            num_imported_globals: <span class="number">0</span>,
+            num_local_tables: <span class="number">0</span>,
+            num_local_memories: <span class="number">0</span>,
+            num_local_globals: <span class="number">0</span>,
+            vmctx_signature_ids_begin: <span class="number">0</span>,
+            vmctx_imported_functions_begin: <span class="number">0</span>,
+            vmctx_imported_tables_begin: <span class="number">0</span>,
+            vmctx_imported_memories_begin: <span class="number">0</span>,
+            vmctx_imported_globals_begin: <span class="number">0</span>,
+            vmctx_tables_begin: <span class="number">0</span>,
+            vmctx_memories_begin: <span class="number">0</span>,
+            vmctx_globals_begin: <span class="number">0</span>,
+            vmctx_builtin_functions_begin: <span class="number">0</span>,
+            vmctx_trap_handler_begin: <span class="number">0</span>,
+            vmctx_gas_limiter_pointer: <span class="number">0</span>,
+            vmctx_stack_limit_begin: <span class="number">0</span>,
+            vmctx_stack_limit_initial_begin: <span class="number">0</span>,
+            size_of_vmctx: <span class="number">0</span>,
         }
     }
 
-    <span class="doccomment">/// Number of local tables defined in the module</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">num_local_tables</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">num_local_tables</span>
+    <span class="doccomment">/// Number of local tables defined in the module
+    </span><span class="kw">pub fn </span>num_local_tables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.num_local_tables
     }
 
-    <span class="doccomment">/// Number of local memories defined in the module</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">num_local_memories</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">num_local_memories</span>
+    <span class="doccomment">/// Number of local memories defined in the module
+    </span><span class="kw">pub fn </span>num_local_memories(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.num_local_memories
     }
 
-    <span class="kw">fn</span> <span class="ident">precompute</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="doccomment">/// Offset base by num_items items of size item_size, panicking on overflow</span>
-        <span class="kw">fn</span> <span class="ident">offset_by</span>(<span class="ident">base</span>: <span class="ident">u32</span>, <span class="ident">num_items</span>: <span class="ident">u32</span>, <span class="ident">item_size</span>: <span class="ident">u32</span>) -&gt; <span class="ident">u32</span> {
-            <span class="ident">base</span>.<span class="ident">checked_add</span>(<span class="ident">num_items</span>.<span class="ident">checked_mul</span>(<span class="ident">item_size</span>).<span class="ident">unwrap</span>())
-                .<span class="ident">unwrap</span>()
+    <span class="kw">fn </span>precompute(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="doccomment">/// Offset base by num_items items of size item_size, panicking on overflow
+        </span><span class="kw">fn </span>offset_by(base: u32, num_items: u32, item_size: u32) -&gt; u32 {
+            base.checked_add(num_items.checked_mul(item_size).unwrap())
+                .unwrap()
         }
 
-        <span class="self">self</span>.<span class="ident">vmctx_signature_ids_begin</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="self">self</span>.<span class="ident">vmctx_imported_functions_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_signature_ids_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_signature_ids</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmshared_signature_index</span>()),
+        <span class="self">self</span>.vmctx_signature_ids_begin = <span class="number">0</span>;
+        <span class="self">self</span>.vmctx_imported_functions_begin = offset_by(
+            <span class="self">self</span>.vmctx_signature_ids_begin,
+            <span class="self">self</span>.num_signature_ids,
+            u32::from(<span class="self">self</span>.size_of_vmshared_signature_index()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_imported_tables_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_imported_functions_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_imported_functions</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmfunction_import</span>()),
+        <span class="self">self</span>.vmctx_imported_tables_begin = offset_by(
+            <span class="self">self</span>.vmctx_imported_functions_begin,
+            <span class="self">self</span>.num_imported_functions,
+            u32::from(<span class="self">self</span>.size_of_vmfunction_import()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_imported_memories_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_imported_tables_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_imported_tables</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmtable_import</span>()),
+        <span class="self">self</span>.vmctx_imported_memories_begin = offset_by(
+            <span class="self">self</span>.vmctx_imported_tables_begin,
+            <span class="self">self</span>.num_imported_tables,
+            u32::from(<span class="self">self</span>.size_of_vmtable_import()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_imported_globals_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_imported_memories_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_imported_memories</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmmemory_import</span>()),
+        <span class="self">self</span>.vmctx_imported_globals_begin = offset_by(
+            <span class="self">self</span>.vmctx_imported_memories_begin,
+            <span class="self">self</span>.num_imported_memories,
+            u32::from(<span class="self">self</span>.size_of_vmmemory_import()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_tables_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_imported_globals_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_imported_globals</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmglobal_import</span>()),
+        <span class="self">self</span>.vmctx_tables_begin = offset_by(
+            <span class="self">self</span>.vmctx_imported_globals_begin,
+            <span class="self">self</span>.num_imported_globals,
+            u32::from(<span class="self">self</span>.size_of_vmglobal_import()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_memories_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_tables_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_local_tables</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmtable_definition</span>()),
+        <span class="self">self</span>.vmctx_memories_begin = offset_by(
+            <span class="self">self</span>.vmctx_tables_begin,
+            <span class="self">self</span>.num_local_tables,
+            u32::from(<span class="self">self</span>.size_of_vmtable_definition()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_globals_begin</span> <span class="op">=</span> <span class="ident">align</span>(
-            <span class="ident">offset_by</span>(
-                <span class="self">self</span>.<span class="ident">vmctx_memories_begin</span>,
-                <span class="self">self</span>.<span class="ident">num_local_memories</span>,
-                <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmmemory_definition</span>()),
+        <span class="self">self</span>.vmctx_globals_begin = align(
+            offset_by(
+                <span class="self">self</span>.vmctx_memories_begin,
+                <span class="self">self</span>.num_local_memories,
+                u32::from(<span class="self">self</span>.size_of_vmmemory_definition()),
             ),
             <span class="number">16</span>,
         );
-        <span class="self">self</span>.<span class="ident">vmctx_builtin_functions_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_globals_begin</span>,
-            <span class="self">self</span>.<span class="ident">num_local_globals</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmglobal_local</span>()),
+        <span class="self">self</span>.vmctx_builtin_functions_begin = offset_by(
+            <span class="self">self</span>.vmctx_globals_begin,
+            <span class="self">self</span>.num_local_globals,
+            u32::from(<span class="self">self</span>.size_of_vmglobal_local()),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_trap_handler_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_builtin_functions_begin</span>,
-            <span class="ident">VMBuiltinFunctionIndex::builtin_functions_total_number</span>(),
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">pointer_size</span>),
+        <span class="self">self</span>.vmctx_trap_handler_begin = offset_by(
+            <span class="self">self</span>.vmctx_builtin_functions_begin,
+            VMBuiltinFunctionIndex::builtin_functions_total_number(),
+            u32::from(<span class="self">self</span>.pointer_size),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_gas_limiter_pointer</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_trap_handler_begin</span>,
+        <span class="self">self</span>.vmctx_gas_limiter_pointer = offset_by(
+            <span class="self">self</span>.vmctx_trap_handler_begin,
             <span class="number">1</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">pointer_size</span>),
+            u32::from(<span class="self">self</span>.pointer_size),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_stack_limit_begin</span> <span class="op">=</span> <span class="ident">offset_by</span>(
-            <span class="self">self</span>.<span class="ident">vmctx_gas_limiter_pointer</span>,
+        <span class="self">self</span>.vmctx_stack_limit_begin = offset_by(
+            <span class="self">self</span>.vmctx_gas_limiter_pointer,
             <span class="number">1</span>,
-            <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">pointer_size</span>),
+            u32::from(<span class="self">self</span>.pointer_size),
         );
-        <span class="self">self</span>.<span class="ident">vmctx_stack_limit_initial_begin</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vmctx_stack_limit_begin</span>.<span class="ident">checked_add</span>(<span class="number">4</span>).<span class="ident">unwrap</span>();
-        <span class="self">self</span>.<span class="ident">size_of_vmctx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vmctx_stack_limit_begin</span>.<span class="ident">checked_add</span>(<span class="number">4</span>).<span class="ident">unwrap</span>();
+        <span class="self">self</span>.vmctx_stack_limit_initial_begin = <span class="self">self</span>.vmctx_stack_limit_begin.checked_add(<span class="number">4</span>).unwrap();
+        <span class="self">self</span>.size_of_vmctx = <span class="self">self</span>.vmctx_stack_limit_begin.checked_add(<span class="number">4</span>).unwrap();
     }
 }
 
-<span class="doccomment">/// Offsets for `VMFunctionImport`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `body` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmfunction_import_body</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `VMFunctionImport`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `body` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmfunction_import_body(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `vmctx` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmfunction_import_vmctx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// The offset of the `vmctx` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmfunction_import_vmctx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `handle` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmfunction_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// The offset of the `handle` field.
+    </span><span class="kw">pub const fn </span>vmfunction_import_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// Return the size of `VMFunctionImport`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmfunction_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-}
-
-<span class="doccomment">/// Offsets for `VMDynamicFunctionContext`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `address` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmdynamicfunction_import_context_address</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// The offset of the `ctx` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmdynamicfunction_import_context_ctx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// Return the size of `VMDynamicFunctionContext`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmdynamicfunction_import_context</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// Return the size of `VMFunctionImport`.
+    </span><span class="kw">pub const fn </span>size_of_vmfunction_import(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">3 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `*const VMFunctionBody`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The size of the `current_elements` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmfunction_body_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `VMDynamicFunctionContext`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `address` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmdynamicfunction_import_context_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
+    }
+
+    <span class="doccomment">/// The offset of the `ctx` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmdynamicfunction_import_context_ctx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
+    }
+
+    <span class="doccomment">/// Return the size of `VMDynamicFunctionContext`.
+    </span><span class="kw">pub const fn </span>size_of_vmdynamicfunction_import_context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMTableImport`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `definition` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmtable_import_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// The offset of the `handle` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmtable_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// Return the size of `VMTableImport`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmtable_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `*const VMFunctionBody`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The size of the `current_elements` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>size_of_vmfunction_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMTableDefinition`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `base` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmtable_definition_base</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `VMTableImport`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `definition` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmtable_import_definition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `current_elements` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmtable_definition_current_elements</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// The offset of the `handle` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmtable_import_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The size of the `current_elements` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmtable_definition_current_elements</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">4</span>
-    }
-
-    <span class="doccomment">/// Return the size of `VMTableDefinition`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmtable_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// Return the size of `VMTableImport`.
+    </span><span class="kw">pub const fn </span>size_of_vmtable_import(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMMemoryImport`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `from` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmmemory_import_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `VMTableDefinition`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `base` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmtable_definition_base(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `handle` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmmemory_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// The offset of the `current_elements` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmtable_definition_current_elements(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// Return the size of `VMMemoryImport`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmmemory_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-}
+    <span class="doccomment">/// The size of the `current_elements` field.
+    </span><span class="kw">pub const fn </span>size_of_vmtable_definition_current_elements(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">4
+    </span>}
 
-<span class="doccomment">/// Offsets for `VMMemoryDefinition`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `base` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmmemory_definition_base</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// The offset of the `current_length` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmmemory_definition_current_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// The size of the `current_length` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmmemory_definition_current_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">4</span>
-    }
-
-    <span class="doccomment">/// Return the size of `VMMemoryDefinition`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmmemory_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// Return the size of `VMTableDefinition`.
+    </span><span class="kw">pub const fn </span>size_of_vmtable_definition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMGlobalImport`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `definition` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmglobal_import_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `VMMemoryImport`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `from` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmmemory_import_definition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `handle` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmglobal_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// The offset of the `handle` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmmemory_import_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// Return the size of `VMGlobalImport`.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmglobal_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-}
-
-<span class="doccomment">/// Offsets for a non-null pointer to a `VMGlobalDefinition` used as a local global.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// Return the size of a pointer to a `VMGlobalDefinition`;</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The underlying global itself is the size of the largest value type (i.e. a V128),</span>
-    <span class="doccomment">/// however the size of this type is just the size of a pointer.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmglobal_local</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// Return the size of `VMMemoryImport`.
+    </span><span class="kw">pub const fn </span>size_of_vmmemory_import(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMSharedSignatureIndex`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// Return the size of `VMSharedSignatureIndex`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmshared_signature_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">4</span>
+<span class="doccomment">/// Offsets for `VMMemoryDefinition`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `base` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmmemory_definition_base(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
+    }
+
+    <span class="doccomment">/// The offset of the `current_length` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmmemory_definition_current_length(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
+    }
+
+    <span class="doccomment">/// The size of the `current_length` field.
+    </span><span class="kw">pub const fn </span>size_of_vmmemory_definition_current_length(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">4
+    </span>}
+
+    <span class="doccomment">/// Return the size of `VMMemoryDefinition`.
+    </span><span class="kw">pub const fn </span>size_of_vmmemory_definition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMCallerCheckedAnyfunc`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `func_ptr` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmcaller_checked_anyfunc_func_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for `VMGlobalImport`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `definition` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmglobal_import_definition(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `type_index` field.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmcaller_checked_anyfunc_type_index</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// The offset of the `handle` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmglobal_import_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `vmctx` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmcaller_checked_anyfunc_vmctx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">2</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// The offset of the `call_trampoline` field.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vmcaller_checked_anyfunc_call_trampoline</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// Return the size of `VMCallerCheckedAnyfunc`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmcaller_checked_anyfunc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">4</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    <span class="doccomment">/// Return the size of `VMGlobalImport`.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>size_of_vmglobal_import(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMFuncRef`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset to the pointer to the anyfunc inside the ref.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vm_funcref_anyfunc_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
-    }
-
-    <span class="doccomment">/// Return the size of `VMFuncRef`.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vm_funcref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
-        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+<span class="doccomment">/// Offsets for a non-null pointer to a `VMGlobalDefinition` used as a local global.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// Return the size of a pointer to a `VMGlobalDefinition`;
+    ///
+    /// The underlying global itself is the size of the largest value type (i.e. a V128),
+    /// however the size of this type is just the size of a pointer.
+    </span><span class="kw">pub const fn </span>size_of_vmglobal_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Offsets for `VMContext`.</span>
-<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
-    <span class="doccomment">/// The offset of the `signature_ids` array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_signature_ids_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_signature_ids_begin</span>
+<span class="doccomment">/// Offsets for `VMSharedSignatureIndex`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// Return the size of `VMSharedSignatureIndex`.
+    </span><span class="kw">pub const fn </span>size_of_vmshared_signature_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">4
+    </span>}
+}
+
+<span class="doccomment">/// Offsets for `VMCallerCheckedAnyfunc`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `func_ptr` field.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vmcaller_checked_anyfunc_func_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `tables` array.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::erasing_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_imported_functions_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_imported_functions_begin</span>
+    <span class="doccomment">/// The offset of the `type_index` field.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>vmcaller_checked_anyfunc_type_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `tables` array.</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::identity_op</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_imported_tables_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_imported_tables_begin</span>
+    <span class="doccomment">/// The offset of the `vmctx` field.
+    </span><span class="kw">pub const fn </span>vmcaller_checked_anyfunc_vmctx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">2 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `memories` array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_imported_memories_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_imported_memories_begin</span>
+    <span class="doccomment">/// The offset of the `call_trampoline` field.
+    </span><span class="kw">pub const fn </span>vmcaller_checked_anyfunc_call_trampoline(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">3 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// The offset of the `globals` array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_imported_globals_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_imported_globals_begin</span>
-    }
-
-    <span class="doccomment">/// The offset of the `tables` array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_tables_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_tables_begin</span>
-    }
-
-    <span class="doccomment">/// The offset of the `memories` array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_memories_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_memories_begin</span>
-    }
-
-    <span class="doccomment">/// The offset of the `globals` array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_globals_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_globals_begin</span>
-    }
-
-    <span class="doccomment">/// The offset of the builtin functions array.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_builtin_functions_begin</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_builtin_functions_begin</span>
-    }
-
-    <span class="doccomment">/// Return the size of the `VMContext` allocation.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size_of_vmctx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">size_of_vmctx</span>
-    }
-
-    <span class="doccomment">/// Return the offset to `VMSharedSignatureIndex` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmshared_signature_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">SignatureIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_signature_ids</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_signature_ids_begin</span>
-            <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmshared_signature_index</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMFunctionImport` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmfunction_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">FunctionIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_imported_functions</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_imported_functions_begin</span>
-            <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmfunction_import</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMTableImport` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmtable_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">TableIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_imported_tables</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_imported_tables_begin</span> <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmtable_import</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMMemoryImport` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_imported_memories</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_imported_memories_begin</span>
-            <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmmemory_import</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMGlobalImport` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmglobal_import</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">GlobalIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_imported_globals</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_imported_globals_begin</span>
-            <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmglobal_import</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMTableDefinition` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmtable_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalTableIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_local_tables</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_tables_begin</span> <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmtable_definition</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMMemoryDefinition` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalMemoryIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_local_memories</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_memories_begin</span> <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmmemory_definition</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `VMGlobalDefinition` index `index`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmglobal_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalGlobalIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="macro">assert_lt!</span>(<span class="ident">index</span>.<span class="ident">as_u32</span>(), <span class="self">self</span>.<span class="ident">num_local_globals</span>);
-        <span class="self">self</span>.<span class="ident">vmctx_globals_begin</span> <span class="op">+</span> <span class="ident">index</span>.<span class="ident">as_u32</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">size_of_vmglobal_local</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `body` field in `*const VMFunctionBody` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmfunction_import_body</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">FunctionIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmfunction_import</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmfunction_import_body</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `vmctx` field in `*const VMFunctionBody` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmfunction_import_vmctx</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">FunctionIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmfunction_import</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmfunction_import_vmctx</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `definition` field in `VMTableImport` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmtable_import_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">TableIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmtable_import</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmtable_import_definition</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `base` field in `VMTableDefinition` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmtable_definition_base</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalTableIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmtable_definition</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmtable_definition_base</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `current_elements` field in `VMTableDefinition` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmtable_definition_current_elements</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalTableIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmtable_definition</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmtable_definition_current_elements</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `from` field in `VMMemoryImport` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_import_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmmemory_import</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmmemory_import_definition</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_import_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">MemoryIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmmemory_import</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmmemory_import_handle</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `base` field in `VMMemoryDefinition` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_definition_base</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalMemoryIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmmemory_definition</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmmemory_definition_base</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `current_length` field in `VMMemoryDefinition` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmmemory_definition_current_length</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">LocalMemoryIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmmemory_definition</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmmemory_definition_current_length</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to the `from` field in `VMGlobalImport` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_vmglobal_import_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">GlobalIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_vmglobal_import</span>(<span class="ident">index</span>) <span class="op">+</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">vmglobal_import_definition</span>())
-    }
-
-    <span class="doccomment">/// Return the offset to builtin function in `VMBuiltinFunctionsArray` index `index`.</span>
-    <span class="doccomment">/// Remember updating precompute upon changes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">vmctx_builtin_function</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">VMBuiltinFunctionIndex</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">vmctx_builtin_functions_begin</span> <span class="op">+</span> <span class="ident">index</span>.<span class="ident">index</span>() <span class="op">*</span> <span class="ident">u32::from</span>(<span class="self">self</span>.<span class="ident">pointer_size</span>)
+    <span class="doccomment">/// Return the size of `VMCallerCheckedAnyfunc`.
+    </span><span class="kw">pub const fn </span>size_of_vmcaller_checked_anyfunc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">4 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="doccomment">/// Target specific type for shared signature index.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TargetSharedSignatureIndex</span>(<span class="ident">u32</span>);
-
-<span class="kw">impl</span> <span class="ident">TargetSharedSignatureIndex</span> {
-    <span class="doccomment">/// Constructs `TargetSharedSignatureIndex`.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">value</span>: <span class="ident">u32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">value</span>)
+<span class="doccomment">/// Offsets for `VMFuncRef`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset to the pointer to the anyfunc inside the ref.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub const fn </span>vm_funcref_anyfunc_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">0 </span>* <span class="self">self</span>.pointer_size
     }
 
-    <span class="doccomment">/// Returns index value.</span>
-    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">index</span>(<span class="self">self</span>) -&gt; <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="number">0</span>
+    <span class="doccomment">/// Return the size of `VMFuncRef`.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub const fn </span>size_of_vm_funcref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">tests</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmoffsets::align</span>;
+<span class="doccomment">/// Offsets for `VMContext`.
+</span><span class="kw">impl </span>VMOffsets {
+    <span class="doccomment">/// The offset of the `signature_ids` array.
+    </span><span class="kw">pub fn </span>vmctx_signature_ids_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_signature_ids_begin
+    }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">alignment</span>() {
-        <span class="kw">fn</span> <span class="ident">is_aligned</span>(<span class="ident">x</span>: <span class="ident">u32</span>) -&gt; <span class="ident">bool</span> {
-            <span class="ident">x</span> <span class="op">%</span> <span class="number">16</span> <span class="op">==</span> <span class="number">0</span>
-        }
-        <span class="macro">assert!</span>(<span class="ident">is_aligned</span>(<span class="ident">align</span>(<span class="number">0</span>, <span class="number">16</span>)));
-        <span class="macro">assert!</span>(<span class="ident">is_aligned</span>(<span class="ident">align</span>(<span class="number">32</span>, <span class="number">16</span>)));
-        <span class="macro">assert!</span>(<span class="ident">is_aligned</span>(<span class="ident">align</span>(<span class="number">33</span>, <span class="number">16</span>)));
-        <span class="macro">assert!</span>(<span class="ident">is_aligned</span>(<span class="ident">align</span>(<span class="number">31</span>, <span class="number">16</span>)));
+    <span class="doccomment">/// The offset of the `tables` array.
+    </span><span class="attribute">#[allow(clippy::erasing_op)]
+    </span><span class="kw">pub fn </span>vmctx_imported_functions_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_imported_functions_begin
+    }
+
+    <span class="doccomment">/// The offset of the `tables` array.
+    </span><span class="attribute">#[allow(clippy::identity_op)]
+    </span><span class="kw">pub fn </span>vmctx_imported_tables_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_imported_tables_begin
+    }
+
+    <span class="doccomment">/// The offset of the `memories` array.
+    </span><span class="kw">pub fn </span>vmctx_imported_memories_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_imported_memories_begin
+    }
+
+    <span class="doccomment">/// The offset of the `globals` array.
+    </span><span class="kw">pub fn </span>vmctx_imported_globals_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_imported_globals_begin
+    }
+
+    <span class="doccomment">/// The offset of the `tables` array.
+    </span><span class="kw">pub fn </span>vmctx_tables_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_tables_begin
+    }
+
+    <span class="doccomment">/// The offset of the `memories` array.
+    </span><span class="kw">pub fn </span>vmctx_memories_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_memories_begin
+    }
+
+    <span class="doccomment">/// The offset of the `globals` array.
+    </span><span class="kw">pub fn </span>vmctx_globals_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_globals_begin
+    }
+
+    <span class="doccomment">/// The offset of the builtin functions array.
+    </span><span class="kw">pub fn </span>vmctx_builtin_functions_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_builtin_functions_begin
+    }
+
+    <span class="doccomment">/// Return the size of the `VMContext` allocation.
+    </span><span class="kw">pub fn </span>size_of_vmctx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.size_of_vmctx
+    }
+
+    <span class="doccomment">/// Return the offset to `VMSharedSignatureIndex` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmshared_signature_id(<span class="kw-2">&amp;</span><span class="self">self</span>, index: SignatureIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_signature_ids);
+        <span class="self">self</span>.vmctx_signature_ids_begin
+            + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmshared_signature_index())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMFunctionImport` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmfunction_import(<span class="kw-2">&amp;</span><span class="self">self</span>, index: FunctionIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_functions);
+        <span class="self">self</span>.vmctx_imported_functions_begin
+            + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmfunction_import())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMTableImport` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmtable_import(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TableIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_tables);
+        <span class="self">self</span>.vmctx_imported_tables_begin + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmtable_import())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMMemoryImport` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmmemory_import(<span class="kw-2">&amp;</span><span class="self">self</span>, index: MemoryIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_memories);
+        <span class="self">self</span>.vmctx_imported_memories_begin
+            + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmmemory_import())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMGlobalImport` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmglobal_import(<span class="kw-2">&amp;</span><span class="self">self</span>, index: GlobalIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_globals);
+        <span class="self">self</span>.vmctx_imported_globals_begin
+            + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmglobal_import())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMTableDefinition` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmtable_definition(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalTableIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_local_tables);
+        <span class="self">self</span>.vmctx_tables_begin + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmtable_definition())
+    }
+
+    <span class="doccomment">/// Return the offset to `VMMemoryDefinition` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmmemory_definition(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalMemoryIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_local_memories);
+        <span class="self">self</span>.vmctx_memories_begin + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmmemory_definition())
+    }
+
+    <span class="doccomment">/// Return the offset to the `VMGlobalDefinition` index `index`.
+    </span><span class="kw">pub fn </span>vmctx_vmglobal_definition(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalGlobalIndex) -&gt; u32 {
+        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_local_globals);
+        <span class="self">self</span>.vmctx_globals_begin + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmglobal_local())
+    }
+
+    <span class="doccomment">/// Return the offset to the `body` field in `*const VMFunctionBody` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmfunction_import_body(<span class="kw-2">&amp;</span><span class="self">self</span>, index: FunctionIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmfunction_import(index) + u32::from(<span class="self">self</span>.vmfunction_import_body())
+    }
+
+    <span class="doccomment">/// Return the offset to the `vmctx` field in `*const VMFunctionBody` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmfunction_import_vmctx(<span class="kw-2">&amp;</span><span class="self">self</span>, index: FunctionIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmfunction_import(index) + u32::from(<span class="self">self</span>.vmfunction_import_vmctx())
+    }
+
+    <span class="doccomment">/// Return the offset to the `definition` field in `VMTableImport` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmtable_import_definition(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TableIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmtable_import(index) + u32::from(<span class="self">self</span>.vmtable_import_definition())
+    }
+
+    <span class="doccomment">/// Return the offset to the `base` field in `VMTableDefinition` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmtable_definition_base(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalTableIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmtable_definition(index) + u32::from(<span class="self">self</span>.vmtable_definition_base())
+    }
+
+    <span class="doccomment">/// Return the offset to the `current_elements` field in `VMTableDefinition` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmtable_definition_current_elements(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalTableIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmtable_definition(index) + u32::from(<span class="self">self</span>.vmtable_definition_current_elements())
+    }
+
+    <span class="doccomment">/// Return the offset to the `from` field in `VMMemoryImport` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmmemory_import_definition(<span class="kw-2">&amp;</span><span class="self">self</span>, index: MemoryIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmmemory_import(index) + u32::from(<span class="self">self</span>.vmmemory_import_definition())
+    }
+
+    <span class="doccomment">/// Return the offset to the `vmctx` field in `VMMemoryImport` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmmemory_import_handle(<span class="kw-2">&amp;</span><span class="self">self</span>, index: MemoryIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmmemory_import(index) + u32::from(<span class="self">self</span>.vmmemory_import_handle())
+    }
+
+    <span class="doccomment">/// Return the offset to the `base` field in `VMMemoryDefinition` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmmemory_definition_base(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalMemoryIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmmemory_definition(index) + u32::from(<span class="self">self</span>.vmmemory_definition_base())
+    }
+
+    <span class="doccomment">/// Return the offset to the `current_length` field in `VMMemoryDefinition` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmmemory_definition_current_length(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalMemoryIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmmemory_definition(index) + u32::from(<span class="self">self</span>.vmmemory_definition_current_length())
+    }
+
+    <span class="doccomment">/// Return the offset to the `from` field in `VMGlobalImport` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_vmglobal_import_definition(<span class="kw-2">&amp;</span><span class="self">self</span>, index: GlobalIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_vmglobal_import(index) + u32::from(<span class="self">self</span>.vmglobal_import_definition())
+    }
+
+    <span class="doccomment">/// Return the offset to builtin function in `VMBuiltinFunctionsArray` index `index`.
+    /// Remember updating precompute upon changes
+    </span><span class="kw">pub fn </span>vmctx_builtin_function(<span class="kw-2">&amp;</span><span class="self">self</span>, index: VMBuiltinFunctionIndex) -&gt; u32 {
+        <span class="self">self</span>.vmctx_builtin_functions_begin + index.index() * u32::from(<span class="self">self</span>.pointer_size)
+    }
+}
+
+<span class="doccomment">/// Target specific type for shared signature index.
+</span><span class="attribute">#[derive(Debug, Copy, Clone)]
+</span><span class="kw">pub struct </span>TargetSharedSignatureIndex(u32);
+
+<span class="kw">impl </span>TargetSharedSignatureIndex {
+    <span class="doccomment">/// Constructs `TargetSharedSignatureIndex`.
+    </span><span class="kw">pub const fn </span>new(value: u32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(value)
+    }
+
+    <span class="doccomment">/// Returns index value.
+    </span><span class="kw">pub const fn </span>index(<span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">crate</span>::vmoffsets::align;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>alignment() {
+        <span class="kw">fn </span>is_aligned(x: u32) -&gt; bool {
+            x % <span class="number">16 </span>== <span class="number">0
+        </span>}
+        <span class="macro">assert!</span>(is_aligned(align(<span class="number">0</span>, <span class="number">16</span>)));
+        <span class="macro">assert!</span>(is_aligned(align(<span class="number">32</span>, <span class="number">16</span>)));
+        <span class="macro">assert!</span>(is_aligned(align(<span class="number">33</span>, <span class="number">16</span>)));
+        <span class="macro">assert!</span>(is_aligned(align(<span class="number">31</span>, <span class="number">16</span>)));
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

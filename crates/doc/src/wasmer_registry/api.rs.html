@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/api.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>api.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/registry/src/api.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>api.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_registry/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -52,59 +52,59 @@
 <span id="52">52</span>
 <span id="53">53</span>
 <span id="54">54</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::RegistryClient</span>;
+<span class="kw">use </span><span class="kw">crate</span>::RegistryClient;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::mutations</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::types</span>::{<span class="ident">PublishDeployAppOutput</span>, <span class="ident">PublishDeployAppRawVars</span>};
+<span class="kw">use </span><span class="kw">crate</span>::graphql::mutations;
+<span class="kw">use </span><span class="kw">crate</span>::types::{PublishDeployAppOutput, PublishDeployAppRawVars};
 
-<span class="doccomment">/// Generate a Deploy token for for the given Deploy app version id.</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">generate_deploy_token</span>(
-    <span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="ident">RegistryClient</span>,
-    <span class="ident">app_version_id</span>: <span class="ident">String</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">vars</span> <span class="op">=</span> <span class="ident">mutations::generate_deploy_token::Variables</span> { <span class="ident">app_version_id</span> };
-    <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">client</span>
-        .<span class="ident">execute</span>::<span class="op">&lt;</span><span class="ident">mutations::GenerateDeployToken</span><span class="op">&gt;</span>(<span class="ident">vars</span>)
+<span class="doccomment">/// Generate a Deploy token for for the given Deploy app version id.
+</span><span class="kw">pub async fn </span>generate_deploy_token(
+    client: <span class="kw-2">&amp;</span>RegistryClient,
+    app_version_id: String,
+) -&gt; <span class="prelude-ty">Result</span>&lt;String, anyhow::Error&gt; {
+    <span class="kw">let </span>vars = mutations::generate_deploy_token::Variables { app_version_id };
+    <span class="kw">let </span>res = client
+        .execute::&lt;mutations::GenerateDeployToken&gt;(vars)
         .<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="ident">res</span>
-        .<span class="ident">generate_deploy_token</span>
-        .<span class="ident">context</span>(<span class="string">&quot;Query did not return a token&quot;</span>)<span class="question-mark">?</span>
-        .<span class="ident">token</span>;
+    <span class="kw">let </span>token = res
+        .generate_deploy_token
+        .context(<span class="string">&quot;Query did not return a token&quot;</span>)<span class="question-mark">?
+        </span>.token;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">token</span>)
+    <span class="prelude-val">Ok</span>(token)
 }
 
-<span class="doccomment">/// Publish a Deploy app.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Takes a raw, unvalidated deployment config.</span>
-<span class="comment">// TODO: Add a variant of this query that takes a typed DeployV1 config.</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">publish_deploy_app_raw</span>(
-    <span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="ident">RegistryClient</span>,
-    <span class="ident">data</span>: <span class="ident">PublishDeployAppRawVars</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PublishDeployAppOutput</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">vars2</span> <span class="op">=</span> <span class="ident">mutations::publish_deploy_app::Variables</span> {
-        <span class="ident">name</span>: <span class="ident">data</span>.<span class="ident">name</span>,
-        <span class="ident">owner</span>: <span class="ident">data</span>.<span class="ident">namespace</span>,
-        <span class="ident">config</span>: <span class="ident">serde_json::to_string</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>.<span class="ident">config</span>)<span class="question-mark">?</span>,
+<span class="doccomment">/// Publish a Deploy app.
+///
+/// Takes a raw, unvalidated deployment config.
+</span><span class="comment">// TODO: Add a variant of this query that takes a typed DeployV1 config.
+</span><span class="kw">pub async fn </span>publish_deploy_app_raw(
+    client: <span class="kw-2">&amp;</span>RegistryClient,
+    data: PublishDeployAppRawVars,
+) -&gt; <span class="prelude-ty">Result</span>&lt;PublishDeployAppOutput, anyhow::Error&gt; {
+    <span class="kw">let </span>vars2 = mutations::publish_deploy_app::Variables {
+        name: data.name,
+        owner: data.namespace,
+        config: serde_json::to_string(<span class="kw-2">&amp;</span>data.config)<span class="question-mark">?</span>,
     };
 
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">client</span>
-        .<span class="ident">execute</span>::<span class="op">&lt;</span><span class="ident">mutations::PublishDeployApp</span><span class="op">&gt;</span>(<span class="ident">vars2</span>)
-        .<span class="kw">await</span><span class="question-mark">?</span>
-        .<span class="ident">publish_deploy_app</span>
-        .<span class="ident">context</span>(<span class="string">&quot;Query did not return data&quot;</span>)<span class="question-mark">?</span>
-        .<span class="ident">deploy_app_version</span>;
-    <span class="kw">let</span> <span class="ident">app</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">app</span>.<span class="ident">context</span>(<span class="string">&quot;Query did not return expected data&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>version = client
+        .execute::&lt;mutations::PublishDeployApp&gt;(vars2)
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>.publish_deploy_app
+        .context(<span class="string">&quot;Query did not return data&quot;</span>)<span class="question-mark">?
+        </span>.deploy_app_version;
+    <span class="kw">let </span>app = version.app.context(<span class="string">&quot;Query did not return expected data&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(<span class="ident">PublishDeployAppOutput</span> {
-        <span class="ident">app_id</span>: <span class="ident">app</span>.<span class="ident">id</span>,
-        <span class="ident">app_name</span>: <span class="ident">app</span>.<span class="ident">name</span>,
-        <span class="ident">version_id</span>: <span class="ident">version</span>.<span class="ident">id</span>,
-        <span class="ident">version_name</span>: <span class="ident">version</span>.<span class="ident">version</span>,
-        <span class="ident">owner_name</span>: <span class="ident">app</span>.<span class="ident">owner</span>.<span class="ident">global_name</span>,
+    <span class="prelude-val">Ok</span>(PublishDeployAppOutput {
+        app_id: app.id,
+        app_name: app.name,
+        version_id: version.id,
+        version_name: version.version,
+        owner_name: app.owner.global_name,
     })
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

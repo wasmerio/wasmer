@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/unwind_winx64.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>unwind_winx64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/unwind_winx64.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>unwind_winx64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_compiler_singlepass/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -301,308 +301,308 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Windows x64 ABI unwind information.</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Windows x64 ABI unwind information.
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind::UnwindOps</span>;
+</span><span class="kw">use </span><span class="kw">crate</span>::unwind::UnwindOps;
 
-<span class="doccomment">/// Maximum (inclusive) size of a &quot;small&quot; stack allocation</span>
-<span class="kw">const</span> <span class="ident">SMALL_ALLOC_MAX_SIZE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">128</span>;
-<span class="doccomment">/// Maximum (inclusive) size of a &quot;large&quot; stack allocation that can represented in 16-bits</span>
-<span class="kw">const</span> <span class="ident">LARGE_ALLOC_16BIT_MAX_SIZE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">524280</span>;
+<span class="doccomment">/// Maximum (inclusive) size of a &quot;small&quot; stack allocation
+</span><span class="kw">const </span>SMALL_ALLOC_MAX_SIZE: u32 = <span class="number">128</span>;
+<span class="doccomment">/// Maximum (inclusive) size of a &quot;large&quot; stack allocation that can represented in 16-bits
+</span><span class="kw">const </span>LARGE_ALLOC_16BIT_MAX_SIZE: u32 = <span class="number">524280</span>;
 
-<span class="kw">struct</span> <span class="ident">Writer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">u8</span>],
-    <span class="ident">offset</span>: <span class="ident">usize</span>,
+<span class="kw">struct </span>Writer&lt;<span class="lifetime">&#39;a</span>&gt; {
+    buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8],
+    offset: usize,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Writer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">buf</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> [<span class="ident">u8</span>]) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">buf</span>, <span class="ident">offset</span>: <span class="number">0</span> }
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Writer&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub fn </span>new(buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8]) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ buf, offset: <span class="number">0 </span>}
     }
 
-    <span class="kw">fn</span> <span class="ident">write_u8</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="ident">u8</span>) {
-        <span class="self">self</span>.<span class="ident">buf</span>[<span class="self">self</span>.<span class="ident">offset</span>] <span class="op">=</span> <span class="ident">v</span>;
-        <span class="self">self</span>.<span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+    <span class="kw">fn </span>write_u8(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: u8) {
+        <span class="self">self</span>.buf[<span class="self">self</span>.offset] = v;
+        <span class="self">self</span>.offset += <span class="number">1</span>;
     }
 
-    <span class="kw">fn</span> <span class="ident">write_u16_le</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="ident">u16</span>) {
-        <span class="self">self</span>.<span class="ident">buf</span>[<span class="self">self</span>.<span class="ident">offset</span>..(<span class="self">self</span>.<span class="ident">offset</span> <span class="op">+</span> <span class="number">2</span>)].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">to_le_bytes</span>());
-        <span class="self">self</span>.<span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">2</span>;
+    <span class="kw">fn </span>write_u16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: u16) {
+        <span class="self">self</span>.buf[<span class="self">self</span>.offset..(<span class="self">self</span>.offset + <span class="number">2</span>)].copy_from_slice(<span class="kw-2">&amp;</span>v.to_le_bytes());
+        <span class="self">self</span>.offset += <span class="number">2</span>;
     }
 
-    <span class="kw">fn</span> <span class="ident">write_u32_le</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">v</span>: <span class="ident">u32</span>) {
-        <span class="self">self</span>.<span class="ident">buf</span>[<span class="self">self</span>.<span class="ident">offset</span>..(<span class="self">self</span>.<span class="ident">offset</span> <span class="op">+</span> <span class="number">4</span>)].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">to_le_bytes</span>());
-        <span class="self">self</span>.<span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">4</span>;
+    <span class="kw">fn </span>write_u32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: u32) {
+        <span class="self">self</span>.buf[<span class="self">self</span>.offset..(<span class="self">self</span>.offset + <span class="number">4</span>)].copy_from_slice(<span class="kw-2">&amp;</span>v.to_le_bytes());
+        <span class="self">self</span>.offset += <span class="number">4</span>;
     }
 }
 
-<span class="doccomment">/// The supported unwind codes for the x64 Windows ABI.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// See: &lt;https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64&gt;</span>
-<span class="doccomment">/// Only what is needed to describe the prologues generated by the Cranelift x86 ISA are represented here.</span>
-<span class="doccomment">/// Note: the Cranelift x86 ISA RU enum matches the Windows unwind GPR encoding values.</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">UnwindCode</span> {
-    <span class="ident">PushRegister</span> {
-        <span class="ident">instruction_offset</span>: <span class="ident">u8</span>,
-        <span class="ident">reg</span>: <span class="ident">u8</span>,
+<span class="doccomment">/// The supported unwind codes for the x64 Windows ABI.
+///
+/// See: &lt;https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64&gt;
+/// Only what is needed to describe the prologues generated by the Cranelift x86 ISA are represented here.
+/// Note: the Cranelift x86 ISA RU enum matches the Windows unwind GPR encoding values.
+</span><span class="attribute">#[allow(dead_code)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>UnwindCode {
+    PushRegister {
+        instruction_offset: u8,
+        reg: u8,
     },
-    <span class="ident">SaveReg</span> {
-        <span class="ident">instruction_offset</span>: <span class="ident">u8</span>,
-        <span class="ident">reg</span>: <span class="ident">u8</span>,
-        <span class="ident">stack_offset</span>: <span class="ident">u32</span>,
+    SaveReg {
+        instruction_offset: u8,
+        reg: u8,
+        stack_offset: u32,
     },
-    <span class="ident">SaveXmm</span> {
-        <span class="ident">instruction_offset</span>: <span class="ident">u8</span>,
-        <span class="ident">reg</span>: <span class="ident">u8</span>,
-        <span class="ident">stack_offset</span>: <span class="ident">u32</span>,
+    SaveXmm {
+        instruction_offset: u8,
+        reg: u8,
+        stack_offset: u32,
     },
-    <span class="ident">StackAlloc</span> {
-        <span class="ident">instruction_offset</span>: <span class="ident">u8</span>,
-        <span class="ident">size</span>: <span class="ident">u32</span>,
+    StackAlloc {
+        instruction_offset: u8,
+        size: u32,
     },
-    <span class="ident">SetFPReg</span> {
-        <span class="ident">instruction_offset</span>: <span class="ident">u8</span>,
+    SetFPReg {
+        instruction_offset: u8,
     },
 }
 
-<span class="kw">impl</span> <span class="ident">UnwindCode</span> {
-    <span class="kw">fn</span> <span class="ident">emit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">writer</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Writer</span>) {
-        <span class="kw">enum</span> <span class="ident">UnwindOperation</span> {
-            <span class="ident">PushNonvolatileRegister</span> <span class="op">=</span> <span class="number">0</span>,
-            <span class="ident">LargeStackAlloc</span> <span class="op">=</span> <span class="number">1</span>,
-            <span class="ident">SmallStackAlloc</span> <span class="op">=</span> <span class="number">2</span>,
-            <span class="ident">SetFPReg</span> <span class="op">=</span> <span class="number">3</span>,
-            <span class="ident">SaveNonVolatileRegister</span> <span class="op">=</span> <span class="number">4</span>,
-            <span class="ident">SaveNonVolatileRegisterFar</span> <span class="op">=</span> <span class="number">5</span>,
-            <span class="ident">SaveXmm128</span> <span class="op">=</span> <span class="number">8</span>,
-            <span class="ident">SaveXmm128Far</span> <span class="op">=</span> <span class="number">9</span>,
+<span class="kw">impl </span>UnwindCode {
+    <span class="kw">fn </span>emit(<span class="kw-2">&amp;</span><span class="self">self</span>, writer: <span class="kw-2">&amp;mut </span>Writer) {
+        <span class="kw">enum </span>UnwindOperation {
+            PushNonvolatileRegister = <span class="number">0</span>,
+            LargeStackAlloc = <span class="number">1</span>,
+            SmallStackAlloc = <span class="number">2</span>,
+            SetFPReg = <span class="number">3</span>,
+            SaveNonVolatileRegister = <span class="number">4</span>,
+            SaveNonVolatileRegisterFar = <span class="number">5</span>,
+            SaveXmm128 = <span class="number">8</span>,
+            SaveXmm128Far = <span class="number">9</span>,
         }
 
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::PushRegister</span> {
-                <span class="ident">instruction_offset</span>,
-                <span class="ident">reg</span>,
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::PushRegister {
+                instruction_offset,
+                reg,
             } =&gt; {
-                <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="kw-2">*</span><span class="ident">instruction_offset</span>);
-                <span class="ident">writer</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">reg</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>) <span class="op">|</span> (<span class="ident">UnwindOperation::PushNonvolatileRegister</span> <span class="kw">as</span> <span class="ident">u8</span>));
+                writer.write_u8(<span class="kw-2">*</span>instruction_offset);
+                writer.write_u8((<span class="kw-2">*</span>reg &lt;&lt; <span class="number">4</span>) | (UnwindOperation::PushNonvolatileRegister <span class="kw">as </span>u8));
             }
-            <span class="ident"><span class="self">Self</span>::SaveReg</span> {
-                <span class="ident">instruction_offset</span>,
-                <span class="ident">reg</span>,
-                <span class="ident">stack_offset</span>,
+            <span class="self">Self</span>::SaveReg {
+                instruction_offset,
+                reg,
+                stack_offset,
             }
-            <span class="op">|</span> <span class="ident"><span class="self">Self</span>::SaveXmm</span> {
-                <span class="ident">instruction_offset</span>,
-                <span class="ident">reg</span>,
-                <span class="ident">stack_offset</span>,
+            | <span class="self">Self</span>::SaveXmm {
+                instruction_offset,
+                reg,
+                stack_offset,
             } =&gt; {
-                <span class="kw">let</span> <span class="ident">is_xmm</span> <span class="op">=</span> <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::SaveXmm</span> { .. });
-                <span class="kw">let</span> (<span class="ident">op_small</span>, <span class="ident">op_large</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_xmm</span> {
-                    (<span class="ident">UnwindOperation::SaveXmm128</span>, <span class="ident">UnwindOperation::SaveXmm128Far</span>)
-                } <span class="kw">else</span> {
+                <span class="kw">let </span>is_xmm = <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::SaveXmm { .. });
+                <span class="kw">let </span>(op_small, op_large) = <span class="kw">if </span>is_xmm {
+                    (UnwindOperation::SaveXmm128, UnwindOperation::SaveXmm128Far)
+                } <span class="kw">else </span>{
                     (
-                        <span class="ident">UnwindOperation::SaveNonVolatileRegister</span>,
-                        <span class="ident">UnwindOperation::SaveNonVolatileRegisterFar</span>,
+                        UnwindOperation::SaveNonVolatileRegister,
+                        UnwindOperation::SaveNonVolatileRegisterFar,
                     )
                 };
-                <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="kw-2">*</span><span class="ident">instruction_offset</span>);
-                <span class="kw">let</span> <span class="ident">scaled_stack_offset</span> <span class="op">=</span> <span class="ident">stack_offset</span> <span class="op">/</span> <span class="number">16</span>;
-                <span class="kw">if</span> <span class="ident">scaled_stack_offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">core::u16::MAX</span> <span class="kw">as</span> <span class="ident">u32</span> {
-                    <span class="ident">writer</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">reg</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>) <span class="op">|</span> (<span class="ident">op_small</span> <span class="kw">as</span> <span class="ident">u8</span>));
-                    <span class="ident">writer</span>.<span class="ident">write_u16_le</span>(<span class="ident">scaled_stack_offset</span> <span class="kw">as</span> <span class="ident">u16</span>);
-                } <span class="kw">else</span> {
-                    <span class="ident">writer</span>.<span class="ident">write_u8</span>((<span class="kw-2">*</span><span class="ident">reg</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>) <span class="op">|</span> (<span class="ident">op_large</span> <span class="kw">as</span> <span class="ident">u8</span>));
-                    <span class="ident">writer</span>.<span class="ident">write_u16_le</span>(<span class="kw-2">*</span><span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">u16</span>);
-                    <span class="ident">writer</span>.<span class="ident">write_u16_le</span>((<span class="ident">stack_offset</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">16</span>) <span class="kw">as</span> <span class="ident">u16</span>);
+                writer.write_u8(<span class="kw-2">*</span>instruction_offset);
+                <span class="kw">let </span>scaled_stack_offset = stack_offset / <span class="number">16</span>;
+                <span class="kw">if </span>scaled_stack_offset &lt;= core::u16::MAX <span class="kw">as </span>u32 {
+                    writer.write_u8((<span class="kw-2">*</span>reg &lt;&lt; <span class="number">4</span>) | (op_small <span class="kw">as </span>u8));
+                    writer.write_u16_le(scaled_stack_offset <span class="kw">as </span>u16);
+                } <span class="kw">else </span>{
+                    writer.write_u8((<span class="kw-2">*</span>reg &lt;&lt; <span class="number">4</span>) | (op_large <span class="kw">as </span>u8));
+                    writer.write_u16_le(<span class="kw-2">*</span>stack_offset <span class="kw">as </span>u16);
+                    writer.write_u16_le((stack_offset &gt;&gt; <span class="number">16</span>) <span class="kw">as </span>u16);
                 }
             }
-            <span class="ident"><span class="self">Self</span>::StackAlloc</span> {
-                <span class="ident">instruction_offset</span>,
-                <span class="ident">size</span>,
+            <span class="self">Self</span>::StackAlloc {
+                instruction_offset,
+                size,
             } =&gt; {
-                <span class="comment">// Stack allocations on Windows must be a multiple of 8 and be at least 1 slot</span>
-                <span class="macro">assert!</span>(<span class="kw-2">*</span><span class="ident">size</span> <span class="op">&gt;</span><span class="op">=</span> <span class="number">8</span>);
-                <span class="macro">assert!</span>((<span class="kw-2">*</span><span class="ident">size</span> <span class="op">%</span> <span class="number">8</span>) <span class="op">==</span> <span class="number">0</span>);
+                <span class="comment">// Stack allocations on Windows must be a multiple of 8 and be at least 1 slot
+                </span><span class="macro">assert!</span>(<span class="kw-2">*</span>size &gt;= <span class="number">8</span>);
+                <span class="macro">assert!</span>((<span class="kw-2">*</span>size % <span class="number">8</span>) == <span class="number">0</span>);
 
-                <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="kw-2">*</span><span class="ident">instruction_offset</span>);
-                <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">SMALL_ALLOC_MAX_SIZE</span> {
-                    <span class="ident">writer</span>.<span class="ident">write_u8</span>(
-                        ((((<span class="kw-2">*</span><span class="ident">size</span> <span class="op">-</span> <span class="number">8</span>) <span class="op">/</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>) <span class="op">|</span> <span class="ident">UnwindOperation::SmallStackAlloc</span> <span class="kw">as</span> <span class="ident">u8</span>,
+                writer.write_u8(<span class="kw-2">*</span>instruction_offset);
+                <span class="kw">if </span><span class="kw-2">*</span>size &lt;= SMALL_ALLOC_MAX_SIZE {
+                    writer.write_u8(
+                        ((((<span class="kw-2">*</span>size - <span class="number">8</span>) / <span class="number">8</span>) <span class="kw">as </span>u8) &lt;&lt; <span class="number">4</span>) | UnwindOperation::SmallStackAlloc <span class="kw">as </span>u8,
                     );
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">LARGE_ALLOC_16BIT_MAX_SIZE</span> {
-                    <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="ident">UnwindOperation::LargeStackAlloc</span> <span class="kw">as</span> <span class="ident">u8</span>);
-                    <span class="ident">writer</span>.<span class="ident">write_u16_le</span>((<span class="kw-2">*</span><span class="ident">size</span> <span class="op">/</span> <span class="number">8</span>) <span class="kw">as</span> <span class="ident">u16</span>);
-                } <span class="kw">else</span> {
-                    <span class="ident">writer</span>.<span class="ident">write_u8</span>((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>) <span class="op">|</span> (<span class="ident">UnwindOperation::LargeStackAlloc</span> <span class="kw">as</span> <span class="ident">u8</span>));
-                    <span class="ident">writer</span>.<span class="ident">write_u32_le</span>(<span class="kw-2">*</span><span class="ident">size</span>);
+                } <span class="kw">else if </span><span class="kw-2">*</span>size &lt;= LARGE_ALLOC_16BIT_MAX_SIZE {
+                    writer.write_u8(UnwindOperation::LargeStackAlloc <span class="kw">as </span>u8);
+                    writer.write_u16_le((<span class="kw-2">*</span>size / <span class="number">8</span>) <span class="kw">as </span>u16);
+                } <span class="kw">else </span>{
+                    writer.write_u8((<span class="number">1 </span>&lt;&lt; <span class="number">4</span>) | (UnwindOperation::LargeStackAlloc <span class="kw">as </span>u8));
+                    writer.write_u32_le(<span class="kw-2">*</span>size);
                 }
             }
-            <span class="ident"><span class="self">Self</span>::SetFPReg</span> { <span class="ident">instruction_offset</span> } =&gt; {
-                <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="kw-2">*</span><span class="ident">instruction_offset</span>);
-                <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="ident">UnwindOperation::SetFPReg</span> <span class="kw">as</span> <span class="ident">u8</span>);
+            <span class="self">Self</span>::SetFPReg { instruction_offset } =&gt; {
+                writer.write_u8(<span class="kw-2">*</span>instruction_offset);
+                writer.write_u8(UnwindOperation::SetFPReg <span class="kw">as </span>u8);
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">node_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident"><span class="self">Self</span>::StackAlloc</span> { <span class="ident">size</span>, .. } =&gt; {
-                <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">SMALL_ALLOC_MAX_SIZE</span> {
-                    <span class="number">1</span>
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">size</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">LARGE_ALLOC_16BIT_MAX_SIZE</span> {
-                    <span class="number">2</span>
-                } <span class="kw">else</span> {
-                    <span class="number">3</span>
-                }
+    <span class="kw">fn </span>node_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::StackAlloc { size, .. } =&gt; {
+                <span class="kw">if </span><span class="kw-2">*</span>size &lt;= SMALL_ALLOC_MAX_SIZE {
+                    <span class="number">1
+                </span>} <span class="kw">else if </span><span class="kw-2">*</span>size &lt;= LARGE_ALLOC_16BIT_MAX_SIZE {
+                    <span class="number">2
+                </span>} <span class="kw">else </span>{
+                    <span class="number">3
+                </span>}
             }
-            <span class="ident"><span class="self">Self</span>::SaveXmm</span> { <span class="ident">stack_offset</span>, .. } <span class="op">|</span> <span class="ident"><span class="self">Self</span>::SaveReg</span> { <span class="ident">stack_offset</span>, .. } =&gt; {
-                <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">stack_offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">core::u16::MAX</span> <span class="kw">as</span> <span class="ident">u32</span> {
-                    <span class="number">2</span>
-                } <span class="kw">else</span> {
-                    <span class="number">3</span>
-                }
+            <span class="self">Self</span>::SaveXmm { stack_offset, .. } | <span class="self">Self</span>::SaveReg { stack_offset, .. } =&gt; {
+                <span class="kw">if </span><span class="kw-2">*</span>stack_offset &lt;= core::u16::MAX <span class="kw">as </span>u32 {
+                    <span class="number">2
+                </span>} <span class="kw">else </span>{
+                    <span class="number">3
+                </span>}
             }
-            <span class="kw">_</span> =&gt; <span class="number">1</span>,
+            <span class="kw">_ </span>=&gt; <span class="number">1</span>,
         }
     }
 }
 
-<span class="doccomment">/// Represents Windows x64 unwind information.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// For information about Windows x64 unwind info, see:</span>
-<span class="doccomment">/// &lt;https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">UnwindInfo</span> {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">flags</span>: <span class="ident">u8</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">prologue_size</span>: <span class="ident">u8</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">frame_register</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">frame_register_offset</span>: <span class="ident">u8</span>,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">unwind_codes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">UnwindCode</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Represents Windows x64 unwind information.
+///
+/// For information about Windows x64 unwind info, see:
+/// &lt;https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64&gt;
+</span><span class="attribute">#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>UnwindInfo {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) flags: u8,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) prologue_size: u8,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) frame_register: <span class="prelude-ty">Option</span>&lt;u8&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) frame_register_offset: u8,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) unwind_codes: Vec&lt;UnwindCode&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">UnwindInfo</span> {
-    <span class="doccomment">/// Gets the emit size of the unwind information, in bytes.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit_size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="kw">let</span> <span class="ident">node_count</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">node_count</span>();
+<span class="kw">impl </span>UnwindInfo {
+    <span class="doccomment">/// Gets the emit size of the unwind information, in bytes.
+    </span><span class="kw">pub fn </span>emit_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="kw">let </span>node_count = <span class="self">self</span>.node_count();
 
-        <span class="comment">// Calculation of the size requires no SEH handler or chained info</span>
-        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">flags</span> <span class="op">==</span> <span class="number">0</span>);
+        <span class="comment">// Calculation of the size requires no SEH handler or chained info
+        </span><span class="macro">assert!</span>(<span class="self">self</span>.flags == <span class="number">0</span>);
 
-        <span class="comment">// Size of fixed part of UNWIND_INFO is 4 bytes</span>
-        <span class="comment">// Then comes the UNWIND_CODE nodes (2 bytes each)</span>
-        <span class="comment">// Then comes 2 bytes of padding for the unwind codes if necessary</span>
-        <span class="comment">// Next would come the SEH data, but we assert above that the function doesn&#39;t have SEH data</span>
+        <span class="comment">// Size of fixed part of UNWIND_INFO is 4 bytes
+        // Then comes the UNWIND_CODE nodes (2 bytes each)
+        // Then comes 2 bytes of padding for the unwind codes if necessary
+        // Next would come the SEH data, but we assert above that the function doesn&#39;t have SEH data
 
-        <span class="number">4</span> <span class="op">+</span> (<span class="ident">node_count</span> <span class="op">*</span> <span class="number">2</span>) <span class="op">+</span> <span class="kw">if</span> (<span class="ident">node_count</span> <span class="op">&amp;</span> <span class="number">1</span>) <span class="op">==</span> <span class="number">1</span> { <span class="number">2</span> } <span class="kw">else</span> { <span class="number">0</span> }
+        </span><span class="number">4 </span>+ (node_count * <span class="number">2</span>) + <span class="kw">if </span>(node_count &amp; <span class="number">1</span>) == <span class="number">1 </span>{ <span class="number">2 </span>} <span class="kw">else </span>{ <span class="number">0 </span>}
     }
 
-    <span class="doccomment">/// Emits the unwind information into the given mutable byte slice.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This function will panic if the slice is not at least `emit_size` in length.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">emit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) {
-        <span class="kw">const</span> <span class="ident">UNWIND_INFO_VERSION</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">1</span>;
+    <span class="doccomment">/// Emits the unwind information into the given mutable byte slice.
+    ///
+    /// This function will panic if the slice is not at least `emit_size` in length.
+    </span><span class="kw">pub fn </span>emit(<span class="kw-2">&amp;</span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) {
+        <span class="kw">const </span>UNWIND_INFO_VERSION: u8 = <span class="number">1</span>;
 
-        <span class="kw">let</span> <span class="ident">node_count</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">node_count</span>();
-        <span class="macro">assert!</span>(<span class="ident">node_count</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">256</span>);
+        <span class="kw">let </span>node_count = <span class="self">self</span>.node_count();
+        <span class="macro">assert!</span>(node_count &lt;= <span class="number">256</span>);
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">Writer::new</span>(<span class="ident">buf</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>writer = Writer::new(buf);
 
-        <span class="ident">writer</span>.<span class="ident">write_u8</span>((<span class="self">self</span>.<span class="ident">flags</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">3</span>) <span class="op">|</span> <span class="ident">UNWIND_INFO_VERSION</span>);
-        <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="self">self</span>.<span class="ident">prologue_size</span>);
-        <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="ident">node_count</span> <span class="kw">as</span> <span class="ident">u8</span>);
+        writer.write_u8((<span class="self">self</span>.flags &lt;&lt; <span class="number">3</span>) | UNWIND_INFO_VERSION);
+        writer.write_u8(<span class="self">self</span>.prologue_size);
+        writer.write_u8(node_count <span class="kw">as </span>u8);
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">reg</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">frame_register</span> {
-            <span class="ident">writer</span>.<span class="ident">write_u8</span>((<span class="self">self</span>.<span class="ident">frame_register_offset</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">4</span>) <span class="op">|</span> <span class="ident">reg</span>);
-        } <span class="kw">else</span> {
-            <span class="ident">writer</span>.<span class="ident">write_u8</span>(<span class="number">0</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(reg) = <span class="self">self</span>.frame_register {
+            writer.write_u8((<span class="self">self</span>.frame_register_offset &lt;&lt; <span class="number">4</span>) | reg);
+        } <span class="kw">else </span>{
+            writer.write_u8(<span class="number">0</span>);
         }
 
-        <span class="comment">// Unwind codes are written in reverse order (prologue offset descending)</span>
-        <span class="kw">for</span> <span class="ident">code</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">unwind_codes</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-            <span class="ident">code</span>.<span class="ident">emit</span>(<span class="kw-2">&amp;mut</span> <span class="ident">writer</span>);
+        <span class="comment">// Unwind codes are written in reverse order (prologue offset descending)
+        </span><span class="kw">for </span>code <span class="kw">in </span><span class="self">self</span>.unwind_codes.iter().rev() {
+            code.emit(<span class="kw-2">&amp;mut </span>writer);
         }
 
-        <span class="comment">// To keep a 32-bit alignment, emit 2 bytes of padding if there&#39;s an odd number of 16-bit nodes</span>
-        <span class="kw">if</span> (<span class="ident">node_count</span> <span class="op">&amp;</span> <span class="number">1</span>) <span class="op">==</span> <span class="number">1</span> {
-            <span class="ident">writer</span>.<span class="ident">write_u16_le</span>(<span class="number">0</span>);
+        <span class="comment">// To keep a 32-bit alignment, emit 2 bytes of padding if there&#39;s an odd number of 16-bit nodes
+        </span><span class="kw">if </span>(node_count &amp; <span class="number">1</span>) == <span class="number">1 </span>{
+            writer.write_u16_le(<span class="number">0</span>);
         }
 
-        <span class="comment">// Ensure the correct number of bytes was emitted</span>
-        <span class="macro">assert_eq!</span>(<span class="ident">writer</span>.<span class="ident">offset</span>, <span class="self">self</span>.<span class="ident">emit_size</span>());
+        <span class="comment">// Ensure the correct number of bytes was emitted
+        </span><span class="macro">assert_eq!</span>(writer.offset, <span class="self">self</span>.emit_size());
     }
 
-    <span class="kw">fn</span> <span class="ident">node_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">unwind_codes</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">nodes</span>, <span class="ident">c</span><span class="op">|</span> <span class="ident">nodes</span> <span class="op">+</span> <span class="ident">c</span>.<span class="ident">node_count</span>())
+    <span class="kw">fn </span>node_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.unwind_codes
+            .iter()
+            .fold(<span class="number">0</span>, |nodes, c| nodes + c.node_count())
     }
 }
 
-<span class="kw">const</span> <span class="ident">UNWIND_RBP_REG</span>: <span class="ident">u8</span> <span class="op">=</span> <span class="number">5</span>;
+<span class="kw">const </span>UNWIND_RBP_REG: u8 = <span class="number">5</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">create_unwind_info_from_insts</span>(<span class="ident">insts</span>: <span class="kw-2">&amp;</span>[(<span class="ident">usize</span>, <span class="ident">UnwindOps</span>)]) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindInfo</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">unwind_codes</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">frame_register_offset</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max_unwind_offset</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">for</span> <span class="kw-2">&amp;</span>(<span class="ident">instruction_offset</span>, <span class="kw-2">ref</span> <span class="ident">inst</span>) <span class="kw">in</span> <span class="ident">insts</span> {
-        <span class="kw">let</span> <span class="ident">instruction_offset</span> <span class="op">=</span> <span class="ident">ensure_unwind_offset</span>(<span class="ident">instruction_offset</span> <span class="kw">as</span> <span class="ident">u32</span>)<span class="question-mark">?</span>;
-        <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">inst</span> {
-            <span class="ident">UnwindOps::PushFP</span> { .. } =&gt; {
-                <span class="ident">unwind_codes</span>.<span class="ident">push</span>(<span class="ident">UnwindCode::PushRegister</span> {
-                    <span class="ident">instruction_offset</span>,
-                    <span class="ident">reg</span>: <span class="ident">UNWIND_RBP_REG</span>,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_unwind_info_from_insts(insts: <span class="kw-2">&amp;</span>[(usize, UnwindOps)]) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInfo&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>unwind_codes = <span class="macro">vec!</span>[];
+    <span class="kw">let </span><span class="kw-2">mut </span>frame_register_offset = <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>max_unwind_offset = <span class="number">0</span>;
+    <span class="kw">for </span><span class="kw-2">&amp;</span>(instruction_offset, <span class="kw-2">ref </span>inst) <span class="kw">in </span>insts {
+        <span class="kw">let </span>instruction_offset = ensure_unwind_offset(instruction_offset <span class="kw">as </span>u32)<span class="question-mark">?</span>;
+        <span class="kw">match </span><span class="kw-2">*</span>inst {
+            UnwindOps::PushFP { .. } =&gt; {
+                unwind_codes.push(UnwindCode::PushRegister {
+                    instruction_offset,
+                    reg: UNWIND_RBP_REG,
                 });
             }
-            <span class="ident">UnwindOps::DefineNewFrame</span> =&gt; {
-                <span class="ident">frame_register_offset</span> <span class="op">=</span> <span class="ident">ensure_unwind_offset</span>(<span class="number">32</span>)<span class="question-mark">?</span>;
-                <span class="ident">unwind_codes</span>.<span class="ident">push</span>(<span class="ident">UnwindCode::SetFPReg</span> { <span class="ident">instruction_offset</span> });
+            UnwindOps::DefineNewFrame =&gt; {
+                frame_register_offset = ensure_unwind_offset(<span class="number">32</span>)<span class="question-mark">?</span>;
+                unwind_codes.push(UnwindCode::SetFPReg { instruction_offset });
             }
-            <span class="ident">UnwindOps::SaveRegister</span> { <span class="ident">reg</span>, <span class="ident">bp_neg_offset</span> } =&gt; <span class="kw">match</span> <span class="ident">reg</span> {
-                <span class="number">0</span>..<span class="op">=</span><span class="number">15</span> =&gt; {
-                    <span class="comment">// GPR reg</span>
-                    <span class="kw">static</span> <span class="ident">FROM_DWARF</span>: [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span>
+            UnwindOps::SaveRegister { reg, bp_neg_offset } =&gt; <span class="kw">match </span>reg {
+                <span class="number">0</span>..=<span class="number">15 </span>=&gt; {
+                    <span class="comment">// GPR reg
+                    </span><span class="kw">static </span>FROM_DWARF: [u8; <span class="number">16</span>] =
                         [<span class="number">0</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">3</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>, <span class="number">11</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">14</span>, <span class="number">15</span>];
-                    <span class="ident">unwind_codes</span>.<span class="ident">push</span>(<span class="ident">UnwindCode::SaveReg</span> {
-                        <span class="ident">instruction_offset</span>,
-                        <span class="ident">reg</span>: <span class="ident">FROM_DWARF</span>[<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">usize</span>],
-                        <span class="ident">stack_offset</span>: <span class="ident">bp_neg_offset</span> <span class="kw">as</span> <span class="ident">u32</span>,
+                    unwind_codes.push(UnwindCode::SaveReg {
+                        instruction_offset,
+                        reg: FROM_DWARF[reg <span class="kw">as </span>usize],
+                        stack_offset: bp_neg_offset <span class="kw">as </span>u32,
                     });
                 }
-                <span class="number">17</span>..<span class="op">=</span><span class="number">32</span> =&gt; {
-                    <span class="ident">unwind_codes</span>.<span class="ident">push</span>(<span class="ident">UnwindCode::SaveXmm</span> {
-                        <span class="ident">instruction_offset</span>,
-                        <span class="ident">reg</span>: <span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u8</span> <span class="op">-</span> <span class="number">17</span>,
-                        <span class="ident">stack_offset</span>: <span class="ident">bp_neg_offset</span> <span class="kw">as</span> <span class="ident">u32</span>,
+                <span class="number">17</span>..=<span class="number">32 </span>=&gt; {
+                    unwind_codes.push(UnwindCode::SaveXmm {
+                        instruction_offset,
+                        reg: reg <span class="kw">as </span>u8 - <span class="number">17</span>,
+                        stack_offset: bp_neg_offset <span class="kw">as </span>u32,
                     });
                 }
-                <span class="kw">_</span> =&gt; {
-                    <span class="macro">unreachable!</span>(<span class="string">&quot;unknown register index {}&quot;</span>, <span class="ident">reg</span>);
+                <span class="kw">_ </span>=&gt; {
+                    <span class="macro">unreachable!</span>(<span class="string">&quot;unknown register index {}&quot;</span>, reg);
                 }
             },
-            <span class="ident">UnwindOps::Push2Regs</span> { .. } =&gt; {
+            UnwindOps::Push2Regs { .. } =&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">&quot;no aarch64 on x64&quot;</span>);
             }
         }
-        <span class="ident">max_unwind_offset</span> <span class="op">=</span> <span class="ident">instruction_offset</span>;
+        max_unwind_offset = instruction_offset;
     }
 
-    <span class="prelude-val">Some</span>(<span class="ident">UnwindInfo</span> {
-        <span class="ident">flags</span>: <span class="number">0</span>,
-        <span class="ident">prologue_size</span>: <span class="ident">max_unwind_offset</span>,
-        <span class="ident">frame_register</span>: <span class="prelude-val">Some</span>(<span class="ident">UNWIND_RBP_REG</span>),
-        <span class="ident">frame_register_offset</span>,
-        <span class="ident">unwind_codes</span>,
+    <span class="prelude-val">Some</span>(UnwindInfo {
+        flags: <span class="number">0</span>,
+        prologue_size: max_unwind_offset,
+        frame_register: <span class="prelude-val">Some</span>(UNWIND_RBP_REG),
+        frame_register_offset,
+        unwind_codes,
     })
 }
 
-<span class="kw">fn</span> <span class="ident">ensure_unwind_offset</span>(<span class="ident">offset</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">&gt;</span> <span class="number">255</span> {
+<span class="kw">fn </span>ensure_unwind_offset(offset: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+    <span class="kw">if </span>offset &gt; <span class="number">255 </span>{
         <span class="macro">panic!</span>(<span class="string">&quot;function prologues cannot exceed 255 bytes in size for Windows x64&quot;</span>);
     }
-    <span class="prelude-val">Some</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u8</span>)
+    <span class="prelude-val">Some</span>(offset <span class="kw">as </span>u8)
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler_singlepass" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>
