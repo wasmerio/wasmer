@@ -43,7 +43,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
           components: rustfmt, clippy
       - name: Install libtinfo
         shell: bash
@@ -95,7 +95,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
       - name: Install NodeJS
         uses: actions/setup-node@v2
         with:
@@ -263,7 +263,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
           target: ${{ matrix.metadata.target }}
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@stable
@@ -487,7 +487,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
           target: ${{ matrix.metadata.target }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
@@ -587,7 +587,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
           target: ${{ matrix.metadata.target }}
       - name: Cache
         uses: whywaita/actions-cache-s3@v2

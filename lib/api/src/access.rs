@@ -118,7 +118,7 @@ pub(super) enum RefCow<'a, T> {
 impl<'a, T> AsRef<T> for RefCow<'a, T> {
     fn as_ref(&self) -> &T {
         match self {
-            Self::Borrowed(val) => *val,
+            Self::Borrowed(val) => val,
             Self::Owned(val, _) => val,
         }
     }
@@ -130,7 +130,7 @@ impl<'a, T> AsMut<T> for RefCow<'a, T> {
         //       not leak the bytes into the memory
         // https://stackoverflow.com/questions/61114026/does-stdptrwrite-transfer-the-uninitialized-ness-of-the-bytes-it-writes
         match self {
-            Self::Borrowed(val) => *val,
+            Self::Borrowed(val) => val,
             Self::Owned(val, modified) => {
                 *modified = true;
                 val

@@ -32,7 +32,7 @@ impl Display for Hash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut buffer = [0_u8; 64];
 
-        hex::encode_to_slice(&self.0, &mut buffer)
+        hex::encode_to_slice(self.0, &mut buffer)
             .expect("Can never fail with a hard-coded buffer length");
         let s = std::str::from_utf8(&buffer).map_err(|_| fmt::Error)?;
 

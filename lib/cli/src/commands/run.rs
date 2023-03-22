@@ -125,7 +125,7 @@ impl RunWithPathBuf {
             let default = indexmap::IndexMap::default();
             let fs = manifest.fs.as_ref().unwrap_or(&default);
             for (alias, real_dir) in fs.iter() {
-                let real_dir = self_clone.path.join(&real_dir);
+                let real_dir = self_clone.path.join(real_dir);
                 if !real_dir.exists() {
                     #[cfg(feature = "debug")]
                     if self_clone.debug {

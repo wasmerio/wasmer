@@ -63,10 +63,16 @@ wcgi-host = { version = "0.1.0", optional = true }
 tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "cors"], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 
-[dependencies.reqwest]
+[target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
 default-features = false
 features = ["rustls-tls", "json"]
+optional = true
+
+[target.'cfg(target_arch = "riscv64")'.dependencies.reqwest]
+version = "0.11"
+default-features = false
+features = ["native-tls", "json"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]

@@ -464,7 +464,7 @@ impl TargetOnDisk {
                 Ok(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::WebAssemblyBinary(path) => {
-                let wasm = std::fs::read(&path)
+                let wasm = std::fs::read(path)
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
                 let module = compile_wasm_cached(path, &wasm, cache, store)?;
                 Ok(ExecutableTarget::WebAssembly(module))
@@ -566,7 +566,7 @@ fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result
         .map_err(Error::msg)
         .context("Coredump serializing failed")?;
 
-    std::fs::write(&coredump_path, &coredump).with_context(|| {
+    std::fs::write(coredump_path, &coredump).with_context(|| {
         format!(
             "Unable to save the coredump to \"{}\"",
             coredump_path.display()
