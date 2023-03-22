@@ -342,8 +342,6 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine</span>::{<span class="ident">AsEngineRef</span>, <span class="ident">Engine</span>, <span class="ident">EngineRef</span>};
 <span class="kw">use</span> <span class="ident">derivative::Derivative</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -358,8 +356,6 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm::TrapHandlerFn</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::NativeEngineExt</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">StoreHandle</span>, <span class="ident">StoreObjects</span>};
 

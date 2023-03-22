@@ -247,8 +247,6 @@
 <span id="245">245</span>
 <span id="246">246</span>
 <span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">pin::Pin</span>, <span class="ident">sync::Arc</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -257,8 +255,6 @@
 };
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
 <span class="kw">use</span> <span class="ident">tracing</span>::<span class="kw-2">*</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer::NativeEngineExt</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasix_types::wasi::Errno</span>;
 
