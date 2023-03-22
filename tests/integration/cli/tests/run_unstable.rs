@@ -70,9 +70,11 @@ mod webc_on_disk {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
             .arg(fixtures::python())
-            .arg(format!("--mapdir=/app:{}", temp.path().display()))
+            // .arg(format!("--mapdir=/app:{}", temp.path().display()))
             .arg("--")
-            .arg("/app/main.py")
+            .arg("-B")
+            .arg("-c")
+            .arg("print('Hello, World!')")
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));

@@ -1,6 +1,7 @@
 //! WebC container support for running WASI modules
-
+use virtual_fs::{RootFileSystemBuilder, OverlayFileSystem, FileSystem};
 use std::{collections::HashMap, sync::Arc};
+use std::path::Path;
 
 use crate::{
     runners::{MappedDirectory, WapmContainer},
@@ -125,13 +126,32 @@ impl WasiRunner {
         container: &WapmContainer,
         command: &str,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let (fs, preopen_dirs) = container.container_fs();
+        let host_fs = RootFileSystemBuilder::default().build();
+        // walk_fs(&host_fs, Path::new("/"));
 
+        let (webc_fs, preopen_dirs) = container.container_fs();
+        
+        // FAILS
+        let fs = OverlayFileSystem::new(host_fs, [webc_fs]);
+        walk_fs(&fs, Path::new("lib")); // THIS IS EMPTY
+
+        // WORKS
+        // let fs = OverlayFileSystem::new(webc_fs, ());
+        // walk_fs(&fs, Path::new("lib")); // THIS IS NOT EMPTY
+        // root.mount("/".into(), &fs, "/".into())?;
+        
         let mut builder = WasiEnv::builder(command).args(&self.args);
+        builder.add_preopen_dir("lib")?;
 
-        for dir in preopen_dirs {
-            builder.add_preopen_dir(dir)?;
-        }
+        // for dir in preopen_dirs {
+        //     // let dir = format!("/{dir}");
+        //     println!("PREOPEN {}", dir);
+        //     builder.add_preopen_dir(dir)?;
+        // }
+
+        // builder.add_preopen_dir("/")?;
+
+        // walk_fs(&fs, Path::new("/"));
 
         builder.set_fs(Box::new(fs));
 
@@ -184,4 +204,17 @@ impl crate::runners::Runner for WasiRunner {
 
         Ok(())
     }
+}
+
+fn walk_fs(fs: &dyn FileSystem, path: &Path) {
+    fs.read_dir(path).unwrap().for_each(|entry| {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if entry.file_type().unwrap().is_dir() {
+            println!("{}: dir", path.display());
+            walk_fs(fs, &path);
+        } else {
+            println!("{}", path.display());
+        }
+    });
 }
