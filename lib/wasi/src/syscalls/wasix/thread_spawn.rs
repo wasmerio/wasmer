@@ -115,7 +115,6 @@ pub fn thread_spawn<M: MemorySize>(
                 module,
                 tasks,
                 start_ptr_offset,
-                thread_memory_ty,
                 thread_handle,
                 None,
             )
@@ -155,7 +154,6 @@ fn call_module<M: MemorySize>(
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
     start_ptr_offset: M::Offset,
-    thread_memory_ty: MemoryType,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<RewindState>,
 ) -> u32 {
@@ -244,7 +242,6 @@ fn call_module<M: MemorySize>(
                         module,
                         tasks,
                         start_ptr_offset,
-                        thread_memory_ty,
                         thread_handle,
                         Some(rewind),
                     );
