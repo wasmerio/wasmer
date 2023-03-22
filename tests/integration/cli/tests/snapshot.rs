@@ -243,7 +243,7 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
 
     // let mut cmd = xshell::cmd!(shell, "{wasmer}");
     if spec.enable_threads {
-        cmd.arg("--enable-threads");
+        // cmd.arg("--enable-threads");
     }
     if spec.enable_network {
         cmd.arg("--net");
@@ -692,7 +692,7 @@ fn test_snapshot_process_spawn() {
 
 // Tests that thread local variables work correctly
 #[cfg(target_os = "linux")]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_thread_locals() {
     let mut snapshot = TestBuilder::new()
@@ -714,7 +714,7 @@ fn test_snapshot_thread_locals() {
 
 // Tests that lightweight forking that does not copy the memory but retains the
 // open file descriptors works correctly.
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_vfork() {
     let snapshot = TestBuilder::new()
@@ -724,7 +724,7 @@ fn test_snapshot_vfork() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_signals() {
     let snapshot = TestBuilder::new()
@@ -734,7 +734,7 @@ fn test_snapshot_signals() {
 }
 
 #[cfg(target_os = "linux")]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_echo() {
     let snapshot = TestBuilder::new()
@@ -744,8 +744,9 @@ fn test_snapshot_dash_echo() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+#[cfg_attr(target_arch = "aarch64", ignore)] // not implemented: Stack probing is unimplemented on AArch64
 fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -755,7 +756,7 @@ fn test_snapshot_dash_echo_to_cat() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_python() {
     let snapshot = TestBuilder::new()
@@ -767,8 +768,9 @@ fn test_snapshot_dash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+#[cfg_attr(target_arch = "aarch64", ignore)] // not implemented: Stack probing is unimplemented on AArch64
 fn test_snapshot_dash_dev_zero() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -778,8 +780,9 @@ fn test_snapshot_dash_dev_zero() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+#[cfg_attr(target_arch = "aarch64", ignore)] // not implemented: Stack probing is unimplemented on AArch64
 fn test_snapshot_dash_dev_urandom() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -789,7 +792,7 @@ fn test_snapshot_dash_dev_urandom() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
@@ -800,7 +803,7 @@ fn test_snapshot_dash_dash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
@@ -811,7 +814,7 @@ fn test_snapshot_dash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
@@ -821,8 +824,9 @@ fn test_snapshot_bash_echo() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+#[cfg_attr(target_arch = "aarch64", ignore)] // not implemented: Stack probing is unimplemented on AArch64
 fn test_snapshot_bash_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -832,8 +836,9 @@ fn test_snapshot_bash_ls() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+#[cfg_attr(target_arch = "aarch64", ignore)] // not implemented: Stack probing is unimplemented on AArch64
 fn test_snapshot_bash_pipe() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -843,7 +848,7 @@ fn test_snapshot_bash_pipe() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_python() {
     let snapshot = TestBuilder::new()
@@ -855,7 +860,7 @@ fn test_snapshot_bash_python() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_bash() {
     let snapshot = TestBuilder::new()
@@ -866,7 +871,7 @@ fn test_snapshot_bash_bash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
@@ -877,7 +882,7 @@ fn test_snapshot_bash_dash() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_catsay() {
     let snapshot = TestBuilder::new()
@@ -887,7 +892,7 @@ fn test_snapshot_catsay() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+// #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_quickjs() {
     let snapshot = TestBuilder::new()
