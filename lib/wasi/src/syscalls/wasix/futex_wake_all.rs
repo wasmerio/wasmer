@@ -26,7 +26,7 @@ pub fn futex_wake_all<M: MemorySize>(
             futex.wakers.into_iter().for_each(|w| w.wake());
             true
         } else {
-            false
+            true
         }
     };
     Span::current().record("woken", woken);
