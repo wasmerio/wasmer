@@ -6,8 +6,6 @@ use crate::{
 };
 use futures::Future;
 use tracing::*;
-#[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
