@@ -3,7 +3,7 @@ name = "wasmer-wasix"
 version = "0.1.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
-keywords = ["wasm", "webassembly", "wasi", "wasix", "sandbox", "ABI"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
@@ -52,7 +52,7 @@ linked_hash_set = { version = "0.1" }
 # the various compilers
 wasmer-compiler = { version = "=3.2.0-beta.1", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
-wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
+wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.4", features = ["tracing"] }
 heapless = "0.7.16"
 once_cell = "1.17.0"
 pin-project = "1.0.12"

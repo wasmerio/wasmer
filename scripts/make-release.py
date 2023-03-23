@@ -332,7 +332,7 @@ def make_release(version):
     if proc.returncode == 0:
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
-            if "Merge #" + pr_number in line:
+            if "Merge pull request #" + pr_number in line:
                 correct_checkout = line
     else:
         raise Exception("could not git log branch " + RELEASE_VERSION_WITH_V)
