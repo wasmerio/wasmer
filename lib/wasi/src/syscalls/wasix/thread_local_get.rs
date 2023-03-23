@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `key` - Thread key that this local variable that was previous set
-#[instrument(level = "trace", skip_all, fields(key, val = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%key, val = field::Empty), ret)]
 pub fn thread_local_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     key: TlKey,

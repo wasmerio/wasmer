@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `Filesize *offset`
 ///     The offset of `fd` relative to the start of the file
-#[instrument(level = "debug", skip_all, fields(fd, offset = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, offset = field::Empty), ret)]
 pub fn fd_tell<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

@@ -8,7 +8,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-#[instrument(level = "debug", skip_all, fields(join_tid), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%join_tid), ret, err)]
 pub fn thread_join(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,

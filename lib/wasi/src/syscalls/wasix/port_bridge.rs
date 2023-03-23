@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// * `network` - Fully qualified identifier for the network
 /// * `token` - Access token used to authenticate with the network
 /// * `security` - Level of encryption to encapsulate the network connection with
-#[instrument(level = "debug", skip_all, fields(network = field::Empty, security), ret, err)]
+#[instrument(level = "debug", skip_all, fields(network = field::Empty, ?security), ret, err)]
 pub fn port_bridge<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     network: WasmPtr<u8, M>,

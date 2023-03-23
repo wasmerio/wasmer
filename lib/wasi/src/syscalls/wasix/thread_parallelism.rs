@@ -4,7 +4,7 @@ use crate::syscalls::*;
 /// ### `thread_parallelism()`
 /// Returns the available parallelism which is normally the
 /// number of available cores that can run concurrently
-#[instrument(level = "debug", skip_all, fields(parallelism), ret)]
+#[instrument(level = "debug", skip_all, fields(parallelism = field::Empty), ret)]
 pub fn thread_parallelism<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_parallelism: WasmPtr<M::Offset, M>,

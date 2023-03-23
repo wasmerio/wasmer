@@ -16,7 +16,7 @@ use crate::syscalls::*;
 /// - `u32 *bufused`
 ///     The Number of bytes stored in `buf`; if less than `buf_len` then entire
 ///     directory has been read
-#[instrument(level = "trace", skip_all, fields(fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_readdir<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

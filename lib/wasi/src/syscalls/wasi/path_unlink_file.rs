@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     Array of UTF-8 bytes representing the path
 /// - `u32 path_len`
 ///     The number of bytes in the `path` array
-#[instrument(level = "debug", skip_all, fields(fd, path = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, path = field::Empty), ret)]
 pub fn path_unlink_file<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

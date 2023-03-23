@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     The offset from the start marking the beginning of the allocation
 /// - `Filesize len`
 ///     The length from the offset marking the end of the allocation
-#[instrument(level = "debug", skip_all, fields(fd, offset, len), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, %offset, %len), ret)]
 pub fn fd_allocate(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
