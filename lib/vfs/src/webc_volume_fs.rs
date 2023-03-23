@@ -10,7 +10,7 @@ use std::{
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
-    v2::{PathSegments, ToPathSegments},
+    v2::{PathSegmentError, PathSegments, ToPathSegments},
 };
 
 use crate::{
@@ -55,7 +55,7 @@ impl FileSystem for WebcVolumeFileSystem {
             return Err(FsError::BaseNotDirectory);
         }
 
-        let path = normalize(path)?;
+        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
 
         let mut entries = Vec::new();
 
@@ -123,7 +123,7 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        let path = normalize(path)?;
+        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
 
         self.volume()
             .metadata(path)
@@ -294,9 +294,9 @@ fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
 /// Normalize a [`Path`] into a [`PathSegments`], dealing with things like `..`
 /// and skipping `.`'s.
 #[tracing::instrument(level = "trace", err)]
-fn normalize(path: &Path) -> Result<PathSegments, FsError> {
+fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
     // This is all handled by the ToPathSegments impl for &Path
-    path.to_path_segments().map_err(|_| FsError::InvalidInput)
+    path.to_path_segments()
 }
 
 #[cfg(test)]
@@ -317,6 +317,45 @@ mod tests {
             ("/folder/..", &[]),
             ("/.hidden", &[".hidden"]),
             ("/folder/../../../../../../../file.txt", &["file.txt"]),
+            (r"C:\path\to\file.txt", &["path", "to", "file.txt"]),
+        ];
+
+        for (path, expected) in inputs {
+            let normalized = normalize(path.as_ref()).unwrap();
+            assert_eq!(normalized, expected.to_path_segments().unwrap());
+        }
+    }
+
+    #[test]
+    #[cfg_attr(not(windows), ignore = "Only works with PathBuf's Windows logic")]
+    fn normalize_windows_paths() {
+        let inputs: Vec<(&str, &[&str])> = vec![
+            (r"C:\path\to\file.txt", &["path", "to", "file.txt"]),
+            (r"C:/path/to/file.txt", &["path", "to", "file.txt"]),
+            (r"\\system07\C$\", &[]),
+            (r"c:\temp\test-file.txt", &["temp", "test-file.txt"]),
+            (
+                r"\\127.0.0.1\c$\temp\test-file.txt",
+                &["temp", "test-file.txt"],
+            ),
+            (
+                r"\\LOCALHOST\c$\temp\test-file.txt",
+                &["temp", "test-file.txt"],
+            ),
+            (r"\\.\c:\temp\test-file.txt", &["temp", "test-file.txt"]),
+            (r"\\?\c:\temp\test-file.txt", &["temp", "test-file.txt"]),
+            (
+                r"\\.\UNC\LOCALHOST\c$\temp\test-file.txt",
+                &["temp", "test-file.txt"],
+            ),
+            (
+                r"\\127.0.0.1\c$\temp\test-file.txt",
+                &["temp", "test-file.txt"],
+            ),
+            (
+                r"\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\temp\test-file.txt",
+                &["temp", "test-file.txt"],
+            ),
         ];
 
         for (path, expected) in inputs {
@@ -327,10 +366,15 @@ mod tests {
 
     #[test]
     fn invalid_paths() {
-        let paths = [".", "..", "./file.txt", ""];
+        let paths = [
+            (".", PathSegmentError::NotAbsolute),
+            ("..", PathSegmentError::NotAbsolute),
+            ("./file.txt", PathSegmentError::NotAbsolute),
+            ("", PathSegmentError::Empty),
+        ];
 
-        for path in paths {
-            assert_eq!(normalize(path.as_ref()), Err(FsError::InvalidInput));
+        for (path, err) in paths {
+            assert_eq!(normalize(path.as_ref()).unwrap_err(), err);
         }
     }
 
