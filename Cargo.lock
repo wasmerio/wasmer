@@ -4863,7 +4863,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5385,7 +5385,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.0.0",
+ "wasmer-registry 4.1.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5640,7 +5640,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "4.0.0"
+version = "4.1.0"
 dependencies = [
  "anyhow",
  "console",
