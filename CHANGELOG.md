@@ -11,6 +11,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 3.2.0-beta.1 - 22/03/2023
 
+Lots of new things in the release!
+
+  - WASIX, the new WASI eXtended library, that alows WASM to use Threads, Network, and more in both Runtime and inside a Browser.
+  - RISC-V support, on both LLVM and Cranelift compiler.
+  - Improved CLI, with more commands and more WAPM integration.
+  - Lots of behind the scene refactoring, with sys/js convergence on the API side, and a lot of crate changes.
+
 ## Added
 
   - [#3700](https://github.com/wasmerio/wasmer/pull/3700) Added back all removed function for Engine to avoid API breaking changes
