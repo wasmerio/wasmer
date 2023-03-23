@@ -120,14 +120,7 @@ where
                     }
                     had_at_least_one_success = true;
                 }
-                Err(e)
-                    if {
-                        let e = e;
-                        matches!(e, FsError::EntryNotFound)
-                    } =>
-                {
-                    continue
-                }
+                Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => continue,
                 Err(e) => return Err(e),
             }
         }
@@ -148,11 +141,7 @@ where
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.create_dir(path) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => {}
             other => return other,
         }
 
@@ -161,11 +150,7 @@ where
 
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.remove_dir(path) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => {}
             other => return other,
         }
 
@@ -174,11 +159,7 @@ where
 
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
         match self.primary.rename(from, to) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => {}
             other => return other,
         }
 
@@ -188,24 +169,13 @@ where
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         match self.primary.metadata(path) {
             Ok(meta) => return Ok(meta),
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => {}
             Err(e) => return Err(e),
         }
 
         for fs in self.secondaries.filesystems() {
             match fs.metadata(path) {
-                Err(e)
-                    if {
-                        let e = e;
-                        matches!(e, FsError::EntryNotFound)
-                    } =>
-                {
-                    continue
-                }
+                Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => continue,
                 other => return other,
             }
         }
@@ -215,11 +185,7 @@ where
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.remove_file(path) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => {}
             other => return other,
         }
 
@@ -248,10 +214,7 @@ where
             .open(path)
         {
             Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+                if matches!(e, FsError::EntryNotFound | FsError::InvalidInput) => {}
             other => return other,
         }
 
@@ -362,9 +325,12 @@ mod tests {
 
     use tempfile::TempDir;
     use tokio::io::AsyncWriteExt;
+    use webc::v1::{ParseOptions, WebCOwned};
 
     use super::*;
     use crate::{mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
+
+    const PYTHON: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
 
     #[test]
     fn object_safe() {
@@ -413,7 +379,7 @@ mod tests {
             FsError::EntryNotFound,
             "Deleted from primary"
         );
-        assert!(!ops::exists(&overlay.secondaries[0], &second));
+        assert!(!ops::exists(&overlay.secondaries[0], second));
 
         // Directory on the primary fs isn't empty
         assert_eq!(
@@ -540,11 +506,7 @@ mod tests {
                 .unwrap();
         }
         // Set up the secondary file systems
-        let webc = webc::v1::WebCOwned::parse(
-            include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer").to_vec(),
-            &webc::v1::ParseOptions::default(),
-        )
-        .unwrap();
+        let webc = WebCOwned::parse(PYTHON.to_vec(), &ParseOptions::default()).unwrap();
         let webc = WebcFileSystem::init_all(Arc::new(webc));
 
         let fs = OverlayFileSystem::new(primary, [webc]);
@@ -611,5 +573,62 @@ mod tests {
                 .unwrap(),
             "asdf"
         );
+    }
+
+    fn load_webc(bytes: &'static [u8]) -> WebcFileSystem<WebCOwned> {
+        let options = ParseOptions::default();
+        let webc = WebCOwned::parse(bytes.into(), &options).unwrap();
+        WebcFileSystem::init_all(Arc::new(webc))
+    }
+
+    #[track_caller]
+    fn assert_same_directory_contents(
+        original: &dyn FileSystem,
+        path: impl AsRef<Path>,
+        candidate: &dyn FileSystem,
+    ) {
+        let path = path.as_ref();
+
+        let original_entries: Vec<_> = original
+            .read_dir(path)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        let candidate_entries: Vec<_> = candidate
+            .read_dir(path)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert_eq!(original_entries, candidate_entries);
+    }
+
+    #[test]
+    fn absolute_and_relative_paths_are_passed_through() {
+        let python = Arc::new(load_webc(PYTHON));
+
+        // The underlying filesystem doesn't care about absolute/relative paths
+        assert_eq!(python.read_dir("/lib".as_ref()).unwrap().count(), 4);
+        assert_eq!(python.read_dir("lib".as_ref()).unwrap().count(), 4);
+
+        // read_dir() should be passed through to the primary
+        let webc_primary =
+            OverlayFileSystem::new(Arc::clone(&python), [crate::EmptyFileSystem::default()]);
+        assert_same_directory_contents(&python, "/lib", &webc_primary);
+        assert_same_directory_contents(&python, "lib", &webc_primary);
+
+        // read_dir() should also be passed through to the secondary
+        let webc_secondary =
+            OverlayFileSystem::new(crate::EmptyFileSystem::default(), [Arc::clone(&python)]);
+        assert_same_directory_contents(&python, "/lib", &webc_secondary);
+        assert_same_directory_contents(&python, "lib", &webc_secondary);
+
+        // It should be fine to overlay the root fs on top of our webc file
+        let overlay_rootfs = OverlayFileSystem::new(
+            RootFileSystemBuilder::default().build(),
+            [Arc::clone(&python)],
+        );
+        assert_same_directory_contents(&python, "/lib", &overlay_rootfs);
+        assert_same_directory_contents(&python, "lib", &overlay_rootfs);
     }
 }

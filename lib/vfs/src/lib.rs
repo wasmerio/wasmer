@@ -535,7 +535,7 @@ impl ReadDir {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirEntry {
     pub path: PathBuf,
     // weird hack, to fix this we probably need an internal trait object or callbacks or something
@@ -565,7 +565,7 @@ impl DirEntry {
 }
 
 #[allow(clippy::len_without_is_empty)] // Clippy thinks it's an iterator.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct Metadata {
     pub ft: FileType,
@@ -605,7 +605,7 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct FileType {
     pub dir: bool,
