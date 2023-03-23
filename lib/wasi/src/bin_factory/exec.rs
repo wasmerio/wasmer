@@ -8,7 +8,7 @@ use crate::{
 use futures::Future;
 use tracing::*;
 use wasmer::{Function, FunctionEnvMut, Instance, Memory, Memory32, Memory64, Module, Store};
-use wasmer_wasix_types::wasi::Errno;
+use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{
@@ -102,7 +102,6 @@ pub fn spawn_exec_module(
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env;
                 wasi_env.runtime = runtime;
-                wasi_env.enable_deep_sleep = wasi_env.capable_of_deep_sleep();
                 let thread = WasiThreadRunGuard::new(wasi_env.thread.clone());
 
                 // Perform the initialization
@@ -142,11 +141,15 @@ pub fn spawn_exec_module(
                         return;
                     }
 
+                    // Set the asynchronous threads flag
+                    let capable_of_deep_sleep = ctx.data(&store).capable_of_deep_sleep();
+                    ctx.data_mut(&mut store).enable_deep_sleep = capable_of_deep_sleep;
+
                     // If this module exports an _initialize function, run that first.
                     if let Ok(initialize) = instance.exports.get_function("_initialize") {
                         if let Err(err) = initialize.call(&mut store, &[]) {
                             thread.thread.set_status_finished(Err(err.into()));
-                            finish_module(ctx, store, Errno::Noexec);
+                            finish_module(ctx.data(&store), Errno::Noexec.into());
                             return;
                         }
                     }
@@ -171,7 +174,7 @@ pub fn spawn_exec_module(
                     call_module(ctx, store, module, start, None);
                 } else {
                     debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                    finish_module(ctx, store, Errno::Noexec);
+                    finish_module(ctx.data(&store), Errno::Noexec.into());
                 }
             }
         };
@@ -188,8 +191,8 @@ pub fn spawn_exec_module(
 }
 
 /// Finishes with a module and notifies an errcode
-fn finish_module(ctx: WasiFunctionEnv, store: Store, err: Errno) {
-    ctx.data(&store).blocking_cleanup(Some(err.into()));
+fn finish_module(env: &WasiEnv, err: ExitCode) {
+    env.blocking_cleanup(Some(err));
 }
 
 /// Calls the module
@@ -198,7 +201,7 @@ fn call_module(
     mut store: Store,
     module: Module,
     start: Function,
-    rewind_state: Option<RewindState>,
+    rewind_state: Option<(RewindState, Result<(), Errno>)>,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
@@ -207,26 +210,42 @@ fn call_module(
     thread.set_status_running();
 
     // If we need to rewind then do so
-    if let Some(rewind_state) = rewind_state {
-        let res = if rewind_state.is_64bit {
-            rewind::<Memory64>(
+    if let Some((mut rewind_state, trigger_res)) = rewind_state {
+        if rewind_state.is_64bit {
+            if let Err(exit_code) = rewind_state
+                .rewinding_finish::<Memory64>(ctx.env.clone().into_mut(&mut store), trigger_res)
+            {
+                finish_module(ctx.data(&store), exit_code);
+                return;
+            }
+            let res = rewind::<Memory64>(
                 ctx.env.clone().into_mut(&mut store),
-                rewind_state.memory_stack.freeze(),
-                rewind_state.rewind_stack.freeze(),
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
                 rewind_state.store_data,
-            )
+            );
+            if res != Errno::Success {
+                finish_module(ctx.data(&store), res.into());
+                return;
+            }
         } else {
-            rewind::<Memory32>(
+            if let Err(exit_code) = rewind_state
+                .rewinding_finish::<Memory32>(ctx.env.clone().into_mut(&mut store), trigger_res)
+            {
+                finish_module(ctx.data(&store), exit_code);
+                return;
+            }
+            let res = rewind::<Memory32>(
                 ctx.env.clone().into_mut(&mut store),
-                rewind_state.memory_stack.freeze(),
-                rewind_state.rewind_stack.freeze(),
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
                 rewind_state.store_data,
-            )
+            );
+            if res != Errno::Success {
+                finish_module(ctx.data(&store), res.into());
+                return;
+            }
         };
-        if res != Errno::Success {
-            finish_module(ctx, store, res);
-            return;
-        }
     }
 
     // Invoke the start function
@@ -247,9 +266,9 @@ fn call_module(
                     let rewind = deep.rewind;
                     let respawn = {
                         let ctx = ctx.clone();
-                        move |store, module| {
+                        move |store, module, trigger_res| {
                             // Call the thread
-                            call_module(ctx, store, module, start, Some(rewind));
+                            call_module(ctx, store, module, start, Some((rewind, trigger_res)));
                         }
                     };
 

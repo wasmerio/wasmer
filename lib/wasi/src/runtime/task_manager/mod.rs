@@ -38,7 +38,7 @@ pub enum SpawnType {
 /// or if it should abort and exit the thread
 pub enum TaskResumeAction {
     // The task will run with the following store
-    Run(Store),
+    Run(Store, Result<(), Errno>),
     /// The task has been aborted
     Abort,
 }
@@ -92,7 +92,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// After the trigger has successfully completed
     fn resume_wasm_after_trigger(
         &self,
-        task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
         store: Store,
         module: Module,
         trigger: Box<WasmResumeTrigger>,
@@ -123,7 +123,7 @@ impl dyn VirtualTaskManager {
     /// After the poller has successed
     pub fn resume_wasm_after_poller(
         &self,
-        task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
         store: Store,
         module: Module,
         env: WasiFunctionEnv,
@@ -142,7 +142,7 @@ impl dyn VirtualTaskManager {
                 let store = &self.store;
                 let env = self.env.data(store);
 
-                let res = if let Poll::Ready(res) = work.poll(env, &self.store, cx) {
+                Poll::Ready(if let Poll::Ready(res) = work.poll(env, &self.store, cx) {
                     Ok(res)
                 } else if let Some(exit_code) = env.should_exit() {
                     Err(exit_code)
@@ -150,10 +150,7 @@ impl dyn VirtualTaskManager {
                     Ok(Err(Errno::Intr))
                 } else {
                     return Poll::Pending;
-                }?;
-
-                work.finish(env, store, res)?;
-                Poll::Ready(Ok(Ok(())))
+                })
             }
         }
 
@@ -169,13 +166,16 @@ impl dyn VirtualTaskManager {
                         work: RefCell::new(work),
                     };
                     let res = Pin::new(&mut poller).await;
-                    if let Err(exit_code) = res {
-                        let env = poller.env.data(&poller.store);
-                        env.thread.set_status_finished(Ok(exit_code));
-                        return TaskResumeAction::Abort;
-                    }
+                    let res = match res {
+                        Ok(res) => res,
+                        Err(exit_code) => {
+                            let env = poller.env.data(&poller.store);
+                            env.thread.set_status_finished(Ok(exit_code));
+                            return TaskResumeAction::Abort;
+                        }
+                    };
                     tracing::trace!("deep sleep woken - {:?}", res);
-                    TaskResumeAction::Run(poller.store)
+                    TaskResumeAction::Run(poller.store, res)
                 })
             }),
         )

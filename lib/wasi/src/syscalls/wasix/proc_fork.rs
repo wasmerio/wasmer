@@ -288,18 +288,22 @@ fn run<M: MemorySize>(
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
     child_handle: WasiThreadHandle,
-    rewind_state: Option<RewindState>,
+    rewind_state: Option<(RewindState, Result<(), Errno>)>,
 ) -> ExitCode {
     let pid = ctx.data(&store).pid();
     let tid = ctx.data(&store).tid();
 
     // If we need to rewind then do so
-    if let Some(rewind_state) = rewind_state {
-        let ctx = ctx.env.clone().into_mut(&mut store);
+    if let Some((mut rewind_state, trigger_res)) = rewind_state {
+        if let Err(exit_code) =
+            rewind_state.rewinding_finish::<M>(ctx.env.clone().into_mut(&mut store), trigger_res)
+        {
+            return exit_code;
+        }
         let res = rewind::<M>(
-            ctx,
-            rewind_state.memory_stack.freeze(),
-            rewind_state.rewind_stack.freeze(),
+            ctx.env.clone().into_mut(&mut store),
+            rewind_state.memory_stack,
+            rewind_state.rewind_stack,
             rewind_state.store_data,
         );
         if res != Errno::Success {
@@ -325,22 +329,20 @@ fn run<M: MemorySize>(
             Ok(WasiError::DeepSleep(deep)) => {
                 trace!(%pid, %tid, "entered a deep sleep");
 
-                // Extract the memory
-                let memory = match ctx.data(&store).memory().try_clone(&store) {
-                    Some(m) => m,
-                    None => {
-                        tracing::error!(%pid, %tid, "failed to clone memory before deep sleep");
-                        return Errno::Noexec.into();
-                    }
-                };
-
                 // Create the respawn function
                 let respawn = {
                     let ctx = ctx.clone();
                     let tasks = tasks.clone();
-                    let rewind_state = Some(deep.rewind);
-                    move |store, module| {
-                        run::<M>(ctx, store, module, tasks, child_handle, rewind_state);
+                    let rewind_state = deep.rewind;
+                    move |store, module, trigger_res| {
+                        run::<M>(
+                            ctx,
+                            store,
+                            module,
+                            tasks,
+                            child_handle,
+                            Some((rewind_state, trigger_res)),
+                        );
                     }
                 };
 

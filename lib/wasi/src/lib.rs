@@ -58,7 +58,7 @@ use std::{cell::RefCell, sync::atomic::AtomicU32};
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
-use syscalls::AsyncifyFuture;
+use syscalls::{get_memory_stack, set_memory_stack, AsyncifyFuture};
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -66,8 +66,8 @@ pub use wasmer;
 pub use wasmer_wasix_types;
 
 use wasmer::{
-    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
-    MemorySize, RuntimeError,
+    imports, namespace, AsStoreMut, AsStoreRef, Exports, FunctionEnv, FunctionEnvMut, Imports,
+    Memory32, MemoryAccessError, MemorySize, RuntimeError,
 };
 
 pub use virtual_fs;
@@ -109,20 +109,59 @@ pub use crate::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::{types, rewind, unwind},
+    syscalls::{rewind, types, unwind},
     utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
 };
+
+/// Trait that will be invoked after the rewind has finished
+/// It is possible that the process will be terminated rather
+/// than restored at this point
+pub trait RewindPostProcess {
+    fn finish(
+        &mut self,
+        env: &WasiEnv,
+        store: &dyn AsStoreRef,
+        res: Result<(), Errno>,
+    ) -> Result<(), ExitCode>;
+}
 
 /// The rewind state after a deep sleep
 pub struct RewindState {
     /// Memory stack used to restore the stack trace back to where it was
-    pub memory_stack: BytesMut,
+    pub memory_stack: Bytes,
     /// Call stack used to restore the stack trace back to where it was
-    pub rewind_stack: BytesMut,
+    pub rewind_stack: Bytes,
     /// All the global data stored in the store
     pub store_data: Bytes,
     /// Flag that indicates if this rewind is 64-bit or 32-bit memory based
     pub is_64bit: bool,
+    /// This is the function that's invoked after the work is finished
+    /// and the rewind has been applied.
+    pub finish: Box<dyn RewindPostProcess + Send + Sync + 'static>,
+}
+
+impl RewindState {
+    pub fn rewinding_finish<M: MemorySize>(
+        &mut self,
+        mut ctx: FunctionEnvMut<WasiEnv>,
+        res: Result<(), Errno>,
+    ) -> Result<(), ExitCode> {
+        let (env, mut store) = ctx.data_and_store_mut();
+        set_memory_stack::<M>(env, &mut store, self.memory_stack.clone()).map_err(|err| {
+            tracing::error!("failed on rewinding_finish - {}", err);
+            ExitCode::Errno(Errno::Memviolation)
+        })?;
+        let ret = self.finish.finish(env, &mut store, res);
+        if ret.is_ok() {
+            self.memory_stack = get_memory_stack::<M>(env, &mut store)
+                .map_err(|err| {
+                    tracing::error!("failed on rewinding_finish - {}", err);
+                    ExitCode::Errno(Errno::Memviolation)
+                })?
+                .freeze();
+        }
+        ret
+    }
 }
 
 /// Represents the work that will be done when a thread goes to deep sleep and
@@ -825,6 +864,11 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
         MemoryAccessError::NonUtf8String => Errno::Inval,
         _ => Errno::Unknown,
     }
+}
+
+fn mem_error_to_wasi_error(err: MemoryAccessError) -> WasiError {
+    let err = mem_error_to_wasi(err);
+    WasiError::Exit(err.into())
 }
 
 fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {

@@ -114,8 +114,9 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
+    mem_error_to_wasi_error,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindState, VirtualBusError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, VirtualBusError, WasiInodes,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -340,13 +341,6 @@ pub trait AsyncifyFuture {
         store: &dyn AsStoreRef,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(), Errno>>;
-
-    fn finish(
-        &mut self,
-        env: &WasiEnv,
-        store: &dyn AsStoreRef,
-        res: Result<(), Errno>,
-    ) -> Result<(), ExitCode>;
 }
 
 // This poller will process any signals when the main working function is idle
@@ -397,13 +391,15 @@ pub enum AsyncifyAction<'a> {
 /// or it will return an WasiError which will exit the WASM call using asyncify
 /// and instead process it on a shared task
 ///
-pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, Fut>(
+pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, Fut, After>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
+    mut after: After,
 ) -> Result<AsyncifyAction<'_>, WasiError>
 where
     Fut: AsyncifyFuture + Send + Sync + 'static,
+    After: RewindPostProcess + Send + Sync + 'static,
 {
     // We build a wrapper around the polling struct that will
     // check for a timeout
@@ -425,37 +421,23 @@ where
             cx: &mut Context<'_>,
         ) -> Poll<Result<(), Errno>> {
             if let Poll::Ready(res) = self.inner.poll(env, store, cx) {
-                return Poll::Ready(self.finish(env, store, res).map_err(|err| err.into()));
+                return Poll::Ready(res);
             }
 
             if let Some(end) = self.timeout.as_ref() {
                 let now = Instant::now();
                 if now >= *end {
-                    return Poll::Ready(
-                        self.finish(env, store, Err(Errno::Timedout))
-                            .map_err(|err| err.into()),
-                    );
+                    return Poll::Ready(Err(Errno::Timedout));
                 }
                 let diff = now - *end;
 
                 let mut timeout = env.tasks().sleep_now(diff);
                 if timeout.as_mut().poll(cx).is_ready() {
-                    return Poll::Ready(
-                        self.finish(env, store, Err(Errno::Timedout))
-                            .map_err(|err| err.into()),
-                    );
+                    return Poll::Ready(Err(Errno::Timedout));
                 }
             }
 
             Poll::Pending
-        }
-        fn finish(
-            &mut self,
-            env: &WasiEnv,
-            store: &dyn AsStoreRef,
-            res: Result<(), Errno>,
-        ) -> Result<(), ExitCode> {
-            self.inner.finish(env, store, res)
         }
     }
     let mut work = WorkWithTimeout {
@@ -486,12 +468,13 @@ where
                 store: &ctx,
                 work: &mut work,
             } => {
+                after.finish(ctx.data(), &ctx, res?);
                 AsyncifyAction::Finish(ctx)
             },
             // Determines when and if we should go into a deep sleep
             _ = deep_sleep_wait => {
                 tracing::trace!("thread entering deep sleep");
-                deep_sleep::<M, _>(ctx, work)?;
+                deep_sleep::<M, _, _>(ctx, work, after)?;
                 AsyncifyAction::Unwind
             },
         })
@@ -529,10 +512,10 @@ where
         + Sync
         + 'static,
 {
+    let ret = Arc::new(Mutex::new(None));
     struct Poller<T> {
         work: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>,
-        after: Option<Box<AsyncifyWorkAfter<T>>>,
-        ret: Option<T>,
+        ret: Arc<Mutex<Option<T>>>,
     }
     impl<T> AsyncifyFuture for Poller<T> {
         fn poll(
@@ -543,12 +526,26 @@ where
         ) -> Poll<Result<(), Errno>> {
             match self.work.as_mut().poll(cx) {
                 Poll::Ready(ret) => {
-                    self.ret.replace(ret);
+                    let mut guard = self.ret.lock().unwrap();
+                    guard.replace(ret);
                     Poll::Ready(Ok(()))
                 }
                 Poll::Pending => Poll::Pending,
             }
         }
+    }
+    struct Finisher<T> {
+        after: Option<
+            Box<
+                dyn FnOnce(&WasiEnv, &dyn AsStoreRef, Result<T, Errno>) -> Result<(), ExitCode>
+                    + Send
+                    + Sync
+                    + 'static,
+            >,
+        >,
+        ret: Arc<Mutex<Option<T>>>,
+    }
+    impl<T> RewindPostProcess for Finisher<T> {
         fn finish(
             &mut self,
             env: &WasiEnv,
@@ -556,23 +553,30 @@ where
             res: Result<(), Errno>,
         ) -> Result<(), ExitCode> {
             if let Some(after) = self.after.take() {
-                if let Some(ret) = self.ret.take() {
-                    return after(env, store, Ok(ret));
-                } else if let Err(err) = res {
-                    return after(env, store, Err(err));
-                }
+                let res = match res {
+                    Ok(()) => {
+                        let mut guard = self.ret.lock().unwrap();
+                        guard.take().ok_or(Errno::Unknown)
+                    }
+                    Err(err) => Err(err),
+                };
+                after(env, store, res)
+            } else {
+                Err(ExitCode::Errno(Errno::Unknown))
             }
-            Ok(())
         }
     }
 
-    __asyncify_with_deep_sleep::<M, _>(
+    __asyncify_with_deep_sleep::<M, _, _>(
         ctx,
         timeout,
         Poller::<T> {
             work: Box::pin(work),
+            ret: ret.clone(),
+        },
+        Finisher {
             after: Some(Box::new(after)),
-            ret: None,
+            ret,
         },
     )
 }
@@ -901,12 +905,12 @@ pub(crate) fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
     Ok(now as Timestamp)
 }
 
-pub(crate) fn get_stack_lower(mut ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> u64 {
-    ctx.data().layout.stack_lower
+pub(crate) fn get_stack_lower(env: &WasiEnv) -> u64 {
+    env.layout.stack_lower
 }
 
-pub(crate) fn get_stack_upper(mut ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> u64 {
-    ctx.data().layout.stack_upper
+pub(crate) fn get_stack_upper(env: &WasiEnv) -> u64 {
+    env.layout.stack_upper
 }
 
 pub(crate) fn get_memory_stack_pointer(
@@ -914,7 +918,7 @@ pub(crate) fn get_memory_stack_pointer(
 ) -> Result<u64, String> {
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
-    let stack_upper = get_stack_upper(ctx);
+    let stack_upper = get_stack_upper(ctx.data());
     let stack_pointer = if let Some(stack_pointer) = ctx.data().inner().stack_pointer.clone() {
         match stack_pointer.get(ctx) {
             Value::I32(a) => a as u64,
@@ -930,25 +934,26 @@ pub(crate) fn get_memory_stack_pointer(
 pub(crate) fn get_memory_stack_offset(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<u64, String> {
-    let stack_upper = get_stack_upper(ctx);
+    let stack_upper = get_stack_upper(ctx.data());
     let stack_pointer = get_memory_stack_pointer(ctx)?;
     Ok(stack_upper - stack_pointer)
 }
 
 pub(crate) fn set_memory_stack_offset(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    env: &WasiEnv,
+    store: &mut impl AsStoreMut,
     offset: u64,
 ) -> Result<(), String> {
     // Sets the stack pointer
-    let stack_upper = get_stack_upper(ctx);
+    let stack_upper = get_stack_upper(env);
     let stack_pointer = stack_upper - offset;
-    if let Some(stack_pointer_ptr) = ctx.data().inner().stack_pointer.clone() {
-        match stack_pointer_ptr.get(ctx) {
+    if let Some(stack_pointer_ptr) = env.inner().stack_pointer.clone() {
+        match stack_pointer_ptr.get(store) {
             Value::I32(_) => {
-                stack_pointer_ptr.set(ctx, Value::I32(stack_pointer as i32));
+                stack_pointer_ptr.set(store, Value::I32(stack_pointer as i32));
             }
             Value::I64(_) => {
-                stack_pointer_ptr.set(ctx, Value::I64(stack_pointer as i64));
+                stack_pointer_ptr.set(store, Value::I64(stack_pointer as i64));
             }
             _ => {
                 return Err(
@@ -965,13 +970,14 @@ pub(crate) fn set_memory_stack_offset(
 
 #[allow(dead_code)]
 pub(crate) fn get_memory_stack<M: MemorySize>(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    env: &WasiEnv,
+    store: &mut impl AsStoreMut,
 ) -> Result<BytesMut, String> {
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
-    let stack_base = get_stack_upper(ctx);
-    let stack_pointer = if let Some(stack_pointer) = ctx.data().inner().stack_pointer.clone() {
-        match stack_pointer.get(ctx) {
+    let stack_base = get_stack_upper(env);
+    let stack_pointer = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+        match stack_pointer.get(store) {
             Value::I32(a) => a as u64,
             Value::I64(a) => a as u64,
             _ => stack_base,
@@ -979,8 +985,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     } else {
         return Err("failed to save stack: not exported __stack_pointer global".to_string());
     };
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = env.memory_view(store);
     let stack_offset = env.layout.stack_upper - stack_pointer;
 
     // Read the memory stack into a vector
@@ -1003,11 +1008,12 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
 
 #[allow(dead_code)]
 pub(crate) fn set_memory_stack<M: MemorySize>(
-    mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    env: &WasiEnv,
+    store: &mut impl AsStoreMut,
     stack: Bytes,
 ) -> Result<(), String> {
     // First we restore the memory stack
-    let stack_upper = get_stack_upper(ctx);
+    let stack_upper = get_stack_upper(env);
     let stack_offset = stack.len() as u64;
     let stack_pointer = stack_upper - stack_offset;
     let stack_ptr = WasmPtr::<u8, M>::new(
@@ -1016,8 +1022,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
             .map_err(|_| "failed to restore stack: stack pointer overflow".to_string())?,
     );
 
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = env.memory_view(store);
     stack_ptr
         .slice(
             &memory,
@@ -1029,19 +1034,21 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
         .map_err(|err| format!("failed to write stack: {}", err))?;
 
     // Set the stack pointer itself and return
-    set_memory_stack_offset(ctx, stack_offset)?;
+    set_memory_stack_offset(env, store, stack_offset)?;
     Ok(())
 }
 
 /// Puts the process to deep sleep and wakes it again when
 /// the supplied future completes
 #[must_use = "you must return the result immediately so the stack can unwind"]
-pub(crate) fn deep_sleep<M: MemorySize, Fut>(
+pub(crate) fn deep_sleep<M: MemorySize, Fut, After>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     work: Fut,
+    after: After,
 ) -> Result<(), WasiError>
 where
     Fut: AsyncifyFuture + Send + Sync + 'static,
+    After: RewindPostProcess + Send + Sync + 'static,
 {
     // Grab all the globals and serialize them
     let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
@@ -1057,10 +1064,11 @@ where
             WasiError::DeepSleep(DeepSleepWork {
                 work: Box::new(work),
                 rewind: RewindState {
-                    memory_stack,
-                    rewind_stack,
+                    memory_stack: memory_stack.freeze(),
+                    rewind_stack: rewind_stack.freeze(),
                     store_data,
                     is_64bit: M::is_64bit(),
+                    finish: Box::new(after),
                 },
             }),
         ))))
@@ -1086,7 +1094,8 @@ where
 {
     // Get the current stack pointer (this will be used to determine the
     // upper limit of stack space remaining to unwind into)
-    let memory_stack = match get_memory_stack::<M>(&mut ctx) {
+    let (env, mut store) = ctx.data_and_store_mut();
+    let memory_stack = match get_memory_stack::<M>(env, &mut store) {
         Ok(a) => a,
         Err(err) => {
             warn!("unable to get the memory stack - {}", err);
@@ -1275,7 +1284,8 @@ pub(crate) fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>
         }
 
         // Restore the memory stack
-        set_memory_stack::<M>(ctx, memory_stack);
+        let (env, mut store) = ctx.data_and_store_mut();
+        set_memory_stack::<M>(env, &mut store, memory_stack);
         true
     } else {
         false

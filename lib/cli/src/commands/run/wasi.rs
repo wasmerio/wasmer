@@ -274,29 +274,44 @@ impl Wasi {
         invoke: Option<String>,
         args: Vec<String>,
         tx: Sender<Result<i32>>,
-        rewind_state: Option<RewindState>,
+        rewind_state: Option<(RewindState, Result<(), Errno>)>,
     ) {
         // If we need to rewind then do so
-        if let Some(rewind_state) = rewind_state {
-            let ctx = ctx.env.clone().into_mut(&mut store);
-            let res = if rewind_state.is_64bit {
-                rewind::<Memory64>(
-                    ctx,
-                    rewind_state.memory_stack.freeze(),
-                    rewind_state.rewind_stack.freeze(),
+        if let Some((mut rewind_state, trigger_res)) = rewind_state {
+            if rewind_state.is_64bit {
+                if let Err(exit_code) = rewind_state
+                    .rewinding_finish::<Memory64>(ctx.env.clone().into_mut(&mut store), trigger_res)
+                {
+                    tx.send(Ok(exit_code.raw())).ok();
+                    return;
+                }
+                let res = rewind::<Memory64>(
+                    ctx.env.clone().into_mut(&mut store),
+                    rewind_state.memory_stack,
+                    rewind_state.rewind_stack,
                     rewind_state.store_data,
-                )
+                );
+                if res != Errno::Success {
+                    tx.send(Ok(res as i32)).ok();
+                    return;
+                }
             } else {
-                rewind::<Memory32>(
-                    ctx,
-                    rewind_state.memory_stack.freeze(),
-                    rewind_state.rewind_stack.freeze(),
+                if let Err(exit_code) = rewind_state
+                    .rewinding_finish::<Memory32>(ctx.env.clone().into_mut(&mut store), trigger_res)
+                {
+                    tx.send(Ok(exit_code.raw())).ok();
+                    return;
+                }
+                let res = rewind::<Memory32>(
+                    ctx.env.clone().into_mut(&mut store),
+                    rewind_state.memory_stack,
+                    rewind_state.rewind_stack,
                     rewind_state.store_data,
-                )
-            };
-            if res != Errno::Success {
-                tx.send(Ok(res as i32)).ok();
-                return;
+                );
+                if res != Errno::Success {
+                    tx.send(Ok(res as i32)).ok();
+                    return;
+                }
             }
         }
 
@@ -318,6 +333,7 @@ impl Wasi {
             let start: Function =
                 RunWithPathBuf::try_find_function(&instance, path.as_path(), "_start", &[])
                     .unwrap();
+
             let result = start.call(&mut store, &[]);
             Self::handle_result(ctx, store, instance, path, invoke, args, result, tx)
         }
@@ -350,7 +366,7 @@ impl Wasi {
                         let rewind = deep.rewind;
                         let respawn = {
                             let ctx = ctx.clone();
-                            move |store, _module| {
+                            move |store, _module, res| {
                                 Self::run_with_deep_sleep(
                                     ctx,
                                     store,
@@ -359,7 +375,7 @@ impl Wasi {
                                     invoke,
                                     args,
                                     tx,
-                                    Some(rewind),
+                                    Some((rewind, res)),
                                 );
                             }
                         };

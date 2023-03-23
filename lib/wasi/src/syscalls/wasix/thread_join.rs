@@ -26,9 +26,16 @@ pub fn thread_join<M: MemorySize + 'static>(
             ctx,
             None,
             async move {
-                other_thread.join().await;
+                other_thread
+                    .join()
+                    .await
+                    .map_err(|err| {
+                        err.as_exit_code()
+                            .unwrap_or(ExitCode::Errno(Errno::Unknown))
+                    })
+                    .unwrap_or_else(|a| a)
             },
-            |_, _, res| res.map_err(ExitCode::Errno),
+            |_, _, _| Ok(()),
         )?;
         Ok(Errno::Success)
     } else {

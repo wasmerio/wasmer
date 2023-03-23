@@ -149,13 +149,13 @@ pub fn thread_spawn<M: MemorySize>(
 
 /// Calls the module
 fn call_module<M: MemorySize>(
-    env: WasiFunctionEnv,
+    ctx: WasiFunctionEnv,
     mut store: Store,
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
-    rewind_state: Option<RewindState>,
+    rewind_state: Option<(RewindState, Result<(), Errno>)>,
 ) -> u32 {
     // This function calls into the module
     let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
@@ -205,12 +205,16 @@ fn call_module<M: MemorySize>(
     };
 
     // If we need to rewind then do so
-    if let Some(rewind_state) = rewind_state {
-        let ctx = env.env.clone().into_mut(&mut store);
+    if let Some((mut rewind_state, trigger_res)) = rewind_state {
+        if let Err(exit_code) =
+            rewind_state.rewinding_finish::<M>(ctx.env.clone().into_mut(&mut store), trigger_res)
+        {
+            return exit_code.raw() as u32;
+        }
         let res = rewind::<M>(
-            ctx,
-            rewind_state.memory_stack.freeze(),
-            rewind_state.rewind_stack.freeze(),
+            ctx.env.clone().into_mut(&mut store),
+            rewind_state.memory_stack,
+            rewind_state.rewind_stack,
             rewind_state.store_data,
         );
         if res != Errno::Success {
@@ -219,7 +223,7 @@ fn call_module<M: MemorySize>(
     }
 
     // Now invoke the module
-    let ret = call_module_internal(&env, &mut store);
+    let ret = call_module_internal(&ctx, &mut store);
 
     // If it went to deep sleep then we need to handle that
     match ret {
@@ -232,9 +236,9 @@ fn call_module<M: MemorySize>(
             // Create the callback that will be invoked when the thread respawns after a deep sleep
             let rewind = deep.rewind;
             let respawn = {
-                let env = env.clone();
+                let env = ctx.clone();
                 let tasks = tasks.clone();
-                move |store, module| {
+                move |store, module, trigger_res| {
                     // Call the thread
                     call_module::<M>(
                         env,
@@ -243,13 +247,13 @@ fn call_module<M: MemorySize>(
                         tasks,
                         start_ptr_offset,
                         thread_handle,
-                        Some(rewind),
+                        Some((rewind, trigger_res)),
                     );
                 }
             };
 
             /// Spawns the WASM process after a trigger
-            tasks.resume_wasm_after_poller(Box::new(respawn), store, module, env, deep.work);
+            tasks.resume_wasm_after_poller(Box::new(respawn), store, module, ctx, deep.work);
             Errno::Unknown as u32
         }
     }

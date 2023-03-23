@@ -9,11 +9,10 @@ where
     M: MemorySize,
 {
     state: Arc<WasiState>,
-    woken: bool,
+    woken: Arc<Mutex<bool>>,
     futex_idx: u64,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
-    ret_woken: WasmPtr<Bool, M>,
 }
 impl<M> AsyncifyFuture for FutexPoller<M>
 where
@@ -33,13 +32,18 @@ where
             let val = match self.futex_ptr.read(&view) {
                 Ok(a) => a,
                 Err(err) => {
-                    self.ret_woken.write(&view, Bool::True).ok();
+                    {
+                        let mut guard = self.woken.lock().unwrap();
+                        *guard = true;
+                    }
                     return Poll::Ready(Err(mem_error_to_wasi(err)));
                 }
             };
             if val != self.expected {
-                // If we are triggered then we should update the return value
-                self.woken = true;
+                {
+                    let mut guard = self.woken.lock().unwrap();
+                    *guard = true;
+                }
                 return Poll::Ready(Ok(()));
             }
         }
@@ -53,23 +57,6 @@ where
 
         Poll::Pending
     }
-
-    fn finish(
-        &mut self,
-        env: &WasiEnv,
-        store: &dyn AsStoreRef,
-        res: Result<(), Errno>,
-    ) -> Result<(), ExitCode> {
-        if self.woken {
-            let view = env.memory_view(store);
-            self.ret_woken
-                .write(&view, Bool::True)
-                .map_err(mem_error_to_wasi)
-                .map_err(ExitCode::Errno)
-        } else {
-            Ok(())
-        }
-    }
 }
 impl<M> Drop for FutexPoller<M>
 where
@@ -82,6 +69,36 @@ where
         };
         if let Some(futex) = futex {
             futex.wakers.into_iter().for_each(|w| w.wake());
+        }
+    }
+}
+
+struct FutexAfter<M>
+where
+    M: MemorySize,
+{
+    woken: Arc<Mutex<bool>>,
+    ret_woken: WasmPtr<Bool, M>,
+}
+impl<M> RewindPostProcess for FutexAfter<M>
+where
+    M: MemorySize,
+{
+    fn finish(
+        &mut self,
+        env: &WasiEnv,
+        store: &dyn AsStoreRef,
+        res: Result<(), Errno>,
+    ) -> Result<(), ExitCode> {
+        let woken = self.woken.lock().unwrap();
+        if *woken {
+            let view = env.memory_view(store);
+            self.ret_woken
+                .write(&view, Bool::True)
+                .map_err(mem_error_to_wasi)
+                .map_err(ExitCode::Errno)
+        } else {
+            Ok(())
         }
     }
 }
@@ -133,16 +150,17 @@ pub fn futex_wait<M: MemorySize + 'static>(
 
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
+    let woken = Arc::new(Mutex::new(false));
     let poller = FutexPoller {
         state: env.state.clone(),
-        woken: false,
+        woken: woken.clone(),
         futex_idx,
         futex_ptr,
         expected,
-        ret_woken,
     };
+    let after = FutexAfter { woken, ret_woken };
 
     // We use asyncify on the poller and potentially go into deep sleep
-    __asyncify_with_deep_sleep::<M, _>(ctx, timeout, poller)?;
+    __asyncify_with_deep_sleep::<M, _, _>(ctx, timeout, poller, after)?;
     Ok(Errno::Success)
 }

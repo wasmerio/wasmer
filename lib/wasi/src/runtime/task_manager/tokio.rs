@@ -10,6 +10,7 @@ use wasmer::{
     vm::{VMMemory, VMSharedMemory},
     Module, Store,
 };
+use wasmer_wasix_types::wasi::Errno;
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -149,7 +150,7 @@ impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::task_wasm_with_trigger`].
     fn resume_wasm_after_trigger(
         &self,
-        task: Box<dyn FnOnce(Store, Module) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
         store: Store,
         module: Module,
         trigger: Box<WasmResumeTrigger>,
@@ -158,10 +159,10 @@ impl VirtualTaskManager for TokioTaskManager {
         let handle = self.0.clone();
         self.0.spawn(async move {
             let action = trigger.await;
-            if let TaskResumeAction::Run(store) = action {
+            if let TaskResumeAction::Run(store, res) = action {
                 handle.spawn_blocking(move || {
                     // Invoke the callback
-                    task(store, module);
+                    task(store, module, res);
                 });
             }
         });
