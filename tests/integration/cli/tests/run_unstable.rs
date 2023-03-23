@@ -14,7 +14,7 @@ use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
-const RUST_LOG: &str = "info,wasmer_wasi::runners=debug";
+const RUST_LOG: &str = "info,wasmer_wasi::runners=debug,virtual_fs::trace_fs=trace";
 
 mod webc_on_disk {
     use super::*;
@@ -32,6 +32,7 @@ mod webc_on_disk {
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
@@ -52,13 +53,13 @@ mod webc_on_disk {
             .arg(format!("--mapdir=/app:{}", temp.path().display()))
             .arg("--")
             .arg("/app/index.js")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
     }
 
     #[test]
-    #[ignore = "WASI runners only give you access to the webc fs for now"]
     #[cfg_attr(
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
@@ -72,7 +73,9 @@ mod webc_on_disk {
             .arg(fixtures::python())
             .arg(format!("--mapdir=/app:{}", temp.path().display()))
             .arg("--")
+            .arg("-B")
             .arg("/app/main.py")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
@@ -87,6 +90,7 @@ mod webc_on_disk {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
             .arg(fixtures::wabt())
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         let msg = r#"Unable to determine the WEBC file's entrypoint. Please choose one of ["wat2wasm", "wast2json", "wasm2wat", "wasm-interp", "wasm-validate", "wasm-strip"]"#;
@@ -104,6 +108,7 @@ mod webc_on_disk {
             .arg(fixtures::python())
             .arg("--env=SOME_VAR=Hello, World!")
             .arg("--")
+            .arg("-B")
             .arg("-c")
             .arg("import os; print(os.environ['SOME_VAR'])")
             .env("RUST_LOG", RUST_LOG)
@@ -193,6 +198,7 @@ mod wasm_on_disk {
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
@@ -207,6 +213,7 @@ mod wasm_on_disk {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
             .arg(fixtures::fib())
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success();
@@ -221,6 +228,7 @@ mod wasm_on_disk {
         let assert = Command::new(get_wasmer_path())
             .arg("run-unstable")
             .arg(fixtures::wat_no_start())
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert
@@ -254,6 +262,7 @@ mod wasm_on_disk {
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
@@ -276,6 +285,7 @@ fn wasmer_package_directory() {
         .arg("--")
         .arg("--eval")
         .arg("console.log('Hello, World!')")
+        .env("RUST_LOG", RUST_LOG)
         .assert();
 
     assert.success().stdout(contains("Hello, World!"));
@@ -298,6 +308,7 @@ mod remote_webc {
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
@@ -316,6 +327,7 @@ mod remote_webc {
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
+            .env("RUST_LOG", RUST_LOG)
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));

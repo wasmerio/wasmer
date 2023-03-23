@@ -37,6 +37,7 @@ mod overlay_fs;
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
+mod trace_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
@@ -54,6 +55,7 @@ pub use passthru_fs::*;
 pub use pipe::*;
 pub use special_file::*;
 pub use tmp_fs::*;
+pub use trace_fs::TraceFileSystem;
 pub use union_fs::*;
 pub use zero_file::*;
 
