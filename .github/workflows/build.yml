@@ -426,6 +426,7 @@ jobs:
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /opt/riscv64/lib/pkgconfig
+          RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_DIR: /opt/riscv64
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
       - name: Build C API headless
@@ -437,6 +438,7 @@ jobs:
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /opt/riscv64/lib/pkgconfig
+          RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_DIR: /opt/riscv64
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
           TARGET: riscv64gc-unknown-linux-gnu
@@ -449,6 +451,7 @@ jobs:
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /opt/riscv64/lib/pkgconfig
+          RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_DIR: /opt/riscv64
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
       - name: Dist
@@ -459,6 +462,7 @@ jobs:
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /opt/riscv64/lib/pkgconfig
+          RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_DIR: /opt/riscv64
           PKG_CONFIG_ALLOW_CROSS: true
           TARGET: riscv64gc-unknown-linux-gnu
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
