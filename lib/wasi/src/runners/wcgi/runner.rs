@@ -128,7 +128,6 @@ impl WcgiRunner {
         wasi: &Wasi,
         ctx: &RunnerContext<'_>,
     ) -> Result<Handler, Error> {
-
         let Wcgi { dialect, .. } = ctx.command().annotation("wcgi")?.unwrap_or_default();
 
         let dialect = match dialect {

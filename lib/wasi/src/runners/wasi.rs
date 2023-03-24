@@ -150,7 +150,6 @@ impl crate::runners::Runner for WasiRunner {
         command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-
         let wasi = command
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
