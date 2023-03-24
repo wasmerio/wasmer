@@ -3,7 +3,7 @@ use crate::{fs::NotificationInner, syscalls::*};
 
 /// ### `fd_event()`
 /// Creates a file handle for event notifications
-#[instrument(level = "debug", skip_all, fields(initial_val, ret_fd = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%initial_val, ret_fd = field::Empty), ret)]
 pub fn fd_event<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     initial_val: u64,

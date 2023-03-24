@@ -6,7 +6,7 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `Fd fd`
 ///     The file descriptor to sync
-#[instrument(level = "debug", skip_all, fields(fd), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%fd), ret, err)]
 pub fn fd_datasync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let state = env.state.clone();

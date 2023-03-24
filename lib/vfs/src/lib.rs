@@ -37,6 +37,7 @@ mod overlay_fs;
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
+mod trace_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
@@ -54,6 +55,7 @@ pub use passthru_fs::*;
 pub use pipe::*;
 pub use special_file::*;
 pub use tmp_fs::*;
+pub use trace_fs::TraceFileSystem;
 pub use union_fs::*;
 pub use zero_file::*;
 
@@ -535,7 +537,7 @@ impl ReadDir {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirEntry {
     pub path: PathBuf,
     // weird hack, to fix this we probably need an internal trait object or callbacks or something
@@ -565,7 +567,7 @@ impl DirEntry {
 }
 
 #[allow(clippy::len_without_is_empty)] // Clippy thinks it's an iterator.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct Metadata {
     pub ft: FileType,
@@ -605,7 +607,7 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct FileType {
     pub dir: bool,
