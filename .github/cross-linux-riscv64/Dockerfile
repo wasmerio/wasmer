@@ -8,4 +8,5 @@ RUN cargo install cross
 RUN dpkg --add-architecture riscv64 && \
     apt-get update && \
     apt-get install -qy curl && \
+    apt-get install -qy libssl-dev && \
     curl -sSL https://get.docker.com/ | sh
