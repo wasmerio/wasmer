@@ -1024,7 +1024,7 @@ mod test {
         ));
 
         let output = WasiEnvBuilder::new("test_prog")
-            .args(&["--help", "--wat\0"])
+            .args(["--help", "--wat\0"])
             .build_init();
         let err = output.expect_err("should fail");
         assert!(matches!(

@@ -75,7 +75,7 @@ async fn test_stdout() {
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
     let builder = WasiEnv::builder("command-name")
-        .args(&["Gordon"])
+        .args(["Gordon"])
         .stdout(Box::new(stdout_tx));
 
     #[cfg(feature = "js")]
@@ -111,7 +111,7 @@ async fn test_env() {
     let (pipe_tx, mut pipe_rx) = Pipe::channel();
 
     let builder = WasiEnv::builder("command-name")
-        .args(&["Gordon"])
+        .args(["Gordon"])
         .env("DOG", "X")
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2")
