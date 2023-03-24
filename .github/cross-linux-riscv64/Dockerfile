@@ -9,7 +9,7 @@ ENV CROSS_DOCKER_IN_DOCKER=true
 
 RUN cargo install cross
 RUN apt-get update && \
-    apt-get install -qy curl && \
+    apt-get install -qy curl gcc-riscv64-linux-gnu && \
     curl -sSL https://get.docker.com/ | sh
 # Needed for openssl-sys crate
 #RUN /install_deb.sh riscv64 libssl-dev
