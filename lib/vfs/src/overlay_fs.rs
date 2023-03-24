@@ -805,6 +805,7 @@ mod tests {
         let mut f = fs
             .new_open_options()
             .write(true)
+            .read(true)
             .open("/secondary/file.txt")
             .unwrap();
         // reading is fine
