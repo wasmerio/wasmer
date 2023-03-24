@@ -132,50 +132,16 @@ impl WasiRunner {
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnv::builder(command).args(&self.args);
 
-        let root_fs = RootFileSystemBuilder::default().build();
-
-        if !self.mapped_dirs.is_empty() {
-            let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
-
-            for mapped in &self.mapped_dirs {
-                let MappedDirectory { host, guest } = mapped;
-                let guest = if guest.starts_with('/') {
-                    PathBuf::from(guest)
-                } else {
-                    Path::new("/").join(guest)
-                };
-                tracing::debug!(
-                    guest=%guest.display(),
-                    host=%host.display(),
-                    "Mounting host folder",
-                );
-                root_fs
-                    .mount(guest.clone(), &host_fs, host.clone())
-                    .with_context(|| {
-                        format!(
-                            "Unable to mount \"{}\" to \"{}\"",
-                            host.display(),
-                            guest.display()
-                        )
-                    })?;
-            }
-        }
-
-        let (container_fs, preopen_dirs) = container.container_fs();
-
-        for dir in preopen_dirs {
-            builder.add_preopen_dir(dir)?;
-        }
-
-        builder.set_fs(Box::new(TraceFileSystem(OverlayFileSystem::new(
-            root_fs,
-            [container_fs],
-        ))));
+        let fs = prepare_filesystem(&self.mapped_dirs, container)?;
+        builder.set_fs(fs);
         // builder.set_fs(Box::new(TraceFileSystem(OverlayFileSystem::new(
         //     container_fs,
         //     [root_fs],
         // ))));
         // builder.set_fs(Box::new(TraceFileSystem(container_fs)));
+
+        builder.add_preopen_dir("/")?;
+        builder.add_preopen_dir(".")?;
 
         if self.forward_host_env {
             for (k, v) in std::env::vars() {
@@ -225,5 +191,74 @@ impl crate::runners::Runner for WasiRunner {
         self.prepare_webc_env(container, &atom_name)?.run(module)?;
 
         Ok(())
+    }
+}
+
+fn prepare_filesystem(
+    mapped_dirs: &[MappedDirectory],
+    container: &WapmContainer,
+) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    let root_fs = RootFileSystemBuilder::default().build();
+
+    if !mapped_dirs.is_empty() {
+        let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
+
+        for mapped in mapped_dirs {
+            let MappedDirectory { host, guest } = mapped;
+            let guest = PathBuf::from(guest);
+            tracing::debug!(
+                guest=%guest.display(),
+                host=%host.display(),
+                "Mounting host folder",
+            );
+            root_fs
+                .mount(guest.clone(), &host_fs, host.clone())
+                .with_context(|| {
+                    format!(
+                        "Unable to mount \"{}\" to \"{}\"",
+                        host.display(),
+                        guest.display()
+                    )
+                })?;
+        }
+    }
+
+    let (container_fs, preopen_dirs) = container.container_fs();
+
+    Ok(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::*;
+
+    const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
+
+    #[test]
+    fn python_use_case() {
+        let temp = TempDir::new().unwrap();
+        let sub_dir = temp.path().join("path").join("to");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+        std::fs::write(sub_dir.join("file.txt"), b"Hello, World!").unwrap();
+        let mapping = [MappedDirectory {
+            guest: "/home".to_string(),
+            host: sub_dir,
+        }];
+        let container = WapmContainer::from_bytes(PYTHON.into()).unwrap();
+
+        let fs = prepare_filesystem(&mapping, &container).unwrap();
+
+        assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
+        assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
+        assert!(fs
+            .metadata("lib/python3.6/collections/__init__.py".as_ref())
+            .unwrap()
+            .is_file());
+        assert!(fs
+            .metadata("lib/python3.6/encodings/__init__.py".as_ref())
+            .unwrap()
+            .is_file());
     }
 }
