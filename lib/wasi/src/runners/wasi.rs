@@ -1,6 +1,10 @@
 //! WebC container support for running WASI modules
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{
     runners::{MappedDirectory, WapmContainer},
@@ -9,6 +13,7 @@ use crate::{
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
+use virtual_fs::{FileSystem, OverlayFileSystem, RootFileSystemBuilder, TraceFileSystem};
 use wasmer::{Module, Store};
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -125,15 +130,52 @@ impl WasiRunner {
         container: &WapmContainer,
         command: &str,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let (fs, preopen_dirs) = container.container_fs();
-
         let mut builder = WasiEnv::builder(command).args(&self.args);
+
+        let root_fs = RootFileSystemBuilder::default().build();
+
+        if !self.mapped_dirs.is_empty() {
+            let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
+
+            for mapped in &self.mapped_dirs {
+                let MappedDirectory { host, guest } = mapped;
+                let guest = if guest.starts_with('/') {
+                    PathBuf::from(guest)
+                } else {
+                    Path::new("/").join(guest)
+                };
+                tracing::debug!(
+                    guest=%guest.display(),
+                    host=%host.display(),
+                    "Mounting host folder",
+                );
+                root_fs
+                    .mount(guest.clone(), &host_fs, host.clone())
+                    .with_context(|| {
+                        format!(
+                            "Unable to mount \"{}\" to \"{}\"",
+                            host.display(),
+                            guest.display()
+                        )
+                    })?;
+            }
+        }
+
+        let (container_fs, preopen_dirs) = container.container_fs();
 
         for dir in preopen_dirs {
             builder.add_preopen_dir(dir)?;
         }
 
-        builder.set_fs(Box::new(fs));
+        builder.set_fs(Box::new(TraceFileSystem(OverlayFileSystem::new(
+            root_fs,
+            [container_fs],
+        ))));
+        // builder.set_fs(Box::new(TraceFileSystem(OverlayFileSystem::new(
+        //     container_fs,
+        //     [root_fs],
+        // ))));
+        // builder.set_fs(Box::new(TraceFileSystem(container_fs)));
 
         if self.forward_host_env {
             for (k, v) in std::env::vars() {
