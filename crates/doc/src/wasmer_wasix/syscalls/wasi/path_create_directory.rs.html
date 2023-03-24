@@ -147,7 +147,7 @@
 /// Required Rights:
 /// - Rights::PATH_CREATE_DIRECTORY
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(fd, path = field::Empty), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_create_directory&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

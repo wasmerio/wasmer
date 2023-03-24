@@ -84,7 +84,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Returns Errno::Notemtpy if directory is not empty
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(fd, path = field::Empty), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_remove_directory&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

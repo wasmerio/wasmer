@@ -40,7 +40,7 @@
 ///     The length from the offset to which the advice applies
 /// - `__wasi_advice_t advice`
 ///     The advice to give
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(fd, offset, len, advice), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, %offset, %len, <span class="question-mark">?</span>advice), ret)]
 </span><span class="kw">pub fn </span>fd_advise(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

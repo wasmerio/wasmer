@@ -361,31 +361,7 @@
 <span id="359">359</span>
 <span id="360">360</span>
 <span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>futures::future::AbortHandle;
@@ -394,6 +370,7 @@
 <span class="kw">use </span>tower::{make::Shared, ServiceBuilder};
 <span class="kw">use </span>tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 <span class="kw">use </span>tracing::Span;
+<span class="kw">use </span>virtual_fs::FileSystem;
 <span class="kw">use </span>wasmer::{Engine, Module, Store};
 <span class="kw">use </span>wcgi_host::CgiDialect;
 <span class="kw">use </span>webc::metadata::{
@@ -403,11 +380,12 @@
 
 <span class="kw">use crate</span>::{
     runners::{
+        wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
         MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
-    VirtualTaskManager,
+    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 <span class="kw">pub struct </span>WcgiRunner {
@@ -513,9 +491,6 @@
         wasi: <span class="kw-2">&amp;</span>Wasi,
         ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Handler, Error&gt; {
-        <span class="kw">let </span>env = construct_env(wasi, <span class="self">self</span>.config.forward_host_env, <span class="kw-2">&amp;</span><span class="self">self</span>.config.env);
-        <span class="kw">let </span>args = construct_args(wasi, <span class="kw-2">&amp;</span><span class="self">self</span>.config.args);
-
         <span class="kw">let </span>Wcgi { dialect, .. } = ctx.command().get_annotation(<span class="string">&quot;wcgi&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
 
         <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
@@ -524,68 +499,46 @@
         };
 
         <span class="kw">let </span>shared = SharedState {
-            program: <span class="self">self</span>.program_name.clone(),
-            env,
-            args,
-            mapped_dirs: <span class="self">self</span>.config.mapped_dirs.clone(),
             task_manager: <span class="self">self
                 </span>.config
                 .task_manager
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
             module,
-            container: ctx.container.clone(),
             dialect,
             callbacks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks),
+            setup_builder: Box::new(<span class="self">self</span>.setup_builder(ctx, wasi)),
         };
 
         <span class="prelude-val">Ok</span>(Handler::new(shared))
     }
-}
 
-<span class="kw">fn </span>construct_args(wasi: <span class="kw-2">&amp;</span>Wasi, extras: <span class="kw-2">&amp;</span>[String]) -&gt; Vec&lt;String&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>args = Vec::new();
+    <span class="kw">fn </span>setup_builder(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;,
+        wasi: <span class="kw-2">&amp;</span>Wasi,
+    ) -&gt; <span class="kw">impl </span>Fn() -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, Error&gt; + Send + Sync {
+        <span class="kw">let </span>container_fs = ctx.container_fs();
+        <span class="kw">let </span>wasi_common = <span class="self">self</span>.config.wasi.clone();
+        <span class="kw">let </span>program_name = <span class="self">self</span>.program_name.clone();
+        <span class="kw">let </span>wasi = wasi.clone();
+        <span class="kw">let </span>tasks = <span class="self">self</span>.config.task_manager.clone();
 
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(main_args) = <span class="kw-2">&amp;</span>wasi.main_args {
-        args.extend(main_args.iter().cloned());
-    }
+        <span class="kw">move </span>|| {
+            <span class="kw">let </span><span class="kw-2">mut </span>builder =
+                wasi_common.prepare_webc_env(Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>program_name, <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?</span>;
 
-    args.extend(extras.iter().cloned());
-
-    args
-}
-
-<span class="kw">fn </span>construct_env(
-    wasi: <span class="kw-2">&amp;</span>Wasi,
-    forward_host_env: bool,
-    overrides: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;,
-) -&gt; HashMap&lt;String, String&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>env: HashMap&lt;String, String&gt; = HashMap::new();
-
-    <span class="kw">for </span>item <span class="kw">in </span>wasi.env.as_deref().unwrap_or_default() {
-        <span class="comment">// TODO(Michael-F-Bryan): Convert &quot;wasi.env&quot; in the webc crate from an
-        // Option&lt;Vec&lt;String&gt;&gt; to a HashMap&lt;String, String&gt; so we avoid this
-        // string.split() business
-        </span><span class="kw">match </span>item.split_once(<span class="string">&#39;=&#39;</span>) {
-            <span class="prelude-val">Some</span>((k, v)) =&gt; {
-                env.insert(k.to_string(), v.to_string());
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = <span class="kw-2">&amp;</span>tasks {
+                <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(tasks));
+                builder.set_runtime(Arc::new(rt));
             }
-            <span class="prelude-val">None </span>=&gt; {
-                env.insert(item.to_string(), String::new());
-            }
+
+            <span class="prelude-val">Ok</span>(builder)
         }
     }
-
-    <span class="kw">if </span>forward_host_env {
-        env.extend(std::env::vars());
-    }
-
-    env.extend(overrides.clone());
-
-    env
 }
 
-<span class="comment">// TODO(Michael-F-Bryan): Pass this to Runner::run() as &quot;&amp;dyn RunnerContext&quot;
+<span class="comment">// TODO(Michael-F-Bryan): Pass this to Runner::run() as a &quot;&amp;dyn RunnerContext&quot;
 // when we rewrite the &quot;Runner&quot; trait.
 </span><span class="kw">struct </span>RunnerContext&lt;<span class="lifetime">&#39;a</span>&gt; {
     container: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>WapmContainer,
@@ -620,6 +573,10 @@
         <span class="comment">// TODO(Michael-F-Bryan): wire this up to wasmer-cache
         </span>Module::new(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, wasm).map_err(Error::from)
     }
+
+    <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>FileSystem&gt; {
+        <span class="self">self</span>.container.container_fs()
+    }
 }
 
 <span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>WcgiRunner {
@@ -652,11 +609,8 @@
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>Config {
     task_manager: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;&gt;,
+    wasi: CommonWasiOptions,
     addr: SocketAddr,
-    args: Vec&lt;String&gt;,
-    env: HashMap&lt;String, String&gt;,
-    forward_host_env: bool,
-    mapped_dirs: Vec&lt;MappedDirectory&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
     store: <span class="prelude-ty">Option</span>&lt;Arc&lt;Store&gt;&gt;,
@@ -675,7 +629,7 @@
 
     <span class="doccomment">/// Add an argument to the WASI executable&#39;s command-line arguments.
     </span><span class="kw">pub fn </span>arg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, arg: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.args.push(arg.into());
+        <span class="self">self</span>.wasi.args.push(arg.into());
         <span class="self">self
     </span>}
 
@@ -685,13 +639,13 @@
         </span>A: IntoIterator&lt;Item = S&gt;,
         S: Into&lt;String&gt;,
     {
-        <span class="self">self</span>.args.extend(args.into_iter().map(|s| s.into()));
+        <span class="self">self</span>.wasi.args.extend(args.into_iter().map(|s| s.into()));
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Expose an environment variable to the guest.
     </span><span class="kw">pub fn </span>env(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw">impl </span>Into&lt;String&gt;, value: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.env.insert(name.into(), value.into());
+        <span class="self">self</span>.wasi.env.insert(name.into(), value.into());
         <span class="self">self
     </span>}
 
@@ -702,19 +656,20 @@
         K: Into&lt;String&gt;,
         V: Into&lt;String&gt;,
     {
-        <span class="self">self</span>.env
+        <span class="self">self</span>.wasi
+            .env
             .extend(variables.into_iter().map(|(k, v)| (k.into(), v.into())));
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Forward all of the host&#39;s environment variables to the guest.
     </span><span class="kw">pub fn </span>forward_host_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.forward_host_env = <span class="bool-val">true</span>;
+        <span class="self">self</span>.wasi.forward_host_env = <span class="bool-val">true</span>;
         <span class="self">self
     </span>}
 
     <span class="kw">pub fn </span>map_directory(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dir: MappedDirectory) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.mapped_dirs.push(dir);
+        <span class="self">self</span>.wasi.mapped_dirs.push(dir);
         <span class="self">self
     </span>}
 
@@ -722,7 +677,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         mappings: <span class="kw">impl </span>IntoIterator&lt;Item = MappedDirectory&gt;,
     ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.mapped_dirs.extend(mappings.into_iter());
+        <span class="self">self</span>.wasi.mapped_dirs.extend(mappings.into_iter());
         <span class="self">self
     </span>}
 
@@ -744,10 +699,7 @@
         <span class="self">Self </span>{
             task_manager: <span class="prelude-val">None</span>,
             addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
-            env: HashMap::new(),
-            forward_host_env: <span class="bool-val">false</span>,
-            mapped_dirs: Vec::new(),
-            args: Vec::new(),
+            wasi: CommonWasiOptions::default(),
             callbacks: Arc::new(NoopCallbacks),
             store: <span class="prelude-val">None</span>,
         }

@@ -60,7 +60,7 @@
 /// * `user_data` - User data that will be passed to the destructor
 ///   when the thread variable goes out of scope
 /// * `key` - Thread key that was previously created
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(key), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%key), ret)]
 </span><span class="kw">pub fn </span>thread_local_destroy(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, key: TlKey) -&gt; Errno {
     <span class="kw">let </span>process = ctx.data().process.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>inner = process.write();

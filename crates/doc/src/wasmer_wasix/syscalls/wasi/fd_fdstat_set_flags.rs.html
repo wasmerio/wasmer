@@ -45,7 +45,7 @@
 ///     The file descriptor to apply the new flags to
 /// - `Fdflags flags`
 ///     The flags to apply to `fd`
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(fd), ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd), ret, err)]
 </span><span class="kw">pub fn </span>fd_fdstat_set_flags(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

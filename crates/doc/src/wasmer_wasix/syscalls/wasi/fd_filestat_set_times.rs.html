@@ -68,7 +68,7 @@
 ///     Last modified time
 /// - `Fstflags fst_flags`
 ///     Bit-vector for controlling which times get set
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(fd, st_atim, st_mtim), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, %st_atim, %st_mtim), ret)]
 </span><span class="kw">pub fn </span>fd_filestat_set_times(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

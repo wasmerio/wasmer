@@ -1010,6 +1010,31 @@
 <span id="1008">1008</span>
 <span id="1009">1009</span>
 <span id="1010">1010</span>
+<span id="1011">1011</span>
+<span id="1012">1012</span>
+<span id="1013">1013</span>
+<span id="1014">1014</span>
+<span id="1015">1015</span>
+<span id="1016">1016</span>
+<span id="1017">1017</span>
+<span id="1018">1018</span>
+<span id="1019">1019</span>
+<span id="1020">1020</span>
+<span id="1021">1021</span>
+<span id="1022">1022</span>
+<span id="1023">1023</span>
+<span id="1024">1024</span>
+<span id="1025">1025</span>
+<span id="1026">1026</span>
+<span id="1027">1027</span>
+<span id="1028">1028</span>
+<span id="1029">1029</span>
+<span id="1030">1030</span>
+<span id="1031">1031</span>
+<span id="1032">1032</span>
+<span id="1033">1033</span>
+<span id="1034">1034</span>
+<span id="1035">1035</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1194,12 +1219,26 @@
         Key: AsRef&lt;[u8]&gt;,
         Value: AsRef&lt;[u8]&gt;,
     {
-        env_pairs.into_iter().for_each(|(key, value)| {
-            <span class="self">self</span>.add_env(key, value);
-        });
+        <span class="self">self</span>.add_envs(env_pairs);
 
         <span class="self">self
     </span>}
+
+    <span class="doccomment">/// Add multiple environment variable pairs.
+    ///
+    /// Both the key and value of the environment variables must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
+    </span><span class="kw">pub fn </span>add_envs&lt;I, Key, Value&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, env_pairs: I)
+    <span class="kw">where
+        </span>I: IntoIterator&lt;Item = (Key, Value)&gt;,
+        Key: AsRef&lt;[u8]&gt;,
+        Value: AsRef&lt;[u8]&gt;,
+    {
+        <span class="kw">for </span>(key, value) <span class="kw">in </span>env_pairs {
+            <span class="self">self</span>.add_env(key, value);
+        }
+    }
 
     <span class="doccomment">/// Get a reference to the configured environment variables.
     </span><span class="kw">pub fn </span>get_env(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[(String, Vec&lt;u8&gt;)] {
@@ -1243,12 +1282,23 @@
         </span>I: IntoIterator&lt;Item = Arg&gt;,
         Arg: AsRef&lt;[u8]&gt;,
     {
-        args.into_iter().for_each(|arg| {
-            <span class="self">self</span>.add_arg(arg);
-        });
+        <span class="self">self</span>.add_args(args);
 
         <span class="self">self
     </span>}
+
+    <span class="doccomment">/// Add multiple arguments.
+    ///
+    /// Arguments must not contain the nul (0x0) byte
+    </span><span class="kw">pub fn </span>add_args&lt;I, Arg&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, args: I)
+    <span class="kw">where
+        </span>I: IntoIterator&lt;Item = Arg&gt;,
+        Arg: AsRef&lt;[u8]&gt;,
+    {
+        <span class="kw">for </span>arg <span class="kw">in </span>args {
+            <span class="self">self</span>.add_arg(arg);
+        }
+    }
 
     <span class="doccomment">/// Get a reference to the configured arguments.
     </span><span class="kw">pub fn </span>get_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[String] {
@@ -2011,7 +2061,7 @@
         ));
 
         <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">&quot;test_prog&quot;</span>)
-            .args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--help&quot;</span>, <span class="string">&quot;--wat\0&quot;</span>])
+            .args([<span class="string">&quot;--help&quot;</span>, <span class="string">&quot;--wat\0&quot;</span>])
             .build_init();
         <span class="kw">let </span>err = output.expect_err(<span class="string">&quot;should fail&quot;</span>);
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(

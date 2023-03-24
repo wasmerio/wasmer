@@ -29,6 +29,8 @@
 </span><span class="kw">pub mod </span>emscripten;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner_rt_wasi&quot;</span>)]
 </span><span class="kw">pub mod </span>wasi;
+<span class="attribute">#[cfg(any(feature = <span class="string">&quot;webc_runner_rt_wasi&quot;</span>, feature = <span class="string">&quot;webc_runner_rt_wcgi&quot;</span>))]
+</span><span class="kw">mod </span>wasi_common;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner_rt_wcgi&quot;</span>)]
 </span><span class="kw">pub mod </span>wcgi;
 
@@ -37,11 +39,9 @@
     runner::Runner,
 };
 
-<span class="kw">use </span>std::path::PathBuf;
-
 <span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 </span><span class="kw">pub struct </span>MappedDirectory {
-    <span class="kw">pub </span>host: PathBuf,
+    <span class="kw">pub </span>host: std::path::PathBuf,
     <span class="kw">pub </span>guest: String,
 }
 </code></pre></div>

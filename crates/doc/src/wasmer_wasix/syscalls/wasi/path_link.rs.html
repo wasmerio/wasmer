@@ -110,7 +110,7 @@
 ///     String containing the new file path
 /// - `u32 old_path_len`
 ///     Length of the `new_path` string
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(old_fd, new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = <span class="bool-val">false</span>), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty, follow_symlinks = <span class="bool-val">false</span>), ret)]
 </span><span class="kw">pub fn </span>path_link&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     old_fd: WasiFd,

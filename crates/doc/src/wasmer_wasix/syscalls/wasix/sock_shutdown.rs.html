@@ -39,7 +39,7 @@
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sock), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%sock), ret)]
 </span><span class="kw">pub fn </span>sock_shutdown(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, sock: WasiFd, how: SdFlags) -&gt; Errno {
     <span class="kw">let </span>both = __WASI_SHUT_RD | __WASI_SHUT_WR;
     <span class="kw">let </span>how = <span class="kw">match </span>how {

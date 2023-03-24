@@ -122,7 +122,7 @@
 ///     Array of UTF-8 bytes representing the target path
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(fd, old_path = field::Empty, new_path = field::Empty), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, old_path = field::Empty, new_path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_symlink&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     old_path: WasmPtr&lt;u8, M&gt;,

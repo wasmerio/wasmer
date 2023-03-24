@@ -40,7 +40,7 @@
 /// * `fd` - Socket descriptor
 /// * `multiaddr` - Multicast group to leave
 /// * `interface` - Interface that will left
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sock, iface), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%sock, %iface), ret)]
 </span><span class="kw">pub fn </span>sock_leave_multicast_v6&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     sock: WasiFd,

@@ -48,7 +48,7 @@
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(fd, path = field::Empty), ret)]
+<span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_prestat_dir_name&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

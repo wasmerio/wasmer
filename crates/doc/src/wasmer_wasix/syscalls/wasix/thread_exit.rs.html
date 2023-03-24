@@ -29,7 +29,7 @@
 /// ## Parameters
 ///
 /// * `rval` - The exit code returned by the process.
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(exitcode), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%exitcode), ret)]
 </span><span class="kw">pub fn </span>thread_exit(ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, exitcode: ExitCode) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
     <span class="macro">tracing::debug!</span>(%exitcode);
     <span class="prelude-val">Err</span>(WasiError::Exit(exitcode))

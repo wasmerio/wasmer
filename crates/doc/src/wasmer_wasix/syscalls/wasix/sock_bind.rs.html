@@ -46,7 +46,7 @@
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sock, addr = field::Empty), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%sock, addr = field::Empty), ret)]
 </span><span class="kw">pub fn </span>sock_bind&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     sock: WasiFd,

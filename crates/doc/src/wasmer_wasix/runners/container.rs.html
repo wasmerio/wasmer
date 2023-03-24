@@ -202,8 +202,6 @@
 <span id="200">200</span>
 <span id="201">201</span>
 <span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
 <span class="kw">use </span>bytes::Bytes;
@@ -317,17 +315,15 @@
 
     <span class="doccomment">/// Get the entire container as a single filesystem and a list of suggested
     /// directories to preopen.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Vec&lt;String&gt;) {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.repr {
             Repr::V1Mmap(mapped) =&gt; {
                 <span class="kw">let </span>fs = WebcFileSystem::init_all(Arc::clone(mapped));
-                <span class="kw">let </span>top_level_dirs = fs.top_level_dirs().clone();
-                (Box::new(fs), top_level_dirs)
+                Arc::new(fs)
             }
             Repr::V1Owned(owned) =&gt; {
                 <span class="kw">let </span>fs = WebcFileSystem::init_all(Arc::clone(owned));
-                <span class="kw">let </span>top_level_dirs = fs.top_level_dirs().clone();
-                (Box::new(fs), top_level_dirs)
+                Arc::new(fs)
             }
         }
     }

@@ -158,7 +158,7 @@
 /// - `u32 *bufused`
 ///     The Number of bytes stored in `buf`; if less than `buf_len` then entire
 ///     directory has been read
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(fd), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd), ret)]
 </span><span class="kw">pub fn </span>fd_readdir&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

@@ -129,7 +129,7 @@
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(sock, nread = field::Empty, peer = field::Empty), ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret, err)]
 </span><span class="kw">pub fn </span>sock_recv_from&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     sock: WasiFd,

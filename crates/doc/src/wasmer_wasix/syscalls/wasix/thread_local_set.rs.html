@@ -29,7 +29,7 @@
 ///
 /// * `key` - Thread key that this local variable will be associated with
 /// * `val` - Value to be set for the thread local variable
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(key, val), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%key, %val), ret)]
 </span><span class="kw">pub fn </span>thread_local_set(ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, key: TlKey, val: TlVal) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
 

@@ -654,6 +654,8 @@
 <span id="654">654</span>
 <span id="655">655</span>
 <span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(test)]
 #[macro_use]
 </span><span class="kw">extern crate </span>pretty_assertions;
@@ -693,6 +695,7 @@
 <span class="kw">pub mod </span>pipe;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;static-fs&quot;</span>)]
 </span><span class="kw">pub mod </span>static_fs;
+<span class="kw">mod </span>trace_fs;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc-fs&quot;</span>)]
 </span><span class="kw">pub mod </span>webc_fs;
 
@@ -710,6 +713,7 @@
 <span class="kw">pub use </span>pipe::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>special_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>tmp_fs::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>trace_fs::TraceFileSystem;
 <span class="kw">pub use </span>union_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>zero_file::<span class="kw-2">*</span>;
 
@@ -1191,7 +1195,7 @@
     }
 }
 
-<span class="attribute">#[derive(Debug, Clone)]
+<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>DirEntry {
     <span class="kw">pub </span>path: PathBuf,
     <span class="comment">// weird hack, to fix this we probably need an internal trait object or callbacks or something
@@ -1221,7 +1225,7 @@
 }
 
 <span class="attribute">#[allow(clippy::len_without_is_empty)] </span><span class="comment">// Clippy thinks it&#39;s an iterator.
-</span><span class="attribute">#[derive(Clone, Debug, Default)]
+</span><span class="attribute">#[derive(Clone, Debug, Default, PartialEq, Eq)]
 </span><span class="comment">// TODO: review this, proper solution would probably use a trait object internally
 </span><span class="kw">pub struct </span>Metadata {
     <span class="kw">pub </span>ft: FileType,
@@ -1261,7 +1265,7 @@
     }
 }
 
-<span class="attribute">#[derive(Clone, Debug, Default)]
+<span class="attribute">#[derive(Clone, Debug, Default, PartialEq, Eq)]
 </span><span class="comment">// TODO: review this, proper solution would probably use a trait object internally
 </span><span class="kw">pub struct </span>FileType {
     <span class="kw">pub </span>dir: bool,

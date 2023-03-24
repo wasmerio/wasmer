@@ -48,7 +48,7 @@
 ///
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sock, opt), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%sock, %opt), ret)]
 </span><span class="kw">pub fn </span>sock_get_opt_flag&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     sock: WasiFd,

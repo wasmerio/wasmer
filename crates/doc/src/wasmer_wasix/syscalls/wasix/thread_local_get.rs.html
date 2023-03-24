@@ -38,7 +38,7 @@
 /// ## Parameters
 ///
 /// * `key` - Thread key that this local variable that was previous set
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(key, val = field::Empty), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%key, val = field::Empty), ret)]
 </span><span class="kw">pub fn </span>thread_local_get&lt;M: MemorySize&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     key: TlKey,

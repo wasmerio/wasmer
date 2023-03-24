@@ -67,7 +67,7 @@
 /// ## Return
 ///
 /// The number of addresses returned.
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(naddrs = field::Empty)ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(naddrs = field::Empty), ret, err)]
 </span><span class="kw">pub fn </span>port_addr_list&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     addrs_ptr: WasmPtr&lt;__wasi_cidr_t, M&gt;,

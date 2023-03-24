@@ -42,7 +42,7 @@
 ///     File descriptor to copy
 /// - `Fd to`
 ///     Location to copy file descriptor to
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(from, to), ret)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%from, %to), ret)]
 </span><span class="kw">pub fn </span>fd_renumber(ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, from: WasiFd, to: WasiFd) -&gt; Errno {
     <span class="kw">if </span>from == to {
         <span class="kw">return </span>Errno::Success;

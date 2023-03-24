@@ -40,7 +40,7 @@
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(join_tid), ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%join_tid), ret, err)]
 </span><span class="kw">pub fn </span>thread_join(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     join_tid: Tid,

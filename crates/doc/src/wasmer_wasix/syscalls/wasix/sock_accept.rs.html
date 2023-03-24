@@ -94,7 +94,7 @@
 /// ## Return
 ///
 /// New socket connection
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sock, fd = field::Empty), ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%sock, fd = field::Empty), ret, err)]
 </span><span class="kw">pub fn </span>sock_accept&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     sock: WasiFd,

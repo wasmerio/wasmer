@@ -214,7 +214,7 @@
 /// ## Return
 ///
 /// Number of bytes transmitted.
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sock, in_fd, offset, count, nsent = field::Empty), ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%sock, %in_fd, %offset, %count, nsent = field::Empty), ret, err)]
 </span><span class="kw">pub fn </span>sock_send_file&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     sock: WasiFd,
