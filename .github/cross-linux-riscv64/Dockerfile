@@ -22,7 +22,7 @@ RUN set -x \
     && tar -xvf /tmp/openssl-${OPENSSL_VERSION}.tar.gz -C /tmp/ \
     && rm -rf /tmp/openssl-${OPENSSL_VERSION}.tar.gz \ 
     && cd /tmp/openssl-${OPENSSL_VERSION} \
-    && ./Configure linux64-riscv64 --cross-compile-prefix=riscv64-linux-gnu- shared\
+    && ./Configure linux64-riscv64 --cross-compile-prefix=riscv64-linux-gnu- --prefix=/opt/riscv64 shared\
     && make \
     && make install \
     && cd .. \
