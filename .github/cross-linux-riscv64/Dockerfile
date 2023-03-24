@@ -1,5 +1,5 @@
 #FROM rust:1
-FROM ghcr.io/cross-rs/riscv64gc-unknown-linux-gnu:edge
+FROM ghcr.io/cross-rs/riscv64gc-unknown-linux-gnu:latest
 
 # Prepare script to grab Debian port package
 #COPY install_deb.sh /
