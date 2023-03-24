@@ -19,7 +19,7 @@ apt-get install --assume-yes --no-install-recommends \
 debsource="deb http://http.debian.net/debian/ buster main"
 debsource="${debsource}\ndeb http://security.debian.org/ buster/updates main"
 # Add port from sid to get some riscv packages
-debsource="${debsource}\ndeb http://deb.debian.org/debian-ports sid main"
+#debsource="${debsource}\ndeb http://deb.debian.org/debian-ports buster main"
 
 # temporarily use debian sources rather than ubuntu.
 mv /etc/apt/sources.list /etc/apt/sources.list.bak
