@@ -13,3 +13,17 @@ RUN apt-get update && \
     curl -sSL https://get.docker.com/ | sh
 # Needed for openssl-sys crate
 #RUN /install_deb.sh riscv64 libssl-dev
+
+ENV OPENSSL_VERSION="3.1.0"
+
+RUN set -x \
+    ### BUILD OpenSSL
+    && wget --no-check-certificate -O /tmp/openssl-${OPENSSL_VERSION}.tar.gz "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" \
+    && tar -xvf /tmp/openssl-${OPENSSL_VERSION}.tar.gz -C /tmp/ \
+    && rm -rf /tmp/openssl-${OPENSSL_VERSION}.tar.gz \ 
+    && cd /tmp/openssl-${OPENSSL_VERSION} \
+    && ./Configure linux64-riscv64 --cross-compile-prefix=riscv64-linux-gnu- shared\
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf openssl-${OPENSSL_VERSION}
