@@ -28,7 +28,7 @@ impl WapmContainer {
     pub fn from_bytes(bytes: Bytes) -> std::result::Result<Self, WebcParseError> {
         match webc::detect(bytes.as_ref())? {
             Version::V1 => {
-                let webc = WebCOwned::parse(bytes.into(), &ParseOptions::default())?;
+                let webc = WebCOwned::parse(bytes, &ParseOptions::default())?;
                 Ok(WapmContainer {
                     repr: Repr::V1Owned(Arc::new(webc)),
                 })

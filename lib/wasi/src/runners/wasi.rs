@@ -169,7 +169,7 @@ impl crate::runners::Runner for WasiRunner {
         command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let atom_name = match command.get_annotation("wasi")? {
+        let atom_name = match command.annotation("wasi")? {
             Some(Wasi { atom, .. }) => atom,
             None => command_name.to_string(),
         };
