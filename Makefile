@@ -85,7 +85,7 @@ else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
 		# target and it will fail.
-                $(error Unrecognized architecture, expect `x86_64`, `aarch64` or `arm64`)
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64`, `arm64`, 'riscv64')
 	endif
 
 	# Libc
