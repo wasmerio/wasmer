@@ -182,7 +182,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  build_linux_rv64:
+  build_linux_riscv64:
     name: ${{ matrix.build-what.name }} on linux-riscv64
     runs-on: ubuntu-22.04
     strategy:
