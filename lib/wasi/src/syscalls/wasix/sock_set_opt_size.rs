@@ -10,7 +10,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// * `fd` - Socket descriptor
 /// * `opt` - Socket option to be set
 /// * `size` - Buffer size
-#[instrument(level = "debug", skip_all, fields(sock, opt, size), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, %opt, %size), ret)]
 pub fn sock_set_opt_size(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

@@ -20,7 +20,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The file descriptor of the socket that has been opened.
-#[instrument(level = "debug", skip_all, fields(af, ty, pt, sock = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(?af, ?ty, ?pt, sock = field::Empty), ret)]
 pub fn sock_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     af: Addressfamily,

@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
-#[instrument(level = "debug", skip_all, fields(tid, sig), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%tid, ?sig), ret, err)]
 pub fn thread_signal(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     tid: Tid,

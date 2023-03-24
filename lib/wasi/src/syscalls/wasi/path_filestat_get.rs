@@ -15,7 +15,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `__wasi_file_stat_t *buf`
 ///     The location where the metadata will be stored
-#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, path = field::Empty), ret)]
 pub fn path_filestat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

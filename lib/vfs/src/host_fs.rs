@@ -1267,7 +1267,7 @@ mod tests {
             "creating `b.txt`",
         );
 
-        let readdir = fs.read_dir(&temp.path());
+        let readdir = fs.read_dir(temp.path());
 
         assert!(
             readdir.is_ok(),

@@ -14,7 +14,7 @@ use crate::syscalls::*;
 ///     Array of UTF-8 bytes representing the target path
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
-#[instrument(level = "debug", skip_all, fields(fd, old_path = field::Empty, new_path = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, old_path = field::Empty, new_path = field::Empty), ret)]
 pub fn path_symlink<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_path: WasmPtr<u8, M>,

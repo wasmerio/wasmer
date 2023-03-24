@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     Last modified time
 /// - `Fstflags fst_flags`
 ///     Bit-vector for controlling which times get set
-#[instrument(level = "debug", skip_all, fields(fd, st_atim, st_mtim), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, %st_atim, %st_mtim), ret)]
 pub fn fd_filestat_set_times(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

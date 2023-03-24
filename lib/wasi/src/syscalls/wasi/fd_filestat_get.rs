@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
-#[instrument(level = "debug", skip_all, fields(fd), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd), ret)]
 pub fn fd_filestat_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

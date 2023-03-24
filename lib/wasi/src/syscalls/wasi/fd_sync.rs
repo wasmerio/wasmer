@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// TODO: figure out which errors this should return
 /// - `Errno::Perm`
 /// - `Errno::Notcapable`
-#[instrument(level = "debug", skip_all, fields(fd), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd), ret)]
 pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);

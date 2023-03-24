@@ -5,6 +5,8 @@ mod runner;
 pub mod emscripten;
 #[cfg(feature = "webc_runner_rt_wasi")]
 pub mod wasi;
+#[cfg(any(feature = "webc_runner_rt_wasi", feature = "webc_runner_rt_wcgi"))]
+mod wasi_common;
 #[cfg(feature = "webc_runner_rt_wcgi")]
 pub mod wcgi;
 
@@ -13,10 +15,8 @@ pub use self::{
     runner::Runner,
 };
 
-use std::path::PathBuf;
-
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MappedDirectory {
-    pub host: PathBuf,
+    pub host: std::path::PathBuf,
     pub guest: String,
 }

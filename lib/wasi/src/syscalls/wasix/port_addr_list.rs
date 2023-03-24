@@ -14,7 +14,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The number of addresses returned.
-#[instrument(level = "debug", skip_all, fields(naddrs = field::Empty)ret, err)]
+#[instrument(level = "debug", skip_all, fields(naddrs = field::Empty), ret, err)]
 pub fn port_addr_list<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     addrs_ptr: WasmPtr<__wasi_cidr_t, M>,

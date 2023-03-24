@@ -19,7 +19,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The number of IP addresses returned during the DNS resolution.
-#[instrument(level = "debug", skip_all, fields(host = field::Empty, port), ret, err)]
+#[instrument(level = "debug", skip_all, fields(host = field::Empty, %port), ret, err)]
 pub fn resolve<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     host: WasmPtr<u8, M>,

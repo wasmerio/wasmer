@@ -15,7 +15,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes transmitted.
-#[instrument(level = "trace", skip_all, fields(sock, addr, nsent = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%sock, ?addr, nsent = field::Empty), ret, err)]
 pub fn sock_send_to<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
