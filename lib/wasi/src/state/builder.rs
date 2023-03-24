@@ -182,11 +182,25 @@ impl WasiEnvBuilder {
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        env_pairs.into_iter().for_each(|(key, value)| {
-            self.add_env(key, value);
-        });
+        self.add_envs(env_pairs);
 
         self
+    }
+
+    /// Add multiple environment variable pairs.
+    ///
+    /// Both the key and value of the environment variables must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
+    pub fn add_envs<I, Key, Value>(&mut self, env_pairs: I)
+    where
+        I: IntoIterator<Item = (Key, Value)>,
+        Key: AsRef<[u8]>,
+        Value: AsRef<[u8]>,
+    {
+        for (key, value) in env_pairs {
+            self.add_env(key, value);
+        }
     }
 
     /// Get a reference to the configured environment variables.
@@ -231,11 +245,22 @@ impl WasiEnvBuilder {
         I: IntoIterator<Item = Arg>,
         Arg: AsRef<[u8]>,
     {
-        args.into_iter().for_each(|arg| {
-            self.add_arg(arg);
-        });
+        self.add_args(args);
 
         self
+    }
+
+    /// Add multiple arguments.
+    ///
+    /// Arguments must not contain the nul (0x0) byte
+    pub fn add_args<I, Arg>(&mut self, args: I)
+    where
+        I: IntoIterator<Item = Arg>,
+        Arg: AsRef<[u8]>,
+    {
+        for arg in args {
+            self.add_arg(arg);
+        }
     }
 
     /// Get a reference to the configured arguments.

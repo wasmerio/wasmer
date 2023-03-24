@@ -111,17 +111,15 @@ impl WapmContainer {
 
     /// Get the entire container as a single filesystem and a list of suggested
     /// directories to preopen.
-    pub(crate) fn container_fs(&self) -> (Box<dyn FileSystem + Send + Sync>, Vec<String>) {
+    pub(crate) fn container_fs(&self) -> Arc<dyn FileSystem + Send + Sync> {
         match &self.repr {
             Repr::V1Mmap(mapped) => {
                 let fs = WebcFileSystem::init_all(Arc::clone(mapped));
-                let top_level_dirs = fs.top_level_dirs().clone();
-                (Box::new(fs), top_level_dirs)
+                Arc::new(fs)
             }
             Repr::V1Owned(owned) => {
                 let fs = WebcFileSystem::init_all(Arc::clone(owned));
-                let top_level_dirs = fs.top_level_dirs().clone();
-                (Box::new(fs), top_level_dirs)
+                Arc::new(fs)
             }
         }
     }
