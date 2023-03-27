@@ -17,6 +17,8 @@ RUN apt-get update  && \
 RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s -- -y
 
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup toolchain install 1.65
+RUN rustup target add riscv64gc-unknown-linux-gnu
 
 #RUN cargo install cross
 
@@ -56,8 +58,6 @@ ENV AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
     QEMU_LD_PREFIX="$CROSS_SYSROOT" \
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
-
-RUN rustup target add riscv64gc-unknown-linux-gnu
 
 #ENV OPENSSL_NO_PKG_CONFIG=1
 #RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
