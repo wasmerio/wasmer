@@ -67,9 +67,6 @@ toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
 webc = { version = "5.0.0-rc.6" }
-# HACK(Michael-F-Bryan): Remove this once a new version of wapm-targz-to-pirita
-# is published that doesn't have a public dependency on webc
-webc_v4 = { version = "4", package = "webc" }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
@@ -91,7 +88,7 @@ wasm-coredump-builder = { version = "0.1.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
-wapm-targz-to-pirita = "0.1.7"
+wapm-targz-to-pirita = "0.2.0"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }

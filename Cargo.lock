@@ -1344,12 +1344,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
-name = "fuchsia-cprng"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
-
-[[package]]
 name = "futures"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3068,26 +3062,13 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
-dependencies = [
- "fuchsia-cprng",
- "libc",
- "rand_core 0.3.1",
- "rdrand",
- "winapi",
-]
-
-[[package]]
-name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha",
- "rand_core 0.6.4",
+ "rand_core",
 ]
 
 [[package]]
@@ -3097,23 +3078,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.6.4",
+ "rand_core",
 ]
-
-[[package]]
-name = "rand_core"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a6fdeb83b075e8266dcc8762c22776f6877a63111121f5f8c7411e5be7eed4b"
-dependencies = [
- "rand_core 0.4.2",
-]
-
-[[package]]
-name = "rand_core"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
 
 [[package]]
 name = "rand_core"
@@ -3163,15 +3129,6 @@ dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
  "num_cpus",
-]
-
-[[package]]
-name = "rdrand"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
-dependencies = [
- "rand_core 0.3.1",
 ]
 
 [[package]]
@@ -3253,15 +3210,6 @@ dependencies = [
  "bitflags",
  "libc",
  "mach",
- "winapi",
-]
-
-[[package]]
-name = "remove_dir_all"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
-dependencies = [
  "winapi",
 ]
 
@@ -4071,16 +4019,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ae9980cab1db3fceee2f6c6f643d5d8de2997c58ee8d25fb0cc8a9e9e7348e5"
 
 [[package]]
-name = "tempdir"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
-dependencies = [
- "rand 0.4.6",
- "remove_dir_all",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4775,7 +4713,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typetag",
- "webc 5.0.0-rc.6",
+ "webc",
 ]
 
 [[package]]
@@ -4937,45 +4875,29 @@ dependencies = [
 
 [[package]]
 name = "wapm-targz-to-pirita"
-version = "0.1.7"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39980ef50ab15c47dbd9b26678f06ece2341178d82e25e21e4ac68310d1f2e63"
+checksum = "1f2daf9fc40607c4a14a89220afe36e62dbb111627cb428b764d322e7c9d4493"
 dependencies = [
  "anyhow",
- "base64 0.13.1",
+ "base64 0.21.0",
  "flate2",
+ "indexmap",
  "json5",
  "nuke-dir",
- "rand 0.8.5",
+ "rand",
  "serde",
  "serde_cbor",
- "serde_derive",
  "serde_json",
  "sha2",
  "tar",
  "toml",
  "tracing",
+ "url",
  "validator",
- "wapm-toml 0.4.0",
- "wasmer-registry 3.1.1",
- "webc 4.1.1",
-]
-
-[[package]]
-name = "wapm-toml"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a61b6d3b6a2fc171198e6378b3a9b38650e114298775a9e63401613abb6a10b3"
-dependencies = [
- "anyhow",
- "semver 1.0.17",
- "serde",
- "serde_cbor",
- "serde_derive",
- "serde_json",
- "serde_yaml 0.8.26",
- "thiserror",
- "toml",
+ "wapm-toml",
+ "wasmer-registry 4.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webc",
 ]
 
 [[package]]
@@ -5288,7 +5210,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
- "webc 5.0.0-rc.6",
+ "webc",
 ]
 
 [[package]]
@@ -5308,7 +5230,7 @@ dependencies = [
  "blake3",
  "criterion",
  "hex",
- "rand 0.8.5",
+ "rand",
  "tempfile",
  "thiserror",
  "wasmer",
@@ -5394,8 +5316,7 @@ dependencies = [
  "wasmer-wasm-interface",
  "wasmer-wast",
  "wasmparser 0.51.4",
- "webc 4.1.1",
- "webc 5.0.0-rc.6",
+ "webc",
 ]
 
 [[package]]
@@ -5574,7 +5495,7 @@ dependencies = [
  "object 0.30.3",
  "predicates 2.1.5",
  "pretty_assertions",
- "rand 0.8.5",
+ "rand",
  "reqwest",
  "serde",
  "tar",
@@ -5607,39 +5528,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "982286807bf43d2522a9f6139f9c2570df45d5a32148460226ccbc7edfb3ee13"
-dependencies = [
- "anyhow",
- "dirs",
- "filetime",
- "flate2",
- "fs_extra",
- "futures-util",
- "graphql_client",
- "hex",
- "log",
- "lzma-rs",
- "regex",
- "reqwest",
- "semver 1.0.17",
- "serde",
- "serde_json",
- "tar",
- "tempdir",
- "thiserror",
- "tldextract",
- "tokio",
- "toml",
- "url",
- "wapm-toml 0.2.2",
- "webc 3.0.1",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
 version = "4.1.0"
 dependencies = [
  "anyhow",
@@ -5655,7 +5543,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lzma-rs",
- "rand 0.8.5",
+ "rand",
  "regex",
  "reqwest",
  "semver 1.0.17",
@@ -5669,7 +5557,43 @@ dependencies = [
  "toml",
  "url",
  "wasmer-toml",
- "webc 5.0.0-rc.6",
+ "webc",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20cdae8472f28a3bd4f15f7a838278db9262e9cdb5d38684e9a9a2765c0c29da"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "fs_extra",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "regex",
+ "reqwest",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "tldextract",
+ "tokio",
+ "toml",
+ "url",
+ "wasmer-toml",
+ "webc",
  "whoami",
 ]
 
@@ -5768,7 +5692,7 @@ dependencies = [
  "linked_hash_set",
  "once_cell",
  "pin-project",
- "rand 0.8.5",
+ "rand",
  "reqwest",
  "serde",
  "serde_cbor",
@@ -5803,7 +5727,7 @@ dependencies = [
  "wasmer-wasix-types",
  "wcgi",
  "wcgi-host",
- "webc 5.0.0-rc.6",
+ "webc",
  "weezl",
  "winapi",
 ]
@@ -6099,52 +6023,6 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef87e7b955d5d1feaa8697ae129f1a9ce8859e151574ad3baceae9413b48d2f0"
-dependencies = [
- "anyhow",
- "base64 0.13.1",
- "indexmap",
- "leb128",
- "lexical-sort",
- "memchr",
- "memmap2",
- "path-clean",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "webc"
-version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4af0f2f0b6bf2e4366375c3cd6635aef1a2eb66cd02454d79525aa7eecf0751"
-dependencies = [
- "anyhow",
- "base64 0.13.1",
- "byteorder",
- "indexmap",
- "leb128",
- "lexical-sort",
- "memchr",
- "path-clean",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "webc"
 version = "5.0.0-rc.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa158c77bd41040f4b9a4b91be63446885ce9b04bc9a5bb457fa586e7a8c9815"
@@ -6159,7 +6037,7 @@ dependencies = [
  "memmap2",
  "once_cell",
  "path-clean",
- "rand 0.8.5",
+ "rand",
  "serde",
  "serde_cbor",
  "serde_json",
