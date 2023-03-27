@@ -129,7 +129,7 @@ pub fn proc_fork<M: MemorySize>(
             .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
             .and_then(|mut memory| memory.duplicate())
         {
-            Ok(memory) => wasmer::vm::VMMemory(memory),
+            Ok(memory) => memory.into(),
             Err(err) => {
                 warn!(
                     %err
