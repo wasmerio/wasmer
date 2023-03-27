@@ -211,21 +211,20 @@ jobs:
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-          CROSS_CONFIG: ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/Cross.toml
       - name: Build ${{ matrix.build-what.key }}
         run: |
           ${{ matrix.build-what.build-cmd }}
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cargo
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
-          ENABLE_LLVM: 1
+          ENABLE_LLVM: 0
       - name: Dist
         if: ${{ matrix.build-what.key == 'capi' }}
         run: |
           make distribution
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cargo
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
