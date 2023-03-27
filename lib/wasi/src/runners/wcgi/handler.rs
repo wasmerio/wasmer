@@ -1,11 +1,4 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::Poll,
-};
+use std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 use anyhow::Error;
 use futures::{Future, FutureExt, StreamExt, TryFutureExt};
@@ -15,15 +8,13 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt},
     runtime::Handle,
 };
-use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
+use tracing::Instrument;
 use wasmer::Module;
 use wcgi_host::CgiDialect;
 
 use crate::{
-    capabilities::Capabilities,
-    http::HttpClientCapabilityV1,
-    runners::wcgi::{Callbacks, MappedDirectory},
-    Pipe, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
+    capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
+    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -36,24 +27,26 @@ impl Handler {
         Handler(Arc::new(state))
     }
 
+    #[tracing::instrument(level = "debug", skip_all, err)]
     pub(crate) async fn handle(&self, req: Request<Body>) -> Result<Response<Body>, Error> {
+        tracing::debug!(headers=?req.headers());
+
         let (parts, body) = req.into_parts();
 
         let (req_body_sender, req_body_receiver) = Pipe::channel();
         let (res_body_sender, res_body_receiver) = Pipe::channel();
         let (stderr_sender, stderr_receiver) = Pipe::channel();
 
-        let builder = WasiEnv::builder(self.program.to_string());
+        tracing::debug!("Creating the WebAssembly instance");
 
         let mut request_specific_env = HashMap::new();
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
-        let rt = PluggableRuntimeImplementation::new(Arc::clone(&self.task_manager));
-        let builder = builder
-            .envs(self.env.iter())
+        let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
+
+        let builder = (self.setup_builder)()?
             .envs(request_specific_env)
-            .args(self.args.iter())
             .stdin(Box::new(req_body_receiver))
             .stdout(Box::new(res_body_sender))
             .stderr(Box::new(stderr_sender))
@@ -62,11 +55,11 @@ impl Handler {
                 http_client: HttpClientCapabilityV1::new_allow_all(),
                 threading: Default::default(),
             })
-            .runtime(Arc::new(rt))
-            .sandbox_fs(self.fs()?)
-            .preopen_dir(Path::new("/"))?;
+            .runtime(Arc::new(rt));
 
         let module = self.module.clone();
+
+        tracing::debug!("Calling into the WCGI executable");
 
         let done = self
             .task_manager
@@ -78,19 +71,26 @@ impl Handler {
         let handle = self.task_manager.runtime().clone();
         let callbacks = Arc::clone(&self.callbacks);
 
-        handle.spawn(async move {
-            consume_stderr(stderr_receiver, callbacks).await;
-        });
-
-        self.task_manager.runtime().spawn(async move {
-            if let Err(e) = drive_request_to_completion(&handle, done, body, req_body_sender).await
-            {
-                tracing::error!(
-                    error = &*e as &dyn std::error::Error,
-                    "Unable to drive the request to completion"
-                );
+        handle.spawn(
+            async move {
+                consume_stderr(stderr_receiver, callbacks).await;
             }
-        });
+            .in_current_span(),
+        );
+
+        self.task_manager.runtime().spawn(
+            async move {
+                if let Err(e) =
+                    drive_request_to_completion(&handle, done, body, req_body_sender).await
+                {
+                    tracing::error!(
+                        error = &*e as &dyn std::error::Error,
+                        "Unable to drive the request to completion"
+                    );
+                }
+            }
+            .in_current_span(),
+        );
 
         let mut res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
 
@@ -115,38 +115,6 @@ impl Handler {
 
         Ok(response)
     }
-
-    fn fs(&self) -> Result<TmpFileSystem, Error> {
-        let root_fs = RootFileSystemBuilder::new().build();
-
-        if !self.mapped_dirs.is_empty() {
-            let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
-
-            for MappedDirectory { host, guest } in self.mapped_dirs.iter() {
-                let guest = match guest.starts_with('/') {
-                    true => PathBuf::from(guest),
-                    false => Path::new("/").join(guest),
-                };
-                tracing::trace!(
-                    host=%host.display(),
-                    guest=%guest.display(),
-                    "mounting directory to instance fs",
-                );
-
-                root_fs
-                    .mount(host.clone(), &fs_backing, guest.clone())
-                    .map_err(|error| {
-                        anyhow::anyhow!(
-                            "Unable to mount \"{}\" to \"{}\": {error}",
-                            host.display(),
-                            guest.display()
-                        )
-                    })?;
-            }
-        }
-        Ok(root_fs)
-    }
 }
 
 impl Deref for Handler {
@@ -166,21 +134,30 @@ async fn drive_request_to_completion(
     mut instance_stdin: impl AsyncWrite + Send + Unpin + 'static,
 ) -> Result<(), Error> {
     let request_body_send = handle
-        .spawn(async move {
-            // Copy the request into our instance, chunk-by-chunk. If the instance
-            // dies before we finish writing the body, the instance's side of the
-            // pipe will be automatically closed and we'll error out.
-            while let Some(res) = request_body.next().await {
-                // FIXME(theduke): figure out how to propagate a body error to the
-                // CGI instance.
-                let chunk = res?;
-                instance_stdin.write_all(chunk.as_ref()).await?;
+        .spawn(
+            async move {
+                // Copy the request into our instance, chunk-by-chunk. If the instance
+                // dies before we finish writing the body, the instance's side of the
+                // pipe will be automatically closed and we'll error out.
+                let mut request_size = 0;
+                while let Some(res) = request_body.next().await {
+                    // FIXME(theduke): figure out how to propagate a body error to the
+                    // CGI instance.
+                    let chunk = res?;
+                    request_size += chunk.len();
+                    instance_stdin.write_all(chunk.as_ref()).await?;
+                }
+
+                instance_stdin.shutdown().await?;
+                tracing::debug!(
+                    request_size,
+                    "Finished forwarding the request to the WCGI server"
+                );
+
+                Ok::<(), Error>(())
             }
-
-            instance_stdin.shutdown().await?;
-
-            Ok::<(), Error>(())
-        })
+            .in_current_span(),
+        )
         .map_err(Error::from)
         .and_then(|r| async { r });
 
@@ -220,18 +197,17 @@ async fn consume_stderr(
     }
 }
 
-#[derive(Clone, derivative::Derivative)]
+#[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub(crate) struct SharedState {
-    pub(crate) program: String,
-    pub(crate) env: HashMap<String, String>,
-    pub(crate) args: Vec<String>,
-    pub(crate) mapped_dirs: Vec<MappedDirectory>,
     pub(crate) module: Module,
     pub(crate) dialect: CgiDialect,
-    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) setup_builder: Box<dyn Fn() -> Result<WasiEnvBuilder, anyhow::Error> + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
 }
 
 impl Service<Request<Body>> for Handler {

@@ -94,7 +94,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
           target: ${{ matrix.target }}
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@stable

@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `proc_parent()`
 /// Returns the parent handle of the supplied process
-#[instrument(level = "debug", skip_all, fields(pid, parent = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%pid, parent = field::Empty), ret)]
 pub fn proc_parent<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     pid: Pid,

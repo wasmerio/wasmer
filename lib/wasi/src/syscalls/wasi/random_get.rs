@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///     A pointer to a buffer where the random bytes will be written
 /// - `size_t buf_len`
 ///     The number of bytes that will be written
-#[instrument(level = "trace", skip_all, fields(buf_len), ret)]
+#[instrument(level = "trace", skip_all, fields(%buf_len), ret)]
 pub fn random_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     buf: WasmPtr<u8, M>,

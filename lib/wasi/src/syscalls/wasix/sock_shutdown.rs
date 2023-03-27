@@ -8,7 +8,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-#[instrument(level = "debug", skip_all, fields(sock), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock), ret)]
 pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Errno {
     let both = __WASI_SHUT_RD | __WASI_SHUT_WR;
     let how = match how {

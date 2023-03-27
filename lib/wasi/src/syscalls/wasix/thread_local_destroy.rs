@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// * `user_data` - User data that will be passed to the destructor
 ///   when the thread variable goes out of scope
 /// * `key` - Thread key that was previously created
-#[instrument(level = "trace", skip_all, fields(key), ret)]
+#[instrument(level = "trace", skip_all, fields(%key), ret)]
 pub fn thread_local_destroy(mut ctx: FunctionEnvMut<'_, WasiEnv>, key: TlKey) -> Errno {
     let process = ctx.data().process.clone();
     let mut inner = process.write();

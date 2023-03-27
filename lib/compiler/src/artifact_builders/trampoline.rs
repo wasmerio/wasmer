@@ -25,6 +25,17 @@ const X86_64_TRAMPOLINE: [u8; 16] = [
     0xff, 0x25, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
 
+// can it be shorter than this?
+// 4 padding bytes are used to preserve alignment.
+// AUIPC t1,0     17 03 00 00
+// LD t1, 16(t1)  03 33 03 01
+// JR t1          67 00 03 00 [00 00 00 00]
+// JMPADDR        00 00 00 00 00 00 00 00
+const RISCV64_TRAMPOLINE: [u8; 24] = [
+    0x17, 0x03, 0x00, 0x00, 0x03, 0x33, 0x03, 0x01, 0x67, 0x00, 0x03, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0,
+];
+
 fn make_trampoline(
     target: &Target,
     libcall: LibCall,
@@ -50,6 +61,15 @@ fn make_trampoline(
                 addend: 0,
             });
         }
+        Architecture::Riscv64(_) => {
+            code.extend(RISCV64_TRAMPOLINE);
+            relocations.push(Relocation {
+                kind: RelocationKind::Abs8,
+                reloc_target: RelocationTarget::LibCall(libcall),
+                offset: code.len() as u32 - 8,
+                addend: 0,
+            });
+        }
         arch => panic!("Unsupported architecture: {}", arch),
     };
 }
@@ -59,6 +79,7 @@ pub fn libcall_trampoline_len(target: &Target) -> usize {
     match target.triple().architecture {
         Architecture::Aarch64(_) => AARCH64_TRAMPOLINE.len(),
         Architecture::X86_64 => X86_64_TRAMPOLINE.len(),
+        Architecture::Riscv64(_) => RISCV64_TRAMPOLINE.len(),
         arch => panic!("Unsupported architecture: {}", arch),
     }
 }

@@ -21,19 +21,14 @@ impl Abi for Aarch64SystemV {
     // Given a function definition, retrieve the parameter that is the vmctx pointer.
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         func_value
-            .get_nth_param(
-                if func_value
+            .get_nth_param(u32::from(
+                func_value
                     .get_enum_attribute(
                         AttributeLoc::Param(0),
                         Attribute::get_named_enum_kind_id("sret"),
                     )
-                    .is_some()
-                {
-                    1
-                } else {
-                    0
-                },
-            )
+                    .is_some(),
+            ))
             .unwrap()
             .into_pointer_value()
     }

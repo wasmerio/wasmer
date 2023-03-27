@@ -18,7 +18,7 @@ use crate::syscalls::*;
 ///     The timestamp that the last modified time attribute is set to
 /// - `Fstflags fst_flags`
 ///     A bitmask controlling which attributes are set
-#[instrument(level = "debug", skip_all, fields(fd, path = field::Empty, st_atim, st_mtim), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, path = field::Empty, %st_atim, %st_mtim), ret)]
 pub fn path_filestat_set_times<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

@@ -111,17 +111,15 @@ impl WapmContainer {
 
     /// Get the entire container as a single filesystem and a list of suggested
     /// directories to preopen.
-    pub(crate) fn container_fs(&self) -> (Box<dyn FileSystem + Send + Sync>, Vec<String>) {
+    pub(crate) fn container_fs(&self) -> Arc<dyn FileSystem + Send + Sync> {
         match &self.repr {
             Repr::V1Mmap(mapped) => {
                 let fs = WebcFileSystem::init_all(Arc::clone(mapped));
-                let top_level_dirs = fs.top_level_dirs().clone();
-                (Box::new(fs), top_level_dirs)
+                Arc::new(fs)
             }
             Repr::V1Owned(owned) => {
                 let fs = WebcFileSystem::init_all(Arc::clone(owned));
-                let top_level_dirs = fs.top_level_dirs().clone();
-                (Box::new(fs), top_level_dirs)
+                Arc::new(fs)
             }
         }
     }
@@ -192,22 +190,13 @@ impl Bindings for WitBindings {
 }
 
 /// Error that ocurred while parsing the .webc file
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum WebcParseError {
     /// Parse error
-    Parse(webc::v1::Error),
-    Detect(webc::DetectError),
+    #[error("Unable to parse the WEBC file")]
+    Parse(#[from] webc::v1::Error),
+    #[error("Unable to determine the WEBC version")]
+    Detect(#[from] webc::DetectError),
+    #[error("Unsupported WEBC version, {_0}")]
     UnsupportedVersion(Version),
-}
-
-impl From<webc::v1::Error> for WebcParseError {
-    fn from(e: webc::v1::Error) -> Self {
-        WebcParseError::Parse(e)
-    }
-}
-
-impl From<webc::DetectError> for WebcParseError {
-    fn from(e: webc::DetectError) -> Self {
-        WebcParseError::Detect(e)
-    }
 }

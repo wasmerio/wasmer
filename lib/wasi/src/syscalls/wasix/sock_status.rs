@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `sock_status()`
 /// Returns the current status of a socket
-#[instrument(level = "debug", skip_all, fields(sock, status = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, status = field::Empty), ret)]
 pub fn sock_status<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

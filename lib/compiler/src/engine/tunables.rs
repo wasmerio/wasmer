@@ -60,6 +60,7 @@ pub trait Tunables {
     ///
     /// # Safety
     /// - `memory_definition_locations` must point to a valid locations in VM memory.
+    #[allow(clippy::result_large_err)]
     unsafe fn create_memories(
         &self,
         context: &mut StoreObjects,
@@ -93,6 +94,7 @@ pub trait Tunables {
     /// # Safety
     ///
     /// To be done
+    #[allow(clippy::result_large_err)]
     unsafe fn create_tables(
         &self,
         context: &mut StoreObjects,
@@ -123,6 +125,7 @@ pub trait Tunables {
 
     /// Allocate memory for just the globals of the current module,
     /// with initializers applied.
+    #[allow(clippy::result_large_err)]
     fn create_globals(
         &self,
         context: &mut StoreObjects,

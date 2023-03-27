@@ -2,6 +2,7 @@
 use anyhow::{bail, Result};
 use std::env;
 use std::path::PathBuf;
+use wasmer_wasix::runners::MappedDirectory;
 
 /// Whether or not Wasmer should print with color
 pub fn wasmer_should_print_color() -> bool {
@@ -11,7 +12,7 @@ pub fn wasmer_should_print_color() -> bool {
         .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
 }
 
-fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<(String, PathBuf)> {
+fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
     let pb = PathBuf::from(&real_dir);
     if let Ok(pb_metadata) = pb.metadata() {
         if !pb_metadata.is_dir() {
@@ -20,11 +21,14 @@ fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<(String, PathBu
     } else {
         bail!("Directory \"{}\" does not exist", &real_dir);
     }
-    Ok((alias.to_string(), pb))
+    Ok(MappedDirectory {
+        guest: alias.to_string(),
+        host: pb,
+    })
 }
 
 /// Parses a mapdir from a string
-pub fn parse_mapdir(entry: &str) -> Result<(String, PathBuf)> {
+pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
     // We try first splitting by `::`
     if let [alias, real_dir] = entry.split("::").collect::<Vec<&str>>()[..] {
         retrieve_alias_pathbuf(alias, real_dir)

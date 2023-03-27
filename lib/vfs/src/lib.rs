@@ -6,6 +6,7 @@ use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::Context;
@@ -36,6 +37,7 @@ mod overlay_fs;
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
+mod trace_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
@@ -53,6 +55,7 @@ pub use passthru_fs::*;
 pub use pipe::*;
 pub use special_file::*;
 pub use tmp_fs::*;
+pub use trace_fs::TraceFileSystem;
 pub use union_fs::*;
 pub use zero_file::*;
 
@@ -91,6 +94,40 @@ impl dyn FileSystem + 'static {
     #[inline]
     pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
         self.upcast_any_mut().downcast_mut::<T>()
+    }
+}
+
+impl<D, F> FileSystem for D
+where
+    D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
+    F: FileSystem + ?Sized,
+{
+    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+        (**self).read_dir(path)
+    }
+
+    fn create_dir(&self, path: &Path) -> Result<()> {
+        (**self).create_dir(path)
+    }
+
+    fn remove_dir(&self, path: &Path) -> Result<()> {
+        (**self).remove_dir(path)
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        (**self).rename(from, to)
+    }
+
+    fn metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).metadata(path)
+    }
+
+    fn remove_file(&self, path: &Path) -> Result<()> {
+        (**self).remove_file(path)
+    }
+
+    fn new_open_options(&self) -> OpenOptions {
+        (**self).new_open_options()
     }
 }
 
@@ -500,7 +537,7 @@ impl ReadDir {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirEntry {
     pub path: PathBuf,
     // weird hack, to fix this we probably need an internal trait object or callbacks or something
@@ -530,7 +567,7 @@ impl DirEntry {
 }
 
 #[allow(clippy::len_without_is_empty)] // Clippy thinks it's an iterator.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct Metadata {
     pub ft: FileType,
@@ -570,7 +607,7 @@ impl Metadata {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 // TODO: review this, proper solution would probably use a trait object internally
 pub struct FileType {
     pub dir: bool,

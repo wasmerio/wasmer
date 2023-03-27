@@ -17,7 +17,7 @@ use crate::syscalls::*;
 ///     Pointer to characters containing the path that the symlink points to
 /// - `u32 buf_used`
 ///     The number of bytes written to `buf`
-#[instrument(level = "debug", skip_all, fields(dir_fd, path = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%dir_fd, path = field::Empty), ret)]
 pub fn path_readlink<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     dir_fd: WasiFd,
