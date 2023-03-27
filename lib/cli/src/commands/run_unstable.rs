@@ -303,7 +303,7 @@ fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
     }
 
     let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-    wapm_targz_to_pirita::generate_webc_file(files, &dir.to_path_buf(), None, &functions)
+    wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)
 }
 
 fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {

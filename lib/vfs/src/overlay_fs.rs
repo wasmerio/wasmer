@@ -734,7 +734,7 @@ mod tests {
 
     fn load_webc(bytes: &'static [u8]) -> WebcFileSystem<WebCOwned> {
         let options = ParseOptions::default();
-        let webc = WebCOwned::parse(bytes.into(), &options).unwrap();
+        let webc = WebCOwned::parse(bytes, &options).unwrap();
         WebcFileSystem::init_all(Arc::new(webc))
     }
 
