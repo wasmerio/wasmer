@@ -123,11 +123,6 @@ default = [
     "webc_runner",
 ]
 sys = ["wasmer/sys"]
-cache = ["wasmer-cache"]
-cache-blake3-pure = [
-    "cache",
-    "wasmer-cache/blake3-pure"
-]
 wast = ["wasmer-wast"]
 host-net = [ "virtual-net/host-net" ]
 wat = ["wasmer/wat"]
