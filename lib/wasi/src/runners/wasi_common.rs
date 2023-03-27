@@ -30,9 +30,14 @@ impl CommonWasiOptions {
         let fs = prepare_filesystem(&self.mapped_dirs, container_fs, |path| {
             builder.add_preopen_dir(path).map_err(Error::from)
         })?;
-        builder.set_fs(fs);
+
         builder.add_preopen_dir("/")?;
-        builder.add_preopen_dir(".")?;
+        if fs.read_dir(".".as_ref()).is_ok() {
+            // Sometimes "." won't be mounted so preopening will fail.
+            builder.add_preopen_dir(".")?;
+        }
+
+        builder.set_fs(fs);
 
         self.populate_env(wasi, builder);
         self.populate_args(wasi, builder);
@@ -80,7 +85,6 @@ fn prepare_filesystem(
 
     if !mapped_dirs.is_empty() {
         let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
-        dbg!(mapped_dirs);
 
         for dir in mapped_dirs {
             let MappedDirectory { host, guest } = dir;
@@ -133,7 +137,8 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
 mod tests {
     use tempfile::TempDir;
 
-    use crate::runners::WapmContainer;
+    use virtual_fs::WebcVolumeFileSystem;
+    use webc::Container;
 
     use super::*;
 
@@ -149,9 +154,10 @@ mod tests {
             guest: "/home".to_string(),
             host: sub_dir,
         }];
-        let container = WapmContainer::from_bytes(PYTHON.into()).unwrap();
+        let container = Container::from_bytes(PYTHON).unwrap();
+        let webc_fs = WebcVolumeFileSystem::mount_all(&container);
 
-        let fs = prepare_filesystem(&mapping, container.container_fs(), |_| Ok(())).unwrap();
+        let fs = prepare_filesystem(&mapping, Arc::new(webc_fs), |_| Ok(())).unwrap();
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
