@@ -18,7 +18,7 @@ RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN cargo install cross
+#RUN cargo install cross
 
 COPY install_deb.sh /
 
@@ -57,12 +57,14 @@ ENV AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
+RUN rustup target install riscv64gc-unknown-linux-gnu
+
 #ENV OPENSSL_NO_PKG_CONFIG=1
-RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
-RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /usr/riscv64-linux-gnu/lib/
-RUN mkdir -p /opt/local
-RUN mkdir -p /opt/local/lib
-RUN mkdir -p /opt/local/include
-RUN cp /usr/lib/riscv64-linux-gnu/libssl* /opt/local/lib/
-RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /opt/local/lib/
-RUN cp /usr/include/openssl /opt/local/include/ -r
+#RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
+#RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /usr/riscv64-linux-gnu/lib/
+#RUN mkdir -p /opt/local
+#RUN mkdir -p /opt/local/lib
+#RUN mkdir -p /opt/local/include
+#RUN cp /usr/lib/riscv64-linux-gnu/libssl* /opt/local/lib/
+#RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /opt/local/lib/
+#RUN cp /usr/include/openssl /opt/local/include/ -r
