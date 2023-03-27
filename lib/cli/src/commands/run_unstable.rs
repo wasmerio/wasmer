@@ -26,8 +26,7 @@ use wasmer_cache::Cache;
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::{MappedDirectory, Runner, WapmContainer};
-use webc::metadata::Manifest;
-use webc_v4::DirOrFile;
+use webc::{metadata::Manifest, v1::DirOrFile};
 
 use crate::{
     store::StoreOptions,
@@ -291,7 +290,7 @@ fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
     let mut files = BTreeMap::new();
     load_files_from_disk(&mut files, dir, dir)?;
 
-    let wasmer_toml = webc_v4::DirOrFile::File("wasmer.toml".into());
+    let wasmer_toml = webc::v1::DirOrFile::File("wasmer.toml".into());
     if let Some(toml_data) = files.remove(&wasmer_toml) {
         // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
         // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
@@ -303,7 +302,7 @@ fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
     }
 
     let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-    wapm_targz_to_pirita::generate_webc_file(files, &dir.to_path_buf(), None, &functions)
+    wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)
 }
 
 fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {
@@ -317,11 +316,11 @@ fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<
 
         if path.is_dir() {
             load_files_from_disk(files, &path, base)?;
-            files.insert(webc_v4::DirOrFile::Dir(relative_path), Vec::new());
+            files.insert(webc::v1::DirOrFile::Dir(relative_path), Vec::new());
         } else if path.is_file() {
             let data = std::fs::read(&path)
                 .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-            files.insert(webc_v4::DirOrFile::File(relative_path), data);
+            files.insert(webc::v1::DirOrFile::File(relative_path), data);
         }
     }
     Ok(())
