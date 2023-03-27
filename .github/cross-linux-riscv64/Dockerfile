@@ -23,7 +23,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY install_deb.sh /
 
 #install libssl-dev for riscv64!
-RUN /install_deb.sh riscv64 libssl-dev
+RUN /install_deb.sh riscv64 libssl-dev llvm-14-dev
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
 
@@ -57,7 +57,7 @@ ENV AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
-RUN rustup target install riscv64gc-unknown-linux-gnu
+RUN rustup target add riscv64gc-unknown-linux-gnu
 
 #ENV OPENSSL_NO_PKG_CONFIG=1
 #RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
