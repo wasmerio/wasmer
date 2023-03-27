@@ -15,13 +15,11 @@ apt-get install --assume-yes --no-install-recommends \
   sharutils \
   gnupg
 
-# get our debian sources
-debsource="deb http://http.debian.net/debian/ buster main"
-debsource="${debsource}\ndeb http://security.debian.org/ buster/updates main"
 # Add port from sid to get some riscv packages
-debsource="${debsource}\ndeb http://deb.debian.org/debian-ports buster main"
+debsource="deb http://deb.debian.org/debian-ports sid main"
 
 # temporarily use debian sources rather than ubuntu.
+touch /etc/apt/sources.list
 mv /etc/apt/sources.list /etc/apt/sources.list.bak
 echo -e "${debsource}" > /etc/apt/sources.list
 
