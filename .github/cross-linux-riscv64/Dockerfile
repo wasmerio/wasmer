@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc-riscv64-linux-gnu \
     g++-riscv64-linux-gnu \
     qemu-user-static \
+    libssl-dev \
     pkg-config \
     libc6-dev-riscv64-cross
 
@@ -57,5 +58,5 @@ ENV AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
-ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include/openssl
+ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
 ENV OPENSSL_NO_PKG_CONFIG=1
