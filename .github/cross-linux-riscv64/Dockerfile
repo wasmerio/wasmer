@@ -61,3 +61,4 @@ ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
 #ENV OPENSSL_NO_PKG_CONFIG=1
 RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
+RUN cp /usr/lib/include/openssl /usr/riscv64-linux-gnu/include/ -r
