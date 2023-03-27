@@ -211,6 +211,7 @@ jobs:
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
+          CROSS_CONFIG: ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/Cross.toml
       - name: Build ${{ matrix.build-what.key }}
         run: |
           ${{ matrix.build-what.build-cmd }}
