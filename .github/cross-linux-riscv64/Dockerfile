@@ -24,8 +24,8 @@ COPY install_deb.sh /
 
 #install libssl-dev for riscv64!
 RUN /install_deb.sh riscv64 libssl-dev
-#ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include/openssl
-#ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
+ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
+ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
 
 # add docker the manual way
 COPY install_docker.sh /
@@ -57,8 +57,12 @@ ENV AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
-ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
-ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
 #ENV OPENSSL_NO_PKG_CONFIG=1
 RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
-RUN cp /usr/lib/include/openssl /usr/riscv64-linux-gnu/include/ -r
+RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /usr/riscv64-linux-gnu/lib/
+RUN mkdir -p /opt/local
+RUN mkdir -p /opt/local/lib
+RUN mkdir -p /opt/local/include
+RUN cp /usr/lib/riscv64-linux-gnu/libssl* /opt/local/lib/
+RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /opt/local/lib/
+RUN cp /usr/include/openssl /opt/local/include/ -r
