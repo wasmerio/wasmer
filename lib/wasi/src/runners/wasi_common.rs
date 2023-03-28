@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use virtual_fs::{FileSystem, OverlayFileSystem, RootFileSystemBuilder};
+use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{runners::MappedDirectory, WasiEnvBuilder};
@@ -116,6 +116,16 @@ fn prepare_filesystem(
         }
     }
 
+    // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
+    // paths, but our Python executable will try to access its standard library
+    // with relative paths assuming that it is being run from the root
+    // directory (i.e. it does `open("lib/python3.6/io.py")` instead of
+    // `open("/lib/python3.6/io.py")`).
+    // Until the FileSystem trait figures out whether relative paths should be
+    // supported or not, we'll add an adapter that automatically retries
+    // operations using an absolute path if it failed using a relative path.
+    let container_fs = RelativeOrAbsolutePathHack(container_fs);
+
     Ok(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
 }
 
@@ -131,6 +141,70 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
     fs.create_dir(path)?;
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct RelativeOrAbsolutePathHack<F>(F);
+
+impl<F: FileSystem> RelativeOrAbsolutePathHack<F> {
+    fn execute<Func, Ret>(&self, path: &Path, operation: Func) -> Result<Ret, FsError>
+    where
+        Func: Fn(&F, &Path) -> Result<Ret, FsError>,
+    {
+        // First, try it with the path we were given
+        let result = operation(&self.0, path);
+
+        if result.is_err() && !path.is_absolute() {
+            // we were given a relative path, but maybe the operation will work
+            // using absolute paths instead.
+            let path = Path::new("/").join(path);
+            operation(&self.0, &path)
+        } else {
+            result
+        }
+    }
+}
+
+impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
+    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
+        self.execute(path, |fs, p| fs.read_dir(p))
+    }
+
+    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.execute(path, |fs, p| fs.create_dir(p))
+    }
+
+    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.execute(path, |fs, p| fs.remove_dir(p))
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
+        self.execute(from, |fs, p| fs.rename(p, to))
+    }
+
+    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.execute(path, |fs, p| fs.metadata(p))
+    }
+
+    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.execute(path, |fs, p| fs.remove_file(p))
+    }
+
+    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+        virtual_fs::OpenOptions::new(self)
+    }
+}
+
+impl<F: FileSystem> virtual_fs::FileOpener for RelativeOrAbsolutePathHack<F> {
+    fn open(
+        &self,
+        path: &Path,
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
+        self.execute(path, |fs, p| {
+            fs.new_open_options().options(conf.clone()).open(p)
+        })
+    }
 }
 
 #[cfg(test)]
