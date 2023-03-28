@@ -44,7 +44,7 @@ impl WcgiRunner {
         let key = webc::metadata::annotations::WCGI_RUNNER_URI;
         let Annotations { wasi, wcgi } = ctx
             .command()
-            .get_annotation(key)
+            .annotation(key)
             .with_context(|| format!("Unable to deserialize the \"{key}\" annotations"))?
             .unwrap_or_default();
 
