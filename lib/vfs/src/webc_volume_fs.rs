@@ -55,7 +55,7 @@ impl FileSystem for WebcVolumeFileSystem {
             return Err(FsError::BaseNotDirectory);
         }
 
-        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
+        let path = dbg!(normalize(path)).map_err(|_| FsError::InvalidInput)?;
 
         let mut entries = Vec::new();
 
@@ -123,7 +123,7 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
+        let path = dbg!(normalize(path)).map_err(|_| FsError::InvalidInput)?;
 
         self.volume()
             .metadata(path)
@@ -295,6 +295,8 @@ fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
 /// and skipping `.`'s.
 #[tracing::instrument(level = "trace", err)]
 fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
+    dbg!(path);
+
     if path.iter().count() == 0 {
         return Err(PathSegmentError::Empty);
     } else if !path.is_absolute() {
@@ -418,7 +420,6 @@ mod tests {
         let container = Container::from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
-        dbg!(volume.read_dir("/lib").unwrap());
 
         let fs = WebcVolumeFileSystem::new(volume);
 
@@ -571,7 +572,6 @@ mod tests {
             .unwrap();
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer).await.unwrap();
-        dbg!(&buffer[..10]);
         assert!(buffer.starts_with(b"\0asm"));
         assert_eq!(
             fs.metadata("/lib/python.wasm".as_ref()).unwrap().len(),
