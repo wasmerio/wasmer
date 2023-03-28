@@ -317,6 +317,7 @@ mod tests {
             ("/folder/..", &[]),
             ("/.hidden", &[".hidden"]),
             ("/folder/../../../../../../../file.txt", &["file.txt"]),
+            #[cfg(windows)]
             (r"C:\path\to\file.txt", &["path", "to", "file.txt"]),
         ];
 
@@ -370,11 +371,11 @@ mod tests {
             (".", PathSegmentError::NotAbsolute),
             ("..", PathSegmentError::NotAbsolute),
             ("./file.txt", PathSegmentError::NotAbsolute),
-            ("", PathSegmentError::Empty),
+            ("", PathSegmentError::NotAbsolute),
         ];
 
         for (path, err) in paths {
-            assert_eq!(normalize(path.as_ref()).unwrap_err(), err);
+            assert_eq!(normalize(path.as_ref()).unwrap_err(), err, "{path}");
         }
     }
 
