@@ -422,7 +422,7 @@ jobs:
         run: |
           make build-wasmer
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
@@ -433,7 +433,7 @@ jobs:
         run: |
           make package-capi-headless
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
@@ -445,7 +445,7 @@ jobs:
         run: |
           make build-capi
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig
@@ -455,7 +455,7 @@ jobs:
         run: |
           make distribution
         env:
-          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64 cross
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
           CROSS_DOCKER_IN_DOCKER: true
           CARGO_TARGET: riscv64gc-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/riscv64-linux-gnu/pkgconfig

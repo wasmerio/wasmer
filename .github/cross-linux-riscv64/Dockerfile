@@ -1,4 +1,4 @@
-FROM debian:sid
+FROM debian:sid AS openssl_riscv64
 #FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge
 
 # set CROSS_DOCKER_IN_DOCKER to inform `cross` that it is executed from within a container
@@ -14,14 +14,6 @@ RUN apt-get update  && \
         build-essential \
         libc6-dev
 
-RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s -- -y
-
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup toolchain install 1.65
-RUN rustup target add riscv64gc-unknown-linux-gnu
-
-#RUN cargo install cross
-
 COPY install_deb.sh /
 
 #install libssl-dev for riscv64!
@@ -29,6 +21,11 @@ RUN /install_deb.sh riscv64 libssl-dev
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
 ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
 
+
+# install rust tools
+RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup -v toolchain install 1.65
 # add docker the manual way
 COPY install_docker.sh /
 RUN /install_docker.sh
@@ -51,20 +48,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ENV CROSS_TOOLCHAIN_PREFIX=riscv64-linux-gnu-
 ENV CROSS_SYSROOT=/usr/riscv64-linux-gnu
-ENV AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
+ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc \
+    AR_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"ar \
     CC_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"gcc \
     CXX_riscv64gc_unknown_linux_gnu="$CROSS_TOOLCHAIN_PREFIX"g++ \
+    CFLAGS_riscv64gc_unknown_linux_gnu="-march=rv64gc -mabi=lp64d" \
     BINDGEN_EXTRA_CLANG_ARGS_riscv64gc_unknown_linux_gnu="--sysroot=$CROSS_SYSROOT" \
     QEMU_LD_PREFIX="$CROSS_SYSROOT" \
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
-#ENV OPENSSL_NO_PKG_CONFIG=1
-#RUN cp /usr/lib/riscv64-linux-gnu/libssl* /usr/riscv64-linux-gnu/lib/
-#RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /usr/riscv64-linux-gnu/lib/
-#RUN mkdir -p /opt/local
-#RUN mkdir -p /opt/local/lib
-#RUN mkdir -p /opt/local/include
-#RUN cp /usr/lib/riscv64-linux-gnu/libssl* /opt/local/lib/
-#RUN cp /usr/lib/riscv64-linux-gnu/libcrypto* /opt/local/lib/
-#RUN cp /usr/include/openssl /opt/local/include/ -r
+RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.65-x86_64-unknown-linux-gnu
