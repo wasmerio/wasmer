@@ -1,2 +1,0 @@
-[target.risc64gc-unknown-linux-gnu]
-image = "wasmer/riscv64"
