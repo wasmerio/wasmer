@@ -1,6 +1,6 @@
 use clap::Parser;
 
-/// CLI options for the `wasmer publish` command
+/// Publish a package to the package registry.
 #[derive(Debug, Parser)]
 pub struct Publish {
     /// Registry to publish to
