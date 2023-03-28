@@ -229,6 +229,14 @@
 <span id="227">227</span>
 <span id="228">228</span>
 <span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 <span class="kw">use </span>anyhow::Error;
@@ -271,6 +279,11 @@
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;Creating the WebAssembly instance&quot;</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>request_specific_env = HashMap::new();
+
+        <span class="kw">if </span><span class="self">self</span>.dialect == CgiDialect::Rfc3875 {
+            <span class="comment">// HACK(Michael-F-Bryan): this belongs in the wcgi-host crate
+            </span>request_specific_env.insert(<span class="string">&quot;SCRIPT_NAME&quot;</span>.to_string(), parts.uri.to_string());
+        }
         <span class="self">self</span>.dialect
             .prepare_environment_variables(parts, <span class="kw-2">&amp;mut </span>request_specific_env);
 
@@ -290,7 +303,10 @@
 
         <span class="kw">let </span>module = <span class="self">self</span>.module.clone();
 
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Calling into the WCGI executable&quot;</span>);
+        <span class="macro">tracing::debug!</span>(
+            dialect=%<span class="self">self</span>.dialect,
+            <span class="string">&quot;Calling into the WCGI executable&quot;</span>,
+        );
 
         <span class="kw">let </span>done = <span class="self">self
             </span>.task_manager
