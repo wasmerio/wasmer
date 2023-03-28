@@ -40,6 +40,11 @@ impl Handler {
         tracing::debug!("Creating the WebAssembly instance");
 
         let mut request_specific_env = HashMap::new();
+
+        if self.dialect == CgiDialect::Rfc3875 {
+            // HACK(Michael-F-Bryan): this belongs in the wcgi-host crate
+            request_specific_env.insert("SCRIPT_NAME".to_string(), parts.uri.to_string());
+        }
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
@@ -59,7 +64,10 @@ impl Handler {
 
         let module = self.module.clone();
 
-        tracing::debug!("Calling into the WCGI executable");
+        tracing::debug!(
+            dialect=%self.dialect,
+            "Calling into the WCGI executable",
+        );
 
         let done = self
             .task_manager

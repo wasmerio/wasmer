@@ -41,17 +41,20 @@ impl WcgiRunner {
 
     #[tracing::instrument(skip(self, ctx))]
     fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
-        let wasi: Wasi = ctx
+        let key = webc::metadata::annotations::WCGI_RUNNER_URI;
+        let Annotations { wasi, wcgi } = ctx
             .command()
-            .annotation("wasi")
-            .context("Unable to retrieve the WASI metadata")?
-            .unwrap_or_else(|| Wasi::new(command_name));
+            .get_annotation(key)
+            .with_context(|| format!("Unable to deserialize the \"{key}\" annotations"))?
+            .unwrap_or_default();
+
+        let wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
 
         let module = self
             .load_module(&wasi, ctx)
             .context("Couldn't load the module")?;
 
-        let handler = self.create_handler(module, &wasi, ctx)?;
+        let handler = self.create_handler(module, &wasi, &wcgi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
         let callbacks = Arc::clone(&self.config.callbacks);
 
@@ -126,11 +129,10 @@ impl WcgiRunner {
         &self,
         module: Module,
         wasi: &Wasi,
+        wcgi: &Wcgi,
         ctx: &RunnerContext<'_>,
     ) -> Result<Handler, Error> {
-        let Wcgi { dialect, .. } = ctx.command().annotation("wcgi")?.unwrap_or_default();
-
-        let dialect = match dialect {
+        let dialect = match &wcgi.dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
             None => CgiDialect::Wcgi,
         };
@@ -341,6 +343,13 @@ impl Default for Config {
             store: None,
         }
     }
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+struct Annotations {
+    wasi: Option<Wasi>,
+    #[serde(default)]
+    wcgi: Wcgi,
 }
 
 /// Callbacks that are triggered at various points in the lifecycle of a runner
