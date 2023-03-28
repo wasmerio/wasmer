@@ -10,7 +10,7 @@ use std::{
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
-    v2::{PathSegment, PathSegmentError, PathSegments, ToPathSegments},
+    v2::{PathSegmentError, PathSegments, ToPathSegments},
 };
 
 use crate::{
@@ -367,7 +367,14 @@ mod tests {
             (".", PathSegmentError::NotAbsolute),
             ("..", PathSegmentError::NotAbsolute),
             ("./file.txt", PathSegmentError::NotAbsolute),
-            ("", PathSegmentError::Empty),
+            (
+                "",
+                if cfg!(windows) {
+                    PathSegmentError::Empty
+                } else {
+                    PathSegmentError::NotAbsolute
+                },
+            ),
         ];
 
         for (path, err) in paths {
