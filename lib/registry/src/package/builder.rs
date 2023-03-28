@@ -43,8 +43,6 @@ pub struct Publish {
 
 #[derive(Debug, Error)]
 enum PackageBuildError {
-    #[error("Cannot publish without a module.")]
-    NoModule,
     #[error("Unable to publish the \"{module}\" module because \"{}\" is not a file", path.display())]
     SourceMustBeFile { module: String, path: PathBuf },
     #[error("Unable to load the bindings for \"{module}\" because \"{}\" doesn't exist", path.display())]
@@ -108,9 +106,7 @@ impl Publish {
         builder
             .finish()
             .map_err(|e| anyhow::anyhow!("failed to finish .tar.gz builder: {e}"))?;
-        let tar_archive_data = builder
-            .into_inner()
-            .map_err(|_| PackageBuildError::NoModule)?;
+        let tar_archive_data = builder.into_inner().expect("tar archive was not finalized");
         let archive_name = "package.tar.gz".to_string();
         let archive_dir = tempfile::TempDir::new()?;
         let archive_dir_path: &std::path::Path = archive_dir.as_ref();
@@ -166,10 +162,7 @@ fn construct_tar_gz(
     cwd: &Path,
 ) -> Result<(Option<String>, Option<String>), anyhow::Error> {
     let package = &manifest.package;
-    let modules = manifest
-        .module
-        .as_ref()
-        .ok_or(PackageBuildError::NoModule)?;
+    let modules = manifest.module.as_deref().unwrap_or_default();
 
     let readme = match package.readme.as_ref() {
         None => None,
