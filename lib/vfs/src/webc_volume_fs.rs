@@ -295,33 +295,8 @@ fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
 /// and skipping `.`'s.
 #[tracing::instrument(level = "trace", err)]
 fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
-    dbg!(path);
-
-    if path.iter().count() == 0 {
-        return Err(PathSegmentError::Empty);
-    } else if !path.is_absolute() {
-        return Err(PathSegmentError::NotAbsolute);
-    }
-
-    let mut segments: Vec<PathSegment> = Vec::new();
-
-    for component in path.components() {
-        match component {
-            std::path::Component::Prefix(_) => continue,
-            std::path::Component::RootDir => {
-                segments.clear();
-            }
-            std::path::Component::CurDir => continue,
-            std::path::Component::ParentDir => {
-                segments.pop();
-            }
-            std::path::Component::Normal(s) => {
-                segments.push(s.try_into()?);
-            }
-        }
-    }
-
-    segments.to_path_segments()
+    // normalization is handled by the ToPathSegments impl for Path
+    path.to_path_segments()
 }
 
 #[cfg(test)]
