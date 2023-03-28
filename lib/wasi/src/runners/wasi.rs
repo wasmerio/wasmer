@@ -144,6 +144,7 @@ impl crate::runners::Runner for WasiRunner {
             .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
+    #[tracing::instrument(skip(self, command, container))]
     fn run_command(
         &mut self,
         command_name: &str,

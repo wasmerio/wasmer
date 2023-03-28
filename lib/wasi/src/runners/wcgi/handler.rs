@@ -59,7 +59,10 @@ impl Handler {
 
         let module = self.module.clone();
 
-        tracing::debug!("Calling into the WCGI executable");
+        tracing::debug!(
+            dialect=%self.dialect,
+            "Calling into the WCGI executable",
+        );
 
         let done = self
             .task_manager
