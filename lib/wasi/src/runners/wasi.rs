@@ -150,9 +150,10 @@ impl crate::runners::Runner for WasiRunner {
         command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let wasi = command
-            .get_annotation("wasi")?
-            .unwrap_or_else(|| Wasi::new(command_name));
+        let Annotations { wasi } = command
+            .get_annotation(webc::metadata::annotations::WASI_RUNNER_URI)?
+            .unwrap_or_default();
+        let wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
         let atom_name = &wasi.atom;
         let atom = container
             .get_atom(atom_name)
@@ -166,4 +167,9 @@ impl crate::runners::Runner for WasiRunner {
 
         Ok(())
     }
+}
+
+#[derive(Default, Debug, serde::Deserialize)]
+struct Annotations {
+    wasi: Option<Wasi>,
 }
