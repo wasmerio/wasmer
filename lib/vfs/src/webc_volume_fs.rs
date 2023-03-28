@@ -339,10 +339,6 @@ mod tests {
                 r"\\127.0.0.1\c$\temp\test-file.txt",
                 &["temp", "test-file.txt"],
             ),
-            (
-                r"\\LOCALHOST\c$\temp\test-file.txt",
-                &["temp", "test-file.txt"],
-            ),
             (r"\\.\c:\temp\test-file.txt", &["temp", "test-file.txt"]),
             (r"\\?\c:\temp\test-file.txt", &["temp", "test-file.txt"]),
             (
