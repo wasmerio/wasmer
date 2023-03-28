@@ -1891,9 +1891,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.9.2"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
@@ -5348,14 +5348,11 @@ dependencies = [
  "isatty",
  "libc",
  "log",
- "minisign",
  "object 0.30.3",
  "pathdiff",
  "prettytable-rs",
  "regex",
  "reqwest",
- "rpassword",
- "rusqlite",
  "semver 1.0.17",
  "serde",
  "serde_json",
@@ -5365,7 +5362,6 @@ dependencies = [
  "target-lexicon 0.12.6",
  "tempfile",
  "thiserror",
- "time 0.3.20",
  "tldextract",
  "toml",
  "tracing",
@@ -5391,9 +5387,7 @@ dependencies = [
  "wasmer-vm",
  "wasmer-wasix",
  "wasmer-wasix-experimental-io-devices",
- "wasmer-wasm-interface",
  "wasmer-wast",
- "wasmparser 0.51.4",
  "webc 4.1.1",
  "webc 5.0.0-rc.5",
 ]
@@ -5651,24 +5645,31 @@ dependencies = [
  "futures-util",
  "graphql_client",
  "hex",
+ "indexmap",
  "indicatif",
  "lazy_static",
  "log",
  "lzma-rs",
+ "minisign",
  "rand 0.8.5",
  "regex",
  "reqwest",
+ "rpassword",
+ "rusqlite",
  "semver 1.0.17",
  "serde",
  "serde_json",
  "tar",
  "tempfile",
  "thiserror",
+ "time 0.3.20",
  "tldextract",
  "tokio",
  "toml",
  "url",
  "wasmer-toml",
+ "wasmer-wasm-interface",
+ "wasmparser 0.51.4",
  "webc 5.0.0-rc.5",
  "whoami",
 ]
