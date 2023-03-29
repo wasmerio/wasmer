@@ -39,19 +39,21 @@ impl Handler {
 
         tracing::debug!("Creating the WebAssembly instance");
 
-        let mut request_specific_env = HashMap::new();
+        let mut builder = WasiEnvBuilder::new(&self.program_name);
 
-        if self.dialect == CgiDialect::Rfc3875 {
-            // HACK(Michael-F-Bryan): this belongs in the wcgi-host crate
-            request_specific_env.insert("SCRIPT_NAME".to_string(), parts.uri.to_string());
-        }
+        (self.setup_builder)(&mut builder)?;
+
+        // Note: We want to apply the CGI environment variables *after*
+        // anything specified by WASI annotations so users get a chance to
+        // override things like $DOCUMENT_ROOT and $SCRIPT_FILENAME.
+        let mut request_specific_env = HashMap::new();
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
+        builder.add_envs(request_specific_env);
 
         let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
 
-        let builder = (self.setup_builder)()?
-            .envs(request_specific_env)
+        let builder = builder
             .stdin(Box::new(req_body_receiver))
             .stdout(Box::new(res_body_sender))
             .stderr(Box::new(stderr_sender))
@@ -205,13 +207,16 @@ async fn consume_stderr(
     }
 }
 
+type SetupBuilder = Box<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Error> + Send + Sync>;
+
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub(crate) struct SharedState {
     pub(crate) module: Module,
     pub(crate) dialect: CgiDialect,
+    pub(crate) program_name: String,
     #[derivative(Debug = "ignore")]
-    pub(crate) setup_builder: Box<dyn Fn() -> Result<WasiEnvBuilder, anyhow::Error> + Send + Sync>,
+    pub(crate) setup_builder: SetupBuilder,
     #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
     #[derivative(Debug = "ignore")]
