@@ -160,9 +160,6 @@
 <span id="158">158</span>
 <span id="159">159</span>
 <span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>task_manager;
 
 <span class="kw">use crate</span>::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
@@ -176,9 +173,6 @@
 
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
-
-<span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-</span><span class="kw">pub type </span>ArcTunables = std::sync::Arc&lt;<span class="kw">dyn </span>wasmer::Tunables + Send + Sync&gt;;
 
 <span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.

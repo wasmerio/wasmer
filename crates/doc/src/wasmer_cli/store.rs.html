@@ -426,7 +426,7 @@
                 <span class="kw">if </span><span class="attribute">#[cfg(all(feature = <span class="string">&quot;cranelift&quot;</span>, any(target_arch = <span class="string">&quot;x86_64&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)))] </span>{
                     <span class="prelude-val">Ok</span>(CompilerType::Cranelift)
                 }
-                <span class="kw">else if </span><span class="attribute">#[cfg(all(feature = <span class="string">&quot;singlepass&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
+                <span class="kw">else if </span><span class="attribute">#[cfg(all(feature = <span class="string">&quot;singlepass&quot;</span>, any(target_arch = <span class="string">&quot;x86_64&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)))] </span>{
                     <span class="prelude-val">Ok</span>(CompilerType::Singlepass)
                 }
                 <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)] </span>{

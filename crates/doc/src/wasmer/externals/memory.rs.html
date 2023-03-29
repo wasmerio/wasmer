@@ -185,6 +185,22 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::memory <span class="kw">as </span>memory_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -327,6 +343,22 @@
     <span class="doccomment">/// Attempts to clone this memory (if its clonable)
     </span><span class="kw">pub fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;VMMemory&gt; {
         <span class="self">self</span>.<span class="number">0</span>.try_clone(store)
+    }
+
+    <span class="doccomment">/// Attempts to clone this memory (if its clonable) in a new store
+    </span><span class="kw">pub fn </span>duplicate_in_store(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
+            <span class="comment">// We should only be able to duplicate in a new store if the memory is shared
+            </span><span class="kw">return </span><span class="prelude-val">None</span>;
+        }
+        <span class="self">self</span>.<span class="number">0
+            </span>.try_clone(<span class="kw-2">&amp;</span>store)
+            .and_then(|<span class="kw-2">mut </span>memory| memory.duplicate().ok())
+            .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory.into()))
     }
 
     <span class="doccomment">/// To `VMExtern`.

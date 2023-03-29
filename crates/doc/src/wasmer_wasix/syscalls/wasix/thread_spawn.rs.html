@@ -252,7 +252,6 @@
 <span id="250">250</span>
 <span id="251">251</span>
 <span id="252">252</span>
-<span id="253">253</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -313,8 +312,7 @@
 
     <span class="comment">// We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
-    </span><span class="kw">let </span>thread_memory_ty = ctx.data().memory().ty(<span class="kw-2">&amp;</span>ctx);
-    <span class="kw">let </span>thread_memory = <span class="macro">wasi_try!</span>(ctx.data().memory().try_clone(<span class="kw-2">&amp;</span>ctx).ok_or_else(|| {
+    </span><span class="kw">let </span>thread_memory = <span class="macro">wasi_try!</span>(ctx.data().memory().try_clone(<span class="kw-2">&amp;</span>ctx).ok_or_else(|| {
         <span class="macro">error!</span>(<span class="string">&quot;failed - the memory could not be cloned&quot;</span>);
         Errno::Notcapable
     }));
@@ -484,7 +482,7 @@
         <span class="kw">return </span>Errno::Notcapable;
     }
 
-    <span class="kw">let </span>spawn_type = <span class="kw">crate</span>::runtime::SpawnType::NewThread(thread_memory, thread_memory_ty);
+    <span class="kw">let </span>spawn_type = <span class="kw">crate</span>::runtime::SpawnType::NewThread(thread_memory);
 
     <span class="comment">// Now spawn a thread
     </span><span class="macro">trace!</span>(<span class="string">&quot;threading: spawning background thread&quot;</span>);

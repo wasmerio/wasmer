@@ -295,7 +295,6 @@
 <span id="293">293</span>
 <span id="294">294</span>
 <span id="295">295</span>
-<span id="296">296</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{os::task::OwnedTaskStatus, syscalls::<span class="kw-2">*</span>};
 
@@ -421,7 +420,6 @@
 
         <span class="comment">// Fork the memory and copy the module (compiled code)
         </span><span class="kw">let </span>env = ctx.data();
-        <span class="kw">let </span>fork_memory_ty = env.memory().ty(<span class="kw-2">&amp;</span>ctx);
         <span class="kw">let </span>fork_memory: VMMemory = <span class="kw">match </span>env
             .memory()
             .try_clone(<span class="kw-2">&amp;</span>ctx)
@@ -457,7 +455,7 @@
             <span class="kw">let </span>store = fork_store;
             <span class="kw">let </span>module = fork_module;
 
-            <span class="kw">let </span>spawn_type = SpawnType::NewThread(fork_memory, fork_memory_ty);
+            <span class="kw">let </span>spawn_type = SpawnType::NewThread(fork_memory);
             <span class="kw">let </span>task = <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory| {
                 <span class="comment">// Create the WasiFunctionEnv
                 </span><span class="kw">let </span>pid = child_env.pid();

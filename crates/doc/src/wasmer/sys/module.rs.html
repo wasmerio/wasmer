@@ -229,7 +229,7 @@
     }
 
     <span class="attribute">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
-    </span><span class="kw">fn </span>compile(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
+    </span><span class="kw">fn </span>compile(_engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, _binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
         <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
             <span class="string">&quot;The compiler feature is not enabled, but is required to compile a Module&quot;</span>.to_string(),
         ))

@@ -257,7 +257,7 @@
                     WasiThreadError::MemoryCreateFailed
                 })
                 .map(|m| <span class="prelude-val">Some</span>(m.into())),
-            SpawnType::NewThread(mem, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem)),
+            SpawnType::NewThread(mem) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem)),
             SpawnType::Create =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
     }

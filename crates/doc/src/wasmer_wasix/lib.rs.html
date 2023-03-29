@@ -848,12 +848,6 @@
 <span id="846">846</span>
 <span id="847">847</span>
 <span id="848">848</span>
-<span id="849">849</span>
-<span id="850">850</span>
-<span id="851">851</span>
-<span id="852">852</span>
-<span id="853">853</span>
-<span id="854">854</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![deny(unused_mut)]
@@ -1701,12 +1695,6 @@
         MemoryAccessError::NonUtf8String =&gt; BusErrno::Badrequest,
         <span class="kw">_ </span>=&gt; BusErrno::Unknown,
     }
-}
-
-<span class="attribute">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>))]
-</span><span class="kw">pub fn </span>build_test_engine(features: <span class="prelude-ty">Option</span>&lt;wasmer::Features&gt;) -&gt; wasmer::Engine {
-    <span class="kw">let _ </span>= features;
-    wasmer::Store::default().engine().clone()
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

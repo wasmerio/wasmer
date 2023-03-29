@@ -107,10 +107,14 @@
 <span id="105">105</span>
 <span id="106">106</span>
 <span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
 </pre><pre class="rust"><code><span class="kw">pub use </span>wasmer_compiler::{
     Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
-<span class="kw">use </span>wasmer_types::{Features, Target};
+<span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span>wasmer_types::Features;
+<span class="kw">use </span>wasmer_types::Target;
 
 <span class="doccomment">/// Returns the default engine for the Sys engine
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>default_engine() -&gt; Engine {
