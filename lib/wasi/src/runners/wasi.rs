@@ -122,9 +122,9 @@ impl WasiRunner {
         program_name: &str,
         wasi: &Wasi,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let mut builder =
-            self.wasi
-                .prepare_webc_env(container.container_fs(), program_name, wasi)?;
+        let mut builder = WasiEnvBuilder::new(program_name);
+        self.wasi
+            .prepare_webc_env(&mut builder, container.container_fs(), wasi)?;
 
         if let Some(tasks) = &self.tasks {
             let rt = PluggableRuntime::new(Arc::clone(tasks));
@@ -144,15 +144,17 @@ impl crate::runners::Runner for WasiRunner {
             .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
+    #[tracing::instrument(skip(self, command, container))]
     fn run_command(
         &mut self,
         command_name: &str,
         command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let wasi = command
-            .get_annotation("wasi")?
-            .unwrap_or_else(|| Wasi::new(command_name));
+        let Annotations { wasi } = command
+            .get_annotation(webc::metadata::annotations::WASI_RUNNER_URI)?
+            .unwrap_or_default();
+        let wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
         let atom_name = &wasi.atom;
         let atom = container
             .get_atom(atom_name)
@@ -166,4 +168,9 @@ impl crate::runners::Runner for WasiRunner {
 
         Ok(())
     }
+}
+
+#[derive(Default, Debug, serde::Deserialize)]
+struct Annotations {
+    wasi: Option<Wasi>,
 }

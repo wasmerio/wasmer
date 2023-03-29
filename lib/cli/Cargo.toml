@@ -37,12 +37,10 @@ wasmer-wasix-experimental-io-devices = { version = "0.1.0", path = "../wasi-expe
 wasmer-wast = { version = "=3.2.0-beta.1", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.2.0-beta.1", path = "../cache", features = ["blake3-pure"] }
 wasmer-types = { version = "=3.2.0-beta.1", path = "../types", features = ["enable-serde"] }
-wasmer-registry = { version = "4.1.0", path = "../registry" }
+wasmer-registry = { version = "4.2.0", path = "../registry", features = ["build-package"]  }
 wasmer-object = { version = "=3.2.0-beta.1", path = "../object", optional = true }
 virtual-fs  = { version = "0.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
 virtual-net  = { version = "0.1.0", path = "../vnet" }
-wasmer-wasm-interface = { version = "3.2.0-beta.1", path = "../wasm-interface" }
-wasmparser = "0.51.4"
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
@@ -76,14 +74,10 @@ tldextract = "0.6.0"
 hex = "0.4.3"
 flate2 = "1.0.25"
 cargo_metadata = "0.15.2"
-rusqlite = { version = "0.28.0", features = ["bundled"] }
 tar = "0.4.38"
 thiserror = "1.0.37"
-time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"] }
 log = "0.4.17"
-minisign = "0.7.2"
 semver = "1.0.14"
-rpassword = "7.2.0"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
 object = "0.30.0"
@@ -111,6 +105,7 @@ unix_mode = "0.1.3"
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 default = [
+    "sys",
     "wat",
     "wast",
     "cache",
@@ -121,10 +116,12 @@ default = [
     "static-artifact-create",
     "webc_runner",
 ]
+sys = ["wasmer/sys"]
 wast = ["wasmer-wast"]
 host-net = [ "virtual-net/host-net" ]
 wat = ["wasmer/wat"]
 compiler = [
+    "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
     "wasmer-wasix/compiler"

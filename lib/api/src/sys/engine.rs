@@ -1,7 +1,9 @@
 pub use wasmer_compiler::{
     Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
-use wasmer_types::{Features, Target};
+#[cfg(feature = "compiler")]
+use wasmer_types::Features;
+use wasmer_types::Target;
 
 /// Returns the default engine for the Sys engine
 pub(crate) fn default_engine() -> Engine {

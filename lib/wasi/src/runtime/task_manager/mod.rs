@@ -31,7 +31,7 @@ pub struct SpawnedMemory {
 pub enum SpawnType {
     Create,
     CreateWithType(SpawnedMemory),
-    NewThread(VMMemory, MemoryType),
+    NewThread(VMMemory),
 }
 
 /// Indicates if the task should run with the supplied store

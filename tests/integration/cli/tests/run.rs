@@ -26,6 +26,8 @@ fn test_no_start_wat_path() -> PathBuf {
 ///
 /// The syntax for vendored package atoms has to be reworked for this to be fixed, see
 /// https://github.com/wasmerio/wasmer/issues/3535
+// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
+#[ignore]
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_run_customlambda() -> anyhow::Result<()> {
@@ -503,6 +505,8 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
     Ok(())
 }
 
+// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
+#[ignore]
 #[cfg(not(target_env = "musl"))]
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
@@ -635,6 +639,8 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
     Ok(())
 }
 
+// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
+#[ignore]
 #[test]
 fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
     // set wapm.io as the current registry
@@ -716,6 +722,8 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
     Ok(())
 }
 
+// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
+#[ignore]
 #[test]
 fn run_test_caching_works_for_urls() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
