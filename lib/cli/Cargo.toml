@@ -64,7 +64,7 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "5.0.0-rc.6" }
+webc = { version = "5.0.0-rc.5" }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
