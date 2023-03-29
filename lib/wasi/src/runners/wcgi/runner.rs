@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
-use futures::future::AbortHandle;
+pub use futures::future::AbortHandle;
 use http::{Request, Response};
 use hyper::Body;
 use tower::{make::Shared, ServiceBuilder};
@@ -86,7 +86,7 @@ impl WcgiRunner {
                 let (shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::<()>());
 
-                callbacks.started(abort_handle);
+                callbacks.started(&self.config, abort_handle);
 
                 hyper::Server::bind(&address)
                     .serve(Shared::new(service))
@@ -249,7 +249,7 @@ impl crate::runners::Runner for WcgiRunner {
 pub struct Config {
     task_manager: Option<Arc<dyn VirtualTaskManager>>,
     wasi: CommonWasiOptions,
-    addr: SocketAddr,
+    pub addr: SocketAddr,
     #[derivative(Debug = "ignore")]
     callbacks: Arc<dyn Callbacks>,
     store: Option<Arc<Store>>,
@@ -356,7 +356,7 @@ struct Annotations {
 /// and any WebAssembly instances it may start.
 pub trait Callbacks: Send + Sync + 'static {
     /// A callback that is called whenever the server starts.
-    fn started(&self, _abort: AbortHandle) {}
+    fn started(&self, _config: &Config, _abort: AbortHandle) {}
 
     /// Data was written to stderr by an instance.
     fn on_stderr(&self, _stderr: &[u8]) {}

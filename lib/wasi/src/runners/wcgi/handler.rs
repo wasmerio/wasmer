@@ -41,10 +41,6 @@ impl Handler {
 
         let mut request_specific_env = HashMap::new();
 
-        if self.dialect == CgiDialect::Rfc3875 {
-            // HACK(Michael-F-Bryan): this belongs in the wcgi-host crate
-            request_specific_env.insert("SCRIPT_NAME".to_string(), parts.uri.to_string());
-        }
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
