@@ -58,7 +58,6 @@ pub fn thread_spawn<M: MemorySize>(
 
     // We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
-    let thread_memory_ty = ctx.data().memory().ty(&ctx);
     let thread_memory = wasi_try!(ctx.data().memory().try_clone(&ctx).ok_or_else(|| {
         error!("failed - the memory could not be cloned");
         Errno::Notcapable
@@ -229,7 +228,7 @@ pub fn thread_spawn<M: MemorySize>(
         return Errno::Notcapable;
     }
 
-    let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory, thread_memory_ty);
+    let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
 
     // Now spawn a thread
     trace!("threading: spawning background thread");
