@@ -617,6 +617,12 @@
 <span id="615">615</span>
 <span id="616">616</span>
 <span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(missing_docs, unused)]
 
 </span><span class="kw">use </span>std::{
@@ -644,7 +650,7 @@
 <span class="kw">use </span>wasmer_cache::Cache;
 <span class="kw">use </span>wasmer_compiler::ArtifactBuild;
 <span class="kw">use </span>wasmer_registry::Package;
-<span class="kw">use </span>wasmer_wasix::runners::{MappedDirectory, Runner, WapmContainer};
+<span class="kw">use </span>wasmer_wasix::runners::{wcgi::AbortHandle, MappedDirectory, Runner, WapmContainer};
 <span class="kw">use </span>webc::metadata::Manifest;
 <span class="kw">use </span>webc_v4::DirOrFile;
 
@@ -777,7 +783,7 @@
             .addr(<span class="self">self</span>.wcgi.addr)
             .envs(<span class="self">self</span>.wasi.env_vars.clone())
             .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone())
-            .callbacks(Callbacks::default());
+            .callbacks(Callbacks::new(<span class="self">self</span>.wcgi.addr));
         <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
@@ -1213,17 +1219,23 @@
 <span class="attribute">#[derive(Debug)]
 </span><span class="kw">struct </span>Callbacks {
     stderr: Mutex&lt;LineWriter&lt;std::io::Stderr&gt;&gt;,
+    addr: SocketAddr,
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>Callbacks {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
+<span class="kw">impl </span>Callbacks {
+    <span class="kw">fn </span>new(addr: SocketAddr) -&gt; <span class="self">Self </span>{
+        Callbacks {
             stderr: Mutex::new(LineWriter::new(std::io::stderr())),
+            addr,
         }
     }
 }
 
 <span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
+    <span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {
+        <span class="macro">println!</span>(<span class="string">&quot;WCGI Server running at http://{}/&quot;</span>, <span class="self">self</span>.addr);
+    }
+
     <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = <span class="self">self</span>.stderr.lock() {
             <span class="comment">// If the WCGI runner printed any log messages we want to make sure

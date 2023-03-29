@@ -300,9 +300,9 @@
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>builder =
-            <span class="self">self</span>.wasi
-                .prepare_webc_env(container.container_fs(), program_name, wasi)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name);
+        <span class="self">self</span>.wasi
+            .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container.container_fs(), wasi)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = <span class="kw-2">&amp;</span><span class="self">self</span>.tasks {
             <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(tasks));

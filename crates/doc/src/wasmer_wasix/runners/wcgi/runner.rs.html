@@ -369,7 +369,6 @@
 <span id="367">367</span>
 <span id="368">368</span>
 <span id="369">369</span>
-<span id="370">370</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -510,15 +509,16 @@
         };
 
         <span class="kw">let </span>shared = SharedState {
+            module,
+            dialect,
+            program_name: <span class="self">self</span>.program_name.clone(),
+            setup_builder: Box::new(<span class="self">self</span>.setup_builder(ctx, wasi)),
+            callbacks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks),
             task_manager: <span class="self">self
                 </span>.config
                 .task_manager
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
-            module,
-            dialect,
-            callbacks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks),
-            setup_builder: Box::new(<span class="self">self</span>.setup_builder(ctx, wasi)),
         };
 
         <span class="prelude-val">Ok</span>(Handler::new(shared))
@@ -528,23 +528,21 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;,
         wasi: <span class="kw-2">&amp;</span>Wasi,
-    ) -&gt; <span class="kw">impl </span>Fn() -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, Error&gt; + Send + Sync {
+    ) -&gt; <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>WasiEnvBuilder) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; + Send + Sync {
         <span class="kw">let </span>container_fs = ctx.container_fs();
         <span class="kw">let </span>wasi_common = <span class="self">self</span>.config.wasi.clone();
-        <span class="kw">let </span>program_name = <span class="self">self</span>.program_name.clone();
         <span class="kw">let </span>wasi = wasi.clone();
         <span class="kw">let </span>tasks = <span class="self">self</span>.config.task_manager.clone();
 
-        <span class="kw">move </span>|| {
-            <span class="kw">let </span><span class="kw-2">mut </span>builder =
-                wasi_common.prepare_webc_env(Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>program_name, <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?</span>;
+        <span class="kw">move </span>|builder| {
+            wasi_common.prepare_webc_env(builder, Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?</span>;
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = <span class="kw-2">&amp;</span>tasks {
                 <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(tasks));
                 builder.set_runtime(Arc::new(rt));
             }
 
-            <span class="prelude-val">Ok</span>(builder)
+            <span class="prelude-val">Ok</span>(())
         }
     }
 }

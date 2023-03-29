@@ -177,7 +177,7 @@
 <span class="kw">use </span>virtual_fs::{FileSystem, OverlayFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
-<span class="kw">use crate</span>::{runners::MappedDirectory, WasiEnv, WasiEnvBuilder};
+<span class="kw">use crate</span>::{runners::MappedDirectory, WasiEnvBuilder};
 
 <span class="attribute">#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CommonWasiOptions {
@@ -190,11 +190,11 @@
 <span class="kw">impl </span>CommonWasiOptions {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder,
         container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem&gt;,
-        program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnv::builder(program_name).args(<span class="kw-2">&amp;</span><span class="self">self</span>.args);
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        builder.add_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args);
 
         <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, |path| {
             builder.add_preopen_dir(path).map_err(Error::from)
@@ -203,10 +203,10 @@
         builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
         builder.add_preopen_dir(<span class="string">&quot;.&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="self">self</span>.populate_env(wasi, <span class="kw-2">&amp;mut </span>builder);
-        <span class="self">self</span>.populate_args(wasi, <span class="kw-2">&amp;mut </span>builder);
+        <span class="self">self</span>.populate_env(wasi, builder);
+        <span class="self">self</span>.populate_args(wasi, builder);
 
-        <span class="prelude-val">Ok</span>(builder)
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>populate_env(<span class="kw-2">&amp;</span><span class="self">self</span>, wasi: <span class="kw-2">&amp;</span>WasiAnnotation, builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder) {

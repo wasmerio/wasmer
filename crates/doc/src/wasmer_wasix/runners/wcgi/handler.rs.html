@@ -237,6 +237,11 @@
 <span id="235">235</span>
 <span id="236">236</span>
 <span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 <span class="kw">use </span>anyhow::Error;
@@ -278,19 +283,21 @@
 
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;Creating the WebAssembly instance&quot;</span>);
 
-        <span class="kw">let </span><span class="kw-2">mut </span>request_specific_env = HashMap::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="kw-2">&amp;</span><span class="self">self</span>.program_name);
 
-        <span class="kw">if </span><span class="self">self</span>.dialect == CgiDialect::Rfc3875 {
-            <span class="comment">// HACK(Michael-F-Bryan): this belongs in the wcgi-host crate
-            </span>request_specific_env.insert(<span class="string">&quot;SCRIPT_NAME&quot;</span>.to_string(), parts.uri.to_string());
-        }
+        (<span class="self">self</span>.setup_builder)(<span class="kw-2">&amp;mut </span>builder)<span class="question-mark">?</span>;
+
+        <span class="comment">// Note: We want to apply the CGI environment variables *after*
+        // anything specified by WASI annotations so users get a chance to
+        // override things like $DOCUMENT_ROOT and $SCRIPT_FILENAME.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>request_specific_env = HashMap::new();
         <span class="self">self</span>.dialect
             .prepare_environment_variables(parts, <span class="kw-2">&amp;mut </span>request_specific_env);
+        builder.add_envs(request_specific_env);
 
         <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.task_manager));
 
-        <span class="kw">let </span>builder = (<span class="self">self</span>.setup_builder)()<span class="question-mark">?
-            </span>.envs(request_specific_env)
+        <span class="kw">let </span>builder = builder
             .stdin(Box::new(req_body_receiver))
             .stdout(Box::new(res_body_sender))
             .stderr(Box::new(stderr_sender))
@@ -444,13 +451,16 @@
     }
 }
 
+<span class="kw">type </span>SetupBuilder = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>WasiEnvBuilder) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; + Send + Sync&gt;;
+
 <span class="attribute">#[derive(derivative::Derivative)]
 #[derivative(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SharedState {
     <span class="kw">pub</span>(<span class="kw">crate</span>) module: Module,
     <span class="kw">pub</span>(<span class="kw">crate</span>) dialect: CgiDialect,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) program_name: String,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) setup_builder: Box&lt;<span class="kw">dyn </span>Fn() -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; + Send + Sync&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) setup_builder: SetupBuilder,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
