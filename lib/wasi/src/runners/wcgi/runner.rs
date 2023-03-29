@@ -41,17 +41,20 @@ impl WcgiRunner {
 
     #[tracing::instrument(skip(self, ctx))]
     fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
-        let wasi: Wasi = ctx
+        let key = webc::metadata::annotations::WCGI_RUNNER_URI;
+        let Annotations { wasi, wcgi } = ctx
             .command()
-            .get_annotation("wasi")
-            .context("Unable to retrieve the WASI metadata")?
-            .unwrap_or_else(|| Wasi::new(command_name));
+            .get_annotation(key)
+            .with_context(|| format!("Unable to deserialize the \"{key}\" annotations"))?
+            .unwrap_or_default();
+
+        let wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
 
         let module = self
             .load_module(&wasi, ctx)
             .context("Couldn't load the module")?;
 
-        let handler = self.create_handler(module, &wasi, ctx)?;
+        let handler = self.create_handler(module, &wasi, &wcgi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
         let callbacks = Arc::clone(&self.config.callbacks);
 
@@ -126,25 +129,25 @@ impl WcgiRunner {
         &self,
         module: Module,
         wasi: &Wasi,
+        wcgi: &Wcgi,
         ctx: &RunnerContext<'_>,
     ) -> Result<Handler, Error> {
-        let Wcgi { dialect, .. } = ctx.command().get_annotation("wcgi")?.unwrap_or_default();
-
-        let dialect = match dialect {
+        let dialect = match &wcgi.dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
             None => CgiDialect::Wcgi,
         };
 
         let shared = SharedState {
+            module,
+            dialect,
+            program_name: self.program_name.clone(),
+            setup_builder: Box::new(self.setup_builder(ctx, wasi)),
+            callbacks: Arc::clone(&self.config.callbacks),
             task_manager: self
                 .config
                 .task_manager
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
-            module,
-            dialect,
-            callbacks: Arc::clone(&self.config.callbacks),
-            setup_builder: Box::new(self.setup_builder(ctx, wasi)),
         };
 
         Ok(Handler::new(shared))
@@ -154,23 +157,21 @@ impl WcgiRunner {
         &self,
         ctx: &RunnerContext<'_>,
         wasi: &Wasi,
-    ) -> impl Fn() -> Result<WasiEnvBuilder, Error> + Send + Sync {
+    ) -> impl Fn(&mut WasiEnvBuilder) -> Result<(), Error> + Send + Sync {
         let container_fs = ctx.container_fs();
         let wasi_common = self.config.wasi.clone();
-        let program_name = self.program_name.clone();
         let wasi = wasi.clone();
         let tasks = self.config.task_manager.clone();
 
-        move || {
-            let mut builder =
-                wasi_common.prepare_webc_env(Arc::clone(&container_fs), &program_name, &wasi)?;
+        move |builder| {
+            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
 
             if let Some(tasks) = &tasks {
                 let rt = PluggableRuntime::new(Arc::clone(tasks));
                 builder.set_runtime(Arc::new(rt));
             }
 
-            Ok(builder)
+            Ok(())
         }
     }
 }
@@ -341,6 +342,13 @@ impl Default for Config {
             store: None,
         }
     }
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+struct Annotations {
+    wasi: Option<Wasi>,
+    #[serde(default)]
+    wcgi: Wcgi,
 }
 
 /// Callbacks that are triggered at various points in the lifecycle of a runner
