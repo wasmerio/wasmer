@@ -41,15 +41,15 @@ impl Handler {
 
         let mut builder = WasiEnvBuilder::new(&self.program_name);
 
-        // Note: We want to apply the CGI environment variables *before*
+        (self.setup_builder)(&mut builder)?;
+
+        // Note: We want to apply the CGI environment variables *after*
         // anything specified by WASI annotations so users get a chance to
         // override things like $DOCUMENT_ROOT and $SCRIPT_FILENAME.
         let mut request_specific_env = HashMap::new();
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
         builder.add_envs(request_specific_env);
-
-        (self.setup_builder)(&mut builder)?;
 
         let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
 
