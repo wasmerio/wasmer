@@ -138,15 +138,16 @@ impl WcgiRunner {
         };
 
         let shared = SharedState {
+            module,
+            dialect,
+            program_name: self.program_name.clone(),
+            setup_builder: Box::new(self.setup_builder(ctx, wasi)),
+            callbacks: Arc::clone(&self.config.callbacks),
             task_manager: self
                 .config
                 .task_manager
                 .clone()
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
-            module,
-            dialect,
-            callbacks: Arc::clone(&self.config.callbacks),
-            setup_builder: Box::new(self.setup_builder(ctx, wasi)),
         };
 
         Ok(Handler::new(shared))
@@ -156,23 +157,21 @@ impl WcgiRunner {
         &self,
         ctx: &RunnerContext<'_>,
         wasi: &Wasi,
-    ) -> impl Fn() -> Result<WasiEnvBuilder, Error> + Send + Sync {
+    ) -> impl Fn(&mut WasiEnvBuilder) -> Result<(), Error> + Send + Sync {
         let container_fs = ctx.container_fs();
         let wasi_common = self.config.wasi.clone();
-        let program_name = self.program_name.clone();
         let wasi = wasi.clone();
         let tasks = self.config.task_manager.clone();
 
-        move || {
-            let mut builder =
-                wasi_common.prepare_webc_env(Arc::clone(&container_fs), &program_name, &wasi)?;
+        move |builder| {
+            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
 
             if let Some(tasks) = &tasks {
                 let rt = PluggableRuntime::new(Arc::clone(tasks));
                 builder.set_runtime(Arc::new(rt));
             }
 
-            Ok(builder)
+            Ok(())
         }
     }
 }

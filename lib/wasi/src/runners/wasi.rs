@@ -122,9 +122,9 @@ impl WasiRunner {
         program_name: &str,
         wasi: &Wasi,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let mut builder =
-            self.wasi
-                .prepare_webc_env(container.container_fs(), program_name, wasi)?;
+        let mut builder = WasiEnvBuilder::new(program_name);
+        self.wasi
+            .prepare_webc_env(&mut builder, container.container_fs(), wasi)?;
 
         if let Some(tasks) = &self.tasks {
             let rt = PluggableRuntime::new(Arc::clone(tasks));

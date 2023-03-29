@@ -8,7 +8,7 @@ use anyhow::{Context, Error};
 use virtual_fs::{FileSystem, OverlayFileSystem, RootFileSystemBuilder};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
-use crate::{runners::MappedDirectory, WasiEnv, WasiEnvBuilder};
+use crate::{runners::MappedDirectory, WasiEnvBuilder};
 
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CommonWasiOptions {
@@ -21,11 +21,11 @@ pub(crate) struct CommonWasiOptions {
 impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
+        builder: &mut WasiEnvBuilder,
         container_fs: Arc<dyn FileSystem>,
-        program_name: &str,
         wasi: &WasiAnnotation,
-    ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let mut builder = WasiEnv::builder(program_name).args(&self.args);
+    ) -> Result<(), anyhow::Error> {
+        builder.add_args(&self.args);
 
         let fs = prepare_filesystem(&self.mapped_dirs, container_fs, |path| {
             builder.add_preopen_dir(path).map_err(Error::from)
@@ -34,10 +34,10 @@ impl CommonWasiOptions {
         builder.add_preopen_dir("/")?;
         builder.add_preopen_dir(".")?;
 
-        self.populate_env(wasi, &mut builder);
-        self.populate_args(wasi, &mut builder);
+        self.populate_env(wasi, builder);
+        self.populate_args(wasi, builder);
 
-        Ok(builder)
+        Ok(())
     }
 
     fn populate_env(&self, wasi: &WasiAnnotation, builder: &mut WasiEnvBuilder) {
