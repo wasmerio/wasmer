@@ -1,3 +1,6 @@
+#[cfg(feature = "build-package")]
+pub mod builder;
+
 use crate::WasmerConfig;
 use regex::Regex;
 use std::path::{Path, PathBuf};
