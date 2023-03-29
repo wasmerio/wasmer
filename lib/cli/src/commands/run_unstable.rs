@@ -25,7 +25,7 @@ use wasmer::{
 use wasmer_cache::Cache;
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::{MappedDirectory, Runner, WapmContainer};
+use wasmer_wasix::runners::{wcgi::AbortHandle, MappedDirectory, Runner, WapmContainer};
 use webc::metadata::Manifest;
 use webc::v1::DirOrFile;
 
@@ -158,7 +158,7 @@ impl RunUnstable {
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.clone())
-            .callbacks(Callbacks::default());
+            .callbacks(Callbacks::new(self.wcgi.addr));
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
@@ -594,17 +594,23 @@ impl Default for WcgiOptions {
 #[derive(Debug)]
 struct Callbacks {
     stderr: Mutex<LineWriter<std::io::Stderr>>,
+    addr: SocketAddr,
 }
 
-impl Default for Callbacks {
-    fn default() -> Self {
-        Self {
+impl Callbacks {
+    fn new(addr: SocketAddr) -> Self {
+        Callbacks {
             stderr: Mutex::new(LineWriter::new(std::io::stderr())),
+            addr,
         }
     }
 }
 
 impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
+    fn started(&self, _abort: AbortHandle) {
+        println!("WCGI Server running at http://{}/", self.addr);
+    }
+
     fn on_stderr(&self, raw_message: &[u8]) {
         if let Ok(mut stderr) = self.stderr.lock() {
             // If the WCGI runner printed any log messages we want to make sure
