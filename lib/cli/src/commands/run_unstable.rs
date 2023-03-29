@@ -29,7 +29,6 @@ use wasmer_wasix::runners::{MappedDirectory, Runner, WapmContainer};
 use webc::metadata::Manifest;
 use webc_v4::DirOrFile;
 
-use crate::logging;
 use crate::{
     store::StoreOptions,
     wasmer_home::{DownloadCached, ModuleCache, WasmerHome},
@@ -59,9 +58,6 @@ pub struct RunUnstable {
     input: PackageSource,
     /// Command-line arguments passed to the package
     args: Vec<String>,
-    /// Enable debug output
-    #[clap(long = "debug", short = 'd')]
-    pub(crate) debug: bool,
 }
 
 impl RunUnstable {
@@ -80,11 +76,6 @@ impl RunUnstable {
             ExecutableTarget::WebAssembly(wasm) => self.execute_wasm(&target, &wasm, &mut store),
             ExecutableTarget::Webc(container) => self.execute_webc(&target, &container, &mut store),
         };
-
-        if self.debug {
-            let level = log::LevelFilter::Debug;
-            logging::set_up_logging(level);
-        }
 
         if let Err(e) = &result {
             if let Some(coredump) = &self.coredump_on_trap {
@@ -614,11 +605,6 @@ impl Default for Callbacks {
 }
 
 impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
-    /// A callback that is called whenever the server starts.
-    fn started(&self, config: &wasmer_wasix::runners::wcgi::Config, _abort: wasmer_wasix::runners::wcgi::AbortHandle) {
-        println!("WCGI Server running at http://{}/", config.addr);
-    }
-
     fn on_stderr(&self, raw_message: &[u8]) {
         if let Ok(mut stderr) = self.stderr.lock() {
             // If the WCGI runner printed any log messages we want to make sure
