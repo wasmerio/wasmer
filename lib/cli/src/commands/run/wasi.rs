@@ -102,9 +102,8 @@ pub struct Wasi {
     pub deny_multiple_wasi_versions: bool,
 }
 
-pub struct RunInit {
+pub struct RunProperties {
     pub ctx: WasiFunctionEnv,
-    pub store: Store,
     pub instance: Instance,
     pub path: PathBuf,
     pub invoke: Option<String>,
@@ -251,8 +250,8 @@ impl Wasi {
     }
 
     // Runs the Wasi process
-    pub fn run(run: RunInit) -> Result<i32> {
-        let tasks = run.ctx.data(&run.store).tasks().clone();
+    pub fn run(run: RunProperties, store: Store) -> Result<i32> {
+        let tasks = run.ctx.data(&store).tasks().clone();
 
         // The return value is passed synchronously and will block until the result is returned
         // this is because the main thread can go into a deep sleep and exit the dedicated thread
@@ -261,7 +260,7 @@ impl Wasi {
         // We run it in a blocking thread as the WASM function may otherwise hold
         // up the IO operations
         tasks.task_dedicated(Box::new(move || {
-            Self::run_with_deep_sleep(run, tx, None);
+            Self::run_with_deep_sleep(run, store, tx, None);
         }))?;
         rx.recv()
             .expect("main thread terminated without a result, this normally means a panic occurred within the main thread")
@@ -269,13 +268,13 @@ impl Wasi {
 
     // Runs the Wasi process (asynchronously)
     pub fn run_with_deep_sleep(
-        run: RunInit,
+        run: RunProperties,
+        mut store: Store,
         tx: Sender<Result<i32>>,
         rewind_state: Option<(RewindState, Result<(), Errno>)>,
     ) {
         // If we need to rewind then do so
         let ctx = run.ctx;
-        let mut store = run.store;
         if let Some((mut rewind_state, trigger_res)) = rewind_state {
             if rewind_state.is_64bit {
                 if let Err(exit_code) = rewind_state
@@ -335,12 +334,14 @@ impl Wasi {
 
             let result = start.call(&mut store, &[]);
             Self::handle_result(
-                ctx,
+                RunProperties {
+                    ctx,
+                    instance: run.instance,
+                    path: run.path,
+                    invoke: run.invoke,
+                    args: run.args,
+                },
                 store,
-                run.instance,
-                run.path,
-                run.invoke,
-                run.args,
                 result,
                 tx,
             )
@@ -349,15 +350,12 @@ impl Wasi {
 
     /// Helper function for handling the result of a Wasi _start function.
     pub fn handle_result(
-        ctx: WasiFunctionEnv,
+        run: RunProperties,
         mut store: Store,
-        instance: Instance,
-        path: PathBuf,
-        invoke: Option<String>,
-        args: Vec<String>,
         result: Result<Box<[Value]>, RuntimeError>,
         tx: Sender<Result<i32>>,
     ) {
+        let ctx = run.ctx;
         let ret: Result<i32> = match result {
             Ok(_) => Ok(0),
             Err(err) => {
@@ -369,24 +367,19 @@ impl Wasi {
                         tracing::trace!(%pid, %tid, "entered a deep sleep");
 
                         // Create the respawn function
-                        let module = instance.module().clone();
+                        let module = run.instance.module().clone();
                         let tasks = ctx.data(&store).tasks().clone();
                         let rewind = deep.rewind;
                         let respawn = {
-                            let ctx = ctx.clone();
+                            let run = RunProperties {
+                                ctx: ctx.clone(),
+                                instance: run.instance,
+                                path: run.path,
+                                invoke: run.invoke,
+                                args: run.args,
+                            };
                             move |store, _module, res| {
-                                Self::run_with_deep_sleep(
-                                    RunInit {
-                                        ctx,
-                                        store,
-                                        instance,
-                                        path,
-                                        invoke,
-                                        args,
-                                    },
-                                    tx,
-                                    Some((rewind, res)),
-                                );
+                                Self::run_with_deep_sleep(run, store, tx, Some((rewind, res)));
                             }
                         };
 
