@@ -1,11 +1,11 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 492
+assertion_line: 639
 expression: snapshot
 ---
 {
   "spec": {
-    "name": "snapshot::test_snapshot_web_server",
+    "name": "snapshot::test_snapshot_web_server_internal",
     "use_packages": [
       "sharrattj/coreutils",
       "sharrattj/wasmer-sh"
@@ -155,17 +155,14 @@ expression: snapshot
       55,
       55,
       55,
-      55
+      56
     ],
     "debug_output": false,
     "enable_threads": true,
-    "enable_network": true
+    "enable_network": true,
+    "enable_async_threads": true
   },
   "result": {
-    "Success": {
-      "stdout": "",
-      "stderr": "# # # # ",
-      "exit_code": 0
-    }
+    "Error": "Command failed: error sending request for url (http://localhost:7778/main.js.size): error trying to connect: tcp connect error: Connection refused (os error 111)\n\nSTDOUT:\n\n\nSTDERR:\n# # # # # \n"
   }
 }

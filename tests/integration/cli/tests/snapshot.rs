@@ -40,6 +40,7 @@ pub struct TestSpec {
     pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
+    pub enable_async_threads: bool,
 }
 
 static WEBC_BASH: &'static [u8] =
@@ -110,12 +111,18 @@ impl TestBuilder {
                 debug_output: false,
                 enable_threads: true,
                 enable_network: false,
+                enable_async_threads: false,
             },
         }
     }
 
     pub fn arg(mut self, arg: impl Into<String>) -> Self {
         self.spec.cli_args.push(arg.into());
+        self
+    }
+
+    pub fn with_async_threads(mut self) -> Self {
+        self.spec.enable_async_threads = true;
         self
     }
 
@@ -250,6 +257,10 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     }
     cmd.arg("--allow-multiple-wasi-versions");
 
+    if spec.enable_async_threads == false {
+        cmd.arg("--no-async-threads");
+    }
+
     for pkg in &spec.use_packages {
         cmd.args(&["--use", &pkg]);
     }
@@ -365,10 +376,12 @@ pub fn build_snapshot(mut spec: TestSpec, code: &[u8]) -> TestSnapshot {
         spec.clone(),
         code,
         Box::new(|mut child| {
-            child
-                .wait()
-                .map_err(|err| err.into())
-                .map(|status| status.code().unwrap_or_default())
+            child.wait().map_err(|err| err.into()).map(|status| {
+                match status.code().unwrap_or_default() {
+                    27 => 0,
+                    status => status,
+                }
+            })
         }),
     );
     let snapshot = TestSnapshot { spec, result };
@@ -411,6 +424,17 @@ fn test_snapshot_condvar() {
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_condvar_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .debug_output(true)
+        .with_async_threads()
+        .run_wasm(include_bytes!("./wasm/example-condvar.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 // Test that the expected default directories are present.
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
@@ -446,11 +470,25 @@ fn test_snapshot_cowsay() {
     assert_json_snapshot!(snapshot);
 }
 
+// This test is not deterministic because the order of the reads and writes
+// is random
+/*
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_epoll() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-epoll.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+*/
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_epoll_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-epoll.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -480,8 +518,29 @@ fn test_snapshot_execve() {
 
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+fn test_snapshot_execve_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .with_async_threads()
+        .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
 fn test_snapshot_web_server() {
-    let with_inner = || {
+    test_snapshot_web_server_internal(false, 7777)
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_web_server_async() {
+    test_snapshot_web_server_internal(true, 7778)
+}
+
+fn test_snapshot_web_server_internal(with_async_threads: bool, port: u16) {
+    let with_inner = move || {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -515,9 +574,9 @@ fn test_snapshot_web_server() {
             })
         };
 
+        let url = format!("http://localhost:{}/main.js.size", port);
         let expected_size = usize::from_str_radix(
-            String::from_utf8_lossy(http_get("http://localhost:7777/main.js.size", 50)?.as_ref())
-                .trim(),
+            String::from_utf8_lossy(http_get(&url, 50)?.as_ref()).trim(),
             10,
         )?;
         if expected_size == 0 {
@@ -525,9 +584,10 @@ fn test_snapshot_web_server() {
         }
         println!("expected_size: {}", expected_size);
 
-        let reference_data = http_get("http://localhost:7777/main.js", 0)?;
+        let url = format!("http://localhost:{}/main.js", port);
+        let reference_data = http_get(&url, 0)?;
         for _ in 0..20 {
-            let test_data = http_get("http://localhost:7777/main.js", 0)?;
+            let test_data = http_get(&url, 0)?;
             println!("actual_size: {}", test_data.len());
 
             if expected_size != test_data.len() {
@@ -555,20 +615,27 @@ fn test_snapshot_web_server() {
         ret
     };
 
-    let snapshot = TestBuilder::new()
+    let script = format!(
+        r#"
+cat /public/main.js | wc -c > /public/main.js.size
+rm -f /cfg/config.toml
+/bin/webserver --log-level warn --root /public --port {}"#,
+        port
+    );
+    let mut builder = TestBuilder::new()
         .with_name(function!())
         .enable_network(true)
         .include_static_package("sharrattj/static-web-server@1.0.8", WEBC_WEB_SERVER)
         .include_static_package("sharrattj/wasmer-sh@1.0.63", WEBC_WASMER_SH)
         .use_coreutils()
         .use_pkg("sharrattj/wasmer-sh")
-        .stdin_str(
-            r#"
-cat /public/main.js | wc -c > /public/main.js.size
-rm -f /cfg/config.toml
-/bin/webserver --log-level warn --root /public --port 7777"#,
-        )
-        .run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
+        .stdin_str(script);
+
+    if with_async_threads {
+        builder = builder.with_async_threads();
+    }
+
+    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
     assert_json_snapshot!(snapshot);
 }
 
@@ -581,6 +648,20 @@ fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+// The ability to fork the current process and run a different image but retain
+// the existing open file handles (which is needed for stdin and stdout redirection)
+#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_fork_and_exec_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -620,6 +701,18 @@ fn test_snapshot_fork() {
     assert_json_snapshot!(snapshot);
 }
 
+// Simple fork example that is a crude multi-threading implementation - used by `dash`
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_fork_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .with_async_threads()
+        .run_wasm(include_bytes!("./wasm/example-fork.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 // Uses the `fd_pipe` syscall to create a bidirection pipe with two file
 // descriptors then forks the process to write and read to this pipe.
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
@@ -645,6 +738,20 @@ fn test_snapshot_longjump_fork() {
     assert_json_snapshot!(snapshot);
 }
 
+// Performs a longjmp of a stack that was recorded before the fork.
+// This test ensures that the stacks that have been recorded are preserved
+// after a fork.
+// The behavior is needed for `dash`
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_longjump_fork_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .with_async_threads()
+        .run_wasm(include_bytes!("./wasm/example-fork-longjmp.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 // full multi-threading with shared memory and shared compiled modules
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
@@ -652,6 +759,18 @@ fn test_snapshot_multithreading() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .debug_output(true)
+        .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+// full multi-threading with shared memory and shared compiled modules
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_multithreading_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .debug_output(true)
+        .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -667,6 +786,18 @@ fn test_snapshot_sleep() {
     assert_json_snapshot!(snapshot);
 }
 
+// full multi-threading with shared memory and shared compiled modules
+#[cfg(target_os = "linux")]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_sleep_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .with_async_threads()
+        .run_wasm(include_bytes!("./wasm/example-sleep.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
 #[cfg(not(target_os = "windows"))]
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
@@ -675,6 +806,19 @@ fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
+        .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+// Uses `posix_spawn` to launch a sub-process and wait on it to exit
+#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_process_spawn_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -724,11 +868,34 @@ fn test_snapshot_vfork() {
     assert_json_snapshot!(snapshot);
 }
 
+// Tests that lightweight forking that does not copy the memory but retains the
+// open file descriptors works correctly.
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_vfork_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .with_async_threads()
+        .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_signals() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-signal.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_signals_async() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-signal.wasm"));
     assert_json_snapshot!(snapshot);
 }

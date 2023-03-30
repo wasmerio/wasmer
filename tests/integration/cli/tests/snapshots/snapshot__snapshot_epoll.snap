@@ -1,6 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 363
+assertion_line: 479
 expression: snapshot
 ---
 {
@@ -12,11 +12,12 @@ expression: snapshot
     "stdin": null,
     "debug_output": false,
     "enable_threads": true,
-    "enable_network": false
+    "enable_network": false,
+    "enable_async_threads": false
   },
   "result": {
     "Success": {
-      "stdout": "EFD_NONBLOCK:4\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\n",
+      "stdout": "EFD_NONBLOCK:4\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\n",
       "stderr": "",
       "exit_code": 8
     }
