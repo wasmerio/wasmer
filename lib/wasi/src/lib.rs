@@ -151,7 +151,7 @@ impl RewindState {
             tracing::error!("failed on rewinding_finish - {}", err);
             ExitCode::Errno(Errno::Memviolation)
         })?;
-        let ret = self.finish.finish(env, &mut store, res);
+        let ret = self.finish.finish(env, &store, res);
         if ret.is_ok() {
             self.memory_stack = get_memory_stack::<M>(env, &mut store)
                 .map_err(|err| {

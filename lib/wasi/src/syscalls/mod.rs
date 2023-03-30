@@ -535,14 +535,7 @@ where
         }
     }
     struct Finisher<T> {
-        after: Option<
-            Box<
-                dyn FnOnce(&WasiEnv, &dyn AsStoreRef, Result<T, Errno>) -> Result<(), ExitCode>
-                    + Send
-                    + Sync
-                    + 'static,
-            >,
-        >,
+        after: Option<Box<AsyncifyWorkAfter<T>>>,
         ret: Arc<Mutex<Option<T>>>,
     }
     impl<T> RewindPostProcess for Finisher<T> {

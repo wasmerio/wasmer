@@ -43,6 +43,8 @@ pub enum TaskResumeAction {
     Abort,
 }
 
+pub type WasmResumeTask = dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static;
+
 pub type WasmResumeTrigger = dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
     + Send
     + Sync;
@@ -92,7 +94,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// After the trigger has successfully completed
     fn resume_wasm_after_trigger(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
+        task: Box<WasmResumeTask>,
         store: Store,
         module: Module,
         trigger: Box<WasmResumeTrigger>,
@@ -123,7 +125,7 @@ impl dyn VirtualTaskManager {
     /// After the poller has successed
     pub fn resume_wasm_after_poller(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
+        task: Box<WasmResumeTask>,
         store: Store,
         module: Module,
         env: WasiFunctionEnv,
