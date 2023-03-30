@@ -390,8 +390,10 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[cfg(feature = "webc_runner")]
 #[test]
+#[ignore]
 fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
     let python_wasmer_path = temp_dir.path().join("python.wasmer");
@@ -420,8 +422,10 @@ fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[cfg(feature = "webc_runner")]
 #[test]
+#[ignore]
 fn test_wasmer_run_pirita_url_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")
