@@ -4937,9 +4937,9 @@ dependencies = [
 
 [[package]]
 name = "wapm-targz-to-pirita"
-version = "0.1.7"
+version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39980ef50ab15c47dbd9b26678f06ece2341178d82e25e21e4ac68310d1f2e63"
+checksum = "6b3f2778f5f2431f74ae83607cea3ba9cd33cbfa0c75ff6caff30162668e2ed8"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
