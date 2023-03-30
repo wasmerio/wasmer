@@ -85,7 +85,7 @@ wasm-coredump-builder = { version = "0.1.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
-wapm-targz-to-pirita = "0.1.7"
+wapm-targz-to-pirita = "0.1.10"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
