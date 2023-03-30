@@ -83,9 +83,9 @@ pub struct Wasi {
     #[clap(long = "no-tty")]
     pub no_tty: bool,
 
-    /// Disables asynchronous threading
-    #[clap(long = "no-async-threads")]
-    pub no_async_threads: bool,
+    /// Enables asynchronous threading
+    #[clap(long = "enable-async-threads")]
+    pub enable_async_threads: bool,
 
     /// Allow instances to send http requests.
     ///
@@ -223,7 +223,7 @@ impl Wasi {
         builder
             .capabilities_mut()
             .threading
-            .disable_asynchronous_threading = self.no_async_threads;
+            .enable_asynchronous_threading = self.enable_async_threads;
 
         #[cfg(feature = "experimental-io-devices")]
         {

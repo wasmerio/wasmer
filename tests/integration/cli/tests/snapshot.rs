@@ -257,8 +257,8 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     }
     cmd.arg("--allow-multiple-wasi-versions");
 
-    if spec.enable_async_threads == false {
-        cmd.arg("--no-async-threads");
+    if spec.enable_async_threads {
+        cmd.arg("--enable-async-threads");
     }
 
     for pkg in &spec.use_packages {

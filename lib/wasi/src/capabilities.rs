@@ -34,5 +34,5 @@ pub struct CapabilityThreadingV1 {
 
     /// Flag that indicates if asynchronous threading is disabled
     /// (default = false)
-    pub disable_asynchronous_threading: bool,
+    pub enable_asynchronous_threading: bool,
 }
