@@ -360,15 +360,6 @@
 <span id="358">358</span>
 <span id="359">359</span>
 <span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -412,20 +403,17 @@
 
     <span class="attribute">#[tracing::instrument(skip(<span class="self">self</span>, ctx))]
     </span><span class="kw">fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>, command_name: <span class="kw-2">&amp;</span>str, ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span>key = webc::metadata::annotations::WCGI_RUNNER_URI;
-        <span class="kw">let </span>Annotations { wasi, wcgi } = ctx
+        <span class="kw">let </span>wasi: Wasi = ctx
             .command()
-            .get_annotation(key)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to deserialize the \&quot;{key}\&quot; annotations&quot;</span>))<span class="question-mark">?
-            </span>.unwrap_or_default();
-
-        <span class="kw">let </span>wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
+            .get_annotation(<span class="string">&quot;wasi&quot;</span>)
+            .context(<span class="string">&quot;Unable to retrieve the WASI metadata&quot;</span>)<span class="question-mark">?
+            </span>.unwrap_or_else(|| Wasi::new(command_name));
 
         <span class="kw">let </span>module = <span class="self">self
             </span>.load_module(<span class="kw-2">&amp;</span>wasi, ctx)
             .context(<span class="string">&quot;Couldn&#39;t load the module&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>handler = <span class="self">self</span>.create_handler(module, <span class="kw-2">&amp;</span>wasi, <span class="kw-2">&amp;</span>wcgi, ctx)<span class="question-mark">?</span>;
+        <span class="kw">let </span>handler = <span class="self">self</span>.create_handler(module, <span class="kw-2">&amp;</span>wasi, ctx)<span class="question-mark">?</span>;
         <span class="kw">let </span>task_manager = Arc::clone(<span class="kw-2">&amp;</span>handler.task_manager);
         <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks);
 
@@ -500,10 +488,11 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         module: Module,
         wasi: <span class="kw-2">&amp;</span>Wasi,
-        wcgi: <span class="kw-2">&amp;</span>Wcgi,
         ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Handler, Error&gt; {
-        <span class="kw">let </span>dialect = <span class="kw">match </span><span class="kw-2">&amp;</span>wcgi.dialect {
+        <span class="kw">let </span>Wcgi { dialect, .. } = ctx.command().get_annotation(<span class="string">&quot;wcgi&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
+
+        <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
             <span class="prelude-val">Some</span>(d) =&gt; d.parse().context(<span class="string">&quot;Unable to parse the CGI dialect&quot;</span>)<span class="question-mark">?</span>,
             <span class="prelude-val">None </span>=&gt; CgiDialect::Wcgi,
         };
@@ -713,13 +702,6 @@
             store: <span class="prelude-val">None</span>,
         }
     }
-}
-
-<span class="attribute">#[derive(Debug, Default, serde::Deserialize)]
-</span><span class="kw">struct </span>Annotations {
-    wasi: <span class="prelude-ty">Option</span>&lt;Wasi&gt;,
-    <span class="attribute">#[serde(default)]
-    </span>wcgi: Wcgi,
 }
 
 <span class="doccomment">/// Callbacks that are triggered at various points in the lifecycle of a runner

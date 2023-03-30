@@ -170,12 +170,6 @@
 <span id="168">168</span>
 <span id="169">169</span>
 <span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -329,10 +323,9 @@
         command: <span class="kw-2">&amp;</span>Command,
         container: <span class="kw-2">&amp;</span>WapmContainer,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
-        <span class="kw">let </span>Annotations { wasi } = command
-            .get_annotation(webc::metadata::annotations::WASI_RUNNER_URI)<span class="question-mark">?
-            </span>.unwrap_or_default();
-        <span class="kw">let </span>wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
+        <span class="kw">let </span>wasi = command
+            .get_annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
+            </span>.unwrap_or_else(|| Wasi::new(command_name));
         <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>wasi.atom;
         <span class="kw">let </span>atom = container
             .get_atom(atom_name)
@@ -346,11 +339,6 @@
 
         <span class="prelude-val">Ok</span>(())
     }
-}
-
-<span class="attribute">#[derive(Default, Debug, serde::Deserialize)]
-</span><span class="kw">struct </span>Annotations {
-    wasi: <span class="prelude-ty">Option</span>&lt;Wasi&gt;,
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>
