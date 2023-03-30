@@ -869,7 +869,7 @@ fn test_snapshot_vfork() {
 }
 
 // Tests that lightweight forking that does not copy the memory but retains the
-// open file descriptors works correctly.
+// open file descriptors works correctly. Uses asynchronous threading
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_vfork_async() {
