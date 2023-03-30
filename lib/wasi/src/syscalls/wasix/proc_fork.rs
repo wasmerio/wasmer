@@ -123,7 +123,6 @@ pub fn proc_fork<M: MemorySize>(
 
         // Fork the memory and copy the module (compiled code)
         let env = ctx.data();
-        let fork_memory_ty = env.memory().ty(&ctx);
         let fork_memory: VMMemory = match env
             .memory()
             .try_clone(&ctx)
@@ -159,7 +158,7 @@ pub fn proc_fork<M: MemorySize>(
             let store = fork_store;
             let module = fork_module;
 
-            let spawn_type = SpawnType::NewThread(fork_memory, fork_memory_ty);
+            let spawn_type = SpawnType::NewThread(fork_memory);
             let task = move |mut store, module, memory| {
                 // Create the WasiFunctionEnv
                 let pid = child_env.pid();

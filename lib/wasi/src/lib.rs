@@ -846,9 +846,3 @@ fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
         _ => BusErrno::Unknown,
     }
 }
-
-#[cfg(all(feature = "sys"))]
-pub fn build_test_engine(features: Option<wasmer::Features>) -> wasmer::Engine {
-    let _ = features;
-    wasmer::Store::default().engine().clone()
-}

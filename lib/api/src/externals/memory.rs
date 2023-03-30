@@ -142,6 +142,22 @@ impl Memory {
         self.0.try_clone(store)
     }
 
+    /// Attempts to clone this memory (if its clonable) in a new store
+    pub fn duplicate_in_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Option<Self> {
+        if !self.ty(store).shared {
+            // We should only be able to duplicate in a new store if the memory is shared
+            return None;
+        }
+        self.0
+            .try_clone(&store)
+            .and_then(|mut memory| memory.duplicate().ok())
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+    }
+
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()

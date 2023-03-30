@@ -421,7 +421,7 @@ build-wasmer-wasm:
 # rpath = false
 build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
-	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features sys,headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip target/$(HOST_TARGET)/release/wasmer-headless
 else ifeq ($(IS_WINDOWS), 1)
@@ -534,7 +534,7 @@ test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
 test-js-wasi:
-	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
 
 #####
 #
@@ -592,7 +592,7 @@ test-integration-cli: build-wasmer build-capi package-capi-headless package dist
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
 	rustup target add wasm32-wasi
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1 || $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios
