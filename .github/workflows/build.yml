@@ -245,10 +245,6 @@ jobs:
           rustup override set nightly-2022-10-09
           make build-wasmer-headless-minimal
           rustup override unset
-      - name: Build Wasmer with minimal "sys" features
-        run: |
-          cargo build --no-default-features --features="sys" --manifest-path=lib/api/Cargo.toml
-          cargo build --manifest-path=lib/cache/Cargo.toml
       - name: Dist
         if: matrix.build != 'macos-arm64'
         run: |
