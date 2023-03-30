@@ -33,28 +33,13 @@ use std::fmt;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::slice;
-use std::sync::{Arc, Mutex};
-use std::thread::{current, park, park_timeout, Thread};
+use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
     MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
 };
-
-#[derive(Hash, Eq, PartialEq, Clone, Copy)]
-struct NotifyLocation {
-    memory_index: u32,
-    address: u32,
-}
-
-struct NotifyWaiter {
-    thread: Thread,
-    notified: bool,
-}
-struct NotifyMap {
-    map: HashMap<NotifyLocation, Vec<NotifyWaiter>>,
-}
 
 /// A WebAssembly instance.
 ///
@@ -104,9 +89,6 @@ pub(crate) struct Instance {
     /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions imported by this instance.
     imported_funcrefs: BoxedSlice<FunctionIndex, NonNull<VMCallerCheckedAnyfunc>>,
-
-    /// The Hasmap with the Notify for the Notify/wait opcodes
-    conditions: Arc<Mutex<NotifyMap>>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -273,6 +255,31 @@ impl Instance {
         } else {
             let import = self.imported_memory(index);
             unsafe { import.handle.get(self.context.as_ref().unwrap()) }
+        }
+    }
+
+    /// Get a locally defined or imported memory.
+    fn get_vmmemory_mut(&mut self, index: MemoryIndex) -> &mut VMMemory {
+        if let Some(local_index) = self.module.local_memory_index(index) {
+            unsafe {
+                self.memories
+                    .get_mut(local_index)
+                    .unwrap()
+                    .get_mut(self.context.as_mut().unwrap())
+            }
+        } else {
+            let import = self.imported_memory(index);
+            unsafe { import.handle.get_mut(self.context.as_mut().unwrap()) }
+        }
+    }
+
+    /// Get a locally defined memory as mutable.
+    fn get_local_vmmemory_mut(&mut self, local_index: LocalMemoryIndex) -> &mut VMMemory {
+        unsafe {
+            self.memories
+                .get_mut(local_index)
+                .unwrap()
+                .get_mut(self.context.as_mut().unwrap())
         }
     }
 
@@ -797,53 +804,6 @@ impl Instance {
         }
     }
 
-    // To implement Wait / Notify, a HasMap, behind a mutex, will be used
-    // to track the address of waiter. The key of the hashmap is based on the memory
-    // and waiter threads are "park"'d (with or without timeout)
-    // Notify will wake the waiters by simply "unpark" the thread
-    // as the Thread info is stored on the HashMap
-    // once unparked, the waiter thread will remove it's mark on the HashMap
-    // timeout / awake is tracked with a boolean in the HashMap
-    // because `park_timeout` doesn't gives any information on why it returns
-    fn do_wait(&mut self, index: u32, dst: u32, timeout: i64) -> u32 {
-        // fetch the notifier
-        let key = NotifyLocation {
-            memory_index: index,
-            address: dst,
-        };
-        let mut conds = self.conditions.lock().unwrap();
-        let v = conds.map.entry(key).or_insert_with(Vec::new);
-        v.push(NotifyWaiter {
-            thread: current(),
-            notified: false,
-        });
-        drop(conds);
-        if timeout < 0 {
-            park();
-        } else {
-            park_timeout(std::time::Duration::from_nanos(timeout as u64));
-        }
-        let mut conds = self.conditions.lock().unwrap();
-        let v = conds.map.get_mut(&key).unwrap();
-        let id = current().id();
-        let mut ret = 0;
-        v.retain(|cond| {
-            if cond.thread.id() == id {
-                ret = if cond.notified { 0 } else { 2 };
-                false
-            } else {
-                true
-            }
-        });
-        if v.is_empty() {
-            conds.map.remove(&key);
-        }
-        if conds.map.len() > 1 << 32 {
-            ret = 0xffff;
-        }
-        ret
-    }
-
     /// Perform an Atomic.Wait32
     pub(crate) fn local_memory_wait32(
         &mut self,
@@ -861,7 +821,8 @@ impl Instance {
 
         if let Ok(mut ret) = ret {
             if ret == 0 {
-                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+                let memory = self.get_local_vmmemory_mut(memory_index);
+                ret = memory.do_wait(dst, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -888,10 +849,10 @@ impl Instance {
         //}
 
         let ret = unsafe { memory32_atomic_check32(memory, dst, val) };
-
         if let Ok(mut ret) = ret {
             if ret == 0 {
-                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+                let memory = self.get_vmmemory_mut(memory_index);
+                ret = memory.do_wait(dst, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -920,7 +881,8 @@ impl Instance {
 
         if let Ok(mut ret) = ret {
             if ret == 0 {
-                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+                let memory = self.get_local_vmmemory_mut(memory_index);
+                ret = memory.do_wait(dst, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -950,7 +912,8 @@ impl Instance {
 
         if let Ok(mut ret) = ret {
             if ret == 0 {
-                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+                let memory = self.get_vmmemory_mut(memory_index);
+                ret = memory.do_wait(dst, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -962,21 +925,6 @@ impl Instance {
         }
     }
 
-    fn do_notify(&mut self, key: NotifyLocation, count: u32) -> Result<u32, Trap> {
-        let mut conds = self.conditions.lock().unwrap();
-        let mut cnt = 0u32;
-        if let Some(v) = conds.map.get_mut(&key) {
-            for waiter in v {
-                if cnt < count {
-                    waiter.notified = true; // mark as was waiked up
-                    waiter.thread.unpark(); // wakeup!
-                    cnt += 1;
-                }
-            }
-        }
-        Ok(cnt)
-    }
-
     /// Perform an Atomic.Notify
     pub(crate) fn local_memory_notify(
         &mut self,
@@ -984,17 +932,9 @@ impl Instance {
         dst: u32,
         count: u32,
     ) -> Result<u32, Trap> {
-        //let memory = self.memory(memory_index);
-        //if ! memory.shared {
-        // We should trap according to spec, but official test rely on not trapping...
-        //}
-
+        let memory = self.get_local_vmmemory_mut(memory_index);
         // fetch the notifier
-        let key = NotifyLocation {
-            memory_index: memory_index.as_u32(),
-            address: dst,
-        };
-        self.do_notify(key, count)
+        Ok(memory.do_notify(dst, count))
     }
 
     /// Perform an Atomic.Notify
@@ -1004,18 +944,9 @@ impl Instance {
         dst: u32,
         count: u32,
     ) -> Result<u32, Trap> {
-        //let import = self.imported_memory(memory_index);
-        //let memory = unsafe { import.definition.as_ref() };
-        //if ! memory.shared {
-        // We should trap according to spec, but official test rely on not trapping...
-        //}
-
+        let memory = self.get_vmmemory_mut(memory_index);
         // fetch the notifier
-        let key = NotifyLocation {
-            memory_index: memory_index.as_u32(),
-            address: dst,
-        };
-        self.do_notify(key, count)
+        Ok(memory.do_notify(dst, count))
     }
 }
 
@@ -1125,9 +1056,6 @@ impl VMInstance {
                 funcrefs,
                 imported_funcrefs,
                 vmctx: VMContext {},
-                conditions: Arc::new(Mutex::new(NotifyMap {
-                    map: HashMap::new(),
-                })),
             };
 
             let mut instance_handle = allocator.into_vminstance(instance);

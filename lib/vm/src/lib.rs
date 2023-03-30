@@ -32,6 +32,7 @@ mod probestack;
 mod sig_registry;
 mod store;
 mod table;
+mod threadconditions;
 mod trap;
 mod vmcontext;
 

@@ -5,6 +5,7 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+use crate::threadconditions::ThreadConditions;
 use crate::trap::Trap;
 use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 use more_asserts::assert_ge;
@@ -285,6 +286,7 @@ impl VMOwnedMemory {
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
+            conditions: ThreadConditions::new(),
         }
     }
 
@@ -346,6 +348,8 @@ pub struct VMSharedMemory {
     mmap: Arc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
+    // waiters list for this memory
+    conditions: ThreadConditions,
 }
 
 unsafe impl Send for VMSharedMemory {}
@@ -381,6 +385,7 @@ impl VMSharedMemory {
         Ok(Self {
             mmap: Arc::new(RwLock::new(guard.duplicate()?)),
             config: self.config.clone(),
+            conditions: ThreadConditions::new(),
         })
     }
 }
@@ -430,6 +435,16 @@ impl LinearMemory for VMSharedMemory {
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let forked = Self::duplicate(self)?;
         Ok(Box::new(forked))
+    }
+
+    // Add current thread to waiter list
+    fn do_wait(&mut self, dst: u32, timeout: i64) -> u32 {
+        self.conditions.do_wait(dst, timeout)
+    }
+
+    /// Notify waiters from the wait list. Return the number of waiters notified
+    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
+        self.conditions.do_notify(dst, count)
     }
 }
 
@@ -497,6 +512,16 @@ impl LinearMemory for VMMemory {
     /// Copies this memory to a new memory
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.duplicate()
+    }
+
+    // Add current thread to waiter list
+    fn do_wait(&mut self, dst: u32, timeout: i64) -> u32 {
+        self.0.do_wait(dst, timeout)
+    }
+
+    /// Notify waiters from the wait list. Return the number of waiters notified
+    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
+        self.0.do_notify(dst, count)
     }
 }
 
@@ -616,4 +641,15 @@ where
 
     /// Copies this memory to a new memory
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+
+    /// Add current thread to the waiter hash, and wait until notified or timout.
+    /// Return 0 if the waiter has been notified, 2 if the timeout occured, or 0xffff if en error happened
+    fn do_wait(&mut self, _dst: u32, _timeout: i64) -> u32 {
+        0xffff
+    }
+
+    /// Notify waiters from the wait list. Return the number of waiters notified
+    fn do_notify(&mut self, _dst: u32, _count: u32) -> u32 {
+        0
+    }
 }
