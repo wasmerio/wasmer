@@ -1,3 +1,4 @@
+use crate::commands::run::wasi::RunInit;
 use crate::common::get_cache_dir;
 use crate::logging;
 use crate::package_source::PackageSource;
@@ -195,7 +196,7 @@ impl RunWithPathBuf {
         instance: Instance,
         path: &Path,
         invoke: &str,
-        args: &Vec<String>,
+        args: &[String],
     ) -> Result<()> {
         let result = Self::invoke_function(store, &instance, path, invoke, args)?;
         println!(
@@ -338,7 +339,9 @@ impl RunWithPathBuf {
                         .enable_deep_sleep = capable_of_deep_sleep;
 
                     self.inner_module_init(&mut store, &instance)?;
-                    Wasi::run(ctx, store, instance, self.path.clone(), self.invoke.clone(), self.args.clone())
+                    Wasi::run(RunInit {
+                        ctx, store, instance, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
+                    })
                 }
                 // not WASI
                 _ => {

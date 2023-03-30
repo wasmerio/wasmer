@@ -102,6 +102,15 @@ pub struct Wasi {
     pub deny_multiple_wasi_versions: bool,
 }
 
+pub struct RunInit {
+    pub ctx: WasiFunctionEnv,
+    pub store: Store,
+    pub instance: Instance,
+    pub path: PathBuf,
+    pub invoke: Option<String>,
+    pub args: Vec<String>,
+}
+
 #[allow(dead_code)]
 impl Wasi {
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
@@ -242,15 +251,8 @@ impl Wasi {
     }
 
     // Runs the Wasi process
-    pub fn run(
-        ctx: WasiFunctionEnv,
-        store: Store,
-        instance: Instance,
-        path: PathBuf,
-        invoke: Option<String>,
-        args: Vec<String>,
-    ) -> Result<i32> {
-        let tasks = ctx.data(&store).tasks().clone();
+    pub fn run(run: RunInit) -> Result<i32> {
+        let tasks = run.ctx.data(&run.store).tasks().clone();
 
         // The return value is passed synchronously and will block until the result is returned
         // this is because the main thread can go into a deep sleep and exit the dedicated thread
@@ -259,7 +261,7 @@ impl Wasi {
         // We run it in a blocking thread as the WASM function may otherwise hold
         // up the IO operations
         tasks.task_dedicated(Box::new(move || {
-            Self::run_with_deep_sleep(ctx, store, instance, path, invoke, args, tx, None);
+            Self::run_with_deep_sleep(run, tx, None);
         }))?;
         rx.recv()
             .expect("main thread terminated without a result, this normally means a panic occurred within the main thread")
@@ -267,16 +269,13 @@ impl Wasi {
 
     // Runs the Wasi process (asynchronously)
     pub fn run_with_deep_sleep(
-        ctx: WasiFunctionEnv,
-        mut store: Store,
-        instance: Instance,
-        path: PathBuf,
-        invoke: Option<String>,
-        args: Vec<String>,
+        run: RunInit,
         tx: Sender<Result<i32>>,
         rewind_state: Option<(RewindState, Result<(), Errno>)>,
     ) {
         // If we need to rewind then do so
+        let ctx = run.ctx;
+        let mut store = run.store;
         if let Some((mut rewind_state, trigger_res)) = rewind_state {
             if rewind_state.is_64bit {
                 if let Err(exit_code) = rewind_state
@@ -316,13 +315,13 @@ impl Wasi {
         }
 
         // Do we want to invoke a function?
-        if let Some(ref invoke) = invoke {
+        if let Some(ref invoke) = run.invoke {
             let res = RunWithPathBuf::inner_module_invoke_function(
                 &mut store,
-                instance,
-                path.as_path(),
+                run.instance,
+                run.path.as_path(),
                 invoke,
-                &args,
+                &run.args,
             )
             .map(|()| 0);
 
@@ -331,11 +330,20 @@ impl Wasi {
             tx.send(res).unwrap();
         } else {
             let start: Function =
-                RunWithPathBuf::try_find_function(&instance, path.as_path(), "_start", &[])
+                RunWithPathBuf::try_find_function(&run.instance, run.path.as_path(), "_start", &[])
                     .unwrap();
 
             let result = start.call(&mut store, &[]);
-            Self::handle_result(ctx, store, instance, path, invoke, args, result, tx)
+            Self::handle_result(
+                ctx,
+                store,
+                run.instance,
+                run.path,
+                run.invoke,
+                run.args,
+                result,
+                tx,
+            )
         }
     }
 
@@ -368,12 +376,14 @@ impl Wasi {
                             let ctx = ctx.clone();
                             move |store, _module, res| {
                                 Self::run_with_deep_sleep(
-                                    ctx,
-                                    store,
-                                    instance,
-                                    path,
-                                    invoke,
-                                    args,
+                                    RunInit {
+                                        ctx,
+                                        store,
+                                        instance,
+                                        path,
+                                        invoke,
+                                        args,
+                                    },
                                     tx,
                                     Some((rewind, res)),
                                 );
