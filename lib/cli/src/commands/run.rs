@@ -1,3 +1,4 @@
+use crate::commands::run::wasi::RunProperties;
 use crate::common::get_cache_dir;
 use crate::logging;
 use crate::package_source::PackageSource;
@@ -8,7 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::io::Write;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fs::File, net::SocketAddr};
 use wasmer::FunctionEnv;
@@ -180,32 +181,49 @@ impl RunWithPathBuf {
         }
     }
 
-    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
+    fn inner_module_init(&self, store: &mut Store, instance: &Instance) -> Result<()> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
                 .call(store, &[])
                 .with_context(|| "failed to run _initialize function")?;
         }
+        Ok(())
+    }
 
+    fn inner_module_invoke_function(
+        store: &mut Store,
+        instance: Instance,
+        path: &Path,
+        invoke: &str,
+        args: &[String],
+    ) -> Result<()> {
+        let result = Self::invoke_function(store, &instance, path, invoke, args)?;
+        println!(
+            "{}",
+            result
+                .iter()
+                .map(|val| val.to_string())
+                .collect::<Vec<String>>()
+                .join(" ")
+        );
+        Ok(())
+    }
+
+    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
-            let result = self.invoke_function(store, &instance, invoke, &self.args)?;
-            println!(
-                "{}",
-                result
-                    .iter()
-                    .map(|val| val.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            );
+            Self::inner_module_invoke_function(
+                store,
+                instance,
+                self.path.as_path(),
+                invoke,
+                &self.args,
+            )?;
         } else {
-            let start: Function = self.try_find_function(&instance, "_start", &[])?;
-            let result = start.call(store, &[]);
-            #[cfg(feature = "wasi")]
-            return self.wasi.handle_result(result);
-            #[cfg(not(feature = "wasi"))]
-            return Ok(result?);
+            let start: Function =
+                Self::try_find_function(&instance, self.path.as_path(), "_start", &[])?;
+            start.call(store, &[])?;
         }
 
         Ok(0)
@@ -311,19 +329,27 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let (ctx, instance) = self
+                    let (mut ctx, instance) = self
                         .wasi
                         .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
-                    let res = self.inner_module_run(&mut store, instance);
 
-                    ctx.cleanup(&mut store, None);
+                    let capable_of_deep_sleep = ctx.data(&store).capable_of_deep_sleep();
+                    ctx.data_mut(&mut store)
+                        .enable_deep_sleep = capable_of_deep_sleep;
 
-                    res
+                    self.inner_module_init(&mut store, &instance)?;
+                    Wasi::run(
+                        RunProperties {
+                            ctx, instance, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
+                        },
+                        store
+                    )
                 }
                 // not WASI
                 _ => {
                     let instance = Instance::new(&mut store, &module, &imports! {})?;
+                    self.inner_module_init(&mut store, &instance)?;
                     self.inner_module_run(&mut store, instance)
                 }
             }
@@ -346,7 +372,8 @@ impl RunWithPathBuf {
 
             // Do we want to invoke a function?
             if let Some(ref invoke) = self.invoke {
-                let result = self.invoke_function(&instance, invoke, &self.args)?;
+                let result =
+                    Self::invoke_function(&instance, self.path.as_path(), invoke, &self.args)?;
                 println!(
                     "{}",
                     result
@@ -356,7 +383,8 @@ impl RunWithPathBuf {
                         .join(" ")
                 );
             } else {
-                let start: Function = self.try_find_function(&instance, "_start", &[])?;
+                let start: Function =
+                    Self.try_find_function(&instance, self.path.as_path(), "_start", &[])?;
                 let result = start.call(&[]);
                 #[cfg(feature = "wasi")]
                 self.wasi.handle_result(result)?;
@@ -503,8 +531,8 @@ impl RunWithPathBuf {
     }
 
     fn try_find_function(
-        &self,
         instance: &Instance,
+        path: &Path,
         name: &str,
         args: &[String],
     ) -> Result<Function> {
@@ -524,7 +552,7 @@ impl RunWithPathBuf {
                         .join(", ");
                     let suggested_command = format!(
                         "wasmer {} -i {} {}",
-                        self.path.display(),
+                        path.display(),
                         suggested_functions.get(0).unwrap_or(&String::new()),
                         args.join(" ")
                     );
@@ -552,13 +580,13 @@ impl RunWithPathBuf {
     }
 
     fn invoke_function(
-        &self,
         ctx: &mut impl AsStoreMut,
         instance: &Instance,
+        path: &Path,
         invoke: &str,
         args: &[String],
     ) -> Result<Box<[Value]>> {
-        let func: Function = self.try_find_function(instance, invoke, args)?;
+        let func: Function = Self::try_find_function(instance, path, invoke, args)?;
         let func_ty = func.ty(ctx);
         let required_arguments = func_ty.params().len();
         let provided_arguments = args.len();
@@ -567,7 +595,7 @@ impl RunWithPathBuf {
                 "Function expected {} arguments, but received {}: \"{}\"",
                 required_arguments,
                 provided_arguments,
-                self.args.join(" ")
+                args.join(" ")
             );
         }
         let invoke_args = args
