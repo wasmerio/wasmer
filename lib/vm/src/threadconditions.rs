@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::sync::{Arc, LockResult, Mutex, MutexGuard};
+use dashmap::DashMap;
+use std::sync::Arc;
 use std::thread::{current, park, park_timeout, Thread};
 use std::time::Duration;
 
@@ -17,25 +17,21 @@ struct NotifyWaiter {
 }
 #[derive(Debug, Default)]
 struct NotifyMap {
-    pub map: HashMap<NotifyLocation, Vec<NotifyWaiter>>,
+    pub map: DashMap<NotifyLocation, Vec<NotifyWaiter>>,
 }
 
 /// HashMap of Waiters for the Thread/Notify opcodes
 #[derive(Debug)]
 pub struct ThreadConditions {
-    inner: Arc<Mutex<NotifyMap>>, // The Hasmap with the Notify for the Notify/wait opcodes
+    inner: Arc<NotifyMap>, // The Hasmap with the Notify for the Notify/wait opcodes
 }
 
 impl ThreadConditions {
     /// Create a new ThreadConditions
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(NotifyMap::default())),
+            inner: Arc::new(NotifyMap::default()),
         }
-    }
-
-    fn lock_conditions(&mut self) -> LockResult<MutexGuard<NotifyMap>> {
-        self.inner.lock()
     }
 
     // To implement Wait / Notify, a HasMap, behind a mutex, will be used
@@ -50,23 +46,24 @@ impl ThreadConditions {
     /// Add current thread to the waiter hash
     pub fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
         // fetch the notifier
-        let mut conds = self.lock_conditions().unwrap();
-        if conds.map.len() > 1 << 32 {
+        if self.inner.map.len() >= 1 << 32 {
             return None;
         }
-        let v = conds.map.entry(dst).or_insert_with(Vec::new);
-        v.push(NotifyWaiter {
-            thread: current(),
-            notified: false,
-        });
-        drop(conds);
+        self.inner
+            .map
+            .entry(dst)
+            .or_insert_with(Vec::new)
+            .push(NotifyWaiter {
+                thread: current(),
+                notified: false,
+            });
         if let Some(timeout) = timeout {
             park_timeout(timeout);
         } else {
             park();
         }
-        let mut conds = self.lock_conditions().unwrap();
-        let v = conds.map.get_mut(&dst).unwrap();
+        let mut bindding = self.inner.map.get_mut(&dst).unwrap();
+        let v = bindding.value_mut();
         let id = current().id();
         let mut ret = 0;
         v.retain(|cond| {
@@ -77,18 +74,19 @@ impl ThreadConditions {
                 true
             }
         });
-        if v.is_empty() {
-            conds.map.remove(&dst);
+        let empty = v.is_empty();
+        drop(bindding);
+        if empty {
+            self.inner.map.remove(&dst);
         }
         Some(ret)
     }
 
     /// Notify waiters from the wait list
     pub fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
-        let mut conds = self.lock_conditions().unwrap();
         let mut count_token = 0u32;
-        if let Some(v) = conds.map.get_mut(&dst) {
-            for waiter in v {
+        if let Some(mut v) = self.inner.map.get_mut(&dst) {
+            for waiter in v.value_mut() {
                 if count_token < count && !waiter.notified {
                     waiter.notified = true; // mark as was waiked up
                     waiter.thread.unpark(); // wakeup!
