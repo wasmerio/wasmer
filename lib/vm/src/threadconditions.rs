@@ -148,7 +148,7 @@ fn threadconditions_notify_waiter_timeout() {
         let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(1)));
         assert_eq!(ret, Some(2));
     });
-    thread::sleep(Duration::from_millis(10));
+    thread::sleep(Duration::from_millis(50));
     let dst = NotifyLocation { address: 0 };
     let ret = conditions.do_notify(dst, 1);
     assert_eq!(ret, 0);
@@ -171,7 +171,7 @@ fn threadconditions_notify_waiter_mismatch() {
     let dst = NotifyLocation { address: 0 };
     let ret = conditions.do_notify(dst, 1);
     assert_eq!(ret, 0);
-    thread::sleep(Duration::from_millis(10));
+    thread::sleep(Duration::from_millis(100));
 }
 
 #[cfg(test)]
