@@ -114,7 +114,6 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    mem_error_to_wasi_error,
     utils::store::InstanceSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, VirtualBusError, WasiInodes,
 };
