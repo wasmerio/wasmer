@@ -148,6 +148,30 @@ impl Artifact {
     /// # Safety
     /// This function is unsafe because rkyv reads directly without validating
     /// the data.
+    pub fn deserialize_checked(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+        if !ArtifactBuild::is_deserializable(bytes) {
+            return Err(DeserializeError::Incompatible(
+                "Magic header not found".to_string(),
+            ));
+        }
+
+        let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
+
+        let metadata_len = MetadataHeader::parse(bytes)?;
+        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
+
+        let serializable = SerializableModule::deserialize_checked(metadata_slice)?;
+        let artifact = ArtifactBuild::from_serializable(serializable);
+        let mut inner_engine = engine.inner_mut();
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
+    }
+
+    /// Deserialize a ArtifactBuild
+    ///
+    /// # Safety
+    /// This function is unsafe because rkyv reads directly without validating the data.
     pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
             let static_artifact = Self::deserialize_object(engine, bytes);

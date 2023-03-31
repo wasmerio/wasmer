@@ -427,7 +427,7 @@ impl RunWithPathBuf {
         if wasmer_compiler::Artifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::EngineBuilder::headless();
             let store = Store::new(engine);
-            let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
+            let module = Module::deserialize_from_file_checked(&store, &self.path)?;
             return Ok((store, module));
         }
         let (store, compiler_type) = self.store.get_store()?;

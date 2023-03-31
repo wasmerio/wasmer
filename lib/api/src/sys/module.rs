@@ -78,6 +78,19 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
+    pub fn deserialize_checked(
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.into_bytes();
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .0
+            .deserialize_checked(&bytes)?;
+        Ok(Self::from_artifact(artifact))
+    }
+
     pub unsafe fn deserialize_from_file(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
@@ -87,6 +100,18 @@ impl Module {
             .engine()
             .0
             .deserialize_from_file(path.as_ref())?;
+        Ok(Self::from_artifact(artifact))
+    }
+
+    pub fn deserialize_from_file_checked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .0
+            .deserialize_from_file_checked(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
     }
 

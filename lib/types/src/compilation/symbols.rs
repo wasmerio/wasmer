@@ -5,9 +5,9 @@ use crate::{
     SectionIndex, SerializeError, SignatureIndex,
 };
 use rkyv::{
-    archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-    ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
-    Serialize as RkyvSerialize,
+    archived_value, check_archived_value, de::deserializers::SharedDeserializeMap,
+    ser::serializers::AllocSerializer, ser::Serializer as RkyvSerializer, Archive,
+    Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -50,6 +50,7 @@ pub trait SymbolRegistry: Send + Sync {
 /// Serializable struct that represents the compiled metadata.
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct ModuleMetadata {
     /// Compile info
     pub compile_info: CompileModuleInfo,
@@ -114,6 +115,14 @@ impl ModuleMetadata {
         Self::deserialize_from_archive(archived)
     }
 
+    /// Deserialize a Module from a slice.
+    /// The slice must have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    pub fn deserialize_checked(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
+        let archived = Self::archive_from_slice_checked(metadata_slice)?;
+        Self::deserialize_from_archive(archived)
+    }
+
     /// # Safety
     ///
     /// This method is unsafe.
@@ -133,6 +142,25 @@ impl ModuleMetadata {
             &metadata_slice[..metadata_slice.len() - 8],
             pos as usize,
         ))
+    }
+
+    /// # Safety
+    ///
+    /// This method is unsafe.
+    /// Please check `ModuleMetadata::deserialize` for more details.
+    fn archive_from_slice_checked(
+        metadata_slice: &[u8],
+    ) -> Result<&ArchivedModuleMetadata, DeserializeError> {
+        if metadata_slice.len() < 8 {
+            return Err(DeserializeError::Incompatible(
+                "invalid serialized ModuleMetadata".into(),
+            ));
+        }
+        let mut pos: [u8; 8] = Default::default();
+        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
+        let pos: u64 = u64::from_le_bytes(pos);
+        check_archived_value::<Self>(&metadata_slice[..metadata_slice.len() - 8], pos as usize)
+            .map_err(|e| DeserializeError::CorruptedBinary(e.to_string()))
     }
 
     /// Deserialize a compilation module from an archive
