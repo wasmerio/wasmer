@@ -5,6 +5,7 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+pub use crate::threadconditions::NotifyLocation;
 use crate::threadconditions::ThreadConditions;
 use crate::trap::Trap;
 use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
@@ -14,6 +15,7 @@ use std::convert::TryInto;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
 
 // The memory mapped area
@@ -438,12 +440,12 @@ impl LinearMemory for VMSharedMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(&mut self, dst: u32, timeout: i64) -> u32 {
+    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> u32 {
         self.conditions.do_wait(dst, timeout)
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
-    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
+    fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
     }
 }
@@ -515,12 +517,12 @@ impl LinearMemory for VMMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(&mut self, dst: u32, timeout: i64) -> u32 {
+    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> u32 {
         self.0.do_wait(dst, timeout)
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
-    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
+    fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.0.do_notify(dst, count)
     }
 }
@@ -644,12 +646,12 @@ where
 
     /// Add current thread to the waiter hash, and wait until notified or timout.
     /// Return 0 if the waiter has been notified, 2 if the timeout occured, or 0xffff if en error happened
-    fn do_wait(&mut self, _dst: u32, _timeout: i64) -> u32 {
+    fn do_wait(&mut self, _dst: NotifyLocation, _timeout: Option<Duration>) -> u32 {
         0xffff
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
-    fn do_notify(&mut self, _dst: u32, _count: u32) -> u32 {
+    fn do_notify(&mut self, _dst: NotifyLocation, _count: u32) -> u32 {
         0
     }
 }

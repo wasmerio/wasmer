@@ -48,7 +48,8 @@ pub use crate::imports::Imports;
 #[allow(deprecated)]
 pub use crate::instance::{InstanceAllocator, InstanceHandle, VMInstance};
 pub use crate::memory::{
-    initialize_memory_with_data, LinearMemory, VMMemory, VMOwnedMemory, VMSharedMemory,
+    initialize_memory_with_data, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
+    VMSharedMemory,
 };
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;

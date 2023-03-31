@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LockResult, Mutex, MutexGuard};
 use std::thread::{current, park, park_timeout, Thread};
+use std::time::Duration;
 
+/// A location in memory for a Waiter
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
-struct NotifyLocation {
+pub struct NotifyLocation {
+    /// The address of the Waiter location
     pub address: u32,
 }
 
@@ -22,6 +25,8 @@ struct NotifyMap {
 pub struct ThreadConditions {
     inner: Arc<Mutex<NotifyMap>>, // The Hasmap with the Notify for the Notify/wait opcodes
 }
+
+pub const WAIT_ERROR: u32 = 0xffff;
 
 impl ThreadConditions {
     /// Create a new ThreadConditions
@@ -45,26 +50,25 @@ impl ThreadConditions {
     // because `park_timeout` doesn't gives any information on why it returns
 
     /// Add current thread to the waiter hash
-    pub fn do_wait(&mut self, dst: u32, timeout: i64) -> u32 {
+    pub fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> u32 {
         // fetch the notifier
-        let key = NotifyLocation { address: dst };
         let mut conds = self.lock_conditions().unwrap();
         if conds.map.len() > 1 << 32 {
-            return 0xffff;
+            return WAIT_ERROR;
         }
-        let v = conds.map.entry(key).or_insert_with(Vec::new);
+        let v = conds.map.entry(dst).or_insert_with(Vec::new);
         v.push(NotifyWaiter {
             thread: current(),
             notified: false,
         });
         drop(conds);
-        if timeout < 0 {
-            park();
+        if let Some(timeout) = timeout {
+            park_timeout(timeout);
         } else {
-            park_timeout(std::time::Duration::from_nanos(timeout as u64));
+            park();
         }
         let mut conds = self.lock_conditions().unwrap();
-        let v = conds.map.get_mut(&key).unwrap();
+        let v = conds.map.get_mut(&dst).unwrap();
         let id = current().id();
         let mut ret = 0;
         v.retain(|cond| {
@@ -76,26 +80,25 @@ impl ThreadConditions {
             }
         });
         if v.is_empty() {
-            conds.map.remove(&key);
+            conds.map.remove(&dst);
         }
         ret
     }
 
     /// Notify waiters from the wait list
-    pub fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
-        let key = NotifyLocation { address: dst };
+    pub fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         let mut conds = self.lock_conditions().unwrap();
-        let mut cnt = 0u32;
-        if let Some(v) = conds.map.get_mut(&key) {
+        let mut count_token = 0u32;
+        if let Some(v) = conds.map.get_mut(&dst) {
             for waiter in v {
-                if cnt < count && !waiter.notified {
+                if count_token < count && !waiter.notified {
                     waiter.notified = true; // mark as was waiked up
                     waiter.thread.unpark(); // wakeup!
-                    cnt += 1;
+                    count_token += 1;
                 }
             }
         }
-        cnt
+        count_token
     }
 }
 

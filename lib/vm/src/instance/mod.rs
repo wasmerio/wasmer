@@ -19,8 +19,8 @@ use crate::vmcontext::{
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-use crate::LinearMemory;
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
+use crate::{LinearMemory, NotifyLocation};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -822,7 +822,13 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = memory.do_wait(dst, timeout);
+                let location = NotifyLocation { address: dst };
+                let timeout = if timeout < 0 {
+                    None
+                } else {
+                    Some(std::time::Duration::from_nanos(timeout as u64))
+                };
+                ret = memory.do_wait(location, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -852,7 +858,13 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = memory.do_wait(dst, timeout);
+                let location = NotifyLocation { address: dst };
+                let timeout = if timeout < 0 {
+                    None
+                } else {
+                    Some(std::time::Duration::from_nanos(timeout as u64))
+                };
+                ret = memory.do_wait(location, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -882,7 +894,13 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = memory.do_wait(dst, timeout);
+                let location = NotifyLocation { address: dst };
+                let timeout = if timeout < 0 {
+                    None
+                } else {
+                    Some(std::time::Duration::from_nanos(timeout as u64))
+                };
+                ret = memory.do_wait(location, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -913,7 +931,13 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = memory.do_wait(dst, timeout);
+                let location = NotifyLocation { address: dst };
+                let timeout = if timeout < 0 {
+                    None
+                } else {
+                    Some(std::time::Duration::from_nanos(timeout as u64))
+                };
+                ret = memory.do_wait(location, timeout);
             }
             if ret == 0xffff {
                 // ret is 0xffff if there is more than 2^32 waiter in queue
@@ -934,7 +958,8 @@ impl Instance {
     ) -> Result<u32, Trap> {
         let memory = self.get_local_vmmemory_mut(memory_index);
         // fetch the notifier
-        Ok(memory.do_notify(dst, count))
+        let location = NotifyLocation { address: dst };
+        Ok(memory.do_notify(location, count))
     }
 
     /// Perform an Atomic.Notify
@@ -946,7 +971,8 @@ impl Instance {
     ) -> Result<u32, Trap> {
         let memory = self.get_vmmemory_mut(memory_index);
         // fetch the notifier
-        Ok(memory.do_notify(dst, count))
+        let location = NotifyLocation { address: dst };
+        Ok(memory.do_notify(location, count))
     }
 }
 
