@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct PrimaryMap<K, V>
 where
     K: EntityRef,

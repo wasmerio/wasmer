@@ -6,9 +6,10 @@ use crate::{
     SerializeError, SignatureIndex, TableIndex, TableStyle,
 };
 use enumset::EnumSet;
+use rkyv::check_archived_value;
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-    ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
+    ser::Serializer as RkyvSerializer, Archive, CheckBytes, Deserialize as RkyvDeserialize,
     Serialize as RkyvSerialize,
 };
 use std::convert::TryInto;
@@ -17,6 +18,7 @@ use std::mem;
 /// The compilation related data for a serialized modules
 #[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
+#[archive_attr(derive(CheckBytes))]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -51,6 +53,7 @@ impl SerializableCompilation {
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
+#[archive_attr(derive(CheckBytes))]
 pub struct SerializableModule {
     /// The main serializable compilation object
     pub compilation: SerializableCompilation,
@@ -96,6 +99,16 @@ impl SerializableModule {
         Self::deserialize_from_archive(archived)
     }
 
+    /// Deserialize a Module from a slice.
+    /// The slice must have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    ///
+    /// Unlike [`Self::deserialize`], this function will validate the data.
+    pub fn deserialize_checked(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
+        let archived = Self::archive_from_slice_checked(metadata_slice)?;
+        Self::deserialize_from_archive(archived)
+    }
+
     /// # Safety
     ///
     /// This method is unsafe.
@@ -115,6 +128,25 @@ impl SerializableModule {
             &metadata_slice[..metadata_slice.len() - 8],
             pos as usize,
         ))
+    }
+
+    /// Deserialize an archived module.
+    ///
+    /// In contrast to [`Self::deserialize`], this method performs validation
+    /// and is not unsafe.
+    fn archive_from_slice_checked(
+        metadata_slice: &[u8],
+    ) -> Result<&ArchivedSerializableModule, DeserializeError> {
+        if metadata_slice.len() < 8 {
+            return Err(DeserializeError::Incompatible(
+                "invalid serialized data".into(),
+            ));
+        }
+        let mut pos: [u8; 8] = Default::default();
+        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
+        let pos: u64 = u64::from_le_bytes(pos);
+        check_archived_value::<Self>(&metadata_slice[..metadata_slice.len() - 8], pos as usize)
+            .map_err(|err| DeserializeError::CorruptedBinary(err.to_string()))
     }
 
     /// Deserialize a compilation module from an archive
@@ -175,7 +207,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    const CURRENT_VERSION: u32 = 3;
+    const CURRENT_VERSION: u32 = 4;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

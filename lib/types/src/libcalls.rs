@@ -18,9 +18,11 @@ use std::fmt;
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
+#[repr(u16)]
 pub enum LibCall {
     /// ceil.f32
     CeilF32,

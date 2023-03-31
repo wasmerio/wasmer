@@ -219,6 +219,8 @@ impl Module {
 
     /// Deserializes a serialized Module binary into a `Module`.
     ///
+    /// Note: You should usually prefer the safe [`Module::deserialize_checked`].
+    ///
     /// # Important
     ///
     /// This function only accepts a custom binary format, which will be different
@@ -251,6 +253,56 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         Ok(Self(module_imp::Module::deserialize(engine, bytes)?))
+    }
+
+    /// Deserializes a serialized Module binary into a `Module`.
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
+    /// let module = Module::deserialize_checked(&store, serialized_data)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn deserialize_checked(
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self(module_imp::Module::deserialize_checked(
+            engine, bytes,
+        )?))
+    }
+
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn deserialize_from_file_checked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self(module_imp::Module::deserialize_from_file_checked(
+            engine, path,
+        )?))
     }
 
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
