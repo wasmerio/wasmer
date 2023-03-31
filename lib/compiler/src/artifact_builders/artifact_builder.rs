@@ -6,10 +6,12 @@ use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::ArtifactCreate;
 use crate::EngineInner;
 use crate::Features;
+use crate::NextArtifact;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
 use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::Compilation;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::{
@@ -24,7 +26,8 @@ use wasmer_types::{MetadataHeader, SerializeError};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct ArtifactBuild {
-    serializable: SerializableModule,
+    pub(crate) serializable: SerializableModule,
+    pub(crate) next: Option<NextArtifact>,
 }
 
 impl ArtifactBuild {
@@ -64,7 +67,24 @@ impl ArtifactBuild {
             table_styles,
         };
 
+        let data_initializers = translation
+            .data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
+
         // Compile the Module
+        let next_artifact = compiler.get_next_artifact(
+            target,
+            &compile_info,
+            translation.module_translation_state.as_ref().unwrap(),
+            &translation.function_body_inputs,
+            data_initializers.clone(),
+            cpu_features.clone(),
+        );
         let compilation = compiler.compile_module(
             target,
             &compile_info,
@@ -74,54 +94,18 @@ impl ArtifactBuild {
             translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
         )?;
-
-        let data_initializers = translation
-            .data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
-        // Synthesize a custom section to hold the libcall trampolines.
-        let mut function_frame_info = PrimaryMap::with_capacity(compilation.functions.len());
-        let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
-        let mut function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
-        for (_, func) in compilation.functions.into_iter() {
-            function_bodies.push(func.body);
-            function_relocations.push(func.relocations);
-            function_frame_info.push(func.frame_info);
-        }
-        let mut custom_sections = compilation.custom_sections.clone();
-        let mut custom_section_relocations = compilation
-            .custom_sections
-            .iter()
-            .map(|(_, section)| section.relocations.clone())
-            .collect::<PrimaryMap<SectionIndex, _>>();
-        let libcall_trampolines_section = make_libcall_trampolines(target);
-        custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
-        let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
-        let libcall_trampoline_len = libcall_trampoline_len(target) as u32;
-        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
-
-        let serializable_compilation = SerializableCompilation {
-            function_bodies,
-            function_relocations,
-            function_frame_info,
-            function_call_trampolines: compilation.function_call_trampolines,
-            dynamic_function_trampolines: compilation.dynamic_function_trampolines,
-            custom_sections,
-            custom_section_relocations,
-            debug: compilation.debug,
-            libcall_trampolines,
-            libcall_trampoline_len,
-        };
-        let serializable = SerializableModule {
-            compilation: serializable_compilation,
+        let serializable = Self::convert_to_serializable(
+            compilation,
+            &target,
+            cpu_features,
             compile_info,
             data_initializers,
-            cpu_features: cpu_features.as_u64(),
-        };
-        Ok(Self { serializable })
+        );
+
+        Ok(Self {
+            serializable,
+            next: next_artifact,
+        })
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -141,7 +125,10 @@ impl ArtifactBuild {
 
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
-        Self { serializable }
+        Self {
+            serializable,
+            next: None,
+        }
     }
 
     /// Get Functions Bodies ref
@@ -192,6 +179,60 @@ impl ArtifactBuild {
     /// Get Function Relocations ref
     pub fn get_frame_info_ref(&self) -> &PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
         &self.serializable.compilation.function_frame_info
+    }
+
+    /// Gets the next artifiact in the build chain
+    /// (used by the tiered compiler)
+    pub fn get_next_artifact(&self) -> Option<NextArtifact> {
+        self.next.clone()
+    }
+
+    /// Converts a compilation result into a serializable module
+    pub fn convert_to_serializable(
+        compilation: Compilation,
+        target: &Target,
+        cpu_features: EnumSet<CpuFeature>,
+        compile_info: CompileModuleInfo,
+        data_initializers: Box<[OwnedDataInitializer]>,
+    ) -> SerializableModule {
+        // Synthesize a custom section to hold the libcall trampolines.
+        let mut function_frame_info = PrimaryMap::with_capacity(compilation.functions.len());
+        let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
+        let mut function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
+        for (_, func) in compilation.functions.into_iter() {
+            function_bodies.push(func.body);
+            function_relocations.push(func.relocations);
+            function_frame_info.push(func.frame_info);
+        }
+        let mut custom_sections = compilation.custom_sections.clone();
+        let mut custom_section_relocations = compilation
+            .custom_sections
+            .iter()
+            .map(|(_, section)| section.relocations.clone())
+            .collect::<PrimaryMap<SectionIndex, _>>();
+        let libcall_trampolines_section = make_libcall_trampolines(target);
+        custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
+        let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
+        let libcall_trampoline_len = libcall_trampoline_len(target) as u32;
+
+        let serializable_compilation = SerializableCompilation {
+            function_bodies,
+            function_relocations,
+            function_frame_info,
+            function_call_trampolines: compilation.function_call_trampolines,
+            dynamic_function_trampolines: compilation.dynamic_function_trampolines,
+            custom_sections,
+            custom_section_relocations,
+            debug: compilation.debug,
+            libcall_trampolines,
+            libcall_trampoline_len,
+        };
+        SerializableModule {
+            compilation: serializable_compilation,
+            compile_info,
+            data_initializers,
+            cpu_features: cpu_features.as_u64(),
+        }
     }
 }
 

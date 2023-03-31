@@ -205,7 +205,8 @@ impl Wasi {
             builder.capabilities_mut().http_client = caps;
         }
 
-        if self.enable_async_threads {
+        let is_tiered_module = module.is_upgradable();
+        if self.enable_async_threads || is_tiered_module {
             builder
                 .capabilities_mut()
                 .threading

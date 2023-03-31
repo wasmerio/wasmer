@@ -106,6 +106,22 @@ pub struct CompilerOptions {
     #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
     llvm: bool,
 
+    /// Use Singlepass compiler.
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "tiered-compilation"])]
+    singlepass: bool,
+
+    /// Use Cranelift compiler.
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "tiered-compilation"])]
+    cranelift: bool,
+
+    /// Use LLVM compiler.
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "tiered-compilation"])]
+    llvm: bool,
+
+    /// Use tiered compilation. Singlepass followed by Cranelift
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
+    tiered_compilation: bool,
+
     /// Enable compiler internal verification.
     #[allow(unused)]
     #[clap(long)]

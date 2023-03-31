@@ -6,6 +6,7 @@ use crate::ArtifactBuild;
 use crate::ArtifactCreate;
 use crate::Features;
 use crate::ModuleEnvironment;
+use crate::NextArtifact;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, RuntimeError, Tunables,
@@ -83,6 +84,9 @@ pub struct Artifact {
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
+    // When the module is a tiered module this location holds a reference to
+    // a location where the next module will be located
+    next_tier: Option<NextArtifact>,
 }
 
 impl Artifact {
@@ -186,6 +190,7 @@ impl Artifact {
         if !target.is_native() {
             return Ok(Self {
                 id: Default::default(),
+                next_tier: artifact.get_next_artifact(),
                 artifact,
                 allocated: None,
             });
@@ -269,12 +274,34 @@ impl Artifact {
                 frame_info_registration: Some(Mutex::new(None)),
                 finished_function_lengths,
             }),
+            next_tier: None,
         })
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         ArtifactBuild::is_deserializable(bytes)
+    }
+
+    /// Indicates if this module is upgradable to another module.
+    ///
+    /// Upgradable modules are used for tiered compilation to transition from a
+    /// module that is compiled very quickly (i.e. `singlepass`) to another that
+    /// is highly optimized (i.e. `cranelift`)
+    pub fn is_upgradable(&self) -> bool {
+        self.next_tier.is_some()
+    }
+
+    /// Tries to upgrade this artifact to its next tier
+    ///
+    /// Normally an upgrade operation is used to transition a module from one
+    /// tier to another. For example from `singlepass` to `cranelift`
+    pub fn try_upgrade(&self, engine: &Engine) -> Option<Arc<Artifact>> {
+        self.next_tier
+            .as_ref()
+            .into_iter()
+            .filter_map(|next| next.get(engine))
+            .next()
     }
 }
 
@@ -856,6 +883,7 @@ impl Artifact {
                 finished_function_lengths,
                 frame_info_registration: None,
             }),
+            next_tier: None,
         })
     }
 }

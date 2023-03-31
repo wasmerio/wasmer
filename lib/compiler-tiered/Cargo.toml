@@ -1,0 +1,26 @@
+[package]
+name = "wasmer-compiler-tiered"
+version = "3.2.0-beta.1"
+description = "Tiered compiler for Wasmer WebAssembly runtime"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "compiler"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+documentation = "https://docs.rs/wasmer-compiler-tiered/"
+license = "MIT"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-compiler = { path = "../compiler", version = "=3.2.0-beta.1", features = ["translator", "compiler"], default-features = false }
+wasmer-compiler-cranelift = { version = "=3.2.0-beta.1", path = "../compiler-cranelift" }
+wasmer-compiler-singlepass = { version = "=3.2.0-beta.1", path = "../compiler-singlepass" }
+wasmer-types = { path = "../types", version = "=3.2.0-beta.1", default-features = false, features = ["std"] }
+enumset = "1.0.2"
+lazy_static = "1.4"
+thread-priority = "0.13.1"
+
+[features]
+default = ["std"]
+std = ["wasmer-compiler/std", "wasmer-types/std"]
+core = ["wasmer-types/core"]

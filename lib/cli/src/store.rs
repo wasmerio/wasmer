@@ -29,16 +29,20 @@ pub struct StoreOptions {
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "tiered-compilation"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "tiered-compilation"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "tiered-compilation"])]
     llvm: bool,
+
+    /// Use tiered compilation. Singlepass followed by Cranelift
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
+    tiered_compilation: bool,
 
     /// Enable compiler internal verification.
     #[clap(long)]
@@ -63,10 +67,15 @@ impl CompilerOptions {
             Ok(CompilerType::LLVM)
         } else if self.singlepass {
             Ok(CompilerType::Singlepass)
+        } else if self.tiered_compilation {
+            Ok(CompilerType::Tiered)
         } else {
             // Auto mode, we choose the best compiler for that platform
             cfg_if::cfg_if! {
-                if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
+                if #[cfg(all(feature = "tiered", any(target_arch = "x86_64", target_arch = "aarch64")))] {
+                    Ok(CompilerType::Tiered)
+                }
+                else if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
                     Ok(CompilerType::Cranelift)
                 }
                 else if #[cfg(all(feature = "singlepass", any(target_arch = "x86_64", target_arch = "aarch64")))] {
@@ -151,6 +160,14 @@ impl CompilerOptions {
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
+                Box::new(config)
+            }
+            #[cfg(feature = "tiered")]
+            CompilerType::Tiered => {
+                let mut config = wasmer_compiler_tiered::Tiered::new();
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
@@ -259,7 +276,12 @@ impl CompilerOptions {
                 }
                 Box::new(config)
             }
-            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
+            #[cfg(not(all(
+                feature = "singlepass",
+                feature = "cranelift",
+                feature = "tiered",
+                feature = "llvm",
+            )))]
             compiler => {
                 bail!(
                     "The `{}` compiler is not included in this binary.",
@@ -282,6 +304,8 @@ pub enum CompilerType {
     Cranelift,
     /// LLVM compiler
     LLVM,
+    /// Tiered compiler
+    Tiered,
     /// Headless compiler
     Headless,
 }
@@ -294,6 +318,8 @@ impl CompilerType {
             Self::Singlepass,
             #[cfg(feature = "cranelift")]
             Self::Cranelift,
+            #[cfg(all(feature = "singlepass", feature = "cranelift"))]
+            Self::Tiered,
             #[cfg(feature = "llvm")]
             Self::LLVM,
         ]
@@ -306,6 +332,7 @@ impl ToString for CompilerType {
             Self::Singlepass => "singlepass".to_string(),
             Self::Cranelift => "cranelift".to_string(),
             Self::LLVM => "llvm".to_string(),
+            Self::Tiered => "tiered".to_string(),
             Self::Headless => "headless".to_string(),
         }
     }

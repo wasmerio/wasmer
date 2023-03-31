@@ -232,6 +232,24 @@ impl Features {
         self.memory64 = enable;
         self
     }
+
+    /// Determines features that are in this feature list and the other
+    pub fn and(self, other: Self) -> Self {
+        Self {
+            threads: self.threads && other.threads,
+            reference_types: self.reference_types && other.reference_types,
+            simd: self.simd && other.simd,
+            bulk_memory: self.bulk_memory && other.bulk_memory,
+            multi_value: self.multi_value && other.multi_value,
+            tail_call: self.tail_call && other.tail_call,
+            module_linking: self.module_linking && other.module_linking,
+            multi_memory: self.multi_memory && other.multi_memory,
+            memory64: self.memory64 && other.memory64,
+            exceptions: self.exceptions && other.exceptions,
+            relaxed_simd: self.relaxed_simd && other.relaxed_simd,
+            extended_const: self.extended_const && other.extended_const,
+        }
+    }
 }
 
 impl Default for Features {

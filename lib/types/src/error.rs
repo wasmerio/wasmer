@@ -131,7 +131,7 @@ use crate::lib::std::string::String;
 /// This is based on the [Wasm Compile Error][compile-error] API.
 ///
 /// [compiler-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/CompileError
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum CompileError {
     /// A Wasm translation error occured.
@@ -167,7 +167,7 @@ impl From<WasmError> for CompileError {
 }
 
 /// A error in the middleware.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 #[cfg_attr(feature = "std", error("Error in middleware {name}: {message}"))]
 pub struct MiddlewareError {
@@ -191,7 +191,7 @@ impl MiddlewareError {
 ///
 /// When a WebAssembly function can't be translated, one of these error codes will be returned
 /// to describe the failure.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum WasmError {
     /// The input WebAssembly code is invalid.

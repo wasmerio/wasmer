@@ -400,6 +400,23 @@ impl Module {
     pub fn info(&self) -> &ModuleInfo {
         self.0.info()
     }
+
+    /// Indicates if this module is upgradable to another module.
+    ///
+    /// Upgradable modules are used for tiered compilation to transition from a
+    /// module that is compiled very quickly (i.e. `singlepass`) to another that
+    /// is highly optimized (i.e. `cranelift`)
+    pub fn is_upgradable(&self) -> bool {
+        self.0.is_upgradable()
+    }
+
+    /// Tries to upgrade this module to its next tier
+    ///
+    /// Normally an upgrade operation is used to transition a module from one
+    /// tier to another. For example from `singlepass` to `cranelift`
+    pub fn try_upgrade(&self, engine: &impl AsEngineRef) -> Option<Module> {
+        self.0.try_upgrade(engine).map(|m| Self(m))
+    }
 }
 
 impl fmt::Debug for Module {

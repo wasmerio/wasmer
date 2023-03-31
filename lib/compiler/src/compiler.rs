@@ -6,6 +6,7 @@ use crate::lib::std::sync::Arc;
 use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
+use crate::NextArtifact;
 use enumset::EnumSet;
 use wasmer_types::compilation::function::Compilation;
 use wasmer_types::compilation::module::CompileModuleInfo;
@@ -13,6 +14,7 @@ use wasmer_types::compilation::symbols::SymbolRegistry;
 use wasmer_types::compilation::target::Target;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::error::CompileError;
+use wasmer_types::OwnedDataInitializer;
 use wasmer_types::{CpuFeature, Features, LocalFunctionIndex};
 use wasmparser::{Validator, WasmFeatures};
 
@@ -152,5 +154,20 @@ pub trait Compiler: Send {
     /// Get the CpuFeatues used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         *cpu_features
+    }
+
+    /// Get the next artifact in the compilation chain
+    /// (used by the tiered compiler but otherwise defaults to no chaining)
+    fn get_next_artifact<'data, 'module>(
+        &self,
+        _target: &Target,
+        _module: &'module CompileModuleInfo,
+        _module_translation: &ModuleTranslationState,
+        // The list of function bodies
+        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _data_initializers: Box<[OwnedDataInitializer]>,
+        _cpu_features: EnumSet<CpuFeature>,
+    ) -> Option<NextArtifact> {
+        None
     }
 }

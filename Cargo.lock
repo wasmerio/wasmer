@@ -4206,6 +4206,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "thread-priority"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c56ce92f1285eaaa11fc1a3201e25de97898c50e87caa4c2aee836fe05288de"
+dependencies = [
+ "bitflags",
+ "cfg-if 1.0.0",
+ "libc",
+ "log",
+ "rustversion",
+ "winapi",
+]
+
+[[package]]
 name = "thread_local"
 version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5379,6 +5393,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-compiler-tiered",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry 4.2.0",
@@ -5496,6 +5511,19 @@ dependencies = [
  "smallvec",
  "target-lexicon 0.12.6",
  "wasmer-compiler",
+ "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-compiler-tiered"
+version = "3.2.0-beta.1"
+dependencies = [
+ "enumset",
+ "lazy_static",
+ "thread-priority",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
+ "wasmer-compiler-singlepass",
  "wasmer-types",
 ]
 

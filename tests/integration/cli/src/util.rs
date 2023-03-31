@@ -7,6 +7,7 @@ pub enum Compiler {
     Cranelift,
     LLVM,
     Singlepass,
+    Tiered,
 }
 
 impl Compiler {
@@ -15,6 +16,7 @@ impl Compiler {
             Compiler::Cranelift => "--cranelift",
             Compiler::LLVM => "--llvm",
             Compiler::Singlepass => "--singlepass",
+            Compiler::Tiered => "--tiered-compilation",
         }
     }
 }

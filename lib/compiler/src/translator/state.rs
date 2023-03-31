@@ -15,7 +15,7 @@ pub(crate) type WasmTypes =
 /// This is only for data that is maintained by `wasmer-compiler` itself, as
 /// opposed to being maintained by the embedder. Data that is maintained by the
 /// embedder is represented with `ModuleEnvironment`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ModuleTranslationState {
     /// A map containing a Wasm module's original, raw signatures.
     ///

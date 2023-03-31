@@ -27,6 +27,36 @@ pub struct FunctionBodyData<'a> {
     pub module_offset: usize,
 }
 
+impl<'a> FunctionBodyData<'a> {
+    /// Converts this object into an owned version that is send and sync
+    pub fn into_owned(&self) -> FunctionBodyDataOwned {
+        FunctionBodyDataOwned {
+            data: self.data.to_vec(),
+            module_offset: self.module_offset,
+        }
+    }
+}
+
+/// Contains function data: bytecode and its offset in the module.
+#[derive(Clone, Hash)]
+pub struct FunctionBodyDataOwned {
+    /// Function body bytecode.
+    pub data: Vec<u8>,
+
+    /// Body offset relative to the module file.
+    pub module_offset: usize,
+}
+
+impl FunctionBodyDataOwned {
+    /// Converts this function body back into a reference object
+    pub fn into_ref<'a>(&'a self) -> FunctionBodyData<'a> {
+        FunctionBodyData {
+            data: &self.data[..],
+            module_offset: self.module_offset,
+        }
+    }
+}
+
 /// Trait for iterating over the operators of a Wasm Function
 pub trait FunctionBinaryReader<'a> {
     /// Read a `count` indicating the number of times to call `read_local_decl`.

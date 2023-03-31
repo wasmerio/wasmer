@@ -12,7 +12,7 @@ use wasmer_types::{ExportType, ImportType};
 use crate::vm::VMInstance;
 use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.
@@ -30,6 +30,13 @@ pub struct Module {
     // ownership of the code and its metadata.
     artifact: Arc<Artifact>,
 }
+
+impl PartialEq for Module {
+    fn eq(&self, other: &Self) -> bool {
+        self.artifact.eq(&other.artifact)
+    }
+}
+impl Eq for Module {}
 
 impl Module {
     pub(crate) fn from_binary(
@@ -164,5 +171,16 @@ impl Module {
 
     pub(crate) fn info(&self) -> &ModuleInfo {
         self.artifact.module_info()
+    }
+
+    pub(crate) fn is_upgradable(&self) -> bool {
+        self.artifact.is_upgradable()
+    }
+
+    pub(crate) fn try_upgrade(&self, engine: &impl AsEngineRef) -> Option<Module> {
+        let engine_ref = engine.as_engine_ref();
+        self.artifact
+            .try_upgrade(&engine_ref.engine().0)
+            .map(|a| Self::from_artifact(a))
     }
 }

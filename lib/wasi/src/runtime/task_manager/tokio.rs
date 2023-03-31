@@ -152,13 +152,20 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
         store: Store,
-        module: Module,
+        mut module: Module,
         trigger: Box<WasmResumeTrigger>,
     ) -> Result<(), WasiThreadError> {
+        let engine = store.engine().clone();
         let trigger = trigger(store);
         let handle = self.0.clone();
         self.0.spawn(async move {
             let action = trigger.await;
+
+            // Attempt to upgrade the module
+            if let Some(m) = module.try_upgrade(&engine) {
+                module = m;
+            }
+
             if let TaskResumeAction::Run(store, res) = action {
                 handle.spawn_blocking(move || {
                     // Invoke the callback
