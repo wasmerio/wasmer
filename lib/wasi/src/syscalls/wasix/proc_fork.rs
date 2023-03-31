@@ -313,14 +313,14 @@ fn run<M: MemorySize>(
     let mut ret: ExitCode = Errno::Success.into();
     let err = if ctx.data(&store).thread.is_main() {
         trace!(%pid, %tid, "re-invoking main");
-        let start = ctx.data(&store).inner().functions.start.clone().unwrap();
+        let start = ctx.data(&store).inner().exports.start.clone().unwrap();
         start.call(&mut store)
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
         let start = ctx
             .data(&store)
             .inner()
-            .functions
+            .exports
             .thread_spawn
             .clone()
             .unwrap();

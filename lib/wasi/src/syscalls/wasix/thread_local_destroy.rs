@@ -28,7 +28,7 @@ pub fn thread_local_destroy(mut ctx: FunctionEnvMut<'_, WasiEnv>, key: TlKey) ->
         if let Some(thread_local_destroy) = ctx
             .data()
             .inner()
-            .functions
+            .exports
             .thread_local_destroy
             .as_ref()
             .cloned()

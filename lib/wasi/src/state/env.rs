@@ -40,7 +40,10 @@ use super::WasiState;
 /// Used to access and modify runtime state.
 // TODO: make fields private
 #[derive(Clone)]
-pub struct WasiInstanceFunctions {
+pub struct WasiInstanceExports {
+    /// Points to the current location of the memory stack pointer
+    pub(crate) stack_pointer: Option<Global>,
+
     /// Main function that will be invoked (name = "_start")
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
@@ -109,9 +112,14 @@ pub struct WasiInstanceFunctions {
 }
 
 /// Represents all the functions used by WASI
-impl WasiInstanceFunctions {
+impl WasiInstanceExports {
     pub fn new(store: &impl AsStoreRef, instance: &Instance) -> Self {
         Self {
+            stack_pointer: instance
+                .exports
+                .get_global("__stack_pointer")
+                .map(|a| a.clone())
+                .ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),
             initialize: instance
                 .exports
@@ -167,9 +175,6 @@ pub struct WasiInstanceHandles {
     pub(crate) memory: Memory,
     pub(crate) instance: wasmer::Instance,
 
-    /// Points to the current location of the memory stack pointer
-    pub(crate) stack_pointer: Option<Global>,
-
     /// Flag that indicates if the signal callback has been set by the WASM
     /// process - if it has not been set then the runtime behaves differently
     /// when a CTRL-C is pressed.
@@ -177,19 +182,14 @@ pub struct WasiInstanceHandles {
 
     // Represents all the instance functions
     #[derivative(Debug = "ignore")]
-    pub(crate) functions: WasiInstanceFunctions,
+    pub(crate) exports: WasiInstanceExports,
 }
 
 impl WasiInstanceHandles {
     pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
         WasiInstanceHandles {
             memory,
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
-            functions: WasiInstanceFunctions::new(store, &instance),
+            exports: WasiInstanceExports::new(store, &instance),
             instance,
             signal_set: false,
         }
@@ -392,9 +392,9 @@ impl WasiEnv {
             return false;
         }
         let inner = self.inner();
-        inner.functions.asyncify_get_state.is_some()
-            && inner.functions.asyncify_start_rewind.is_some()
-            && inner.functions.asyncify_start_unwind.is_some()
+        inner.exports.asyncify_get_state.is_some()
+            && inner.exports.asyncify_start_rewind.is_some()
+            && inner.exports.asyncify_start_unwind.is_some()
     }
 
     /// Returns true if this thread can go into a deep sleep
@@ -611,7 +611,7 @@ impl WasiEnv {
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if env.inner().functions.signal.as_ref().is_some() {
+        if env.inner().exports.signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
             Ok(Ok(Self::process_signals_internal(ctx, signals)?))
         } else {
@@ -624,7 +624,7 @@ impl WasiEnv {
         mut signals: Vec<Signal>,
     ) -> Result<bool, WasiError> {
         let env = ctx.data();
-        if let Some(handler) = env.inner().functions.signal.clone() {
+        if let Some(handler) = env.inner().exports.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;
             let has_signal_interval = {

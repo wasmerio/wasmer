@@ -911,15 +911,16 @@ pub(crate) fn get_memory_stack_pointer(
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
     let stack_upper = get_stack_upper(ctx.data());
-    let stack_pointer = if let Some(stack_pointer) = ctx.data().inner().stack_pointer.clone() {
-        match stack_pointer.get(ctx) {
-            Value::I32(a) => a as u64,
-            Value::I64(a) => a as u64,
-            _ => stack_upper,
-        }
-    } else {
-        return Err("failed to save stack: not exported __stack_pointer global".to_string());
-    };
+    let stack_pointer =
+        if let Some(stack_pointer) = ctx.data().inner().exports.stack_pointer.clone() {
+            match stack_pointer.get(ctx) {
+                Value::I32(a) => a as u64,
+                Value::I64(a) => a as u64,
+                _ => stack_upper,
+            }
+        } else {
+            return Err("failed to save stack: not exported __stack_pointer global".to_string());
+        };
     Ok(stack_pointer)
 }
 
@@ -939,7 +940,7 @@ pub(crate) fn set_memory_stack_offset(
     // Sets the stack pointer
     let stack_upper = get_stack_upper(env);
     let stack_pointer = stack_upper - offset;
-    if let Some(stack_pointer_ptr) = env.inner().stack_pointer.clone() {
+    if let Some(stack_pointer_ptr) = env.inner().exports.stack_pointer.clone() {
         match stack_pointer_ptr.get(store) {
             Value::I32(_) => {
                 stack_pointer_ptr.set(store, Value::I32(stack_pointer as i32));
@@ -968,7 +969,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
     let stack_base = get_stack_upper(env);
-    let stack_pointer = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+    let stack_pointer = if let Some(stack_pointer) = env.inner().exports.stack_pointer.clone() {
         match stack_pointer.get(store) {
             Value::I32(a) => a as u64,
             Value::I64(a) => a as u64,
@@ -1120,7 +1121,7 @@ where
     // Invoke the callback that will prepare to unwind
     // We need to start unwinding the stack
     let asyncify_data = wasi_try_ok!(unwind_pointer.try_into().map_err(|_| Errno::Overflow));
-    if let Some(asyncify_start_unwind) = env.inner().functions.asyncify_start_unwind.clone() {
+    if let Some(asyncify_start_unwind) = env.inner().exports.asyncify_start_unwind.clone() {
         asyncify_start_unwind.call(&mut ctx, asyncify_data);
     } else {
         warn!("failed to unwind the stack because the asyncify_start_rewind export is missing");
@@ -1180,7 +1181,7 @@ where
             .map_err(|err| format!("failed to read stack: {}", err))?;
 
         // Notify asyncify that we are no longer unwinding
-        if let Some(asyncify_stop_unwind) = env.inner().functions.asyncify_stop_unwind.clone() {
+        if let Some(asyncify_stop_unwind) = env.inner().exports.asyncify_stop_unwind.clone() {
             asyncify_stop_unwind.call(&mut ctx);
         } else {
             warn!("failed to unwind the stack because the asyncify_start_rewind export is missing");
@@ -1256,7 +1257,7 @@ pub fn rewind<M: MemorySize>(
 
     // Invoke the callback that will prepare to rewind
     let asyncify_data = wasi_try!(rewind_pointer.try_into().map_err(|_| Errno::Overflow));
-    if let Some(asyncify_start_rewind) = env.inner().functions.asyncify_start_rewind.clone() {
+    if let Some(asyncify_start_rewind) = env.inner().exports.asyncify_start_rewind.clone() {
         asyncify_start_rewind.call(&mut ctx, asyncify_data);
     } else {
         warn!("failed to rewind the stack because the asyncify_start_rewind export is missing");
@@ -1271,7 +1272,7 @@ pub(crate) fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>
     if let Some(memory_stack) = super::REWIND.with(|cell| cell.borrow_mut().take()) {
         // Notify asyncify that we are no longer rewinding
         let env = ctx.data();
-        if let Some(asyncify_stop_rewind) = env.inner().functions.asyncify_stop_rewind.clone() {
+        if let Some(asyncify_stop_rewind) = env.inner().exports.asyncify_stop_rewind.clone() {
             asyncify_stop_rewind.call(ctx);
         }
 

@@ -12,7 +12,7 @@ use crate::{
     WasiEnv, WasiError,
 };
 
-use super::env::WasiInstanceFunctions;
+use super::env::WasiInstanceExports;
 
 #[derive(Clone)]
 pub struct WasiFunctionEnv {
@@ -77,8 +77,8 @@ impl WasiFunctionEnv {
             inst.reinitialize(store, module)?;
 
             // This will rebuild the function points
-            let functions = WasiInstanceFunctions::new(store, &inst);
-            self.data_mut(store).inner_mut().functions = functions;
+            let exports = WasiInstanceExports::new(store, &inst);
+            self.data_mut(store).inner_mut().exports = exports;
         }
         Ok(())
     }
@@ -124,7 +124,8 @@ impl WasiFunctionEnv {
         env.state.fs.set_is_wasix(is_wasix_module);
 
         // Set the base stack
-        let mut stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+        let mut stack_base = if let Some(stack_pointer) = env.inner().exports.stack_pointer.clone()
+        {
             match stack_pointer.get(store) {
                 wasmer::Value::I32(a) => a as u64,
                 wasmer::Value::I64(a) => a as u64,
@@ -194,7 +195,7 @@ impl WasiFunctionEnv {
             if let Some(thread_local_destroy) = self
                 .data(store)
                 .inner()
-                .functions
+                .exports
                 .thread_local_destroy
                 .as_ref()
                 .cloned()

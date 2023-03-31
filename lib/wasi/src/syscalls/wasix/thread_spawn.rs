@@ -122,7 +122,7 @@ pub fn thread_spawn<M: MemorySize>(
 
     // If the process does not export a thread spawn function then obviously
     // we can't spawn a background thread
-    if env.inner().functions.thread_spawn.is_none() {
+    if env.inner().exports.thread_spawn.is_none() {
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
@@ -163,7 +163,7 @@ fn call_module<M: MemorySize>(
         let spawn = env
             .data(&store)
             .inner()
-            .functions
+            .exports
             .thread_spawn
             .clone()
             .unwrap();

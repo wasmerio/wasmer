@@ -26,6 +26,6 @@ pub fn callback_reactor<M: MemorySize>(
         .ok();
     Span::current().record("funct_is_some", funct.is_some());
 
-    ctx.data_mut().inner_mut().functions.react = funct;
+    ctx.data_mut().inner_mut().exports.react = funct;
     Ok(())
 }
