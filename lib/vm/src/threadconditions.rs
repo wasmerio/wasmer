@@ -1,4 +1,5 @@
 use dashmap::DashMap;
+use fnv::FnvBuildHasher;
 use std::sync::Arc;
 use std::thread::{current, park, park_timeout, Thread};
 use std::time::Duration;
@@ -17,7 +18,7 @@ struct NotifyWaiter {
 }
 #[derive(Debug, Default)]
 struct NotifyMap {
-    pub map: DashMap<NotifyLocation, Vec<NotifyWaiter>>,
+    pub map: DashMap<NotifyLocation, Vec<NotifyWaiter>, FnvBuildHasher>,
 }
 
 /// HashMap of Waiters for the Thread/Notify opcodes
