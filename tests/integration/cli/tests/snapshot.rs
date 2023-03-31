@@ -376,12 +376,10 @@ pub fn build_snapshot(mut spec: TestSpec, code: &[u8]) -> TestSnapshot {
         spec.clone(),
         code,
         Box::new(|mut child| {
-            child.wait().map_err(|err| err.into()).map(|status| {
-                match status.code().unwrap_or_default() {
-                    27 => 0,
-                    status => status,
-                }
-            })
+            child
+                .wait()
+                .map_err(|err| err.into())
+                .map(|status| status.code().unwrap_or_default())
         }),
     );
     let snapshot = TestSnapshot { spec, result };

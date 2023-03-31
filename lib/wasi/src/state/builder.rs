@@ -821,7 +821,7 @@ impl WasiEnvBuilder {
     pub fn instantiate(
         self,
         module: Module,
-        store: &mut Store,
+        store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let init = self.build_init()?;
         WasiEnv::instantiate(init, module, store)
