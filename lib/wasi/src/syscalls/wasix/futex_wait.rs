@@ -73,6 +73,21 @@ where
     }
 }
 
+/// The futex after struct will write the response of whether the
+/// futex was actually woken or not to the return memory of the syscall
+/// callee after the wake event has been triggered.
+///
+/// It is encased in this struct so that it can be passed around
+/// between threads and execute after the threads are rewound (in an
+/// asynchronous threading situation).
+///
+/// The same implementation is used for both synchronous and
+/// asynchronous threading.
+///
+/// It is not possible to include this logic directly in the poller
+/// as the poller runs before the stack is rewound and the memory
+/// that this writes to is often a pointer to the stack hence a
+/// rewind would override whatever is written.
 struct FutexAfter<M>
 where
     M: MemorySize,
