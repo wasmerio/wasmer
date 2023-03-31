@@ -8,7 +8,7 @@ use crate::{
 use futures::Future;
 use tracing::*;
 use wasmer::{Function, FunctionEnvMut, Instance, Memory, Memory32, Memory64, Module, Store};
-use wasmer_wasix_types::wasi::{Errno, ExitCode};
+use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{
@@ -149,7 +149,8 @@ pub fn spawn_exec_module(
                     if let Ok(initialize) = instance.exports.get_function("_initialize") {
                         if let Err(err) = initialize.call(&mut store, &[]) {
                             thread.thread.set_status_finished(Err(err.into()));
-                            finish_module(ctx.data(&store), Errno::Noexec.into());
+                            ctx.data(&store)
+                                .blocking_cleanup(Some(Errno::Noexec.into()));
                             return;
                         }
                     }
@@ -174,7 +175,8 @@ pub fn spawn_exec_module(
                     call_module(ctx, store, module, start, None);
                 } else {
                     debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                    finish_module(ctx.data(&store), Errno::Noexec.into());
+                    ctx.data(&store)
+                        .blocking_cleanup(Some(Errno::Noexec.into()));
                 }
             }
         };
@@ -188,11 +190,6 @@ pub fn spawn_exec_module(
     };
 
     Ok(join_handle)
-}
-
-/// Finishes with a module and notifies an errcode
-fn finish_module(env: &WasiEnv, err: ExitCode) {
-    env.blocking_cleanup(Some(err));
 }
 
 /// Calls the module
@@ -215,7 +212,7 @@ fn call_module(
             if let Err(exit_code) = rewind_state
                 .rewinding_finish::<Memory64>(ctx.env.clone().into_mut(&mut store), trigger_res)
             {
-                finish_module(ctx.data(&store), exit_code);
+                ctx.data(&store).blocking_cleanup(Some(exit_code));
                 return;
             }
             let res = rewind::<Memory64>(
@@ -225,14 +222,14 @@ fn call_module(
                 rewind_state.store_data,
             );
             if res != Errno::Success {
-                finish_module(ctx.data(&store), res.into());
+                ctx.data(&store).blocking_cleanup(Some(res.into()));
                 return;
             }
         } else {
             if let Err(exit_code) = rewind_state
                 .rewinding_finish::<Memory32>(ctx.env.clone().into_mut(&mut store), trigger_res)
             {
-                finish_module(ctx.data(&store), exit_code);
+                ctx.data(&store).blocking_cleanup(Some(exit_code));
                 return;
             }
             let res = rewind::<Memory32>(
@@ -242,7 +239,7 @@ fn call_module(
                 rewind_state.store_data,
             );
             if res != Errno::Success {
-                finish_module(ctx.data(&store), res.into());
+                ctx.data(&store).blocking_cleanup(Some(res.into()));
                 return;
             }
         };

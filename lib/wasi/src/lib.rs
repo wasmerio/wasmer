@@ -866,11 +866,6 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     }
 }
 
-fn mem_error_to_wasi_error(err: MemoryAccessError) -> WasiError {
-    let err = mem_error_to_wasi(err);
-    WasiError::Exit(err.into())
-}
-
 fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
         MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
