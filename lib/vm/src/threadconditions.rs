@@ -26,6 +26,7 @@ pub struct ThreadConditions {
     inner: Arc<Mutex<NotifyMap>>, // The Hasmap with the Notify for the Notify/wait opcodes
 }
 
+/// do_wait will return this in case of error
 pub const WAIT_ERROR: u32 = 0xffff;
 
 impl ThreadConditions {

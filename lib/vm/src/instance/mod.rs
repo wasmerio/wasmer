@@ -20,7 +20,7 @@ use crate::vmcontext::{
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
-use crate::{LinearMemory, NotifyLocation};
+use crate::{LinearMemory, NotifyLocation, WAIT_ERROR};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -830,8 +830,8 @@ impl Instance {
                 };
                 ret = memory.do_wait(location, timeout);
             }
-            if ret == 0xffff {
-                // ret is 0xffff if there is more than 2^32 waiter in queue
+            if ret == WAIT_ERROR {
+                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
                 return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
@@ -866,8 +866,8 @@ impl Instance {
                 };
                 ret = memory.do_wait(location, timeout);
             }
-            if ret == 0xffff {
-                // ret is 0xffff if there is more than 2^32 waiter in queue
+            if ret == WAIT_ERROR {
+                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
                 return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
@@ -902,8 +902,8 @@ impl Instance {
                 };
                 ret = memory.do_wait(location, timeout);
             }
-            if ret == 0xffff {
-                // ret is 0xffff if there is more than 2^32 waiter in queue
+            if ret == WAIT_ERROR {
+                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
                 return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
@@ -939,8 +939,8 @@ impl Instance {
                 };
                 ret = memory.do_wait(location, timeout);
             }
-            if ret == 0xffff {
-                // ret is 0xffff if there is more than 2^32 waiter in queue
+            if ret == WAIT_ERROR {
+                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
                 return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
