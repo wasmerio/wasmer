@@ -168,6 +168,31 @@
 <span id="166">166</span>
 <span id="167">167</span>
 <span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::AsEngineRef;
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::path::Path;
@@ -248,6 +273,19 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
     }
 
+    <span class="kw">pub fn </span>deserialize_checked(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        bytes: <span class="kw">impl </span>IntoBytes,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span>bytes = bytes.into_bytes();
+        <span class="kw">let </span>artifact = engine
+            .as_engine_ref()
+            .engine()
+            .<span class="number">0
+            </span>.deserialize_checked(<span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
+    }
+
     <span class="kw">pub unsafe fn </span>deserialize_from_file(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
@@ -257,6 +295,18 @@
             .engine()
             .<span class="number">0
             </span>.deserialize_from_file(path.as_ref())<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
+    }
+
+    <span class="kw">pub fn </span>deserialize_from_file_checked(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span>artifact = engine
+            .as_engine_ref()
+            .engine()
+            .<span class="number">0
+            </span>.deserialize_from_file_checked(path.as_ref())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
     }
 

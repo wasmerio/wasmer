@@ -229,6 +229,38 @@
 <span id="229">229</span>
 <span id="230">230</span>
 <span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
 <span class="kw">use crate</span>::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
@@ -237,9 +269,10 @@
     SerializeError, SignatureIndex, TableIndex, TableStyle,
 };
 <span class="kw">use </span>enumset::EnumSet;
+<span class="kw">use </span>rkyv::check_archived_value;
 <span class="kw">use </span>rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-    ser::Serializer <span class="kw">as </span>RkyvSerializer, Archive, Deserialize <span class="kw">as </span>RkyvDeserialize,
+    ser::Serializer <span class="kw">as </span>RkyvSerializer, Archive, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize,
     Serialize <span class="kw">as </span>RkyvSerialize,
 };
 <span class="kw">use </span>std::convert::TryInto;
@@ -248,6 +281,7 @@
 <span class="doccomment">/// The compilation related data for a serialized modules
 </span><span class="attribute">#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>SerializableCompilation {
     <span class="kw">pub </span>function_bodies: PrimaryMap&lt;LocalFunctionIndex, FunctionBody&gt;,
     <span class="kw">pub </span>function_relocations: PrimaryMap&lt;LocalFunctionIndex, Vec&lt;Relocation&gt;&gt;,
@@ -282,6 +316,7 @@
 <span class="doccomment">/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 </span><span class="attribute">#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>SerializableModule {
     <span class="doccomment">/// The main serializable compilation object
     </span><span class="kw">pub </span>compilation: SerializableCompilation,
@@ -327,6 +362,16 @@
         <span class="self">Self</span>::deserialize_from_archive(archived)
     }
 
+    <span class="doccomment">/// Deserialize a Module from a slice.
+    /// The slice must have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    ///
+    /// Unlike [`Self::deserialize`], this function will validate the data.
+    </span><span class="kw">pub fn </span>deserialize_checked(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice_checked(metadata_slice)<span class="question-mark">?</span>;
+        <span class="self">Self</span>::deserialize_from_archive(archived)
+    }
+
     <span class="doccomment">/// # Safety
     ///
     /// This method is unsafe.
@@ -346,6 +391,25 @@
             <span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>],
             pos <span class="kw">as </span>usize,
         ))
+    }
+
+    <span class="doccomment">/// Deserialize an archived module.
+    ///
+    /// In contrast to [`Self::deserialize`], this method performs validation
+    /// and is not unsafe.
+    </span><span class="kw">fn </span>archive_from_slice_checked(
+        metadata_slice: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedSerializableModule, DeserializeError&gt; {
+        <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;invalid serialized data&quot;</span>.into(),
+            ));
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>pos: [u8; <span class="number">8</span>] = Default::default();
+        pos.copy_from_slice(<span class="kw-2">&amp;</span>metadata_slice[metadata_slice.len() - <span class="number">8</span>..metadata_slice.len()]);
+        <span class="kw">let </span>pos: u64 = u64::from_le_bytes(pos);
+        check_archived_value::&lt;<span class="self">Self</span>&gt;(<span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>], pos <span class="kw">as </span>usize)
+            .map_err(|err| DeserializeError::CorruptedBinary(err.to_string()))
     }
 
     <span class="doccomment">/// Deserialize a compilation module from an archive
@@ -406,7 +470,7 @@
 <span class="kw">impl </span>MetadataHeader {
     <span class="doccomment">/// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    </span><span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">3</span>;
+    </span><span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">4</span>;
 
     <span class="doccomment">/// Magic number to identify wasmer metadata.
     </span><span class="kw">const </span>MAGIC: [u8; <span class="number">8</span>] = <span class="kw-2">*</span><span class="string">b&quot;WASMER\0\0&quot;</span>;

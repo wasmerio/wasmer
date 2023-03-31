@@ -418,6 +418,58 @@
 <span id="416">416</span>
 <span id="417">417</span>
 <span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
 </pre><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::fs;
@@ -639,6 +691,8 @@
 
     <span class="doccomment">/// Deserializes a serialized Module binary into a `Module`.
     ///
+    /// Note: You should usually prefer the safe [`Module::deserialize_checked`].
+    ///
     /// # Important
     ///
     /// This function only accepts a custom binary format, which will be different
@@ -671,6 +725,56 @@
         bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize(engine, bytes)<span class="question-mark">?</span>))
+    }
+
+    <span class="doccomment">/// Deserializes a serialized Module binary into a `Module`.
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// # let mut store = Store::default();
+    /// let module = Module::deserialize_checked(&amp;store, serialized_data)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>deserialize_checked(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        bytes: <span class="kw">impl </span>IntoBytes,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_checked(
+            engine, bytes,
+        )<span class="question-mark">?</span>))
+    }
+
+    <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// &gt; Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
+    /// let module = Module::deserialize_from_file(&amp;store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    </span><span class="kw">pub fn </span>deserialize_from_file_checked(
+        engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
+        path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_from_file_checked(
+            engine, path,
+        )<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.

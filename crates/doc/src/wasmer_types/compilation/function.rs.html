@@ -137,6 +137,11 @@
 <span id="137">137</span>
 <span id="138">138</span>
 <span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -160,6 +165,7 @@
 /// the frame information after a `Trap`.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>CompiledFunctionFrameInfo {
     <span class="doccomment">/// The traps (in the function body).
     ///
@@ -173,6 +179,7 @@
 <span class="doccomment">/// The function body.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>FunctionBody {
     <span class="doccomment">/// The function body bytes.
     </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(with = <span class="string">&quot;serde_bytes&quot;</span>))]
@@ -189,6 +196,7 @@
 /// and unwind information).
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>CompiledFunction {
     <span class="doccomment">/// The function body.
     </span><span class="kw">pub </span>body: FunctionBody,
@@ -213,7 +221,9 @@
 /// In the future this structure may also hold other information useful
 /// for debugging.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, PartialEq, Eq, Clone,
+)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>Dwarf {
     <span class="doccomment">/// The section index in the [`Compilation`] that corresponds to the exception frames.

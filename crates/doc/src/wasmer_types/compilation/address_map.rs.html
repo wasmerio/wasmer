@@ -41,6 +41,8 @@
 <span id="41">41</span>
 <span id="42">42</span>
 <span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Data structures to provide transformation of the source
 </span><span class="comment">// addresses of a WebAssembly module into the native code.
 
@@ -53,6 +55,7 @@
 <span class="doccomment">/// Single source location to generated address mapping.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>InstructionAddressMap {
     <span class="doccomment">/// Original source location.
     </span><span class="kw">pub </span>srcloc: SourceLoc,
@@ -67,6 +70,7 @@
 <span class="doccomment">/// Function and its instructions addresses mappings.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>FunctionAddressMap {
     <span class="doccomment">/// Instructions maps.
     /// The array is sorted by the InstructionAddressMap::code_offset field.

@@ -167,6 +167,16 @@
 <span id="167">167</span>
 <span id="168">168</span>
 <span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -183,7 +193,17 @@
 ///
 /// All trap instructions have an explicit trap code.
 </span><span class="attribute">#[derive(
-    Clone, Copy, PartialEq, Eq, Debug, Hash, Error, RkyvSerialize, RkyvDeserialize, Archive,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    Hash,
+    Error,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[repr(u32)]

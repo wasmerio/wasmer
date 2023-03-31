@@ -130,6 +130,18 @@
 <span id="130">130</span>
 <span id="131">131</span>
 <span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{Pages, ValueType};
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
@@ -139,9 +151,21 @@
 <span class="kw">use </span>std::ops::{Add, AddAssign};
 
 <span class="doccomment">/// Implementation styles for WebAssembly linear memory.
-</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+</span><span class="attribute">#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    rkyv::CheckBytes,
+)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>MemoryStyle {
     <span class="doccomment">/// The actual memory can be resized and moved.
     </span>Dynamic {

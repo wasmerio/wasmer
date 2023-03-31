@@ -426,6 +426,7 @@
 <span id="426">426</span>
 <span id="427">427</span>
 <span id="428">428</span>
+<span id="429">429</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -462,6 +463,7 @@
 </span><span class="attribute">#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>PrimaryMap&lt;K, V&gt;
 <span class="kw">where
     </span>K: EntityRef,

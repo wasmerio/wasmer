@@ -1146,7 +1146,7 @@
         <span class="kw">if </span>wasmer_compiler::Artifact::is_deserializable(<span class="kw-2">&amp;</span>contents) {
             <span class="kw">let </span>engine = wasmer_compiler::EngineBuilder::headless();
             <span class="kw">let </span>store = Store::new(engine);
-            <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">? </span>};
+            <span class="kw">let </span>module = Module::deserialize_from_file_checked(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>((store, module));
         }
         <span class="kw">let </span>(store, compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;

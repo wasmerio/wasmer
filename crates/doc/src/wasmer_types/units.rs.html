@@ -181,6 +181,16 @@
 <span id="181">181</span>
 <span id="182">182</span>
 <span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::lib::std::convert::TryFrom;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::ops::{Add, Sub};
@@ -204,7 +214,17 @@
 
 <span class="doccomment">/// Units of WebAssembly pages (as specified to be 65,536 bytes).
 </span><span class="attribute">#[derive(
-    Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, RkyvSerialize, RkyvDeserialize, Archive,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]

@@ -190,6 +190,8 @@
 <span id="190">190</span>
 <span id="191">191</span>
 <span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
 </pre><pre class="rust"><code><span class="kw">use </span>enum_iterator::IntoEnumIterator;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
@@ -210,9 +212,11 @@
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u16)]
 </span><span class="kw">pub enum </span>LibCall {
     <span class="doccomment">/// ceil.f32
     </span>CeilF32,

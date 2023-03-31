@@ -633,6 +633,13 @@
 <span id="633">633</span>
 <span id="634">634</span>
 <span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::indexes::{FunctionIndex, GlobalIndex};
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::borrow::ToOwned;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
@@ -641,6 +648,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
 <span class="kw">use </span><span class="kw">crate</span>::units::Pages;
 
+<span class="kw">use </span>bytecheck::CheckBytes;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -652,8 +660,9 @@
 </span><span class="doccomment">/// A list of all possible value types in WebAssembly.
 </span><span class="attribute">#[derive(Copy, Debug, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>Type {
     <span class="doccomment">/// Signed 32 bit integer.
     </span>I32,
@@ -693,11 +702,11 @@
     }
 }
 
-<span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+<span class="doccomment">/// The WebAssembly V128 type
+</span><span class="attribute">#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, CheckBytes)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-</span><span class="doccomment">/// The WebAssembly V128 type
-</span><span class="attribute">#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>V128(<span class="kw">pub</span>(<span class="kw">crate</span>) [u8; <span class="number">16</span>]);
 
 <span class="kw">impl </span>V128 {
@@ -875,6 +884,7 @@
 </span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>FunctionType {
     <span class="doccomment">/// The parameters of the function
     </span>params: Box&lt;[Type]&gt;,
@@ -958,10 +968,11 @@
 }
 
 <span class="doccomment">/// Indicator of whether a global is mutable or not
-</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CheckBytes)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>Mutability {
     <span class="doccomment">/// The global is constant and its value does not change
     </span>Const,
@@ -996,7 +1007,7 @@
 }
 
 <span class="doccomment">/// WebAssembly global.
-</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+</span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CheckBytes)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
@@ -1043,8 +1054,9 @@
 <span class="doccomment">/// Globals are initialized via the `const` operators or by referring to another import.
 </span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>GlobalInit {
     <span class="doccomment">/// An `i32.const`.
     </span>I32Const(i32),
@@ -1077,6 +1089,7 @@
 </span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>TableType {
     <span class="doccomment">/// The type of data stored in elements of the table.
     </span><span class="kw">pub </span>ty: Type,
@@ -1117,6 +1130,7 @@
 </span><span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>MemoryType {
     <span class="doccomment">/// The minimum number of pages in the memory.
     </span><span class="kw">pub </span>minimum: Pages,

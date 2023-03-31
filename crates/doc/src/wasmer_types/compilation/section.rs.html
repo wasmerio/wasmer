@@ -100,6 +100,12 @@
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module define the required structures to emit custom
 //! Sections in a `Compilation`.
 //!
@@ -119,6 +125,7 @@
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
     Copy,
     Clone,
     PartialEq,
@@ -139,8 +146,11 @@
 ///
 /// Determines how a custom section may be used.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Clone, PartialEq, Eq,
+)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>CustomSectionProtection {
     <span class="doccomment">/// A custom section with read permission.
     </span>Read,
@@ -155,6 +165,7 @@
 /// in the emitted module.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>CustomSection {
     <span class="doccomment">/// Memory protection that applies to this section.
     </span><span class="kw">pub </span>protection: CustomSectionProtection,
@@ -174,6 +185,7 @@
 <span class="doccomment">/// The bytes in the section.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>SectionBody(<span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(with = <span class="string">&quot;serde_bytes&quot;</span>))] </span>Vec&lt;u8&gt;);
 
 <span class="kw">impl </span>SectionBody {

@@ -206,6 +206,34 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module define the required structures for compilation symbols.
 </span><span class="kw">use crate</span>::{
     entity::{EntityRef, PrimaryMap},
@@ -213,9 +241,9 @@
     SectionIndex, SerializeError, SignatureIndex,
 };
 <span class="kw">use </span>rkyv::{
-    archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-    ser::Serializer <span class="kw">as </span>RkyvSerializer, Archive, Deserialize <span class="kw">as </span>RkyvDeserialize,
-    Serialize <span class="kw">as </span>RkyvSerialize,
+    archived_value, check_archived_value, de::deserializers::SharedDeserializeMap,
+    ser::serializers::AllocSerializer, ser::Serializer <span class="kw">as </span>RkyvSerializer, Archive,
+    Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize,
 };
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -258,6 +286,7 @@
 <span class="doccomment">/// Serializable struct that represents the compiled metadata.
 </span><span class="attribute">#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>ModuleMetadata {
     <span class="doccomment">/// Compile info
     </span><span class="kw">pub </span>compile_info: CompileModuleInfo,
@@ -322,6 +351,14 @@
         <span class="self">Self</span>::deserialize_from_archive(archived)
     }
 
+    <span class="doccomment">/// Deserialize a Module from a slice.
+    /// The slice must have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes)
+    </span><span class="kw">pub fn </span>deserialize_checked(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice_checked(metadata_slice)<span class="question-mark">?</span>;
+        <span class="self">Self</span>::deserialize_from_archive(archived)
+    }
+
     <span class="doccomment">/// # Safety
     ///
     /// This method is unsafe.
@@ -341,6 +378,25 @@
             <span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>],
             pos <span class="kw">as </span>usize,
         ))
+    }
+
+    <span class="doccomment">/// # Safety
+    ///
+    /// This method is unsafe.
+    /// Please check `ModuleMetadata::deserialize` for more details.
+    </span><span class="kw">fn </span>archive_from_slice_checked(
+        metadata_slice: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedModuleMetadata, DeserializeError&gt; {
+        <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;invalid serialized ModuleMetadata&quot;</span>.into(),
+            ));
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>pos: [u8; <span class="number">8</span>] = Default::default();
+        pos.copy_from_slice(<span class="kw-2">&amp;</span>metadata_slice[metadata_slice.len() - <span class="number">8</span>..metadata_slice.len()]);
+        <span class="kw">let </span>pos: u64 = u64::from_le_bytes(pos);
+        check_archived_value::&lt;<span class="self">Self</span>&gt;(<span class="kw-2">&amp;</span>metadata_slice[..metadata_slice.len() - <span class="number">8</span>], pos <span class="kw">as </span>usize)
+            .map_err(|e| DeserializeError::CorruptedBinary(e.to_string()))
     }
 
     <span class="doccomment">/// Deserialize a compilation module from an archive

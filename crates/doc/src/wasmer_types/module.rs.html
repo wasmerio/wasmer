@@ -633,6 +633,9 @@
 <span id="633">633</span>
 <span id="634">634</span>
 <span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -649,8 +652,8 @@
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>rkyv::{
     de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
-    ser::SharedSerializeRegistry, Archive, Archived, Deserialize <span class="kw">as </span>RkyvDeserialize, Fallible,
-    Serialize <span class="kw">as </span>RkyvSerialize,
+    ser::SharedSerializeRegistry, Archive, Archived, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize,
+    Fallible, Serialize <span class="kw">as </span>RkyvSerialize,
 };
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -661,6 +664,7 @@
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 <span class="attribute">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>ModuleId {
     id: usize,
 }
@@ -683,6 +687,7 @@
 <span class="doccomment">/// Hash key of an import
 </span><span class="attribute">#[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash))]
 </span><span class="kw">pub struct </span>ImportKey {
     <span class="doccomment">/// Module name
     </span><span class="kw">pub </span>module: String,
@@ -812,6 +817,7 @@
 
 <span class="doccomment">/// Mirror version of ModuleInfo that can derive rkyv traits
 </span><span class="attribute">#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 </span><span class="kw">pub struct </span>ArchivableModuleInfo {
     name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     imports: IndexMap&lt;ImportKey, ImportIndex&gt;,

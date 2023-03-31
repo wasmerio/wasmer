@@ -859,6 +859,30 @@
 <span id="859">859</span>
 <span id="860">860</span>
 <span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1009,6 +1033,30 @@
     /// # Safety
     /// This function is unsafe because rkyv reads directly without validating
     /// the data.
+    </span><span class="kw">pub fn </span>deserialize_checked(engine: <span class="kw-2">&amp;</span>Engine, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+        <span class="kw">if </span>!ArtifactBuild::is_deserializable(bytes) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                <span class="string">&quot;Magic header not found&quot;</span>.to_string(),
+            ));
+        }
+
+        <span class="kw">let </span>bytes = <span class="self">Self</span>::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>metadata_len = MetadataHeader::parse(bytes)<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(metadata_slice, <span class="number">0</span>, metadata_len)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>serializable = SerializableModule::deserialize_checked(metadata_slice)<span class="question-mark">?</span>;
+        <span class="kw">let </span>artifact = ArtifactBuild::from_serializable(serializable);
+        <span class="kw">let </span><span class="kw-2">mut </span>inner_engine = engine.inner_mut();
+        <span class="self">Self</span>::from_parts(<span class="kw-2">&amp;mut </span>inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
+    }
+
+    <span class="doccomment">/// Deserialize a ArtifactBuild
+    ///
+    /// # Safety
+    /// This function is unsafe because rkyv reads directly without validating the data.
     </span><span class="kw">pub unsafe fn </span>deserialize(engine: <span class="kw-2">&amp;</span>Engine, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="kw">if </span>!ArtifactBuild::is_deserializable(bytes) {
             <span class="kw">let </span>static_artifact = <span class="self">Self</span>::deserialize_object(engine, bytes);

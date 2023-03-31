@@ -26,6 +26,7 @@
 <span id="26">26</span>
 <span id="27">27</span>
 <span id="28">28</span>
+<span id="29">29</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A `CompiledFunctionUnwindInfo` contains the function unwind information.
 //!
 //! The unwind information is used to determine which function
@@ -47,6 +48,7 @@
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub enum </span>CompiledFunctionUnwindInfo {
     <span class="doccomment">/// Windows UNWIND_INFO.
     </span>WindowsX64(Vec&lt;u8&gt;),

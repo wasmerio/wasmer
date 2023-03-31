@@ -177,6 +177,13 @@
 <span id="177">177</span>
 <span id="178">178</span>
 <span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
@@ -200,8 +207,11 @@
 
 <span class="doccomment">/// Relocation kinds for every ISA.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Copy, Clone, Debug, PartialEq, Eq,
+)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>RelocationKind {
     <span class="doccomment">/// absolute 4-byte
     </span>Abs4,
@@ -269,6 +279,7 @@
 <span class="doccomment">/// A record of a relocation to perform.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>Relocation {
     <span class="doccomment">/// The relocation kind.
     </span><span class="kw">pub </span>kind: RelocationKind,
@@ -282,8 +293,11 @@
 
 <span class="doccomment">/// Destination function. Can be either user function or some special one, like `memory.grow`.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Copy, Clone, PartialEq, Eq,
+)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
+#[repr(u8)]
 </span><span class="kw">pub enum </span>RelocationTarget {
     <span class="doccomment">/// A relocation to a function defined locally in the wasm (not an imported one).
     </span>LocalFunc(LocalFunctionIndex),

@@ -15,6 +15,8 @@
 <span id="15">15</span>
 <span id="16">16</span>
 <span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Types for traps.
 </span><span class="kw">use </span><span class="kw">crate</span>::CodeOffset;
 <span class="kw">use </span><span class="kw">crate</span>::TrapCode;
@@ -24,7 +26,9 @@
 
 <span class="doccomment">/// Information about trap.
 </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Clone, Debug, PartialEq, Eq,
+)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>TrapInformation {
     <span class="doccomment">/// The offset of the trapping instruction in native code. It is relative to the beginning of the function.

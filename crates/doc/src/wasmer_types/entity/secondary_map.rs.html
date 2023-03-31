@@ -322,6 +322,7 @@
 <span id="322">322</span>
 <span id="323">323</span>
 <span id="324">324</span>
+<span id="325">325</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -352,6 +353,7 @@
 /// The map does not track if an entry for a key has been inserted or not. Instead it behaves as if
 /// all keys have a default entry from the beginning.
 </span><span class="attribute">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 </span><span class="kw">pub struct </span>SecondaryMap&lt;K, V&gt;
 <span class="kw">where
     </span>K: EntityRef,

@@ -98,7 +98,7 @@
 )]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::CheckBytes)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>SourceLoc(u32);
 

@@ -349,7 +349,7 @@
 /// Features usually have a corresponding [WebAssembly proposal].
 ///
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
-</span><span class="attribute">#[derive(Clone, Debug, Eq, PartialEq)]
+</span><span class="attribute">#[derive(Clone, Debug, Eq, PartialEq, rkyv::CheckBytes)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]

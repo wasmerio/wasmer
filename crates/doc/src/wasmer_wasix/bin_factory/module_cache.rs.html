@@ -321,6 +321,14 @@
 <span id="319">319</span>
 <span id="320">320</span>
 <span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -553,7 +561,15 @@
                 <span class="kw">let </span>module_bytes = bytes::Bytes::from(data);
 
                 <span class="comment">// Load the module
-                </span><span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize(engine, <span class="kw-2">&amp;</span>module_bytes[..]).unwrap() };
+                </span><span class="kw">let </span>module = <span class="kw">match </span>Module::deserialize_checked(engine, <span class="kw-2">&amp;</span>module_bytes[..]) {
+                    <span class="prelude-val">Ok</span>(m) =&gt; m,
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">tracing::error!</span>(
+                            <span class="string">&quot;failed to deserialize module with hash &#39;{data_hash}&#39;: {err}&quot;
+                        </span>);
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                };
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cached_modules {
                     <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.write().unwrap();
