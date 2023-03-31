@@ -440,7 +440,7 @@ impl LinearMemory for VMSharedMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> u32 {
+    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
         self.conditions.do_wait(dst, timeout)
     }
 
@@ -517,7 +517,7 @@ impl LinearMemory for VMMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> u32 {
+    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
         self.0.do_wait(dst, timeout)
     }
 
@@ -645,9 +645,9 @@ where
     fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 
     /// Add current thread to the waiter hash, and wait until notified or timout.
-    /// Return 0 if the waiter has been notified, 2 if the timeout occured, or 0xffff if en error happened
-    fn do_wait(&mut self, _dst: NotifyLocation, _timeout: Option<Duration>) -> u32 {
-        0xffff
+    /// Return 0 if the waiter has been notified, 2 if the timeout occured, or None if en error happened
+    fn do_wait(&mut self, _dst: NotifyLocation, _timeout: Option<Duration>) -> Option<u32> {
+        None
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified

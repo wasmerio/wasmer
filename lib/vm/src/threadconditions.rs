@@ -26,9 +26,6 @@ pub struct ThreadConditions {
     inner: Arc<Mutex<NotifyMap>>, // The Hasmap with the Notify for the Notify/wait opcodes
 }
 
-/// do_wait will return this in case of error
-pub const WAIT_ERROR: u32 = 0xffff;
-
 impl ThreadConditions {
     /// Create a new ThreadConditions
     pub fn new() -> Self {
@@ -51,11 +48,11 @@ impl ThreadConditions {
     // because `park_timeout` doesn't gives any information on why it returns
 
     /// Add current thread to the waiter hash
-    pub fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> u32 {
+    pub fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
         // fetch the notifier
         let mut conds = self.lock_conditions().unwrap();
         if conds.map.len() > 1 << 32 {
-            return WAIT_ERROR;
+            return None;
         }
         let v = conds.map.entry(dst).or_insert_with(Vec::new);
         v.push(NotifyWaiter {
@@ -83,7 +80,7 @@ impl ThreadConditions {
         if v.is_empty() {
             conds.map.remove(&dst);
         }
-        ret
+        Some(ret)
     }
 
     /// Notify waiters from the wait list

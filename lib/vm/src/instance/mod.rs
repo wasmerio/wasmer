@@ -20,7 +20,7 @@ use crate::vmcontext::{
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
-use crate::{LinearMemory, NotifyLocation, WAIT_ERROR};
+use crate::{LinearMemory, NotifyLocation};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -828,11 +828,12 @@ impl Instance {
                 } else {
                     Some(std::time::Duration::from_nanos(timeout as u64))
                 };
-                ret = memory.do_wait(location, timeout);
-            }
-            if ret == WAIT_ERROR {
-                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
-                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                let waiter = memory.do_wait(location, timeout);
+                if waiter.is_none() {
+                    // ret is None if there is more than 2^32 waiter in queue or some other error
+                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                }
+                ret = waiter.unwrap();
             }
             Ok(ret)
         } else {
@@ -864,11 +865,12 @@ impl Instance {
                 } else {
                     Some(std::time::Duration::from_nanos(timeout as u64))
                 };
-                ret = memory.do_wait(location, timeout);
-            }
-            if ret == WAIT_ERROR {
-                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
-                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                let waiter = memory.do_wait(location, timeout);
+                if waiter.is_none() {
+                    // ret is None if there is more than 2^32 waiter in queue or some other error
+                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                }
+                ret = waiter.unwrap();
             }
             Ok(ret)
         } else {
@@ -900,11 +902,12 @@ impl Instance {
                 } else {
                     Some(std::time::Duration::from_nanos(timeout as u64))
                 };
-                ret = memory.do_wait(location, timeout);
-            }
-            if ret == WAIT_ERROR {
-                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
-                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                let waiter = memory.do_wait(location, timeout);
+                if waiter.is_none() {
+                    // ret is None if there is more than 2^32 waiter in queue or some other error
+                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                }
+                ret = waiter.unwrap();
             }
             Ok(ret)
         } else {
@@ -937,11 +940,12 @@ impl Instance {
                 } else {
                     Some(std::time::Duration::from_nanos(timeout as u64))
                 };
-                ret = memory.do_wait(location, timeout);
-            }
-            if ret == WAIT_ERROR {
-                // ret is WAIT_ERROR if there is more than 2^32 waiter in queue
-                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                let waiter = memory.do_wait(location, timeout);
+                if waiter.is_none() {
+                    // ret is None if there is more than 2^32 waiter in queue or some other error
+                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                }
+                ret = waiter.unwrap();
             }
             Ok(ret)
         } else {
