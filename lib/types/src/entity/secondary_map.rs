@@ -28,6 +28,7 @@ use serde::{
 /// The map does not track if an entry for a key has been inserted or not. Instead it behaves as if
 /// all keys have a default entry from the beginning.
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct SecondaryMap<K, V>
 where
     K: EntityRef,
