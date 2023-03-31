@@ -5521,6 +5521,7 @@ dependencies = [
  "enumset",
  "lazy_static",
  "thread-priority",
+ "tracing",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",

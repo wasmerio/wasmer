@@ -232,7 +232,7 @@ impl Compiler for LLVMCompiler {
         target: &Target,
         compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let memory_styles = &compile_info.memory_styles;

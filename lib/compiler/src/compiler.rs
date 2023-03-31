@@ -128,7 +128,7 @@ pub trait Compiler: Send {
         module: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError>;
 
     /// Compiles a module into a native object file.

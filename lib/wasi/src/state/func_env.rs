@@ -1,5 +1,8 @@
 use tracing::trace;
-use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module};
+use wasmer::{
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, InstantiationError,
+    Memory, Module,
+};
 use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
@@ -8,6 +11,8 @@ use crate::{
     utils::{get_wasi_version, get_wasi_versions},
     WasiEnv, WasiError,
 };
+
+use super::env::WasiInstanceFunctions;
 
 #[derive(Clone)]
 pub struct WasiFunctionEnv {
@@ -57,6 +62,27 @@ impl WasiFunctionEnv {
         self.initialize_with_memory(store, instance, None)
     }
 
+    /// Reinitializes the state if the module has changed
+    pub fn reinitialize(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+    ) -> Result<(), InstantiationError> {
+        let env = self.data(store);
+        if env.inner().instance.module().ne(module) {
+            let inst = env.inner().instance.clone();
+
+            // This will rebuild the instance itself with the module
+            #[allow(deprecated)]
+            inst.reinitialize(store, module)?;
+
+            // This will rebuild the function points
+            let functions = WasiInstanceFunctions::new(store, &inst);
+            self.data_mut(store).inner_mut().functions = functions;
+        }
+        Ok(())
+    }
+
     /// Initializes the WasiEnv using the instance exports and a provided optional memory
     /// (this must be executed before attempting to use it)
     /// (as the stores can not by themselves be passed between threads we can store the module
@@ -68,18 +94,17 @@ impl WasiFunctionEnv {
         memory: Option<Memory>,
     ) -> Result<(), ExportError> {
         // List all the exports and imports
-        for ns in instance.module().exports() {
-            //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
-            trace!("module::export - {}", ns.name());
-        }
-        for ns in instance.module().imports() {
-            trace!("module::import - {}::{}", ns.module(), ns.name());
+        if self.data(store).inner.is_none() {
+            for ns in instance.module().exports() {
+                //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
+                trace!("module::export - {}", ns.name());
+            }
+            for ns in instance.module().imports() {
+                trace!("module::import - {}::{}", ns.module(), ns.name());
+            }
         }
 
         let is_wasix_module = crate::utils::is_wasix_module(instance.module());
-
-        // First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
         let memory = instance.exports.get_memory("memory").map_or_else(
             |e| {
                 if let Some(memory) = memory {
@@ -169,6 +194,7 @@ impl WasiFunctionEnv {
             if let Some(thread_local_destroy) = self
                 .data(store)
                 .inner()
+                .functions
                 .thread_local_destroy
                 .as_ref()
                 .cloned()

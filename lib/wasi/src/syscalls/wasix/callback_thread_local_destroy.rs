@@ -27,6 +27,6 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
         .ok();
     Span::current().record("funct_is_some", funct.is_some());
 
-    ctx.data_mut().inner_mut().thread_local_destroy = funct;
+    ctx.data_mut().inner_mut().functions.thread_local_destroy = funct;
     Ok(())
 }

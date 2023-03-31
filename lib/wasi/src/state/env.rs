@@ -39,24 +39,12 @@ use super::WasiState;
 ///
 /// Used to access and modify runtime state.
 // TODO: make fields private
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
-pub struct WasiInstanceHandles {
-    // TODO: the two fields below are instance specific, while all others are module specific.
-    // Should be split up.
-    /// Represents a reference to the memory
-    pub(crate) memory: Memory,
-    pub(crate) instance: wasmer::Instance,
-
-    /// Points to the current location of the memory stack pointer
-    pub(crate) stack_pointer: Option<Global>,
-
+#[derive(Clone)]
+pub struct WasiInstanceFunctions {
     /// Main function that will be invoked (name = "_start")
-    #[derivative(Debug = "ignore")]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
     /// Function thats invoked to initialize the WASM module (name = "_initialize")
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) initialize: Option<TypedFunction<(), ()>>,
@@ -64,34 +52,24 @@ pub struct WasiInstanceHandles {
     /// Represents the callback for spawning a thread (name = "wasi_thread_start")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
-    #[derivative(Debug = "ignore")]
     pub(crate) thread_spawn: Option<TypedFunction<(i32, i32), ()>>,
 
     /// Represents the callback for spawning a reactor (name = "_react")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
-    #[derivative(Debug = "ignore")]
     pub(crate) react: Option<TypedFunction<(i32, i32), ()>>,
 
     /// Represents the callback for signals (name = "__wasm_signal")
     /// Signals are triggered asynchronously at idle times of the process
-    #[derivative(Debug = "ignore")]
     pub(crate) signal: Option<TypedFunction<i32, ()>>,
-
-    /// Flag that indicates if the signal callback has been set by the WASM
-    /// process - if it has not been set then the runtime behaves differently
-    /// when a CTRL-C is pressed.
-    pub(crate) signal_set: bool,
 
     /// Represents the callback for destroying a local thread variable (name = "_thread_local_destroy")
     /// [this takes a pointer to the destructor and the data to be destroyed]
-    #[derivative(Debug = "ignore")]
     pub(crate) thread_local_destroy: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
 
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_unwind: Option<TypedFunction<i32, ()>>,
@@ -103,7 +81,6 @@ pub struct WasiInstanceHandles {
     /// "sleep", then you must call this at the proper time. Otherwise,
     /// the code will think it is still unwinding when it should not be,
     /// which means it will keep unwinding in a meaningless way.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
@@ -112,14 +89,12 @@ pub struct WasiInstanceHandles {
     /// stack vack up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_rewind: Option<TypedFunction<i32, ()>>,
 
     /// asyncify_stop_rewind(): call this to note that rewinding has
     /// concluded, and normal execution can resume.
-    #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_rewind: Option<TypedFunction<(), ()>>,
@@ -130,19 +105,13 @@ pub struct WasiInstanceHandles {
     /// calls, so that you know when to start an asynchronous operation and
     /// when to propagate results back.
     #[allow(dead_code)]
-    #[derivative(Debug = "ignore")]
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
 }
 
-impl WasiInstanceHandles {
-    pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
-        WasiInstanceHandles {
-            memory,
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
+/// Represents all the functions used by WASI
+impl WasiInstanceFunctions {
+    pub fn new(store: &impl AsStoreRef, instance: &Instance) -> Self {
+        Self {
             start: instance.exports.get_typed_function(store, "_start").ok(),
             initialize: instance
                 .exports
@@ -157,7 +126,6 @@ impl WasiInstanceHandles {
                 .exports
                 .get_typed_function(&store, "__wasm_signal")
                 .ok(),
-            signal_set: false,
             asyncify_start_unwind: instance
                 .exports
                 .get_typed_function(store, "asyncify_start_unwind")
@@ -182,7 +150,48 @@ impl WasiInstanceHandles {
                 .exports
                 .get_typed_function(store, "_thread_local_destroy")
                 .ok(),
+        }
+    }
+}
+
+/// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
+///
+/// Used to access and modify runtime state.
+// TODO: make fields private
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct WasiInstanceHandles {
+    // TODO: the two fields below are instance specific, while all others are module specific.
+    // Should be split up.
+    /// Represents a reference to the memory
+    pub(crate) memory: Memory,
+    pub(crate) instance: wasmer::Instance,
+
+    /// Points to the current location of the memory stack pointer
+    pub(crate) stack_pointer: Option<Global>,
+
+    /// Flag that indicates if the signal callback has been set by the WASM
+    /// process - if it has not been set then the runtime behaves differently
+    /// when a CTRL-C is pressed.
+    pub(crate) signal_set: bool,
+
+    // Represents all the instance functions
+    #[derivative(Debug = "ignore")]
+    pub(crate) functions: WasiInstanceFunctions,
+}
+
+impl WasiInstanceHandles {
+    pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
+        WasiInstanceHandles {
+            memory,
+            stack_pointer: instance
+                .exports
+                .get_global("__stack_pointer")
+                .map(|a| a.clone())
+                .ok(),
+            functions: WasiInstanceFunctions::new(store, &instance),
             instance,
+            signal_set: false,
         }
     }
 }
@@ -383,9 +392,9 @@ impl WasiEnv {
             return false;
         }
         let inner = self.inner();
-        inner.asyncify_get_state.is_some()
-            && inner.asyncify_start_rewind.is_some()
-            && inner.asyncify_start_unwind.is_some()
+        inner.functions.asyncify_get_state.is_some()
+            && inner.functions.asyncify_start_rewind.is_some()
+            && inner.functions.asyncify_start_unwind.is_some()
     }
 
     /// Returns true if this thread can go into a deep sleep
@@ -602,7 +611,7 @@ impl WasiEnv {
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if env.inner().signal.as_ref().is_some() {
+        if env.inner().functions.signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
             Ok(Ok(Self::process_signals_internal(ctx, signals)?))
         } else {
@@ -615,7 +624,7 @@ impl WasiEnv {
         mut signals: Vec<Signal>,
     ) -> Result<bool, WasiError> {
         let env = ctx.data();
-        if let Some(handler) = env.inner().signal.clone() {
+        if let Some(handler) = env.inner().functions.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;
             let has_signal_interval = {

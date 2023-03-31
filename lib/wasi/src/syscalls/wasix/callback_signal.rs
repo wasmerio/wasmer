@@ -39,7 +39,7 @@ pub fn callback_signal<M: MemorySize>(
 
     {
         let inner = ctx.data_mut().inner_mut();
-        inner.signal = funct;
+        inner.functions.signal = funct;
         inner.signal_set = true;
     }
 

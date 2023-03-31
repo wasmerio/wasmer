@@ -313,11 +313,17 @@ fn run<M: MemorySize>(
     let mut ret: ExitCode = Errno::Success.into();
     let err = if ctx.data(&store).thread.is_main() {
         trace!(%pid, %tid, "re-invoking main");
-        let start = ctx.data(&store).inner().start.clone().unwrap();
+        let start = ctx.data(&store).inner().functions.start.clone().unwrap();
         start.call(&mut store)
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
-        let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
+        let start = ctx
+            .data(&store)
+            .inner()
+            .functions
+            .thread_spawn
+            .clone()
+            .unwrap();
         start.call(&mut store, 0, 0)
     };
     if let Err(err) = err {
@@ -330,10 +336,12 @@ fn run<M: MemorySize>(
 
                 // Create the respawn function
                 let respawn = {
-                    let ctx = ctx.clone();
+                    let mut ctx = ctx.clone();
                     let tasks = tasks.clone();
                     let rewind_state = deep.rewind;
-                    move |store, module, trigger_res| {
+                    move |mut store, module, trigger_res| {
+                        // Reinitialize and then call the thread
+                        ctx.reinitialize(&mut store, &module);
                         run::<M>(
                             ctx,
                             store,

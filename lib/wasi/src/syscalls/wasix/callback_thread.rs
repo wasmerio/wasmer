@@ -27,6 +27,6 @@ pub fn callback_thread<M: MemorySize>(
         .ok();
     Span::current().record("funct_is_some", funct.is_some());
 
-    ctx.data_mut().inner_mut().thread_spawn = funct;
+    ctx.data_mut().inner_mut().functions.thread_spawn = funct;
     Ok(())
 }

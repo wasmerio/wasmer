@@ -374,14 +374,18 @@ impl Wasi {
                         let tasks = ctx.data(&store).tasks().clone();
                         let rewind = deep.rewind;
                         let respawn = {
-                            let run = RunProperties {
+                            let mut run = RunProperties {
                                 ctx: ctx.clone(),
                                 instance: run.instance,
                                 path: run.path,
                                 invoke: run.invoke,
                                 args: run.args,
                             };
-                            move |store, _module, res| {
+                            move |mut store, module, res| {
+                                // Reinitialize and then call the thread
+                                if let Err(err) = run.ctx.reinitialize(&mut store, &module) {
+                                    tracing::warn!("failed to reinitialize module - {}", err);
+                                }
                                 Self::run_with_deep_sleep(run, store, tx, Some((rewind, res)));
                             }
                         };

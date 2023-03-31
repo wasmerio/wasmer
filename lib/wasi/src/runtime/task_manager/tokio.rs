@@ -155,18 +155,18 @@ impl VirtualTaskManager for TokioTaskManager {
         mut module: Module,
         trigger: Box<WasmResumeTrigger>,
     ) -> Result<(), WasiThreadError> {
-        let engine = store.engine().clone();
         let trigger = trigger(store);
         let handle = self.0.clone();
         self.0.spawn(async move {
             let action = trigger.await;
 
-            // Attempt to upgrade the module
-            if let Some(m) = module.try_upgrade(&engine) {
-                module = m;
-            }
-
+            // Attempt to upgrade the module (if we have access to the store)
             if let TaskResumeAction::Run(store, res) = action {
+                if let Some(m) = module.try_upgrade(store.engine()) {
+                    tracing::trace!(name = m.name(), "module upgraded (tiered compilation)");
+                    module = m;
+                }
+
                 handle.spawn_blocking(move || {
                     // Invoke the callback
                     task(store, module, res);

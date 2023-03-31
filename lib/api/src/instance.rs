@@ -19,13 +19,20 @@ use crate::sys::instance as instance_imp;
 /// interacting with WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Instance {
     pub(crate) _inner: instance_imp::Instance,
     pub(crate) module: Module,
     /// The exports for an instance.
     pub exports: Exports,
 }
+
+impl PartialEq for Instance {
+    fn eq(&self, other: &Self) -> bool {
+        self._inner.eq(&other._inner)
+    }
+}
+impl Eq for Instance {}
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
@@ -94,6 +101,22 @@ impl Instance {
             module: module.clone(),
             exports,
         })
+    }
+
+    #[doc(hidden)]
+    #[deprecated = "this is an internal API and is subject to change"]
+    pub fn reinitialize(
+        &self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+    ) -> Result<(), InstantiationError> {
+        self._inner.reinitialize(store, module)
+    }
+
+    #[doc(hidden)]
+    #[deprecated = "this is an internal API and is subject to change"]
+    pub fn set_module(&mut self, module: &Module) {
+        self.module = module.clone();
     }
 
     /// Gets the [`Module`] associated with this instance.

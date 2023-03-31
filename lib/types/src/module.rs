@@ -25,7 +25,7 @@ use std::fmt;
 use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
-#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ModuleId {
     id: usize,
 }

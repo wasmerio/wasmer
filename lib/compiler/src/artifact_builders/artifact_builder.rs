@@ -27,7 +27,7 @@ use wasmer_types::{MetadataHeader, SerializeError};
 /// A compiled wasm module, ready to be instantiated.
 pub struct ArtifactBuild {
     pub(crate) serializable: SerializableModule,
-    pub(crate) next: Option<NextArtifact>,
+    pub(crate) next_tier: Option<NextArtifact>,
 }
 
 impl ArtifactBuild {
@@ -77,6 +77,15 @@ impl ArtifactBuild {
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
 
         // Compile the Module
+        let compilation = compiler.compile_module(
+            target,
+            &compile_info,
+            // SAFETY: Calling `unwrap` is correct since
+            // `environ.translate()` above will write some data into
+            // `module_translation_state`.
+            translation.module_translation_state.as_ref().unwrap(),
+            &translation.function_body_inputs,
+        )?;
         let next_artifact = compiler.get_next_artifact(
             target,
             &compile_info,
@@ -85,15 +94,6 @@ impl ArtifactBuild {
             data_initializers.clone(),
             cpu_features.clone(),
         );
-        let compilation = compiler.compile_module(
-            target,
-            &compile_info,
-            // SAFETY: Calling `unwrap` is correct since
-            // `environ.translate()` above will write some data into
-            // `module_translation_state`.
-            translation.module_translation_state.as_ref().unwrap(),
-            translation.function_body_inputs,
-        )?;
         let serializable = Self::convert_to_serializable(
             compilation,
             &target,
@@ -104,7 +104,7 @@ impl ArtifactBuild {
 
         Ok(Self {
             serializable,
-            next: next_artifact,
+            next_tier: next_artifact,
         })
     }
 
@@ -127,7 +127,7 @@ impl ArtifactBuild {
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self {
             serializable,
-            next: None,
+            next_tier: None,
         }
     }
 
@@ -184,7 +184,7 @@ impl ArtifactBuild {
     /// Gets the next artifiact in the build chain
     /// (used by the tiered compiler)
     pub fn get_next_artifact(&self) -> Option<NextArtifact> {
-        self.next.clone()
+        self.next_tier.clone()
     }
 
     /// Converts a compilation result into a serializable module

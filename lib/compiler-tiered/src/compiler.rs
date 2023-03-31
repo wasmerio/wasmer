@@ -2,7 +2,7 @@
 // Allow unused imports while developing.
 #![allow(unused_imports, dead_code)]
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::Tiered;
 use enumset::EnumSet;
@@ -20,6 +20,7 @@ use wasmer_types::{
 /// A compiler that compiles a WebAssembly module with Tiered compilation.
 pub struct TieredCompiler {
     config: Tiered,
+    compile_lock: Arc<Mutex<()>>,
     singlepass: SinglepassCompiler,
     cranelift: Arc<CraneliftCompiler>,
 }
@@ -31,6 +32,7 @@ impl TieredCompiler {
         let cranelift = config.clone().cranelift;
         Self {
             config,
+            compile_lock: Arc::new(Mutex::new(())),
             singlepass: SinglepassCompiler::new(*singlepass),
             cranelift: Arc::new(CraneliftCompiler::new(*cranelift)),
         }
@@ -56,8 +58,9 @@ impl Compiler for TieredCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
+        let _compile_guard = self.compile_lock.lock().unwrap();
         self.singlepass.compile_module(
             target,
             compile_info,
@@ -97,9 +100,20 @@ impl Compiler for TieredCompiler {
             let module_translation = module_translation.clone();
             let function_body_inputs = function_body_inputs.clone();
             let cranelift = self.cranelift.clone();
+            let lock_guard = self.compile_lock.clone();
             std::thread::spawn(move || {
                 thread_priority::set_current_thread_priority(thread_priority::ThreadPriority::Min)
                     .ok();
+
+                let module_name = module.module.name();
+                tracing::debug!(module_name, "cranelift module compilation waiting");
+                let _compile_guard = lock_guard.lock().unwrap();
+
+                // We wait just a short time so the program has some CPU time
+                // to actually get some stuff done before the background task
+                // kicks in
+                tracing::debug!(module_name, "cranelift module compilation yield");
+                std::thread::sleep(std::time::Duration::from_millis(200));
 
                 let function_body_inputs = {
                     let mut table = PrimaryMap::new();
@@ -109,11 +123,12 @@ impl Compiler for TieredCompiler {
                     table
                 };
 
+                tracing::debug!(module_name, "cranelift module compilation started");
                 let res = cranelift.compile_module(
                     &target,
                     &module,
                     &module_translation,
-                    function_body_inputs,
+                    &function_body_inputs,
                 );
                 let res = res.map(|compilation| {
                     ArtifactBuild::convert_to_serializable(
@@ -129,6 +144,7 @@ impl Compiler for TieredCompiler {
                     target,
                 };
 
+                tracing::debug!(module_name, "cranelift module compilation complete");
                 next.set(res);
             });
         };

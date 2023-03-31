@@ -80,7 +80,7 @@ impl NextArtifact {
 
         let artifact = ArtifactBuild {
             serializable: module,
-            next: None,
+            next_tier: None,
         };
 
         let mut engine_inner = engine.inner_mut();

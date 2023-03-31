@@ -195,6 +195,7 @@ impl Artifact {
                 allocated: None,
             });
         }
+        let next_tier = artifact.next_tier.clone();
         let module_info = artifact.module_info();
         let (
             finished_functions,
@@ -274,7 +275,7 @@ impl Artifact {
                 frame_info_registration: Some(Mutex::new(None)),
                 finished_function_lengths,
             }),
-            next_tier: None,
+            next_tier,
         })
     }
 
@@ -719,7 +720,7 @@ impl Artifact {
                 target,
                 &metadata.compile_info,
                 module_translation.as_ref().unwrap(),
-                function_body_inputs,
+                &function_body_inputs,
             )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 

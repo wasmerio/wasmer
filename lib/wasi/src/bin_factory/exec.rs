@@ -262,9 +262,12 @@ fn call_module(
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
                     let respawn = {
-                        let ctx = ctx.clone();
-                        move |store, module, trigger_res| {
-                            // Call the thread
+                        let mut ctx = ctx.clone();
+                        move |mut store, module, trigger_res| {
+                            // Reinitialize and then call the thread
+                            if let Err(err) = ctx.reinitialize(&mut store, &module) {
+                                tracing::warn!("failed to reinitialize module - {}", err);
+                            }
                             call_module(ctx, store, module, start, Some((rewind, trigger_res)));
                         }
                     };

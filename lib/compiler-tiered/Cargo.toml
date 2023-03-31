@@ -19,6 +19,7 @@ wasmer-types = { path = "../types", version = "=3.2.0-beta.1", default-features 
 enumset = "1.0.2"
 lazy_static = "1.4"
 thread-priority = "0.13.1"
+tracing = "0.1"
 
 [features]
 default = ["std"]

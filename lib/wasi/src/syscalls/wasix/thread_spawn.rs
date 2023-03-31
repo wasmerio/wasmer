@@ -122,7 +122,7 @@ pub fn thread_spawn<M: MemorySize>(
 
     // If the process does not export a thread spawn function then obviously
     // we can't spawn a background thread
-    if env.inner().thread_spawn.is_none() {
+    if env.inner().functions.thread_spawn.is_none() {
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
@@ -148,7 +148,7 @@ pub fn thread_spawn<M: MemorySize>(
 
 /// Calls the module
 fn call_module<M: MemorySize>(
-    ctx: WasiFunctionEnv,
+    mut ctx: WasiFunctionEnv,
     mut store: Store,
     module: Module,
     tasks: Arc<dyn VirtualTaskManager>,
@@ -160,7 +160,13 @@ fn call_module<M: MemorySize>(
     let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
         // We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
-        let spawn = env.data(&store).inner().thread_spawn.clone().unwrap();
+        let spawn = env
+            .data(&store)
+            .inner()
+            .functions
+            .thread_spawn
+            .clone()
+            .unwrap();
         let tid = env.data(&store).tid();
         let call_ret = spawn.call(
             store,
@@ -235,12 +241,13 @@ fn call_module<M: MemorySize>(
             // Create the callback that will be invoked when the thread respawns after a deep sleep
             let rewind = deep.rewind;
             let respawn = {
-                let env = ctx.clone();
+                let mut ctx = ctx.clone();
                 let tasks = tasks.clone();
-                move |store, module, trigger_res| {
-                    // Call the thread
+                move |mut store, module: Module, trigger_res| {
+                    // Reinitialize and then call the thread
+                    ctx.reinitialize(&mut store, &module);
                     call_module::<M>(
-                        env,
+                        ctx,
                         store,
                         module,
                         tasks,

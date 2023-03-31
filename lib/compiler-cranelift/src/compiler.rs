@@ -67,7 +67,7 @@ impl Compiler for CraneliftCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         let isa = self
             .config()
