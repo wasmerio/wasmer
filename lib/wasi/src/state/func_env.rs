@@ -74,10 +74,6 @@ impl WasiFunctionEnv {
             trace!("module::import - {}::{}", ns.module(), ns.name());
         }
 
-        let is_wasix_module = crate::utils::is_wasix_module(instance.module());
-
-        // First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
         let memory = instance.exports.get_memory("memory").map_or_else(
             |e| {
                 if let Some(memory) = memory {
@@ -93,8 +89,6 @@ impl WasiFunctionEnv {
 
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
-
-        env.state.fs.set_is_wasix(is_wasix_module);
 
         // Set the base stack
         let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {

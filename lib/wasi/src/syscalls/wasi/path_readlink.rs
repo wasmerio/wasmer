@@ -45,7 +45,11 @@ pub fn path_readlink<M: MemorySize>(
         );
     }
 
-    let inode = wasi_try!(state.fs.get_inode_at_path(inodes, dir_fd, &path_str, false));
+    let use_current_dir = env.supported().pwd;
+    let inode =
+        wasi_try!(state
+            .fs
+            .get_inode_at_path(inodes, dir_fd, &path_str, false, use_current_dir));
 
     {
         let guard = inode.read();

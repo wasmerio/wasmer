@@ -35,13 +35,15 @@ pub fn path_filestat_get<M: MemorySize>(
     }
     tracing::trace!(path = path_string.as_str());
 
+    let use_current_dir = env.supported().pwd;
     let stat = wasi_try!(path_filestat_get_internal(
         &memory,
         state,
         inodes,
         fd,
         flags,
-        &path_string
+        &path_string,
+        use_current_dir
     ));
 
     wasi_try_mem!(buf.deref(&memory).write(stat));
@@ -70,6 +72,7 @@ pub(crate) fn path_filestat_get_internal(
     fd: WasiFd,
     flags: LookupFlags,
     path_string: &str,
+    use_current_dir: bool,
 ) -> Result<Filestat, Errno> {
     let root_dir = state.fs.get_fd(fd)?;
 
@@ -81,6 +84,7 @@ pub(crate) fn path_filestat_get_internal(
         fd,
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        use_current_dir,
     )?;
     if file_inode.is_preopened {
         Ok(*file_inode.stat.read().unwrap().deref())

@@ -18,6 +18,7 @@
 mod builder;
 mod env;
 mod func_env;
+mod supported;
 mod types;
 
 use std::{
@@ -40,6 +41,7 @@ pub use self::{
     builder::*,
     env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
     func_env::WasiFunctionEnv,
+    supported::WasiSupportedStuff,
     types::*,
 };
 pub use crate::fs::{InodeGuard, InodeWeakGuard};

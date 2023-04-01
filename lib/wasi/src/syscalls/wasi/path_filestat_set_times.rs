@@ -53,11 +53,13 @@ pub fn path_filestat_set_times<M: MemorySize>(
         );
     }
 
+    let use_current_dir = env.supported().pwd;
     let file_inode = wasi_try!(state.fs.get_inode_at_path(
         inodes,
         fd,
         &path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        use_current_dir
     ));
     let stat = {
         let guard = file_inode.read();

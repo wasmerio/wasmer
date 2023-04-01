@@ -38,10 +38,14 @@ pub fn path_symlink<M: MemorySize>(
 
     // get the depth of the parent + 1 (UNDER INVESTIGATION HMMMMMMMM THINK FISH ^ THINK FISH)
     let old_path_path = std::path::Path::new(&old_path_str);
-    let (source_inode, _) =
-        wasi_try!(state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, old_path_path, true));
+    let use_current_dir = env.supported().pwd;
+    let (source_inode, _) = wasi_try!(state.fs.get_parent_inode_at_path(
+        inodes,
+        fd,
+        old_path_path,
+        true,
+        use_current_dir
+    ));
     let depth = state.fs.path_depth_from_fd(fd, source_inode);
 
     // depth == -1 means folder is not relative. See issue #3233.
@@ -51,10 +55,13 @@ pub fn path_symlink<M: MemorySize>(
     };
 
     let new_path_path = std::path::Path::new(&new_path_str);
-    let (target_parent_inode, entry_name) =
-        wasi_try!(state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, new_path_path, true));
+    let (target_parent_inode, entry_name) = wasi_try!(state.fs.get_parent_inode_at_path(
+        inodes,
+        fd,
+        new_path_path,
+        true,
+        use_current_dir
+    ));
 
     // short circuit if anything is wrong, before we create an inode
     {

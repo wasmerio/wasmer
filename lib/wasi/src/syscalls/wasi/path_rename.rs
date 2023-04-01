@@ -49,25 +49,36 @@ pub fn path_rename<M: MemorySize>(
     }
 
     // this is to be sure the source file is fetch from filesystem if needed
+    let use_current_dir = env.supported().pwd;
     wasi_try!(state.fs.get_inode_at_path(
         inodes,
         old_fd,
         source_path.to_str().as_ref().unwrap(),
-        true
+        true,
+        use_current_dir
     ));
     // Create the destination inode if the file exists.
-    let _ =
-        state
-            .fs
-            .get_inode_at_path(inodes, new_fd, target_path.to_str().as_ref().unwrap(), true);
-    let (source_parent_inode, source_entry_name) =
-        wasi_try!(state
-            .fs
-            .get_parent_inode_at_path(inodes, old_fd, source_path, true));
-    let (target_parent_inode, target_entry_name) =
-        wasi_try!(state
-            .fs
-            .get_parent_inode_at_path(inodes, new_fd, target_path, true));
+    let _ = state.fs.get_inode_at_path(
+        inodes,
+        new_fd,
+        target_path.to_str().as_ref().unwrap(),
+        true,
+        use_current_dir,
+    );
+    let (source_parent_inode, source_entry_name) = wasi_try!(state.fs.get_parent_inode_at_path(
+        inodes,
+        old_fd,
+        source_path,
+        true,
+        use_current_dir
+    ));
+    let (target_parent_inode, target_entry_name) = wasi_try!(state.fs.get_parent_inode_at_path(
+        inodes,
+        new_fd,
+        target_path,
+        true,
+        use_current_dir
+    ));
     let mut need_create = true;
     let host_adjusted_target_path = {
         let guard = target_parent_inode.read();

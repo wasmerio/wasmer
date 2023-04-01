@@ -48,20 +48,25 @@ pub fn path_link<M: MemorySize>(
     }
 
     // Convert relative paths into absolute paths
-    old_path_str = ctx.data().state.fs.relative_path_to_absolute(old_path_str);
-    new_path_str = ctx.data().state.fs.relative_path_to_absolute(new_path_str);
+    old_path_str = env.state.fs.relative_path_to_absolute(old_path_str);
+    new_path_str = env.state.fs.relative_path_to_absolute(new_path_str);
 
+    let use_current_dir = env.supported().pwd;
     let source_inode = wasi_try!(state.fs.get_inode_at_path(
         inodes,
         old_fd,
         &old_path_str,
         old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        use_current_dir,
     ));
     let target_path_arg = std::path::PathBuf::from(&new_path_str);
-    let (target_parent_inode, new_entry_name) =
-        wasi_try!(state
-            .fs
-            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, false));
+    let (target_parent_inode, new_entry_name) = wasi_try!(state.fs.get_parent_inode_at_path(
+        inodes,
+        new_fd,
+        &target_path_arg,
+        false,
+        use_current_dir
+    ));
 
     if source_inode.stat.write().unwrap().st_nlink == Linkcount::max_value() {
         return Errno::Mlink;

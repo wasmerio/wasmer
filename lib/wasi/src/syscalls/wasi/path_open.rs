@@ -70,18 +70,20 @@ pub fn path_open<M: MemorySize>(
 
     // Convert relative paths into absolute paths
     if path_string.starts_with("./") {
-        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
+        path_string = env.state.fs.relative_path_to_absolute(path_string);
         trace!(
             %path_string
         );
     }
 
     let path_arg = std::path::PathBuf::from(&path_string);
+    let use_current_dir = env.supported().pwd;
     let maybe_inode = state.fs.get_inode_at_path(
         inodes,
         dirfd,
         &path_string,
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        use_current_dir,
     );
 
     let mut open_flags = 0;
@@ -240,7 +242,8 @@ pub fn path_open<M: MemorySize>(
                 inodes,
                 dirfd,
                 &path_arg,
-                dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
+                dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+                use_current_dir
             ));
             let new_file_host_path = {
                 let guard = parent_inode.read();

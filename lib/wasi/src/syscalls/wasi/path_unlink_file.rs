@@ -32,12 +32,17 @@ pub fn path_unlink_file<M: MemorySize>(
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
     }
 
-    let inode = wasi_try!(state.fs.get_inode_at_path(inodes, fd, &path_str, false));
+    let use_current_dir = env.supported().pwd;
+    let inode =
+        wasi_try!(state
+            .fs
+            .get_inode_at_path(inodes, fd, &path_str, false, use_current_dir));
     let (parent_inode, childs_name) = wasi_try!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(&path_str),
-        false
+        false,
+        use_current_dir
     ));
 
     let removed_inode = {

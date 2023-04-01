@@ -1,6 +1,6 @@
 use crate::http::HttpClientCapabilityV1;
 
-/// Defines capabilities for a Wasi environment.
+/// Defines sandbox capabilities for a Wasi environment.
 #[derive(Clone, Debug)]
 pub struct Capabilities {
     pub insecure_allow_all: bool,

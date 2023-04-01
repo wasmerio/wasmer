@@ -25,12 +25,17 @@ pub fn path_remove_directory<M: MemorySize>(
         );
     }
 
-    let inode = wasi_try!(state.fs.get_inode_at_path(inodes, fd, &path_str, false));
+    let use_current_dir = env.supported().pwd;
+    let inode =
+        wasi_try!(state
+            .fs
+            .get_inode_at_path(inodes, fd, &path_str, false, use_current_dir));
     let (parent_inode, childs_name) = wasi_try!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(&path_str),
-        false
+        false,
+        use_current_dir
     ));
 
     let host_path_to_remove = {

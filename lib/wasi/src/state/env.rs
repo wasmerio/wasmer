@@ -34,7 +34,7 @@ use crate::{
     DEFAULT_STACK_SIZE,
 };
 
-use super::WasiState;
+use super::{WasiState, WasiSupportedStuff};
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
 ///
@@ -135,12 +135,16 @@ pub struct WasiInstanceHandles {
     #[allow(dead_code)]
     #[derivative(Debug = "ignore")]
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
+
+    /// List of the supports imports
+    pub(crate) supported: WasiSupportedStuff,
 }
 
 impl WasiInstanceHandles {
     pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
         WasiInstanceHandles {
             memory,
+            supported: WasiSupportedStuff::new(instance.module()),
             stack_pointer: instance
                 .exports
                 .get_global("__stack_pointer")
@@ -187,6 +191,10 @@ impl WasiInstanceHandles {
                 .ok(),
             instance,
         }
+    }
+
+    pub fn supported(&self) -> &WasiSupportedStuff {
+        &self.supported
     }
 }
 
@@ -287,6 +295,7 @@ pub struct WasiEnv {
     pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     pub module_cache: Arc<ModuleCache>,
 
+    /// The list of sandbox capabilities
     pub capabilities: Capabilities,
 }
 
@@ -691,6 +700,12 @@ impl WasiEnv {
         self.inner
             .as_mut()
             .expect("You must initialize the WasiEnv before using it")
+    }
+
+    /// Providers safe access to the list of supported stuff
+    /// (like imports and exports)
+    pub fn supported(&self) -> &WasiSupportedStuff {
+        &self.inner().supported
     }
 
     /// Providers safe access to the memory

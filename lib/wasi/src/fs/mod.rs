@@ -8,7 +8,7 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
 };
@@ -333,25 +333,9 @@ pub struct WasiFs {
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
     pub has_unioned: Arc<Mutex<HashSet<String>>>,
-
-    // TODO: remove
-    // using an atomic is a hack to enable customization after construction,
-    // but it shouldn't be necessary
-    // It should not be necessary at all.
-    is_wasix: AtomicBool,
 }
 
 impl WasiFs {
-    pub fn is_wasix(&self) -> bool {
-        // NOTE: this will only be set once very early in the instance lifetime,
-        // so Relaxed should be okay.
-        self.is_wasix.load(Ordering::Relaxed)
-    }
-
-    pub fn set_is_wasix(&self, is_wasix: bool) {
-        self.is_wasix.store(is_wasix, Ordering::SeqCst);
-    }
-
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
@@ -361,7 +345,6 @@ impl WasiFs {
             fd_map: Arc::new(RwLock::new(fd_map)),
             next_fd: AtomicU32::new(self.next_fd.load(Ordering::SeqCst)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
-            is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
             root_inode: self.root_inode.clone(),
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
@@ -633,7 +616,6 @@ impl WasiFs {
             fd_map: Arc::new(RwLock::new(HashMap::new())),
             next_fd: AtomicU32::new(3),
             current_dir: Mutex::new("/".to_string()),
-            is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
             root_inode: root_inode.clone(),
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
@@ -1300,8 +1282,9 @@ impl WasiFs {
         base: WasiFd,
         path: &str,
         follow_symlinks: bool,
+        use_current_dir: bool,
     ) -> Result<InodeGuard, Errno> {
-        let start_inode = if !path.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
+        let start_inode = if !path.starts_with('/') && use_current_dir {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
             cur_inode
         } else {
@@ -1318,6 +1301,7 @@ impl WasiFs {
         base: WasiFd,
         path: &Path,
         follow_symlinks: bool,
+        use_current_dir: bool,
     ) -> Result<(InodeGuard, String), Errno> {
         let mut parent_dir = std::path::PathBuf::new();
         let mut components = path.components().rev();
@@ -1330,8 +1314,14 @@ impl WasiFs {
         for comp in components.rev() {
             parent_dir.push(comp);
         }
-        self.get_inode_at_path(inodes, base, &parent_dir.to_string_lossy(), follow_symlinks)
-            .map(|v| (v, new_entity_name))
+        self.get_inode_at_path(
+            inodes,
+            base,
+            &parent_dir.to_string_lossy(),
+            follow_symlinks,
+            use_current_dir,
+        )
+        .map(|v| (v, new_entity_name))
     }
 
     pub fn get_fd(&self, fd: WasiFd) -> Result<Fd, Errno> {
