@@ -447,10 +447,7 @@ impl Module {
     /// Following the WebAssembly spec, one name can have multiple
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
-    pub fn custom_sections<'a>(
-        &'a self,
-        name: &'a str,
-    ) -> impl Iterator<Item = Box<[u8]>> + 'a {
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         self.0.custom_sections(name)
     }
 

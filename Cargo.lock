@@ -3509,7 +3509,7 @@ version = "0.0.3"
 dependencies = [
  "pkg-config",
  "quote",
- "syn",
+ "syn 1.0.109",
 ]
 
 [[package]]

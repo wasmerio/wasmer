@@ -56,6 +56,9 @@ pub struct Engine {
     inner: Arc<InnerEngine>,
 }
 
+unsafe impl Send for Engine {}
+unsafe impl Sync for Engine {}
+
 impl From<&crate::engine::Engine> for Engine {
     fn from(engine: &crate::engine::Engine) -> Self {
         engine.0.clone()

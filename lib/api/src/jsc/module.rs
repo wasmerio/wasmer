@@ -221,12 +221,27 @@ impl Module {
         // return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
     }
 
+    pub fn deserialize_checked(
+        _engine: &impl AsEngineRef,
+        _bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        unimplemented!();
+    }
+
     pub unsafe fn deserialize_from_file(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
         Self::deserialize(engine, bytes)
+    }
+
+    pub fn deserialize_from_file_checked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let bytes = std::fs::read(path.as_ref())?;
+        Self::deserialize_checked(engine, bytes)
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {
@@ -424,10 +439,7 @@ impl Module {
         // ExportsIterator::new(iter, length as usize)
     }
 
-    pub fn custom_sections<'a>(
-        &'a self,
-        name: &'a str,
-    ) -> impl Iterator<Item = Box<[u8]>> + 'a {
+    pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         self.info().custom_sections(name)
         // let engine = engine.as_engine_ref();
         // let context = engine.engine().0.context();
