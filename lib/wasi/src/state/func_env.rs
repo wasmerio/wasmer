@@ -1,18 +1,19 @@
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, InstantiationError,
-    Memory, Module,
+    vm::VMMemory, AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory,
+    Module, RuntimeError, Store,
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
     os::task::thread::DEFAULT_STACK_SIZE,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions},
+    utils::{
+        get_wasi_version, get_wasi_versions,
+        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+    },
     WasiEnv, WasiError,
 };
-
-use super::env::WasiInstanceExports;
 
 #[derive(Clone)]
 pub struct WasiFunctionEnv {
@@ -50,6 +51,17 @@ impl WasiFunctionEnv {
         self.env.as_mut(store)
     }
 
+    /// Runs the module (via the start function)
+    pub fn run_start(&self, store: &mut impl AsStoreMut) -> Result<(), RuntimeError> {
+        let inner = self.data(store).inner();
+        let start = inner.exports.start.clone();
+        if let Some(start) = start {
+            start.call(store)
+        } else {
+            Err(RuntimeError::new("missing the start export"))
+        }
+    }
+
     /// Initializes the WasiEnv using the instance exports
     /// (this must be executed before attempting to use it)
     /// (as the stores can not by themselves be passed between threads we can store the module
@@ -63,23 +75,57 @@ impl WasiFunctionEnv {
     }
 
     /// Reinitializes the state if the module has changed
-    pub fn reinitialize(
-        &mut self,
-        store: &mut impl AsStoreMut,
-        module: &Module,
-    ) -> Result<(), InstantiationError> {
-        let env = self.data(store);
+    pub fn may_reinitialize(&mut self, mut store: Store, module: &Module) -> anyhow::Result<Store> {
+        let env = self.data(&store);
         if env.inner().instance.module().ne(module) {
-            let inst = env.inner().instance.clone();
+            // Extract the memory from the store
+            let memory = self
+                .data(&store)
+                .memory()
+                .try_clone(&store)
+                .ok_or_else(|| anyhow::format_err!("failed - the memory could not be cloned"))?;
 
-            // This will rebuild the instance itself with the module
-            #[allow(deprecated)]
-            inst.reinitialize(store, module)?;
+            // Rebuild the store but preserve the globals
+            let snapshot = capture_snapshot(&mut store);
+            let env = self.data(&store);
+            let mut new_store = env.runtime.new_store();
 
-            // This will rebuild the function points
-            let exports = WasiInstanceExports::new(store, &inst);
-            self.data_mut(store).inner_mut().exports = exports;
+            // Create a new store which we will populate using the module
+            // and reinitialize the context with
+            self.env = FunctionEnv::new(&mut new_store, env.duplicate());
+            self.initialize_handles(&mut new_store, module, memory, Some(snapshot))?;
+            store = new_store;
         }
+        Ok(store)
+    }
+
+    /// Reinitializes the instance handles using the supplied store and module
+    pub(crate) fn initialize_handles(
+        &mut self,
+        store: &mut Store,
+        module: &Module,
+        memory: VMMemory,
+        snapshot: Option<InstanceSnapshot>,
+    ) -> anyhow::Result<()> {
+        // Extract the current memory
+        let memory = Memory::new_from_existing(store, memory);
+
+        // Build the context object and import the memory
+        let (mut import_object, init) =
+            crate::import_object_for_all_wasi_versions(module, store, &self.env);
+        import_object.define("env", "memory", memory.clone());
+
+        let instance = Instance::new(store, module, &import_object)?;
+
+        init(&instance, &store).unwrap();
+
+        // Restore the snapshot if one is supplied
+        if let Some(snapshot) = snapshot {
+            restore_snapshot(store, &snapshot);
+        }
+
+        // Set the current thread ID
+        self.data_mut(store).inner = Some(WasiInstanceHandles::new(memory, &store, instance));
         Ok(())
     }
 

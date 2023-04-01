@@ -480,6 +480,8 @@ pub enum WasiThreadError {
     /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     #[error("WASM context is invalid")]
     InvalidWasmContext,
+    #[error("failed to reinitialize")]
+    Initialization,
 }
 
 impl From<WasiThreadError> for Errno {
@@ -489,6 +491,7 @@ impl From<WasiThreadError> for Errno {
             WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed => Errno::Nomem,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,
+            WasiThreadError::Initialization => Errno::Noexec,
         }
     }
 }

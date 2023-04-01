@@ -2,6 +2,7 @@ use crate::{
     VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
 };
 use core::slice::Iter;
+use more_asserts::assert_lt;
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
 use wasmer_types::StoreId;
 
@@ -94,7 +95,7 @@ impl StoreObjects {
     /// Safety: the caller should check taht the raw value is compatible
     /// with destination VMGlobal type
     pub fn set_global_unchecked(&self, idx: usize, val: u128) {
-        assert!(idx < self.globals.len());
+        assert_lt!(idx, self.globals.len());
         unsafe {
             self.globals[idx].vmglobal().as_mut().val.u128 = val;
         }

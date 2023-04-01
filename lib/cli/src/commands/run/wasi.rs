@@ -6,9 +6,7 @@ use std::{
     sync::{mpsc::Sender, Arc},
 };
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-use wasmer::{
-    AsStoreMut, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
-};
+use wasmer::{AsStoreMut, Instance, Memory32, Memory64, Module, RuntimeError, Store};
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
@@ -104,7 +102,6 @@ pub struct Wasi {
 
 pub struct RunProperties {
     pub ctx: WasiFunctionEnv,
-    pub instance: Instance,
     pub path: PathBuf,
     pub invoke: Option<String>,
     pub args: Vec<String>,
@@ -318,9 +315,10 @@ impl Wasi {
 
         // Do we want to invoke a function?
         if let Some(ref invoke) = run.invoke {
+            let instance = ctx.data(&store).inner().get_instance().clone();
             let res = RunWithPathBuf::inner_module_invoke_function(
                 &mut store,
-                run.instance,
+                instance,
                 run.path.as_path(),
                 invoke,
                 &run.args,
@@ -331,15 +329,10 @@ impl Wasi {
 
             tx.send(res).unwrap();
         } else {
-            let start: Function =
-                RunWithPathBuf::try_find_function(&run.instance, run.path.as_path(), "_start", &[])
-                    .unwrap();
-
-            let result = start.call(&mut store, &[]);
+            let result = ctx.run_start(&mut store);
             Self::handle_result(
                 RunProperties {
                     ctx,
-                    instance: run.instance,
                     path: run.path,
                     invoke: run.invoke,
                     args: run.args,
@@ -352,10 +345,10 @@ impl Wasi {
     }
 
     /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(
+    pub fn handle_result<T>(
         run: RunProperties,
         mut store: Store,
-        result: Result<Box<[Value]>, RuntimeError>,
+        result: Result<T, RuntimeError>,
         tx: Sender<Result<i32>>,
     ) {
         let ctx = run.ctx;
@@ -370,23 +363,21 @@ impl Wasi {
                         tracing::trace!(%pid, %tid, "entered a deep sleep");
 
                         // Create the respawn function
-                        let module = run.instance.module().clone();
+                        let module = ctx.data(&store).inner().get_instance().module().clone();
                         let tasks = ctx.data(&store).tasks().clone();
                         let rewind = deep.rewind;
                         let respawn = {
                             let mut run = RunProperties {
                                 ctx: ctx.clone(),
-                                instance: run.instance,
                                 path: run.path,
                                 invoke: run.invoke,
                                 args: run.args,
                             };
-                            move |mut store, module, res| {
+                            move |store, module, res| {
                                 // Reinitialize and then call the thread
-                                if let Err(err) = run.ctx.reinitialize(&mut store, &module) {
-                                    tracing::warn!("failed to reinitialize module - {}", err);
-                                }
+                                let store = run.ctx.may_reinitialize(store, &module)?;
                                 Self::run_with_deep_sleep(run, store, tx, Some((rewind, res)));
+                                Ok(())
                             }
                         };
 

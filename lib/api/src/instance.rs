@@ -103,22 +103,6 @@ impl Instance {
         })
     }
 
-    #[doc(hidden)]
-    #[deprecated = "this is an internal API and is subject to change"]
-    pub fn reinitialize(
-        &self,
-        store: &mut impl AsStoreMut,
-        module: &Module,
-    ) -> Result<(), InstantiationError> {
-        self._inner.reinitialize(store, module)
-    }
-
-    #[doc(hidden)]
-    #[deprecated = "this is an internal API and is subject to change"]
-    pub fn set_module(&mut self, module: &Module) {
-        self.module = module.clone();
-    }
-
     /// Gets the [`Module`] associated with this instance.
     pub fn module(&self) -> &Module {
         &self.module

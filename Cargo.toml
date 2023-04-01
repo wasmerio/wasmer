@@ -132,6 +132,13 @@ coverage = []
 #[profile.release]
 #debug = true
 
+[profile.dev.package.cranelift-codegen]
+opt-level = 3
+[profile.dev.package.regalloc2]
+opt-level = 3
+[profile.dev.package.wasmparser]
+opt-level = 3
+
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false

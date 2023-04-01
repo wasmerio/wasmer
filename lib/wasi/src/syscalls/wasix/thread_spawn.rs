@@ -245,7 +245,7 @@ fn call_module<M: MemorySize>(
                 let tasks = tasks.clone();
                 move |mut store, module: Module, trigger_res| {
                     // Reinitialize and then call the thread
-                    ctx.reinitialize(&mut store, &module);
+                    let store = ctx.may_reinitialize(store, &module)?;
                     call_module::<M>(
                         ctx,
                         store,
@@ -255,6 +255,7 @@ fn call_module<M: MemorySize>(
                         thread_handle,
                         Some((rewind, trigger_res)),
                     );
+                    Ok(())
                 }
             };
 
@@ -283,24 +284,11 @@ fn create_ctx(
             return Err(Errno::Noexec);
         }
     };
-    let memory = Memory::new_from_existing(store, memory);
 
     // Build the context object and import the memory
     let mut ctx = WasiFunctionEnv::new(store, wasi_env);
-    let (mut import_object, init) = import_object_for_all_wasi_versions(module, store, &ctx.env);
-    import_object.define("env", "memory", memory.clone());
+    ctx.initialize_handles(store, module, memory, None)
+        .map_err(|_| Errno::Noexec)?;
 
-    let instance = match Instance::new(store, module, &import_object) {
-        Ok(a) => a,
-        Err(err) => {
-            error!("failed - create instance failed: {}", err);
-            return Err(Errno::Noexec);
-        }
-    };
-
-    init(&instance, &store).unwrap();
-
-    // Set the current thread ID
-    ctx.data_mut(store).inner = Some(WasiInstanceHandles::new(memory, &store, instance));
     Ok(ctx)
 }

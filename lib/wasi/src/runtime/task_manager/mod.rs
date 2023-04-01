@@ -43,7 +43,8 @@ pub enum TaskResumeAction {
     Abort,
 }
 
-pub type WasmResumeTask = dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static;
+pub type WasmResumeTask =
+    dyn FnOnce(Store, Module, Result<(), Errno>) -> anyhow::Result<()> + Send + 'static;
 
 pub type WasmResumeTrigger = dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
     + Send

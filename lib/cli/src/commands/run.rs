@@ -341,7 +341,7 @@ impl RunWithPathBuf {
                     self.inner_module_init(&mut store, &instance)?;
                     Wasi::run(
                         RunProperties {
-                            ctx, instance, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
+                            ctx, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
                         },
                         store
                     )

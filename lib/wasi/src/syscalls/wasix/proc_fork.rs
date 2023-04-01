@@ -341,7 +341,7 @@ fn run<M: MemorySize>(
                     let rewind_state = deep.rewind;
                     move |mut store, module, trigger_res| {
                         // Reinitialize and then call the thread
-                        ctx.reinitialize(&mut store, &module);
+                        let store = ctx.may_reinitialize(store, &module)?;
                         run::<M>(
                             ctx,
                             store,
@@ -350,6 +350,7 @@ fn run<M: MemorySize>(
                             child_handle,
                             Some((rewind_state, trigger_res)),
                         );
+                        Ok(())
                     }
                 };
 

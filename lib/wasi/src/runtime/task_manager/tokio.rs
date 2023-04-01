@@ -10,11 +10,10 @@ use wasmer::{
     vm::{VMMemory, VMSharedMemory},
     Module, Store,
 };
-use wasmer_wasix_types::wasi::Errno;
 
 use crate::os::task::thread::WasiThreadError;
 
-use super::{SpawnType, TaskResumeAction, VirtualTaskManager, WasmResumeTrigger};
+use super::{SpawnType, TaskResumeAction, VirtualTaskManager, WasmResumeTask, WasmResumeTrigger};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
@@ -150,7 +149,7 @@ impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::task_wasm_with_trigger`].
     fn resume_wasm_after_trigger(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
+        task: Box<WasmResumeTask>,
         store: Store,
         mut module: Module,
         trigger: Box<WasmResumeTrigger>,
@@ -169,7 +168,9 @@ impl VirtualTaskManager for TokioTaskManager {
 
                 handle.spawn_blocking(move || {
                     // Invoke the callback
-                    task(store, module, res);
+                    if let Err(err) = task(store, module, res) {
+                        tracing::warn!("resumption failed - thread terminating - {}", err);
+                    }
                 });
             }
         });

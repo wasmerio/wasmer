@@ -194,6 +194,10 @@ impl WasiInstanceHandles {
             signal_set: false,
         }
     }
+
+    pub fn get_instance(&self) -> &wasmer::Instance {
+        &self.instance
+    }
 }
 
 /// The code itself makes safe use of the struct so multiple threads don't access

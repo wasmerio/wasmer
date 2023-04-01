@@ -10,7 +10,6 @@ use crate::Extern;
 #[derive(Clone, PartialEq, Eq)]
 pub struct Instance {
     _handle: StoreHandle<VMInstance>,
-    externs: Vec<Extern>,
 }
 
 #[cfg(test)]
@@ -61,20 +60,9 @@ impl Instance {
         let exports = Self::get_exports(store, module, &mut handle);
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),
-            externs: externs.iter().map(|e| e.clone()).collect(),
         };
 
         Ok((instance, exports))
-    }
-
-    pub(crate) fn reinitialize(
-        &self,
-        store: &mut impl AsStoreMut,
-        module: &Module,
-    ) -> Result<(), InstantiationError> {
-        let mut handle = module.0.instantiate(store, &self.externs)?;
-        std::mem::swap(self._handle.get_mut(store.objects_mut()), &mut handle);
-        Ok(())
     }
 
     fn get_exports(

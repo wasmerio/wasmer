@@ -263,12 +263,11 @@ fn call_module(
                     let rewind = deep.rewind;
                     let respawn = {
                         let mut ctx = ctx.clone();
-                        move |mut store, module, trigger_res| {
+                        move |store, module, trigger_res| {
                             // Reinitialize and then call the thread
-                            if let Err(err) = ctx.reinitialize(&mut store, &module) {
-                                tracing::warn!("failed to reinitialize module - {}", err);
-                            }
+                            let store = ctx.may_reinitialize(store, &module)?;
                             call_module(ctx, store, module, start, Some((rewind, trigger_res)));
+                            Ok(())
                         }
                     };
 
