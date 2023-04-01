@@ -5709,6 +5709,7 @@ dependencies = [
 name = "wasmer-types"
 version = "3.2.0-beta.1"
 dependencies = [
+ "bytecheck",
  "enum-iterator",
  "enumset",
  "indexmap",
