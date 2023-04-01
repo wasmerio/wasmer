@@ -81,13 +81,13 @@
 //!     compilation-time and runtime performance, useful for development,
 //!   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
 //!     code with the fastest runtime speed, ideal for production.
-//!     
+//!
 //! * **Headless mode** — Once a WebAssembly module has been compiled, it
 //!   is possible to serialize it in a file for example, and later execute
 //!   it with Wasmer with headless mode turned on. Headless Wasmer has no
 //!   compiler, which makes it more portable and faster to load. It's
 //!   ideal for constrainted environments.
-//!   
+//!
 //! * **Cross-compilation** — Most compilers support cross-compilation. It
 //!   means it possible to pre-compile a WebAssembly module targetting a
 //!   different architecture or platform and serialize it, to then run it

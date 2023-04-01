@@ -1,18 +1,19 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::{collections::BTreeSet, path::Path};
-use virtual_fs::FileSystem;
-use virtual_fs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
+use std::{
+    collections::{BTreeSet, HashMap},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
-use wasmer_wasix::os::tty_sys::SysTty;
-use wasmer_wasix::os::TtyBridge;
-use wasmer_wasix::types::__WASI_STDIN_FILENO;
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_versions,
+    os::{tty_sys::SysTty, TtyBridge},
+    runners::MappedDirectory,
+    runtime::task_manager::tokio::TokioTaskManager,
+    types::__WASI_STDIN_FILENO,
+    PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiVersion,
 };
 
 use clap::Parser;
@@ -30,7 +31,7 @@ pub struct Wasi {
         name = "GUEST_DIR:HOST_DIR",
         parse(try_from_str = parse_mapdir),
     )]
-    pub(crate) mapped_dirs: Vec<(String, PathBuf)>,
+    pub(crate) mapped_dirs: Vec<MappedDirectory>,
 
     /// Pass custom environment variables
     #[clap(
@@ -39,6 +40,10 @@ pub struct Wasi {
         parse(try_from_str = parse_envvar),
     )]
     pub(crate) env_vars: Vec<(String, String)>,
+
+    /// Forward all host env variables to the wcgi task.
+    #[clap(long, env)]
+    pub(crate) forward_host_env: bool,
 
     /// List of other containers this module depends on
     #[clap(long = "use", name = "USE")]
@@ -89,7 +94,10 @@ pub struct Wasi {
 #[allow(dead_code)]
 impl Wasi {
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
-        self.mapped_dirs.push((alias.to_string(), target_on_disk));
+        self.mapped_dirs.push(MappedDirectory {
+            guest: alias.to_string(),
+            host: target_on_disk,
+        });
     }
 
     pub fn set_env(&mut self, key: &str, value: &str) {
@@ -112,15 +120,14 @@ impl Wasi {
         get_wasi_versions(module, false).is_some()
     }
 
-    /// Helper function for instantiating a module with Wasi imports for the `Run` command.
-    pub fn instantiate(
+    pub fn prepare(
         &self,
         store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<(WasiFunctionEnv, Instance)> {
-        let args = args.iter().cloned().map(|arg| arg.into_bytes());
+    ) -> Result<WasiEnvBuilder> {
+        let args = args.into_iter().map(|arg| arg.into_bytes());
 
         let map_commands = self
             .map_commands
@@ -129,7 +136,7 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let mut rt = PluggableRuntimeImplementation::default();
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
@@ -162,12 +169,13 @@ impl Wasi {
             if !self.mapped_dirs.is_empty() {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
-                for (src, dst) in self.mapped_dirs.clone() {
-                    let src = match src.starts_with('/') {
-                        true => src,
-                        false => format!("/{}", src),
+                for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
+                    let host = if !host.is_absolute() {
+                        Path::new("/").join(host)
+                    } else {
+                        host
                     };
-                    root_fs.mount(PathBuf::from(src), &fs_backing, dst)?;
+                    root_fs.mount(guest.into(), &fs_backing, host)?;
                 }
             }
 
@@ -181,7 +189,11 @@ impl Wasi {
             builder
                 .fs(default_fs_backing())
                 .preopen_dirs(self.pre_opened_directories.clone())?
-                .map_dirs(self.mapped_dirs.clone())?
+                .map_dirs(
+                    self.mapped_dirs
+                        .iter()
+                        .map(|d| (d.guest.clone(), d.host.clone())),
+                )?
         };
 
         if self.http_client {
@@ -197,6 +209,18 @@ impl Wasi {
             }
         }
 
+        Ok(builder)
+    }
+
+    /// Helper function for instantiating a module with Wasi imports for the `Run` command.
+    pub fn instantiate(
+        &self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        program_name: String,
+        args: Vec<String>,
+    ) -> Result<(WasiFunctionEnv, Instance)> {
+        let builder = self.prepare(store, module, program_name, args)?;
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
         Ok((wasi_env, instance))
     }

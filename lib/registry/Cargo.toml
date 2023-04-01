@@ -1,9 +1,12 @@
 [package]
 name = "wasmer-registry"
-version = "4.0.0"
+version = "4.2.0"
 edition = "2021"
 license = "MIT"
 description = "Crate to interact with the wasmer registry (wapm.io), download packages, etc."
+
+[features]
+build-package  = ["rusqlite", "indexmap", "wasmer-wasm-interface", "wasmparser", "rpassword", "minisign", "time"]
 
 [dev-dependencies]
 rand = "0.8.5"
@@ -13,7 +16,6 @@ dirs = "4.0.0"
 graphql_client = "0.11.0"
 serde = { version = "1.0.145", features = ["derive"] }
 anyhow = "1.0.65"
-reqwest = { version = "0.11.12", default-features = false, features = ["rustls-tls", "blocking", "multipart", "json", "stream"] }
 futures-util = "0.3.25"
 whoami = "1.2.3"
 serde_json = "1.0.85"
@@ -37,3 +39,17 @@ console = "0.15.2"
 indicatif = "0.17.2"
 lazy_static = "1.4.0"
 tempfile = "3.4.0"
+
+rusqlite = { version = "0.28.0", optional = true, features = ["bundled"] }
+time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"], optional = true }
+indexmap = { version = "1.9.3", optional = true }
+wasmer-wasm-interface = { version = "3.2.0-beta.1", path = "../wasm-interface", optional = true }
+wasmparser = { version = "0.51.4", optional = true }
+rpassword = { version = "7.2.0", optional = true }
+minisign = { version = "0.7.2", optional = true }
+
+[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
+reqwest = { version = "0.11.12", default-features = false, features = ["rustls-tls", "blocking", "multipart", "json", "stream"] }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+reqwest = { version = "0.11.12", default-features = false, features = ["native-tls", "blocking", "multipart", "json", "stream"] }

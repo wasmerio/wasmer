@@ -140,7 +140,7 @@ impl Module {
         Ok(module)
     }
 
-    /// Creates a new WebAssembly module from a serialized binary.
+    /// Creates a new WebAssembly module from a Wasm binary.
     ///
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
@@ -149,7 +149,8 @@ impl Module {
         Ok(Self(module_imp::Module::from_binary(engine, binary)?))
     }
 
-    /// Creates a new WebAssembly module skipping any kind of validation.
+    /// Creates a new WebAssembly module from a Wasm binary,
+    /// skipping any kind of validation on the WebAssembly file.
     ///
     /// # Safety
     ///
@@ -177,6 +178,11 @@ impl Module {
 
     /// Serializes a module into a binary representation that the `Engine`
     /// can later process via [`Module::deserialize`].
+    ///
+    /// # Important
+    ///
+    /// This function will return a custom binary format that will be different than
+    /// the `wasm` binary format, but faster to load in Native hosts.
     ///
     /// # Usage
     ///
@@ -214,7 +220,15 @@ impl Module {
     }
 
     /// Deserializes a serialized Module binary into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// Note: You should usually prefer the safe [`Module::deserialize_checked`].
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
     ///
     /// # Safety
     ///
@@ -241,6 +255,56 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         Ok(Self(module_imp::Module::deserialize(engine, bytes)?))
+    }
+
+    /// Deserializes a serialized Module binary into a `Module`.
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
+    /// let module = Module::deserialize_checked(&store, serialized_data)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn deserialize_checked(
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self(module_imp::Module::deserialize_checked(
+            engine, bytes,
+        )?))
+    }
+
+    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
+    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn deserialize_from_file_checked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self(module_imp::Module::deserialize_from_file_checked(
+            engine, path,
+        )?))
     }
 
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.

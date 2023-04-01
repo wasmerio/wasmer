@@ -9,7 +9,7 @@ use crate::syscalls::*;
 ///
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
-#[instrument(level = "debug", skip_all, fields(sock, opt), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, %opt), ret)]
 pub fn sock_get_opt_size<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

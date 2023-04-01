@@ -39,6 +39,7 @@ mod wasi {
         let handle = std::thread::spawn(move || {
             WasiRunner::new(store)
                 .with_task_manager(tasks)
+                .with_args(["--version"])
                 .run_cmd(&container, "wat2wasm")
         });
         let err = handle.join().unwrap().unwrap_err();
@@ -51,7 +52,7 @@ mod wasi {
             WasiError::Exit(code) => *code,
             other => unreachable!("Something else went wrong: {:?}", other),
         };
-        assert_eq!(exit_code.is_success(), true);
+        assert!(exit_code.is_success());
     }
 
     #[tokio::test]

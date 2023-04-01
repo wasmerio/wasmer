@@ -18,5 +18,5 @@ pub fn environ_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
-    write_buffer_array(&memory, &*state.envs, environ, environ_buf)
+    write_buffer_array(&memory, &state.envs, environ, environ_buf)
 }

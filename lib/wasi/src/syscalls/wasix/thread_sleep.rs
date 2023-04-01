@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
-#[instrument(level = "debug", skip_all, fields(duration), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%duration), ret, err)]
 pub fn thread_sleep(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,

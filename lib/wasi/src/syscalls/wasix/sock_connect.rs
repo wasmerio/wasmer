@@ -13,7 +13,7 @@ use crate::syscalls::*;
 ///
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
-#[instrument(level = "debug", skip_all, fields(sock, addr = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, addr = field::Empty), ret)]
 pub fn sock_connect<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

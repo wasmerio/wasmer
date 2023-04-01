@@ -1,4 +1,11 @@
-use std::{fmt::Debug, path::Path};
+use std::{
+    fmt::Debug,
+    path::{Path, PathBuf},
+    pin::Pin,
+    task::Poll,
+};
+
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::{
     ops, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
@@ -120,14 +127,7 @@ where
                     }
                     had_at_least_one_success = true;
                 }
-                Err(e)
-                    if {
-                        let e = e;
-                        matches!(e, FsError::EntryNotFound)
-                    } =>
-                {
-                    continue
-                }
+                Err(e) if should_continue(e) => continue,
                 Err(e) => return Err(e),
             }
         }
@@ -148,11 +148,7 @@ where
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.create_dir(path) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if should_continue(e) => {}
             other => return other,
         }
 
@@ -161,11 +157,7 @@ where
 
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.remove_dir(path) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if should_continue(e) => {}
             other => return other,
         }
 
@@ -174,11 +166,7 @@ where
 
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
         match self.primary.rename(from, to) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if should_continue(e) => {}
             other => return other,
         }
 
@@ -188,24 +176,13 @@ where
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         match self.primary.metadata(path) {
             Ok(meta) => return Ok(meta),
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if should_continue(e) => {}
             Err(e) => return Err(e),
         }
 
         for fs in self.secondaries.filesystems() {
             match fs.metadata(path) {
-                Err(e)
-                    if {
-                        let e = e;
-                        matches!(e, FsError::EntryNotFound)
-                    } =>
-                {
-                    continue
-                }
+                Err(e) if should_continue(e) => continue,
                 other => return other,
             }
         }
@@ -215,11 +192,7 @@ where
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         match self.primary.remove_file(path) {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if should_continue(e) => {}
             other => return other,
         }
 
@@ -247,11 +220,7 @@ where
             .options(conf.clone())
             .open(path)
         {
-            Err(e)
-                if {
-                    let e = e;
-                    matches!(e, FsError::EntryNotFound)
-                } => {}
+            Err(e) if should_continue(e) => {}
             other => return other,
         }
 
@@ -279,25 +248,160 @@ where
         }
 
         if opening_would_require_mutations(&self.secondaries, path, conf) {
-            return Err(FsError::PermissionDenied);
+            // HACK: we should return Err(FsError::PermissionDenied) here
+            return open_readonly_file_hack(path, conf, &self.secondaries);
         }
 
         for fs in self.secondaries.filesystems() {
             match fs.new_open_options().options(conf.clone()).open(path) {
-                Err(e)
-                    if {
-                        let e = e;
-                        matches!(e, FsError::EntryNotFound)
-                    } =>
-                {
-                    continue
-                }
+                Err(e) if should_continue(e) => continue,
                 other => return other,
             }
         }
 
         Err(FsError::EntryNotFound)
     }
+}
+
+/// HACK(Michael-F-Bryan): In theory, you shouldn't be able to open a file in
+/// one of the [`OverlayFileSystem`]'s secondaries in write mode because the
+/// filesystem is meant to be readonly. However, Python does things like
+/// `open("./lib/python3.6/io.py", "rw")` when importing its standard library
+/// and we want Python to work, so we'll defer the [`FsError::PermissionDenied`]
+/// error until the first write operation.
+///
+/// We shouldn't need to do this because opening a secondary fs's file in write
+/// mode goes against the "read-write primary, readonly secondaries" goal.
+fn open_readonly_file_hack<S>(
+    path: &Path,
+    conf: &OpenOptionsConfig,
+    secondaries: &S,
+) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError>
+where
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
+{
+    #[derive(Debug)]
+    struct ReadOnlyFile {
+        path: PathBuf,
+        inner: Box<dyn VirtualFile + Send + Sync>,
+    }
+
+    impl VirtualFile for ReadOnlyFile {
+        fn last_accessed(&self) -> u64 {
+            self.inner.last_accessed()
+        }
+
+        fn last_modified(&self) -> u64 {
+            self.inner.last_modified()
+        }
+
+        fn created_time(&self) -> u64 {
+            self.inner.created_time()
+        }
+
+        fn size(&self) -> u64 {
+            self.inner.size()
+        }
+
+        fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+            self.inner.set_len(new_size)
+        }
+
+        fn unlink(&mut self) -> crate::Result<()> {
+            Err(FsError::PermissionDenied)
+        }
+
+        fn poll_read_ready(
+            mut self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> Poll<std::io::Result<usize>> {
+            Pin::new(&mut *self.inner).poll_read_ready(cx)
+        }
+
+        fn poll_write_ready(
+            mut self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> Poll<std::io::Result<usize>> {
+            Pin::new(&mut *self.inner).poll_write_ready(cx)
+        }
+    }
+
+    impl AsyncWrite for ReadOnlyFile {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+            _buf: &[u8],
+        ) -> Poll<Result<usize, std::io::Error>> {
+            tracing::warn!(
+                path=%self.path.display(),
+                "Attempting to write to a readonly file",
+            );
+            Poll::Ready(Err(std::io::ErrorKind::PermissionDenied.into()))
+        }
+
+        fn poll_flush(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> Poll<Result<(), std::io::Error>> {
+            tracing::warn!(
+                path=%self.path.display(),
+                "Attempting to flush a readonly file",
+            );
+            Poll::Ready(Err(std::io::ErrorKind::PermissionDenied.into()))
+        }
+
+        fn poll_shutdown(
+            self: Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> Poll<Result<(), std::io::Error>> {
+            tracing::warn!(
+                path=%self.path.display(),
+                "Attempting to shutdown a readonly file",
+            );
+            Poll::Ready(Err(std::io::ErrorKind::PermissionDenied.into()))
+        }
+    }
+
+    impl AsyncRead for ReadOnlyFile {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+            buf: &mut tokio::io::ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut *self.inner).poll_read(cx, buf)
+        }
+    }
+
+    impl AsyncSeek for ReadOnlyFile {
+        fn start_seek(
+            mut self: Pin<&mut Self>,
+            position: std::io::SeekFrom,
+        ) -> std::io::Result<()> {
+            Pin::new(&mut *self.inner).start_seek(position)
+        }
+
+        fn poll_complete(
+            mut self: Pin<&mut Self>,
+            cx: &mut std::task::Context<'_>,
+        ) -> Poll<std::io::Result<u64>> {
+            Pin::new(&mut *self.inner).poll_complete(cx)
+        }
+    }
+
+    for fs in secondaries.filesystems() {
+        match fs.new_open_options().options(conf.clone()).open(path) {
+            Ok(f) => {
+                return Ok(Box::new(ReadOnlyFile {
+                    path: path.to_path_buf(),
+                    inner: f,
+                }));
+            }
+            Err(e) if should_continue(e) => continue,
+            other => return other,
+        }
+    }
+
+    Err(FsError::EntryNotFound)
 }
 
 fn opening_would_require_mutations<S>(
@@ -356,15 +460,29 @@ where
     }
 }
 
+fn should_continue(e: FsError) -> bool {
+    // HACK: We shouldn't really be ignoring FsError::BaseNotDirectory, but
+    // it's needed because the mem_fs::FileSystem doesn't return
+    // FsError::EntryNotFound when an intermediate directory doesn't exist
+    // (i.e. the "/path/to" in "/path/to/file.txt").
+    matches!(
+        e,
+        FsError::EntryNotFound | FsError::InvalidInput | FsError::BaseNotDirectory
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use tempfile::TempDir;
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use webc::v1::{ParseOptions, WebCOwned};
 
     use super::*;
     use crate::{mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
+
+    const PYTHON: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
 
     #[test]
     fn object_safe() {
@@ -413,7 +531,7 @@ mod tests {
             FsError::EntryNotFound,
             "Deleted from primary"
         );
-        assert!(!ops::exists(&overlay.secondaries[0], &second));
+        assert!(!ops::exists(&overlay.secondaries[0], second));
 
         // Directory on the primary fs isn't empty
         assert_eq!(
@@ -540,11 +658,7 @@ mod tests {
                 .unwrap();
         }
         // Set up the secondary file systems
-        let webc = webc::v1::WebCOwned::parse(
-            include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer").to_vec(),
-            &webc::v1::ParseOptions::default(),
-        )
-        .unwrap();
+        let webc = WebCOwned::parse(PYTHON.to_vec(), &ParseOptions::default()).unwrap();
         let webc = WebcFileSystem::init_all(Arc::new(webc));
 
         let fs = OverlayFileSystem::new(primary, [webc]);
@@ -557,14 +671,19 @@ mod tests {
         // We also want to see files from the WEBC volumes (secondary)
         assert!(ops::is_dir(&fs, "/lib/python3.6"));
         assert!(ops::is_file(&fs, "/lib/python3.6/collections/__init__.py"));
-        // files on a secondary fs aren't writable
-        assert_eq!(
-            fs.new_open_options()
-                .append(true)
-                .open("/lib/python3.6/collections/__init__.py")
-                .unwrap_err(),
-            FsError::PermissionDenied,
-        );
+        #[cfg(never)]
+        {
+            // files on a secondary fs aren't writable
+            // TODO(Michael-F-Bryan): re-enable this if/when we fix
+            // open_readonly_file_hack()
+            assert_eq!(
+                fs.new_open_options()
+                    .append(true)
+                    .open("/lib/python3.6/collections/__init__.py")
+                    .unwrap_err(),
+                FsError::PermissionDenied,
+            );
+        }
         // you are allowed to create files that look like they are in a secondary
         // folder, though
         ops::touch(&fs, "/lib/python3.6/collections/something-else.py").unwrap();
@@ -610,6 +729,102 @@ mod tests {
                 .await
                 .unwrap(),
             "asdf"
+        );
+    }
+
+    fn load_webc(bytes: &'static [u8]) -> WebcFileSystem<WebCOwned> {
+        let options = ParseOptions::default();
+        let webc = WebCOwned::parse(bytes.into(), &options).unwrap();
+        WebcFileSystem::init_all(Arc::new(webc))
+    }
+
+    #[track_caller]
+    fn assert_same_directory_contents(
+        original: &dyn FileSystem,
+        path: impl AsRef<Path>,
+        candidate: &dyn FileSystem,
+    ) {
+        let path = path.as_ref();
+
+        let original_entries: Vec<_> = original
+            .read_dir(path)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        let candidate_entries: Vec<_> = candidate
+            .read_dir(path)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert_eq!(original_entries, candidate_entries);
+    }
+
+    #[test]
+    fn absolute_and_relative_paths_are_passed_through() {
+        let python = Arc::new(load_webc(PYTHON));
+
+        // The underlying filesystem doesn't care about absolute/relative paths
+        assert_eq!(python.read_dir("/lib".as_ref()).unwrap().count(), 4);
+        assert_eq!(python.read_dir("lib".as_ref()).unwrap().count(), 4);
+
+        // read_dir() should be passed through to the primary
+        let webc_primary =
+            OverlayFileSystem::new(Arc::clone(&python), [crate::EmptyFileSystem::default()]);
+        assert_same_directory_contents(&python, "/lib", &webc_primary);
+        assert_same_directory_contents(&python, "lib", &webc_primary);
+
+        // read_dir() should also be passed through to the secondary
+        let webc_secondary =
+            OverlayFileSystem::new(crate::EmptyFileSystem::default(), [Arc::clone(&python)]);
+        assert_same_directory_contents(&python, "/lib", &webc_secondary);
+        assert_same_directory_contents(&python, "lib", &webc_secondary);
+
+        // It should be fine to overlay the root fs on top of our webc file
+        let overlay_rootfs = OverlayFileSystem::new(
+            RootFileSystemBuilder::default().build(),
+            [Arc::clone(&python)],
+        );
+        assert_same_directory_contents(&python, "/lib", &overlay_rootfs);
+        assert_same_directory_contents(&python, "lib", &overlay_rootfs);
+    }
+
+    #[tokio::test]
+    async fn open_secondary_fs_files_in_write_mode_and_error_on_first_write() {
+        // TODO(Michael-F-Bryan): remove this test if/when we fix
+        // open_readonly_file_hack()
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
+            .await
+            .unwrap();
+
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        let mut f = fs
+            .new_open_options()
+            .write(true)
+            .read(true)
+            .open("/secondary/file.txt")
+            .unwrap();
+        // reading is fine
+        let mut buf = String::new();
+        f.read_to_string(&mut buf).await.unwrap();
+        assert_eq!(buf, "Hello, World!");
+        // but trying to write will error out
+        assert_eq!(
+            f.write(b"..").await.unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied,
+        );
+        // Same with flushing and shutdown
+        assert_eq!(
+            f.flush().await.unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied,
+        );
+        assert_eq!(
+            f.shutdown().await.unwrap_err().kind(),
+            std::io::ErrorKind::PermissionDenied,
         );
     }
 }

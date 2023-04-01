@@ -94,7 +94,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: 1.65
           target: ${{ matrix.target }}
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@stable
@@ -245,10 +245,6 @@ jobs:
           rustup override set nightly-2022-10-09
           make build-wasmer-headless-minimal
           rustup override unset
-      - name: Build Wasmer with minimal "sys" features
-        run: |
-          cargo build --no-default-features --features="sys" --manifest-path=lib/api/Cargo.toml
-          cargo build --manifest-path=lib/cache/Cargo.toml
       - name: Dist
         if: matrix.build != 'macos-arm64'
         run: |

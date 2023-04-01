@@ -3,7 +3,7 @@ use crate::{
     FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 use anyhow::anyhow;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
 use std::ops::Deref;
 use std::path::Path;
@@ -85,7 +85,8 @@ where
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
         match get_volume_name_opt(path) {
             Some(volume) => {
-                let file = (*self.webc)
+                let file = self
+                    .webc
                     .volumes
                     .get(&volume)
                     .ok_or(FsError::EntryNotFound)?
@@ -177,7 +178,7 @@ where
     T: Deref<Target = WebC<'static>>,
 {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
@@ -194,16 +195,14 @@ where
             .get_file_bytes(&self.entry)
             .map_err(|e| IoError::new(IoErrorKind::NotFound, e))?;
 
-        let cursor: usize = self.cursor.try_into().unwrap_or(u32::MAX as usize);
-        let _start = cursor.min(bytes.len());
-        let bytes = &bytes[cursor..];
+        let start: usize = self.cursor.try_into().unwrap();
+        let remaining = &bytes[start..];
+        let bytes_read = remaining.len().min(buf.remaining());
+        let bytes = &remaining[..bytes_read];
 
-        if bytes.len() > buf.remaining() {
-            let remaining = buf.remaining();
-            buf.put_slice(&bytes[..remaining]);
-        } else {
-            buf.put_slice(bytes);
-        }
+        buf.put_slice(bytes);
+        self.cursor += u64::try_from(bytes_read).unwrap();
+
         Poll::Ready(Ok(()))
     }
 }
@@ -444,5 +443,35 @@ fn translate_file_type(f: FsEntryType) -> crate::FileType {
         block_device: false,
         socket: false,
         fifo: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::AsyncReadExt;
+    use webc::v1::{ParseOptions, WebCOwned};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn read_a_file_from_the_webc_fs() {
+        let webc: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
+        let options = ParseOptions::default();
+        let webc = WebCOwned::parse(webc.to_vec(), &options).unwrap();
+
+        let fs = WebcFileSystem::init_all(Arc::new(webc));
+
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/lib/python3.6/collections/abc.py"))
+            .unwrap();
+
+        let mut abc_py = String::new();
+        f.read_to_string(&mut abc_py).await.unwrap();
+        assert_eq!(
+            abc_py,
+            "from _collections_abc import *\nfrom _collections_abc import __all__\n"
+        );
     }
 }

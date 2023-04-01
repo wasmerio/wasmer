@@ -21,8 +21,11 @@ use serde::{Deserialize, Serialize};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Copy, Clone, Debug, PartialEq, Eq,
+)]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum RelocationKind {
     /// absolute 4-byte
     Abs4,
@@ -50,8 +53,12 @@ pub enum RelocationKind {
     Arm64Movw2,
     /// Arm64 movk/z part 3
     Arm64Movw3,
-    // /// RISC-V call target
-    // RiscvCall,
+    /// RISC-V PC-relative high 20bit
+    RiscvPCRelHi20,
+    /// RISC-V PC-relative low 12bit, I-type
+    RiscvPCRelLo12I,
+    /// RISC-V call target
+    RiscvCall,
     /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
     ElfX86_64TlsGd,
     // /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
@@ -70,12 +77,14 @@ impl fmt::Display for RelocationKind {
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
             Self::X86GOTPCRel4 => write!(f, "GOTPCRel4"),
-            Self::Arm32Call | Self::Arm64Call => write!(f, "Call"),
+            Self::Arm32Call | Self::Arm64Call | Self::RiscvCall => write!(f, "Call"),
             Self::Arm64Movw0 => write!(f, "Arm64MovwG0"),
             Self::Arm64Movw1 => write!(f, "Arm64MovwG1"),
             Self::Arm64Movw2 => write!(f, "Arm64MovwG2"),
             Self::Arm64Movw3 => write!(f, "Arm64MovwG3"),
             Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
+            Self::RiscvPCRelHi20 => write!(f, "RiscvPCRelHi20"),
+            Self::RiscvPCRelLo12I => write!(f, "RiscvPCRelLo12I"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
@@ -84,6 +93,7 @@ impl fmt::Display for RelocationKind {
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -97,8 +107,11 @@ pub struct Relocation {
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Copy, Clone, PartialEq, Eq,
+)]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).
     LocalFunc(LocalFunctionIndex),
@@ -119,7 +132,8 @@ impl Relocation {
             | RelocationKind::Arm64Movw0
             | RelocationKind::Arm64Movw1
             | RelocationKind::Arm64Movw2
-            | RelocationKind::Arm64Movw3 => {
+            | RelocationKind::Arm64Movw3
+            | RelocationKind::RiscvPCRelLo12I => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_abs = target_func_address
@@ -153,7 +167,9 @@ impl Relocation {
                     .wrapping_add(reloc_addend as u32);
                 (reloc_address, reloc_delta_u32 as u64)
             }
-            RelocationKind::Arm64Call => {
+            RelocationKind::Arm64Call
+            | RelocationKind::RiscvCall
+            | RelocationKind::RiscvPCRelHi20 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
                 let reloc_delta_u32 = target_func_address

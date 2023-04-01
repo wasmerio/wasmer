@@ -18,7 +18,7 @@ use crate::{fs::NotificationInner, syscalls::*};
 /// - `u32 *nread`
 ///     Number of bytes read
 ///
-#[instrument(level = "trace", skip_all, fields(fd, nread = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%fd, nread = field::Empty), ret, err)]
 pub fn fd_read<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -78,7 +78,7 @@ pub fn fd_read<M: MemorySize>(
 /// Output:
 /// - `size_t nread`
 ///     The number of bytes read
-#[instrument(level = "trace", skip_all, fields(fd, offset, nread), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%fd, %offset, ?nread), ret, err)]
 pub fn fd_pread<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

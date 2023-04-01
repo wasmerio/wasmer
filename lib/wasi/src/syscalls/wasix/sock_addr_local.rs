@@ -12,7 +12,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
-#[instrument(level = "debug", skip_all, fields(sock, addr = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, addr = field::Empty), ret)]
 pub fn sock_addr_local<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

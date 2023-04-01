@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// Outputs:
 /// - `Fd fd`
 ///   The new file handle that is a duplicate of the original
-#[instrument(level = "debug", skip_all, fields(fd, ret_fd = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%fd, ret_fd = field::Empty), ret)]
 pub fn fd_dup<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

@@ -7,9 +7,21 @@ use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    rkyv::CheckBytes,
+)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {

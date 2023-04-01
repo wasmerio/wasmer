@@ -46,7 +46,9 @@ SETTINGS = {
     # compiler by default otherwise it won't work standalone
     "publish_features": {
         "wasmer-cli": "default,cranelift",
-        "wasmer-wasi": "sys",
+        "wasmer-wasix": "sys",
+        "wasmer-wasix-types": "sys",
+        "wai-bindgen-wasmer": "sys",
     },
     # workspace members we want to publish but whose path doesn't start by
     # "./lib/"

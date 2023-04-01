@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `Fdstat *buf`
 ///     The location where the metadata will be written
-#[instrument(level = "trace", skip_all, fields(fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_fdstat_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

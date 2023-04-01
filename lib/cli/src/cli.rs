@@ -9,7 +9,8 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, RunUnstable, SelfUpdate,
+    Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -160,6 +161,9 @@ enum WasmerCLIOptions {
 
     /// Add a WAPM package's bindings to your application.
     Add(Add),
+
+    /// (unstable) Run a WebAssembly file or WEBC container.
+    RunUnstable(RunUnstable),
 }
 
 impl WasmerCLIOptions {
@@ -189,6 +193,7 @@ impl WasmerCLIOptions {
             Self::Binfmt(binfmt) => binfmt.execute(),
             Self::Whoami(whoami) => whoami.execute(),
             Self::Add(install) => install.execute(),
+            Self::RunUnstable(run2) => run2.execute(),
         }
     }
 }
@@ -241,8 +246,10 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
             "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
-            | "gen-c-header" | "inspect" | "init" | "run" | "self-update" | "validate" | "wast"
-            | "binfmt" | "list" | "login" | "publish" => WasmerCLIOptions::parse(),
+            | "gen-c-header" | "inspect" | "init" | "run" | "run-unstable" | "self-update"
+            | "validate" | "wast" | "binfmt" | "list" | "login" | "publish" => {
+                WasmerCLIOptions::parse()
+            }
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {
