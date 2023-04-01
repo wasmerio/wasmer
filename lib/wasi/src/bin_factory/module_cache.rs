@@ -230,7 +230,15 @@ impl ModuleCache {
                 let module_bytes = bytes::Bytes::from(data);
 
                 // Load the module
-                let module = unsafe { Module::deserialize(engine, &module_bytes[..]).unwrap() };
+                let module = match Module::deserialize_checked(engine, &module_bytes[..]) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        tracing::error!(
+                            "failed to deserialize module with hash '{data_hash}': {err}"
+                        );
+                        return None;
+                    }
+                };
 
                 if let Some(cache) = &self.cached_modules {
                     let mut cache = cache.write().unwrap();

@@ -200,12 +200,28 @@ impl Engine {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
+    /// Deserializes a WebAssembly module
     #[cfg(not(target_arch = "wasm32"))]
+    pub fn deserialize_checked(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize_checked(self, bytes)?))
+    }
+
     /// Deserializes a WebAssembly module from a path
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn deserialize_from_file_checked(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        let contents = std::fs::read(file_ref)?;
+        self.deserialize_checked(&contents)
+    }
+
+    /// Deserialize from a file path.
     ///
     /// # Safety
     ///
-    /// The file's content must represent a serialized WebAssembly module.
+    /// See [`crate::Module::deserialize_from_file`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,

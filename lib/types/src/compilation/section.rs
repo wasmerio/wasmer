@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
     Copy,
     Clone,
     PartialEq,
@@ -37,8 +38,11 @@ entity_impl!(SectionIndex);
 ///
 /// Determines how a custom section may be used.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Clone, PartialEq, Eq,
+)]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum CustomSectionProtection {
     /// A custom section with read permission.
     Read,
@@ -53,6 +57,7 @@ pub enum CustomSectionProtection {
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct CustomSection {
     /// Memory protection that applies to this section.
     pub protection: CustomSectionProtection,
@@ -72,6 +77,7 @@ pub struct CustomSection {
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 
 impl SectionBody {
