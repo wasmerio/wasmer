@@ -325,7 +325,10 @@ impl Artifact {
         self.next_tier
             .as_ref()
             .into_iter()
-            .filter_map(|next| next.get(engine))
+            .filter_map(|next| {
+                let mut engine_inner = engine.inner_mut();
+                next.get(&mut engine_inner)
+            })
             .next()
     }
 }

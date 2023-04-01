@@ -134,7 +134,7 @@ impl FuncTranslator {
         builder.position_at_end(start_of_code);
 
         let mut reader = MiddlewareBinaryReader::new_with_offset(
-            function_body.data,
+            function_body.data.as_ref(),
             function_body.module_offset,
         );
         reader.set_middleware_chain(

@@ -144,8 +144,10 @@ impl Compiler for SinglepassCompiler {
                     .config
                     .middlewares
                     .generate_function_middleware_chain(i);
-                let mut reader =
-                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                let mut reader = MiddlewareBinaryReader::new_with_offset(
+                    input.data.as_ref(),
+                    input.module_offset,
+                );
                 reader.set_middleware_chain(middleware_chain);
 
                 // This local list excludes arguments.

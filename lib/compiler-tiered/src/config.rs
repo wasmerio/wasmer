@@ -8,7 +8,7 @@ use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_singlepass::Singlepass;
 use wasmer_types::Target;
 
-use crate::compiler::TieredCompiler;
+use crate::{compiler::TieredCompiler, DefaultTieredCaching, TieredCaching};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -16,6 +16,7 @@ pub struct Tiered {
     pub(crate) singlepass: Box<Singlepass>,
     pub(crate) cranelift: Box<Cranelift>,
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+    pub(crate) caching: Arc<dyn TieredCaching>,
 }
 
 impl Tiered {
@@ -26,7 +27,17 @@ impl Tiered {
             singlepass: Box::new(Singlepass::new()),
             cranelift: Box::new(Cranelift::new()),
             middlewares: Default::default(),
+            caching: Arc::new(DefaultTieredCaching::default()),
         }
+    }
+
+    /// Attaches a caching implementation to the tiered compiler
+    pub fn with_caching<T>(&mut self, caching: T) -> &mut Self
+    where
+        T: TieredCaching + 'static,
+    {
+        self.caching = Arc::new(caching);
+        self
     }
 }
 

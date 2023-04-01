@@ -5,6 +5,7 @@ use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, ValType};
+use std::borrow::Cow;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 use wasmer_types::entity::PrimaryMap;
@@ -18,10 +19,10 @@ use wasmer_types::{
 };
 
 /// Contains function data: bytecode and its offset in the module.
-#[derive(Hash)]
+#[derive(Clone, Hash)]
 pub struct FunctionBodyData<'a> {
     /// Function body bytecode.
-    pub data: &'a [u8],
+    pub data: Cow<'a, [u8]>,
 
     /// Body offset relative to the module file.
     pub module_offset: usize,
@@ -29,29 +30,9 @@ pub struct FunctionBodyData<'a> {
 
 impl<'a> FunctionBodyData<'a> {
     /// Converts this object into an owned version that is send and sync
-    pub fn into_owned(&self) -> FunctionBodyDataOwned {
-        FunctionBodyDataOwned {
-            data: self.data.to_vec(),
-            module_offset: self.module_offset,
-        }
-    }
-}
-
-/// Contains function data: bytecode and its offset in the module.
-#[derive(Clone, Hash)]
-pub struct FunctionBodyDataOwned {
-    /// Function body bytecode.
-    pub data: Vec<u8>,
-
-    /// Body offset relative to the module file.
-    pub module_offset: usize,
-}
-
-impl FunctionBodyDataOwned {
-    /// Converts this function body back into a reference object
-    pub fn into_ref<'a>(&'a self) -> FunctionBodyData<'a> {
+    pub fn into_owned(&self) -> FunctionBodyData<'static> {
         FunctionBodyData {
-            data: &self.data[..],
+            data: self.data.clone().into_owned().into(),
             module_offset: self.module_offset,
         }
     }
@@ -392,7 +373,7 @@ impl<'data> ModuleEnvironment<'data> {
         body_offset: usize,
     ) -> WasmResult<()> {
         self.function_body_inputs.push(FunctionBodyData {
-            data: body_bytes,
+            data: body_bytes.into(),
             module_offset: body_offset,
         });
         Ok(())

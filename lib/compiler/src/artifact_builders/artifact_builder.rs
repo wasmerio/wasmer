@@ -76,6 +76,28 @@ impl ArtifactBuild {
 
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
 
+        // The next artifact is for when we have a chain of compilers
+        // (i.e. tiered compilation) and the next compiler in the
+        // chain will be build. When the next compilation artifact
+        // is already available (e.g. because of caching) then
+        // we can skip directly to this one
+        let next_artifact = compiler.get_next_artifact(
+            target,
+            &compile_info,
+            translation.module_translation_state.as_ref().unwrap(),
+            &translation.function_body_inputs,
+            data_initializers.clone(),
+            cpu_features.clone(),
+        );
+        if let Some(next) = &next_artifact {
+            if let Some(Ok(serializable)) = next.peek() {
+                return Ok(Self {
+                    serializable,
+                    next_tier: None,
+                });
+            }
+        }
+
         // Compile the Module
         let compilation = compiler.compile_module(
             target,
@@ -86,14 +108,6 @@ impl ArtifactBuild {
             translation.module_translation_state.as_ref().unwrap(),
             &translation.function_body_inputs,
         )?;
-        let next_artifact = compiler.get_next_artifact(
-            target,
-            &compile_info,
-            translation.module_translation_state.as_ref().unwrap(),
-            &translation.function_body_inputs,
-            data_initializers.clone(),
-            cpu_features.clone(),
-        );
         let serializable = Self::convert_to_serializable(
             compilation,
             &target,
@@ -101,6 +115,12 @@ impl ArtifactBuild {
             compile_info,
             data_initializers,
         );
+
+        // If the module can upgrade then we should kick that process off
+        // in the background.
+        if let Some(next) = &next_artifact {
+            next.get(inner_engine);
+        }
 
         Ok(Self {
             serializable,

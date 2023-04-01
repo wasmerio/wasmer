@@ -20,6 +20,7 @@ enumset = "1.0.2"
 lazy_static = "1.4"
 thread-priority = "0.13.1"
 tracing = "0.1"
+sha2 = { version = "0.10" }
 
 [features]
 default = ["std"]
