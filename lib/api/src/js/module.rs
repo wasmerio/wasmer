@@ -447,6 +447,14 @@ impl Module {
     pub(crate) fn info(&self) -> &ModuleInfo {
         unimplemented!()
     }
+
+    pub(crate) fn is_upgradable(&self) -> bool {
+        false
+    }
+
+    pub(crate) fn try_upgrade(&self, _engine: &impl AsEngineRef) -> Option<Module> {
+        None
+    }
 }
 
 impl From<WebAssembly::Module> for Module {

@@ -7,6 +7,7 @@ use wasmer_types::CompileError;
 use wasmer_types::SerializableModule;
 use wasmer_types::Target;
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::Artifact;
 use crate::ArtifactBuild;
 use crate::EngineInner;
@@ -26,10 +27,11 @@ pub enum CompilationResult {
     Ready {
         /// The result of the compilation in the background
         compilation: Result<SerializableModule, CompileError>,
-        /// The target this compilation was done again
-        target: Target,
+        /// Flag if the target is_native or not
+        is_native: bool,
     },
     /// The artifact is ready for cloning
+    #[cfg(not(target_arch = "wasm32"))]
     Artifact(Arc<Artifact>),
 }
 
@@ -59,11 +61,11 @@ impl NextArtifact {
     }
 
     /// Creates the next artifact from an existing compilation
-    pub fn new_existing(compilation: SerializableModule, target: Target) -> Self {
+    pub fn new_existing(compilation: SerializableModule, target: &Target) -> Self {
         Self {
             next: Arc::new(Mutex::new(CompilationResult::Ready {
                 compilation: Ok(compilation),
-                target,
+                is_native: target.is_native(),
             })),
         }
     }
@@ -88,9 +90,9 @@ impl NextArtifact {
                     "compilation already consumed via peek".to_string(),
                 ));
                 std::mem::swap(compilation_ref, &mut compilation);
-                return Some(compilation);
+                Some(compilation)
             }
-            _ => return None,
+            _ => None,
         }
     }
 
@@ -99,7 +101,7 @@ impl NextArtifact {
     pub fn get(&self, engine_inner: &mut EngineInner) -> Option<Arc<Artifact>> {
         let mut guard = self.next.lock().unwrap();
 
-        let (module, target) = match guard.deref_mut() {
+        let (module, is_native) = match guard.deref_mut() {
             CompilationResult::Nothing => {
                 return None;
             }
@@ -116,16 +118,16 @@ impl NextArtifact {
             }
             CompilationResult::Ready {
                 compilation: compilation_ref,
-                target,
+                is_native,
             } => {
                 if let Err(err) = compilation_ref {
-                    (Err(err.clone()), target.clone())
+                    (Err(err.clone()), *is_native)
                 } else {
                     let mut compilation = Err(CompileError::Codegen(
                         "compilation already consumed via get".to_string(),
                     ));
                     std::mem::swap(compilation_ref, &mut compilation);
-                    (compilation, target.clone())
+                    (compilation, *is_native)
                 }
             }
             CompilationResult::Artifact(ret) => return Some(ret.clone()),
@@ -145,12 +147,19 @@ impl NextArtifact {
             next_tier: None,
         };
 
-        let res = Artifact::from_parts(engine_inner, artifact, &target);
+        let res = Artifact::from_parts_ext(engine_inner, artifact, is_native);
         match res {
             Ok(a) => {
                 let ret = Arc::new(a);
-                *guard = CompilationResult::Artifact(ret.clone());
-                return Some(ret);
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    *guard = CompilationResult::Artifact(ret.clone());
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    *guard = CompilationResult::Nothing;
+                }
+                Some(ret)
             }
             Err(_err) => {
                 //TODO: Logging should be better

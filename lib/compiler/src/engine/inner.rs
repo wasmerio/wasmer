@@ -22,9 +22,9 @@ use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
     LocalFunctionIndex, SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, ModuleInfo, Target};
+use wasmer_types::{CompileError, Features, Target};
 #[cfg(not(target_arch = "wasm32"))]
-use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
+use wasmer_types::{CustomSection, CustomSectionProtection, ModuleInfo, SectionIndex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,

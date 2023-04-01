@@ -114,7 +114,7 @@ impl Compiler for TieredCompiler {
         // Check the cache (fast path)
         let caching = self.config.caching.clone();
         if let Some(compilation) = caching.try_load(hash) {
-            return Some(NextArtifact::new_existing(compilation, target.clone()));
+            return Some(NextArtifact::new_existing(compilation, target));
         }
 
         // We need to store the code we are compiling while its being compiled
@@ -192,7 +192,7 @@ impl Compiler for TieredCompiler {
                     // Return the result to anyone who's waiting for it
                     let res = CompilationResult::Ready {
                         compilation: res,
-                        target,
+                        is_native: target.is_native(),
                     };
 
                     tracing::debug!(module_name, "cranelift module compilation complete");

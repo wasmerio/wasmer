@@ -87,7 +87,7 @@ impl ArtifactBuild {
             translation.module_translation_state.as_ref().unwrap(),
             &translation.function_body_inputs,
             data_initializers.clone(),
-            cpu_features.clone(),
+            cpu_features,
         );
         if let Some(next) = &next_artifact {
             if let Some(Ok(serializable)) = next.peek() {
@@ -110,7 +110,7 @@ impl ArtifactBuild {
         )?;
         let serializable = Self::convert_to_serializable(
             compilation,
-            &target,
+            target,
             cpu_features,
             compile_info,
             data_initializers,

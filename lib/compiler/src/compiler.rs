@@ -165,7 +165,7 @@ pub trait Compiler: Send {
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
-        _data_initializers: Box<[OwnedDataInitializer]>,
+        #[allow(clippy::all)] _data_initializers: Box<[OwnedDataInitializer]>,
         _cpu_features: EnumSet<CpuFeature>,
     ) -> Option<NextArtifact> {
         None

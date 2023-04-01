@@ -211,7 +211,16 @@ impl Artifact {
         artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, CompileError> {
-        if !target.is_native() {
+        Self::from_parts_ext(engine_inner, artifact, target.is_native())
+    }
+
+    /// Construct a `ArtifactBuild` from component parts.
+    pub fn from_parts_ext(
+        engine_inner: &mut EngineInner,
+        artifact: ArtifactBuild,
+        is_native: bool,
+    ) -> Result<Self, CompileError> {
+        if !is_native {
             return Ok(Self {
                 id: Default::default(),
                 next_tier: artifact.get_next_artifact(),
@@ -321,7 +330,7 @@ impl Artifact {
     ///
     /// Normally an upgrade operation is used to transition a module from one
     /// tier to another. For example from `singlepass` to `cranelift`
-    pub fn try_upgrade(&self, engine: &Engine) -> Option<Arc<Artifact>> {
+    pub fn try_upgrade(&self, engine: &Engine) -> Option<Arc<Self>> {
         self.next_tier
             .as_ref()
             .into_iter()
