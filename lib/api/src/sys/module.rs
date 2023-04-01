@@ -202,10 +202,10 @@ impl Module {
         self.artifact.is_upgradable()
     }
 
-    pub(crate) fn try_upgrade(&self, engine: &impl AsEngineRef) -> Option<Module> {
+    pub(crate) fn try_upgrade(&self, engine: &impl AsEngineRef) -> Option<Self> {
         let engine_ref = engine.as_engine_ref();
         self.artifact
             .try_upgrade(&engine_ref.engine().0)
-            .map(|a| Self::from_artifact(a))
+            .map(Self::from_artifact)
     }
 }

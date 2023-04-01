@@ -72,7 +72,7 @@ impl Compiler for TieredCompiler {
 
         // If the compilation files then attempt to compile with cranelift instead
         // (this will occur if singlepass doesn't have compatibility)
-        let res = match res {
+        match res {
             Ok(a) => Ok(a),
             Err(err) => {
                 tracing::warn!(
@@ -86,9 +86,7 @@ impl Compiler for TieredCompiler {
                     function_body_inputs,
                 )
             }
-        };
-
-        res
+        }
     }
 
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
@@ -163,7 +161,7 @@ impl Compiler for TieredCompiler {
                     // We check the cache again in case it has since been updated
                     let res = if let Some(compilation) = caching.try_load(hash) {
                         tracing::debug!(module_name, "cranelift module compilation cache hit");
-                        Ok(compilation)
+                        Ok(Box::new(compilation))
                     } else {
                         tracing::debug!(module_name, "cranelift module compilation started");
                         let res = cranelift.compile_module(
@@ -173,13 +171,13 @@ impl Compiler for TieredCompiler {
                             &function_body_inputs,
                         );
                         let res = res.map(|compilation| {
-                            ArtifactBuild::convert_to_serializable(
+                            Box::new(ArtifactBuild::convert_to_serializable(
                                 compilation,
                                 &target,
                                 cpu_features,
                                 module,
                                 data_initializers,
-                            )
+                            ))
                         });
 
                         // Store the value in the caching layer

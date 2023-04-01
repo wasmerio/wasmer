@@ -7,10 +7,9 @@ use wasmer_types::CompileError;
 use wasmer_types::SerializableModule;
 use wasmer_types::Target;
 
-#[cfg(not(target_arch = "wasm32"))]
-use crate::Artifact;
-use crate::ArtifactBuild;
 use crate::EngineInner;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{Artifact, ArtifactBuild};
 
 /// Represents the result of the compilation
 pub enum CompilationResult {
@@ -26,7 +25,7 @@ pub enum CompilationResult {
     /// The module is ready to be turned into an artifact
     Ready {
         /// The result of the compilation in the background
-        compilation: Result<SerializableModule, CompileError>,
+        compilation: Result<Box<SerializableModule>, CompileError>,
         /// Flag if the target is_native or not
         is_native: bool,
     },
@@ -64,7 +63,7 @@ impl NextArtifact {
     pub fn new_existing(compilation: SerializableModule, target: &Target) -> Self {
         Self {
             next: Arc::new(Mutex::new(CompilationResult::Ready {
-                compilation: Ok(compilation),
+                compilation: Ok(Box::new(compilation)),
                 is_native: target.is_native(),
             })),
         }
@@ -90,7 +89,7 @@ impl NextArtifact {
                     "compilation already consumed via peek".to_string(),
                 ));
                 std::mem::swap(compilation_ref, &mut compilation);
-                Some(compilation)
+                Some(compilation.map(|a| *a))
             }
             _ => None,
         }
@@ -98,6 +97,7 @@ impl NextArtifact {
 
     /// Called by the `Module::try_upgrade` call when
     /// it tries to upgrade itself to the next tier
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get(&self, engine_inner: &mut EngineInner) -> Option<Arc<Artifact>> {
         let mut guard = self.next.lock().unwrap();
 
@@ -127,7 +127,7 @@ impl NextArtifact {
                         "compilation already consumed via get".to_string(),
                     ));
                     std::mem::swap(compilation_ref, &mut compilation);
-                    (compilation, *is_native)
+                    (compilation.map(|a| *a), *is_native)
                 }
             }
             CompilationResult::Artifact(ret) => return Some(ret.clone()),
@@ -147,24 +147,20 @@ impl NextArtifact {
             next_tier: None,
         };
 
-        let res = Artifact::from_parts_ext(engine_inner, artifact, is_native);
-        match res {
-            Ok(a) => {
-                let ret = Arc::new(a);
-                #[cfg(not(target_arch = "wasm32"))]
-                {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let res = Artifact::from_parts_ext(engine_inner, artifact, is_native);
+            match res {
+                Ok(a) => {
+                    let ret = Arc::new(a);
                     *guard = CompilationResult::Artifact(ret.clone());
+                    Some(ret)
                 }
-                #[cfg(target_arch = "wasm32")]
-                {
-                    *guard = CompilationResult::Nothing;
+                Err(_err) => {
+                    //TODO: Logging should be better
+                    //tracing::warn!("failed to upgrade module - {}", err);
+                    None
                 }
-                Some(ret)
-            }
-            Err(_err) => {
-                //TODO: Logging should be better
-                //tracing::warn!("failed to upgrade module - {}", err);
-                None
             }
         }
     }

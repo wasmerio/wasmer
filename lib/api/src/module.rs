@@ -466,8 +466,8 @@ impl Module {
     ///
     /// Normally an upgrade operation is used to transition a module from one
     /// tier to another. For example from `singlepass` to `cranelift`
-    pub fn try_upgrade(&self, engine: &impl AsEngineRef) -> Option<Module> {
-        self.0.try_upgrade(engine).map(|m| Self(m))
+    pub fn try_upgrade(&self, engine: &impl AsEngineRef) -> Option<Self> {
+        self.0.try_upgrade(engine).map(Self)
     }
 }
 

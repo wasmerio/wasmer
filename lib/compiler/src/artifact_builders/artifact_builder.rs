@@ -118,6 +118,7 @@ impl ArtifactBuild {
 
         // If the module can upgrade then we should kick that process off
         // in the background.
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(next) = &next_artifact {
             next.get(inner_engine);
         }

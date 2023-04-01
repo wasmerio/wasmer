@@ -330,6 +330,7 @@ impl Artifact {
     ///
     /// Normally an upgrade operation is used to transition a module from one
     /// tier to another. For example from `singlepass` to `cranelift`
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn try_upgrade(&self, engine: &Engine) -> Option<Arc<Self>> {
         self.next_tier
             .as_ref()
@@ -339,6 +340,11 @@ impl Artifact {
                 next.get(&mut engine_inner)
             })
             .next()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn try_upgrade(&self, _engine: &Engine) -> Option<Arc<Self>> {
+        None
     }
 }
 

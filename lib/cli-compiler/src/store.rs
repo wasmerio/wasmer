@@ -95,18 +95,6 @@ pub struct StoreOptions {
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
-    singlepass: bool,
-
-    /// Use Cranelift compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
-    cranelift: bool,
-
-    /// Use LLVM compiler.
-    #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
-    llvm: bool,
-
-    /// Use Singlepass compiler.
     #[clap(long, conflicts_with_all = &["cranelift", "llvm", "tiered-compilation"])]
     singlepass: bool,
 
