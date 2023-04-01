@@ -750,7 +750,7 @@ impl WasiEnvBuilder {
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
-                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::shared())))
+                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new())))
             }
 
             #[cfg(not(feature = "sys-thread"))]
@@ -834,6 +834,23 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn run_with_store(
+        self,
+        module: Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(), WasiRuntimeError> {
+        let run = || self.run_with_store_inner(module, store);
+
+        // If we are inside of a async context then we need to move outside
+        // of it again as the WASM threads are blocking calls
+        if tokio::runtime::Handle::try_current().is_ok() {
+            tokio::task::block_in_place(run)
+        } else {
+            run()
+        }
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn run_with_store_inner(
         self,
         module: Module,
         store: &mut impl AsStoreMut,

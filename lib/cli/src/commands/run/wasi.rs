@@ -136,7 +136,7 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new()));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());

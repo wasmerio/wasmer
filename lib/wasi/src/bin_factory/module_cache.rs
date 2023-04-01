@@ -314,7 +314,7 @@ mod tests {
         let mut cache = ModuleCache::new(None, None, true);
         cache.cache_time = std::time::Duration::from_millis(500);
 
-        let rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        let rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new()));
         let tasks = rt.task_manager();
 
         let mut store = Vec::new();

@@ -145,7 +145,7 @@ impl WcgiRunner {
                 .config
                 .task_manager
                 .clone()
-                .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
+                .unwrap_or_else(|| Arc::new(TokioTaskManager::new())),
         };
 
         Ok(Handler::new(shared))
