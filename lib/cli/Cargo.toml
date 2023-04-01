@@ -113,7 +113,6 @@ unix_mode = "0.1.3"
 default = [
     "sys",
     "wat",
-    "sys",
     "wast",
     "cache",
     "wasi",
