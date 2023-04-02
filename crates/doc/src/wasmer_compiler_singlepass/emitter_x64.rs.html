@@ -2415,6 +2415,18 @@
 <span id="2415">2415</span>
 <span id="2416">2416</span>
 <span id="2417">2417</span>
+<span id="2418">2418</span>
+<span id="2419">2419</span>
+<span id="2420">2420</span>
+<span id="2421">2421</span>
+<span id="2422">2422</span>
+<span id="2423">2423</span>
+<span id="2424">2424</span>
+<span id="2425">2425</span>
+<span id="2426">2426</span>
+<span id="2427">2427</span>
+<span id="2428">2428</span>
+<span id="2429">2429</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
 <span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
@@ -3888,10 +3900,22 @@
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), DWORD [Rq(src <span class="kw">as </span>u8) + disp]);
             }
-            (Size::S32, Location::Imm64(imm), Size::S64, Location::GPR(dst)) =&gt; {
+            (Size::S8, Location::Imm32(imm), Size::S32, Location::GPR(dst)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+            }
+            (Size::S16, Location::Imm32(imm), Size::S64, Location::GPR(dst)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+            }
+            (Size::S32, Location::Imm32(imm), Size::S64, Location::GPR(dst)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+            }
+            (Size::S8, Location::Imm64(imm), Size::S32, Location::GPR(dst)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
             }
             (Size::S16, Location::Imm64(imm), Size::S64, Location::GPR(dst)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+            }
+            (Size::S32, Location::Imm64(imm), Size::S64, Location::GPR(dst)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
             }
             <span class="kw">_ </span>=&gt; {
