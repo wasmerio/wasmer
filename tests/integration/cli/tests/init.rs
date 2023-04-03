@@ -29,6 +29,10 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
     println!("wapm dev token ok...");
 
     if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return Ok(());
+        }
         let output = Command::new(get_wasmer_path())
             .arg("login")
             .arg("--registry")
@@ -83,6 +87,10 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
     println!("wapm dev token ok...");
 
     if let Some(token) = wapm_dev_token.as_ref() {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return Ok(());
+        }
         let mut cmd = Command::new(get_wasmer_path());
         cmd.arg("login");
         cmd.arg("--registry");
