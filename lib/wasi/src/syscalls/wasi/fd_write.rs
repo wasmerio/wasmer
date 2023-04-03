@@ -135,11 +135,15 @@ fn fd_write_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    written += match handle.write(buf.as_ref()).await {
+                                    let local_written = match handle.write(buf.as_ref()).await {
                                         Ok(s) => s,
                                         Err(_) if written > 0 => break,
                                         Err(err) => return Err(map_io_err(err)),
                                     };
+                                    written += local_written;
+                                    if local_written != buf.len() {
+                                        break;
+                                    }
                                 }
                                 Ok(written)
                             }
@@ -167,7 +171,12 @@ fn fd_write_internal<M: MemorySize>(
                                 .map_err(mem_error_to_wasi)?
                                 .access()
                                 .map_err(mem_error_to_wasi)?;
-                            sent += socket.send(tasks.deref(), buf.as_ref(), fd_flags).await?;
+                            let local_sent =
+                                socket.send(tasks.deref(), buf.as_ref(), fd_flags).await?;
+                            sent += local_sent;
+                            if local_sent != buf.len() {
+                                break;
+                            }
                         }
                         Ok(sent)
                     })?);
@@ -180,9 +189,13 @@ fn fd_write_internal<M: MemorySize>(
                             .slice(&memory, iovs.buf_len)
                             .map_err(mem_error_to_wasi));
                         let buf = wasi_try_ok!(buf.access().map_err(mem_error_to_wasi));
-                        written += wasi_try_ok!(
+                        let local_written = wasi_try_ok!(
                             std::io::Write::write(pipe, buf.as_ref()).map_err(map_io_err)
                         );
+                        written += local_written;
+                        if local_written != buf.len() {
+                            break;
+                        }
                     }
                     (written, false)
                 }
@@ -221,9 +234,14 @@ fn fd_write_internal<M: MemorySize>(
                             .slice(&memory, iovs.buf_len)
                             .map_err(mem_error_to_wasi));
                         let buf = wasi_try_ok!(buf.access().map_err(mem_error_to_wasi));
-                        written += wasi_try_ok!(
-                            std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
-                        );
+                        let local_written =
+                            wasi_try_ok!(
+                                std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
+                            );
+                        written += local_written;
+                        if local_written != buf.len() {
+                            break;
+                        }
                     }
                     (written, false)
                 }

@@ -39,6 +39,10 @@ fn wasmer_publish() -> anyhow::Result<()> {
     cmd.arg(path);
 
     if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return Ok(());
+        }
         cmd.arg("--token");
         cmd.arg(token);
     }
@@ -129,6 +133,10 @@ fn wasmer_init_publish() -> anyhow::Result<()> {
     cmd.arg(path.join("randomversion"));
 
     if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return Ok(());
+        }
         cmd.arg("--token");
         cmd.arg(token);
     }

@@ -177,8 +177,7 @@ fn fd_read_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-
-                                    total_read +=
+                                    let local_read =
                                         match handle.read(buf.as_mut()).await.map_err(|err| {
                                             let err = From::<std::io::Error>::from(err);
                                             match err {
@@ -196,6 +195,10 @@ fn fd_read_internal<M: MemorySize>(
                                             Err(_) if total_read > 0 => break,
                                             Err(err) => return Err(err),
                                         };
+                                    total_read += local_read;
+                                    if local_read != buf.len() {
+                                        break;
+                                    }
                                 }
                                 Ok(total_read)
                             }
@@ -235,9 +238,13 @@ fn fd_read_internal<M: MemorySize>(
                                     .access()
                                     .map_err(mem_error_to_wasi)?;
 
-                                total_read += socket
+                                let local_read = socket
                                     .recv(tasks.deref(), buf.as_mut_uninit(), fd_flags)
                                     .await?;
+                                total_read += local_read;
+                                if total_read != buf.len() {
+                                    break;
+                                }
                             }
                             Ok(total_read)
                         },
@@ -279,8 +286,12 @@ fn fd_read_internal<M: MemorySize>(
                                     .access()
                                     .map_err(mem_error_to_wasi)?;
 
-                                total_read +=
+                                let local_read =
                                     virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
+                                total_read += local_read;
+                                if local_read != buf.len() {
+                                    break;
+                                }
                             }
                             Ok(total_read)
                         }

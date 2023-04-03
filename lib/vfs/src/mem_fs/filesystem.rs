@@ -605,8 +605,8 @@ impl FileSystemInner {
                     Some(Node::Directory(DirectoryNode { .. })) => {
                         Ok(InodeResolution::Found(inode_of_parent))
                     }
-                    Some(Node::ArcDirectory(ArcDirectoryNode { .. })) => {
-                        Ok(InodeResolution::Found(inode_of_parent))
+                    Some(Node::ArcDirectory(ArcDirectoryNode { fs, path, .. })) => {
+                        Ok(InodeResolution::Redirect(fs.clone(), path.clone()))
                     }
                     _ => Err(FsError::BaseNotDirectory),
                 }
