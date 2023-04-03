@@ -262,6 +262,24 @@
 <span id="260">260</span>
 <span id="261">261</span>
 <span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -399,11 +417,15 @@
                                         .map_err(mem_error_to_wasi)<span class="question-mark">?
                                         </span>.access()
                                         .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-                                    written += <span class="kw">match </span>handle.write(buf.as_ref()).<span class="kw">await </span>{
+                                    <span class="kw">let </span>local_written = <span class="kw">match </span>handle.write(buf.as_ref()).<span class="kw">await </span>{
                                         <span class="prelude-val">Ok</span>(s) =&gt; s,
                                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>written &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
                                         <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(map_io_err(err)),
                                     };
+                                    written += local_written;
+                                    <span class="kw">if </span>local_written != buf.len() {
+                                        <span class="kw">break</span>;
+                                    }
                                 }
                                 <span class="prelude-val">Ok</span>(written)
                             }
@@ -431,7 +453,12 @@
                                 .map_err(mem_error_to_wasi)<span class="question-mark">?
                                 </span>.access()
                                 .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-                            sent += socket.send(tasks.deref(), buf.as_ref(), fd_flags).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="kw">let </span>local_sent =
+                                socket.send(tasks.deref(), buf.as_ref(), fd_flags).<span class="kw">await</span><span class="question-mark">?</span>;
+                            sent += local_sent;
+                            <span class="kw">if </span>local_sent != buf.len() {
+                                <span class="kw">break</span>;
+                            }
                         }
                         <span class="prelude-val">Ok</span>(sent)
                     })<span class="question-mark">?</span>);
@@ -444,9 +471,13 @@
                             .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
                             .map_err(mem_error_to_wasi));
                         <span class="kw">let </span>buf = <span class="macro">wasi_try_ok!</span>(buf.access().map_err(mem_error_to_wasi));
-                        written += <span class="macro">wasi_try_ok!</span>(
+                        <span class="kw">let </span>local_written = <span class="macro">wasi_try_ok!</span>(
                             std::io::Write::write(pipe, buf.as_ref()).map_err(map_io_err)
                         );
+                        written += local_written;
+                        <span class="kw">if </span>local_written != buf.len() {
+                            <span class="kw">break</span>;
+                        }
                     }
                     (written, <span class="bool-val">false</span>)
                 }
@@ -485,9 +516,14 @@
                             .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
                             .map_err(mem_error_to_wasi));
                         <span class="kw">let </span>buf = <span class="macro">wasi_try_ok!</span>(buf.access().map_err(mem_error_to_wasi));
-                        written += <span class="macro">wasi_try_ok!</span>(
-                            std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
-                        );
+                        <span class="kw">let </span>local_written =
+                            <span class="macro">wasi_try_ok!</span>(
+                                std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
+                            );
+                        written += local_written;
+                        <span class="kw">if </span>local_written != buf.len() {
+                            <span class="kw">break</span>;
+                        }
                     }
                     (written, <span class="bool-val">false</span>)
                 }

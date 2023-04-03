@@ -362,6 +362,17 @@
 <span id="360">360</span>
 <span id="361">361</span>
 <span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::VecDeque, task::Waker};
 
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, ReadBuf};
@@ -541,8 +552,7 @@
                                         .map_err(mem_error_to_wasi)<span class="question-mark">?
                                         </span>.access()
                                         .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-
-                                    total_read +=
+                                    <span class="kw">let </span>local_read =
                                         <span class="kw">match </span>handle.read(buf.as_mut()).<span class="kw">await</span>.map_err(|err| {
                                             <span class="kw">let </span>err = From::&lt;std::io::Error&gt;::from(err);
                                             <span class="kw">match </span>err {
@@ -560,6 +570,10 @@
                                             <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>total_read &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
                                             <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
                                         };
+                                    total_read += local_read;
+                                    <span class="kw">if </span>local_read != buf.len() {
+                                        <span class="kw">break</span>;
+                                    }
                                 }
                                 <span class="prelude-val">Ok</span>(total_read)
                             }
@@ -599,9 +613,13 @@
                                     </span>.access()
                                     .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-                                total_read += socket
+                                <span class="kw">let </span>local_read = socket
                                     .recv(tasks.deref(), buf.as_mut_uninit(), fd_flags)
                                     .<span class="kw">await</span><span class="question-mark">?</span>;
+                                total_read += local_read;
+                                <span class="kw">if </span>total_read != buf.len() {
+                                    <span class="kw">break</span>;
+                                }
                             }
                             <span class="prelude-val">Ok</span>(total_read)
                         },
@@ -643,8 +661,12 @@
                                     </span>.access()
                                     .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-                                total_read +=
+                                <span class="kw">let </span>local_read =
                                     virtual_fs::AsyncReadExt::read(<span class="kw-2">&amp;mut </span>pipe, buf.as_mut()).<span class="kw">await</span><span class="question-mark">?</span>;
+                                total_read += local_read;
+                                <span class="kw">if </span>local_read != buf.len() {
+                                    <span class="kw">break</span>;
+                                }
                             }
                             <span class="prelude-val">Ok</span>(total_read)
                         }
