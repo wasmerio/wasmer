@@ -165,7 +165,7 @@ impl RunUnstable {
                     return runner.run_cmd(&container, id).context("WCGI runner failed");
                 }
             }
-            "wasi" | "https://webc.org/runner/wasi" | _ => {
+            "wasi" | "https://webc.org/runner/wasi" => {
                 let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
                     .with_compile(move |engine, bytes| {
                         compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
@@ -180,6 +180,7 @@ impl RunUnstable {
                     return runner.run_cmd(&container, id).context("WASI runner failed");
                 }
             }
+            _ => {}
         }
 
         anyhow::bail!(
