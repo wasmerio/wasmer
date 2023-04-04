@@ -19,7 +19,7 @@ use crate::{
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        MappedDirectory, WapmContainer,
+        CompileModule, MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
@@ -28,7 +28,7 @@ use crate::{
 pub struct WcgiRunner {
     program_name: String,
     config: Config,
-    compile: Option<Box<dyn FnMut(&Engine, &[u8]) -> Result<Module, Error>>>,
+    compile: Option<Box<CompileModule>>,
 }
 
 // TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -195,7 +195,7 @@ impl WcgiRunner {
 
 // TODO(Michael-F-Bryan): Pass this to Runner::run() as a "&dyn RunnerContext"
 // when we rewrite the "Runner" trait.
-pub struct RunnerContext<'a> {
+struct RunnerContext<'a> {
     container: &'a WapmContainer,
     command: &'a Command,
     engine: Engine,
@@ -204,27 +204,27 @@ pub struct RunnerContext<'a> {
 
 #[allow(dead_code)]
 impl RunnerContext<'_> {
-    pub fn command(&self) -> &Command {
+    fn command(&self) -> &Command {
         self.command
     }
 
-    pub fn manifest(&self) -> &Manifest {
+    fn manifest(&self) -> &Manifest {
         self.container.manifest()
     }
 
-    pub fn engine(&self) -> &Engine {
+    fn engine(&self) -> &Engine {
         &self.engine
     }
 
-    pub fn store(&self) -> &Store {
+    fn store(&self) -> &Store {
         &self.store
     }
 
-    pub fn get_atom(&self, name: &str) -> Option<&[u8]> {
+    fn get_atom(&self, name: &str) -> Option<&[u8]> {
         self.container.get_atom(name)
     }
 
-    pub fn container_fs(&self) -> Arc<dyn FileSystem> {
+    fn container_fs(&self) -> Arc<dyn FileSystem> {
         self.container.container_fs()
     }
 }

@@ -8,7 +8,7 @@ use wasmer::{Engine, Module, Store};
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
-    runners::{wasi_common::CommonWasiOptions, MappedDirectory, WapmContainer},
+    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory, WapmContainer},
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
@@ -20,7 +20,7 @@ pub struct WasiRunner {
     #[serde(skip, default)]
     pub(crate) tasks: Option<Arc<dyn VirtualTaskManager>>,
     #[serde(skip, default)]
-    compile: Option<Box<dyn FnMut(&Engine, &[u8]) -> Result<Module, Error>>>,
+    compile: Option<Box<CompileModule>>,
 }
 
 impl WasiRunner {

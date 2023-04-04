@@ -102,22 +102,12 @@ impl Handler {
             .in_current_span(),
         );
 
-        // use std::io::Read;
-        // use tokio::io::AsyncRead;
-        // let mut buffer = Vec::new();
-        // res_body_receiver.read_to_end(&mut buffer)?;
-        // println!("buffer: {:?}", buffer);
-
         let mut res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
 
-        // res_body_receiver.fill_buf().await?;
         let parts = self
             .dialect
             .extract_response_header(&mut res_body_receiver)
             .await?;
-
-        println!("parts: {:?}", parts);
-
         let chunks = futures::stream::try_unfold(res_body_receiver, |mut r| async move {
             match r.fill_buf().await {
                 Ok(chunk) if chunk.is_empty() => Ok(None),
