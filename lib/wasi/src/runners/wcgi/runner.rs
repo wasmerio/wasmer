@@ -28,6 +28,7 @@ use crate::{
 pub struct WcgiRunner {
     program_name: String,
     config: Config,
+    compile: Option<Box<dyn FnMut(&Engine, &[u8]) -> Result<Module, Error>>>,
 }
 
 // TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -104,6 +105,7 @@ impl WcgiRunner {
         WcgiRunner {
             program_name: program_name.into(),
             config: Config::default(),
+            compile: None,
         }
     }
 
@@ -111,13 +113,30 @@ impl WcgiRunner {
         &mut self.config
     }
 
-    fn load_module(&self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
+    /// Sets the compile function
+    pub fn with_compile(
+        mut self,
+        compile: impl FnMut(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+    ) -> Self {
+        self.compile = Some(Box::new(compile));
+        self
+    }
+
+    fn load_module(&mut self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
         let atom_name = &wasi.atom;
         let atom = ctx
             .get_atom(atom_name)
             .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
 
-        let module = ctx.compile(atom).context("Unable to compile the atom")?;
+        let module = match self.compile.as_mut() {
+            Some(compile) => compile(&ctx.engine, atom).context("Unable to compile the atom")?,
+            None => {
+                tracing::warn!("No compile function was provided, falling back to the default");
+                Module::new(&ctx.engine, atom)
+                    .map_err(Error::from)
+                    .context("Unable to compile the atom")?
+            }
+        };
 
         Ok(module)
     }
@@ -176,7 +195,7 @@ impl WcgiRunner {
 
 // TODO(Michael-F-Bryan): Pass this to Runner::run() as a "&dyn RunnerContext"
 // when we rewrite the "Runner" trait.
-struct RunnerContext<'a> {
+pub struct RunnerContext<'a> {
     container: &'a WapmContainer,
     command: &'a Command,
     engine: Engine,
@@ -185,32 +204,27 @@ struct RunnerContext<'a> {
 
 #[allow(dead_code)]
 impl RunnerContext<'_> {
-    fn command(&self) -> &Command {
+    pub fn command(&self) -> &Command {
         self.command
     }
 
-    fn manifest(&self) -> &Manifest {
+    pub fn manifest(&self) -> &Manifest {
         self.container.manifest()
     }
 
-    fn engine(&self) -> &Engine {
+    pub fn engine(&self) -> &Engine {
         &self.engine
     }
 
-    fn store(&self) -> &Store {
+    pub fn store(&self) -> &Store {
         &self.store
     }
 
-    fn get_atom(&self, name: &str) -> Option<&[u8]> {
+    pub fn get_atom(&self, name: &str) -> Option<&[u8]> {
         self.container.get_atom(name)
     }
 
-    fn compile(&self, wasm: &[u8]) -> Result<Module, Error> {
-        // TODO(Michael-F-Bryan): wire this up to wasmer-cache
-        Module::new(&self.engine, wasm).map_err(Error::from)
-    }
-
-    fn container_fs(&self) -> Arc<dyn FileSystem> {
+    pub fn container_fs(&self) -> Arc<dyn FileSystem> {
         self.container.container_fs()
     }
 }

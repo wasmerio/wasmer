@@ -20,7 +20,8 @@ use tempfile::NamedTempFile;
 use url::Url;
 use wapm_targz_to_pirita::FileMap;
 use wasmer::{
-    DeserializeError, Function, Imports, Instance, Module, Store, Type, TypedFunction, Value,
+    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
+    Value,
 };
 use wasmer_cache::Cache;
 use wasmer_compiler::ArtifactBuild;
@@ -71,10 +72,12 @@ impl RunUnstable {
 
         let (mut store, _) = self.store.get_store()?;
 
-        let mut cache = self.wasmer_home.module_cache();
-        let result = match target.load(&mut cache, &store)? {
+        let cache = self.wasmer_home.module_cache();
+        let result = match target.load(cache, &store)? {
             ExecutableTarget::WebAssembly(wasm) => self.execute_wasm(&target, &wasm, &mut store),
-            ExecutableTarget::Webc(container) => self.execute_webc(&target, &container, &mut store),
+            ExecutableTarget::Webc(container, cache) => {
+                self.execute_webc(&target, container, cache, &mut store)
+            }
         };
 
         if let Err(e) = &result {
@@ -111,7 +114,8 @@ impl RunUnstable {
     fn execute_webc(
         &self,
         target: &TargetOnDisk,
-        container: &WapmContainer,
+        container: WapmContainer,
+        mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
         let id = match self.entrypoint.as_deref() {
@@ -129,41 +133,53 @@ impl RunUnstable {
         // without needing to go through and instantiate each one.
 
         let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
-            .with_args(self.args.clone())
-            .with_envs(self.wasi.env_vars.clone())
-            .with_mapped_directories(self.wasi.mapped_dirs.clone());
-        if self.wasi.forward_host_env {
-            runner.set_forward_host_env();
-        }
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(container, id).context("WASI runner failed");
-        }
+        match command.runner.as_ref() {
+            "emscripten" => {
+                let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+                runner.set_args(self.args.clone());
+                if runner.can_run_command(id, command).unwrap_or(false) {
+                    return runner
+                        .run_cmd(&container, id)
+                        .context("Emscripten runner failed");
+                }
+            }
+            "wcgi" | "https://webc.org/runner/wcgi" => {
+                let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id).with_compile(
+                    move |engine, bytes| {
+                        compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
+                    },
+                );
 
-        let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
-        runner.set_args(self.args.clone());
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner
-                .run_cmd(container, id)
-                .context("Emscripten runner failed");
-        }
-
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
-        let (store, _compiler_type) = self.store.get_store()?;
-        runner
-            .config()
-            .args(self.args.clone())
-            .store(store)
-            .addr(self.wcgi.addr)
-            .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone())
-            .callbacks(Callbacks::new(self.wcgi.addr));
-        if self.wasi.forward_host_env {
-            runner.config().forward_host_env();
-        }
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(container, id).context("WCGI runner failed");
+                runner
+                    .config()
+                    .args(self.args.clone())
+                    .store(store)
+                    .addr(self.wcgi.addr)
+                    .envs(self.wasi.env_vars.clone())
+                    .map_directories(self.wasi.mapped_dirs.clone())
+                    .callbacks(Callbacks::new(self.wcgi.addr));
+                if self.wasi.forward_host_env {
+                    runner.config().forward_host_env();
+                }
+                if runner.can_run_command(id, command).unwrap_or(false) {
+                    return runner.run_cmd(&container, id).context("WCGI runner failed");
+                }
+            }
+            "wasi" | "https://webc.org/runner/wasi" | _ => {
+                let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
+                    .with_compile(move |engine, bytes| {
+                        compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
+                    })
+                    .with_args(self.args.clone())
+                    .with_envs(self.wasi.env_vars.clone())
+                    .with_mapped_directories(self.wasi.mapped_dirs.clone());
+                if self.wasi.forward_host_env {
+                    runner.set_forward_host_env();
+                }
+                if runner.can_run_command(id, command).unwrap_or(false) {
+                    return runner.run_cmd(&container, id).context("WASI runner failed");
+                }
+            }
         }
 
         anyhow::bail!(
@@ -436,12 +452,12 @@ impl TargetOnDisk {
         }
     }
 
-    fn load(&self, cache: &mut ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
+    fn load(&self, mut cache: ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
         match self {
             TargetOnDisk::Webc(webc) => {
                 // As an optimisation, try to use the mmapped version first.
                 if let Ok(container) = WapmContainer::from_path(webc.clone()) {
-                    return Ok(ExecutableTarget::Webc(container));
+                    return Ok(ExecutableTarget::Webc(container, cache));
                 }
 
                 // Otherwise, fall back to the version that reads everything
@@ -450,7 +466,7 @@ impl TargetOnDisk {
                     .with_context(|| format!("Unable to read \"{}\"", webc.display()))?;
                 let container = WapmContainer::from_bytes(bytes.into())?;
 
-                Ok(ExecutableTarget::Webc(container))
+                Ok(ExecutableTarget::Webc(container, cache))
             }
             TargetOnDisk::Directory(dir) => {
                 // FIXME: Runners should be able to load directories directly
@@ -461,12 +477,17 @@ impl TargetOnDisk {
                 let container = WapmContainer::from_bytes(webc.into())
                     .context("Unable to parse the generated WEBC file")?;
 
-                Ok(ExecutableTarget::Webc(container))
+                Ok(ExecutableTarget::Webc(container, cache))
             }
             TargetOnDisk::WebAssemblyBinary(path) => {
                 let wasm = std::fs::read(path)
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-                let module = compile_wasm_cached(path, &wasm, cache, store)?;
+                let module = compile_wasm_cached(
+                    path.display().to_string(),
+                    &wasm,
+                    &mut cache,
+                    store.engine(),
+                )?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Wat(path) => {
@@ -475,7 +496,12 @@ impl TargetOnDisk {
                 let wasm =
                     wasmer::wat2wasm(&wat).context("Unable to convert the WAT to WebAssembly")?;
 
-                let module = compile_wasm_cached(path, &wasm, cache, store)?;
+                let module = compile_wasm_cached(
+                    path.display().to_string(),
+                    &wasm,
+                    &mut cache,
+                    store.engine(),
+                )?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Artifact(artifact) => {
@@ -490,17 +516,20 @@ impl TargetOnDisk {
 }
 
 fn compile_wasm_cached(
-    path: &Path,
+    name: String,
     wasm: &[u8],
     cache: &mut ModuleCache,
-    store: &Store,
+    engine: &Engine,
 ) -> Result<Module, Error> {
+    tracing::debug!("Trying to retrieve module from cache");
+
     let hash = wasmer_cache::Hash::generate(wasm);
+    tracing::debug!("Generated hash: {}", hash);
 
     unsafe {
-        match cache.load(store, hash) {
+        match cache.load(engine, hash) {
             Ok(m) => {
-                tracing::debug!(%hash, "Reusing a cached module");
+                tracing::debug!(%hash, "Module loaded from cache");
                 return Ok(m);
             }
             Err(DeserializeError::Io(e)) if e.kind() == ErrorKind::NotFound => {}
@@ -508,20 +537,20 @@ fn compile_wasm_cached(
                 tracing::warn!(
                     %hash,
                     error=&error as &dyn std::error::Error,
-                    wasm_path=%path.display(),
+                    name=%name,
                     "Unable to deserialize the cached module",
                 );
             }
         }
     }
 
-    let mut module = Module::new(store, wasm).context("Unable to load the module from a file")?;
-    module.set_name(path.display().to_string().as_str());
+    let mut module = Module::new(engine, wasm).context("Unable to load the module from a file")?;
+    module.set_name(&name);
 
     if let Err(e) = cache.store(hash, &module) {
         tracing::warn!(
             error=&e as &dyn std::error::Error,
-            wat=%path.display(),
+            wat=%name,
             key=%hash,
             "Unable to cache the compiled module",
         );
@@ -533,7 +562,7 @@ fn compile_wasm_cached(
 #[derive(Debug, Clone)]
 enum ExecutableTarget {
     WebAssembly(Module),
-    Webc(WapmContainer),
+    Webc(WapmContainer, ModuleCache),
 }
 
 fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result<(), Error> {

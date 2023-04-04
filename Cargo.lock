@@ -5921,16 +5921,6 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.98.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8724c724dc595495979c055f4bd8b7ed9fab1069623178a28016ae43a9666f36"
-dependencies = [
- "indexmap",
- "url",
-]
-
-[[package]]
-name = "wasmparser"
 version = "0.102.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48134de3d7598219ab9eaf6b91b15d8e50d31da76b8519fe4ecfcec2cf35104b"
@@ -6076,14 +6066,14 @@ dependencies = [
 
 [[package]]
 name = "wcgi-host"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d81f49740e252e51e074deb84b931621b6c94f3a9d23764654d230388663c2"
+checksum = "e52e12306a76b04eb7646fc760c34e3db79b2f6ffad0ab63822aa521bcdfc4dc"
 dependencies = [
  "http",
  "serde",
  "tokio",
- "wasmparser 0.98.1",
+ "wasmparser 0.95.0",
  "wcgi",
 ]
 
