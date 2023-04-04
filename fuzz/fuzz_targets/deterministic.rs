@@ -3,10 +3,10 @@
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{CompilerConfig, EngineBuilder, Module, Store};
+use wasmer_compiler::Engine;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_compiler_llvm::LLVM;
 use wasmer_compiler_singlepass::Singlepass;
-use wasmer_compiler::Engine;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct NoImportsConfig;
