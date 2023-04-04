@@ -134,7 +134,7 @@ impl RunUnstable {
 
         let (store, _compiler_type) = self.store.get_store()?;
         match command.runner.as_ref() {
-            "emscripten" => {
+            webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
                 runner.set_args(self.args.clone());
                 if runner.can_run_command(id, command).unwrap_or(false) {
@@ -143,7 +143,7 @@ impl RunUnstable {
                         .context("Emscripten runner failed");
                 }
             }
-            "wcgi" | "https://webc.org/runner/wcgi" => {
+            webc::metadata::annotations::WCGI_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id).with_compile(
                     move |engine, bytes| {
                         compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
@@ -165,7 +165,7 @@ impl RunUnstable {
                     return runner.run_cmd(&container, id).context("WCGI runner failed");
                 }
             }
-            "wasi" | "https://webc.org/runner/wasi" => {
+            webc::metadata::annotations::WASI_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
                     .with_compile(move |engine, bytes| {
                         compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
