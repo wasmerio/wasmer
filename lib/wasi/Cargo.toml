@@ -16,11 +16,11 @@ thiserror = "1"
 tracing = { version = "0.1" }
 getrandom = "0.2"
 wasmer-wasix-types = { path = "../wasi-types", version = "0.2.0" }
-wasmer-types = { path = "../types", version = "=3.2.0-beta.1", default-features = false }
-wasmer = { path = "../api", version = "=3.2.0-beta.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer-types = { path = "../types", version = "=3.2.0-beta.2", default-features = false }
+wasmer = { path = "../api", version = "=3.2.0-beta.2", default-features = false, features = ["wat", "js-serializable-module"] }
 virtual-fs = { path = "../vfs", version = "0.1.1", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
-wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-beta.1", optional = true }
+wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-beta.2", optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 bincode = { version = "1.3" }
@@ -85,7 +85,7 @@ winapi = "0.3"
 wasm-bindgen = "0.2.74"
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=3.2.0-beta.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer = { path = "../api", version = "=3.2.0-beta.2", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
 tempfile = "3.4.0"
 
@@ -95,7 +95,7 @@ tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.2" }
-wasmer = { path = "../api", version = "=3.2.0-beta.1", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
+wasmer = { path = "../api", version = "=3.2.0-beta.2", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
 
 [features]
 default = ["sys-default"]
