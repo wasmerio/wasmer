@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 )]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::CheckBytes)]
 #[archive(as = "Self")]
 pub struct SourceLoc(u32);
 

@@ -4,21 +4,23 @@ use std::sync::Arc;
 
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
-use wasmer::{Module, Store};
+use wasmer::{Engine, Module, Store};
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
-    runners::{wasi_common::CommonWasiOptions, MappedDirectory, WapmContainer},
+    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory, WapmContainer},
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WasiRunner {
     wasi: CommonWasiOptions,
     #[serde(skip, default)]
     store: Store,
     #[serde(skip, default)]
     pub(crate) tasks: Option<Arc<dyn VirtualTaskManager>>,
+    #[serde(skip, default)]
+    compile: Option<Box<CompileModule>>,
 }
 
 impl WasiRunner {
@@ -28,7 +30,17 @@ impl WasiRunner {
             store,
             wasi: CommonWasiOptions::default(),
             tasks: None,
+            compile: None,
         }
+    }
+
+    /// Sets the compile function
+    pub fn with_compile(
+        mut self,
+        compile: impl FnMut(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+    ) -> Self {
+        self.compile = Some(Box::new(compile));
+        self
     }
 
     /// Returns the current arguments for this `WasiRunner`
@@ -168,9 +180,4 @@ impl crate::runners::Runner for WasiRunner {
 
         Ok(())
     }
-}
-
-#[derive(Default, Debug, serde::Deserialize)]
-struct Annotations {
-    wasi: Option<Wasi>,
 }

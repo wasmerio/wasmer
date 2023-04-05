@@ -113,7 +113,7 @@ fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
-                total_read += match socket
+                let local_read = match socket
                     .recv(env.tasks().deref(), buf.as_mut_uninit(), fd.flags)
                     .await
                 {
@@ -121,6 +121,10 @@ fn sock_recv_internal<M: MemorySize>(
                     Err(_) if total_read > 0 => break,
                     Err(err) => return Err(err),
                 };
+                total_read += local_read;
+                if local_read != buf.len() {
+                    break;
+                }
             }
             Ok(total_read)
         },

@@ -12,6 +12,12 @@ on:
     inputs:
       release:
           description: 'Make release'
+
+# Automatically cancel previous workflow runs when a new commit is pushed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   RUST_BACKTRACE: 1
 

@@ -19,7 +19,7 @@ use crate::{
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        MappedDirectory, WapmContainer,
+        CompileModule, MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
@@ -28,6 +28,7 @@ use crate::{
 pub struct WcgiRunner {
     program_name: String,
     config: Config,
+    compile: Option<Box<CompileModule>>,
 }
 
 // TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -41,8 +42,7 @@ impl WcgiRunner {
 
     #[tracing::instrument(skip(self, ctx))]
     fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
-        let key = webc::metadata::annotations::WCGI_RUNNER_URI;
-        let Annotations { wasi, wcgi } = ctx
+        let wasi: Wasi = ctx
             .command()
             .annotation(key)
             .with_context(|| format!("Unable to deserialize the \"{key}\" annotations"))?
@@ -54,7 +54,7 @@ impl WcgiRunner {
             .load_module(&wasi, ctx)
             .context("Couldn't load the module")?;
 
-        let handler = self.create_handler(module, &wasi, &wcgi, ctx)?;
+        let handler = self.create_handler(module, &wasi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
         let callbacks = Arc::clone(&self.config.callbacks);
 
@@ -107,6 +107,7 @@ impl WcgiRunner {
         WcgiRunner {
             program_name: program_name.into(),
             config: Config::default(),
+            compile: None,
         }
     }
 
@@ -114,13 +115,30 @@ impl WcgiRunner {
         &mut self.config
     }
 
-    fn load_module(&self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
+    /// Sets the compile function
+    pub fn with_compile(
+        mut self,
+        compile: impl FnMut(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+    ) -> Self {
+        self.compile = Some(Box::new(compile));
+        self
+    }
+
+    fn load_module(&mut self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
         let atom_name = &wasi.atom;
         let atom = ctx
             .get_atom(atom_name)
             .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
 
-        let module = ctx.compile(atom).context("Unable to compile the atom")?;
+        let module = match self.compile.as_mut() {
+            Some(compile) => compile(&ctx.engine, atom).context("Unable to compile the atom")?,
+            None => {
+                tracing::warn!("No compile function was provided, falling back to the default");
+                Module::new(&ctx.engine, atom)
+                    .map_err(Error::from)
+                    .context("Unable to compile the atom")?
+            }
+        };
 
         Ok(module)
     }
@@ -129,10 +147,11 @@ impl WcgiRunner {
         &self,
         module: Module,
         wasi: &Wasi,
-        wcgi: &Wcgi,
         ctx: &RunnerContext<'_>,
     ) -> Result<Handler, Error> {
-        let dialect = match &wcgi.dialect {
+        let Wcgi { dialect, .. } = ctx.command().get_annotation("wcgi")?.unwrap_or_default();
+
+        let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
             None => CgiDialect::Wcgi,
         };
@@ -205,11 +224,6 @@ impl RunnerContext<'_> {
 
     fn get_atom(&self, name: &str) -> Option<&[u8]> {
         self.container.get_atom(name)
-    }
-
-    fn compile(&self, wasm: &[u8]) -> Result<Module, Error> {
-        // TODO(Michael-F-Bryan): wire this up to wasmer-cache
-        Module::new(&self.engine, wasm).map_err(Error::from)
     }
 
     fn container_fs(&self) -> Arc<dyn FileSystem> {
@@ -342,13 +356,6 @@ impl Default for Config {
             store: None,
         }
     }
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct Annotations {
-    wasi: Option<Wasi>,
-    #[serde(default)]
-    wcgi: Wcgi,
 }
 
 /// Callbacks that are triggered at various points in the lifecycle of a runner
