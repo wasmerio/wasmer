@@ -6053,9 +6053,9 @@ dependencies = [
 
 [[package]]
 name = "wcgi"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c55e796fc6fedd026ae32f2ddc3e09df539c456e0089e9b2d59d9eb0acd9d09"
+checksum = "39ca8f334eec3a8197bd25a612c74f415b8691d219ee11f1acd20f15a3e2bf77"
 dependencies = [
  "http",
  "http-serde",
@@ -6066,9 +6066,9 @@ dependencies = [
 
 [[package]]
 name = "wcgi-host"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e52e12306a76b04eb7646fc760c34e3db79b2f6ffad0ab63822aa521bcdfc4dc"
+checksum = "a762cf2b0ed389a2a2fb591d63a398c1a4c0f8bef938cfd040285a3c63b695cc"
 dependencies = [
  "http",
  "serde",
