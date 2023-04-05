@@ -4782,7 +4782,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typetag",
- "webc 5.0.0-rc.7",
+ "webc 5.0.0-rc.5",
 ]
 
 [[package]]
@@ -5295,7 +5295,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
- "webc 5.0.0-rc.7",
+ "webc 5.0.0-rc.5",
 ]
 
 [[package]]
@@ -5396,7 +5396,7 @@ dependencies = [
  "wasmer-wasix-experimental-io-devices",
  "wasmer-wast",
  "webc 4.1.1",
- "webc 5.0.0-rc.7",
+ "webc 5.0.0-rc.5",
 ]
 
 [[package]]
@@ -5677,7 +5677,7 @@ dependencies = [
  "wasmer-toml",
  "wasmer-wasm-interface",
  "wasmparser 0.51.4",
- "webc 5.0.0-rc.7",
+ "webc 5.0.0-rc.5",
  "whoami",
 ]
 
@@ -5810,7 +5810,7 @@ dependencies = [
  "wasmer-wasix-types",
  "wcgi",
  "wcgi-host",
- "webc 5.0.0-rc.7",
+ "webc 5.0.0-rc.5",
  "weezl",
  "winapi",
 ]
@@ -6142,9 +6142,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.0.0-rc.7"
+version = "5.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1938d2cbf3fa06c5254c27402403d24d34e1baece8edbdc2ec1ba1ebf7254803"
+checksum = "418bfd8fc298ce60295203a6960d53af48c8e10c5a021a5e7db8bc06c4830148"
 dependencies = [
  "anyhow",
  "base64 0.21.0",
