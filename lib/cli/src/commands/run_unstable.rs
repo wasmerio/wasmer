@@ -128,12 +128,15 @@ impl RunUnstable {
             .get(id)
             .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
-        // TODO(Michael-F-Bryan): Refactor the wasmer_wasi::runners::Runner
-        // trait So we can check whether a command is supported by a runner
-        // without needing to go through and instantiate each one.
-
         let (store, _compiler_type) = self.store.get_store()?;
-        match command.runner.as_ref() {
+        let runner_base = command
+            .runner
+            .as_str()
+            .split_once('@')
+            .map(|(base, version)| base)
+            .unwrap_or_else(|| command.runner.as_str());
+
+        match runner_base {
             webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
                 runner.set_args(self.args.clone());
