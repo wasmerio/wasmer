@@ -11,6 +11,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 3.2.0-beta.2 - 05/04/2023
 
+Bug fixes for this beta release, and some exciting new possibilities with the `run-unstable` function from the CLI tools.
+ - New wcgi runner
+ - Caching of runners
+ - Many fixes to wasix
+
+Known issue: RISC-V build is currently broken and will be fixes on next version
+
 ## Added
 
   - [#3731](https://github.com/wasmerio/wasmer/pull/3731) Added missing ASM instructions for wasix on singlepass
