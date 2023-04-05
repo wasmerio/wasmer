@@ -44,11 +44,9 @@ impl WcgiRunner {
     fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
         let wasi: Wasi = ctx
             .command()
-            .annotation(key)
-            .with_context(|| format!("Unable to deserialize the \"{key}\" annotations"))?
-            .unwrap_or_default();
-
-        let wasi = wasi.unwrap_or_else(|| Wasi::new(command_name));
+            .annotation("wasi")
+            .context("Unable to retreive the WASI metadata")?
+            .unwrap_or_else(|| Wasi::new(command_name));
 
         let module = self
             .load_module(&wasi, ctx)
@@ -149,7 +147,7 @@ impl WcgiRunner {
         wasi: &Wasi,
         ctx: &RunnerContext<'_>,
     ) -> Result<Handler, Error> {
-        let Wcgi { dialect, .. } = ctx.command().get_annotation("wcgi")?.unwrap_or_default();
+        let Wcgi { dialect, .. } = ctx.command().annotation("wcgi")?.unwrap_or_default();
 
         let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
