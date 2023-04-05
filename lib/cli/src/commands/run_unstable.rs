@@ -168,7 +168,9 @@ impl RunUnstable {
                     return runner.run_cmd(&container, id).context("WCGI runner failed");
                 }
             }
-            webc::metadata::annotations::WASI_RUNNER_URI => {
+            // TODO: Add this on the webc annotation itself
+            "https://webc.org/runner/wasi/command"
+            | webc::metadata::annotations::WASI_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
                     .with_compile(move |engine, bytes| {
                         compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
