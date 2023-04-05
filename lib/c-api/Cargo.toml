@@ -29,9 +29,9 @@ wasmer-compiler-llvm = { version = "=3.2.0-beta.1", path = "../compiler-llvm", o
 wasmer-emscripten = { version = "=3.2.0-beta.1", path = "../emscripten", optional = true }
 wasmer-compiler = { version = "=3.2.0-beta.1", path = "../compiler", optional = true }
 wasmer-middlewares = { version = "=3.2.0-beta.1", path = "../middlewares", optional = true }
-wasmer-wasix = { version = "0.1.0", path = "../wasi", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-wasix = { version = "0.2.0", path = "../wasi", features = ["host-fs", "host-vnet"], optional = true }
 wasmer-types = { version = "=3.2.0-beta.1", path = "../types" }
-virtual-fs = { version = "0.1.0", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.1.1", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
 webc = { version = "5.0.0-rc.5", optional = true }
 enumset = "1.0.2"
 cfg-if = "1.0"
