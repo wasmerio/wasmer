@@ -5388,7 +5388,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.2.0",
+ "wasmer-registry 4.3.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5641,7 +5641,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "4.2.0"
+version = "4.3.0"
 dependencies = [
  "anyhow",
  "console",
