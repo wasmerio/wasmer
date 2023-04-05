@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.1.0"
+version = "0.2.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -15,10 +15,10 @@ cfg-if = "1.0"
 thiserror = "1"
 tracing = { version = "0.1" }
 getrandom = "0.2"
-wasmer-wasix-types = { path = "../wasi-types", version = "0.1.0" }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.2.0" }
 wasmer-types = { path = "../types", version = "=3.2.0-beta.1", default-features = false }
 wasmer = { path = "../api", version = "=3.2.0-beta.1", default-features = false, features = ["wat", "js-serializable-module"] }
-virtual-fs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
+virtual-fs = { path = "../vfs", version = "0.1.1", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
 wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-beta.1", optional = true }
 typetag = { version = "0.1", optional = true }
