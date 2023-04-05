@@ -63,10 +63,16 @@
 <span id="61">61</span>
 <span id="62">62</span>
 <span id="63">63</span>
-</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Error;
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::runners::WapmContainer;
+<span class="kw">use </span>anyhow::Error;
+<span class="kw">use </span>wasmer::{Engine, Module};
 <span class="kw">use </span>webc::metadata::Command;
 
-<span class="kw">use </span><span class="kw">crate</span>::runners::WapmContainer;
+<span class="doccomment">/// A compile module function
+</span><span class="kw">pub type </span>CompileModule = <span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt;;
 
 <span class="doccomment">/// Trait that all runners have to implement
 </span><span class="kw">pub trait </span>Runner {

@@ -170,27 +170,41 @@
 <span id="168">168</span>
 <span id="169">169</span>
 <span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>wasmer::{Module, Store};
+<span class="kw">use </span>wasmer::{Engine, Module, Store};
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
 <span class="kw">use crate</span>::{
-    runners::{wasi_common::CommonWasiOptions, MappedDirectory, WapmContainer},
+    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory, WapmContainer},
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
-<span class="attribute">#[derive(Debug, Serialize, Deserialize)]
+<span class="attribute">#[derive(Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>WasiRunner {
     wasi: CommonWasiOptions,
     <span class="attribute">#[serde(skip, default)]
     </span>store: Store,
     <span class="attribute">#[serde(skip, default)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) tasks: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;&gt;,
+    <span class="attribute">#[serde(skip, default)]
+    </span>compile: <span class="prelude-ty">Option</span>&lt;Box&lt;CompileModule&gt;&gt;,
 }
 
 <span class="kw">impl </span>WasiRunner {
@@ -200,8 +214,18 @@
             store,
             wasi: CommonWasiOptions::default(),
             tasks: <span class="prelude-val">None</span>,
+            compile: <span class="prelude-val">None</span>,
         }
     }
+
+    <span class="doccomment">/// Sets the compile function
+    </span><span class="kw">pub fn </span>with_compile(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        compile: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Box::new(compile));
+        <span class="self">self
+    </span>}
 
     <span class="doccomment">/// Returns the current arguments for this `WasiRunner`
     </span><span class="kw">pub fn </span>get_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {

@@ -333,6 +333,12 @@
 <span id="331">331</span>
 <span id="332">332</span>
 <span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use </span>wasmer_wasix_types::wasi::SubscriptionClock;
@@ -480,7 +486,7 @@
         .filter(|a| a.<span class="number">2</span>.type_ == Eventtype::Clock)
         .count();
     <span class="kw">let </span><span class="kw-2">mut </span>clock_subs: Vec&lt;(SubscriptionClock, u64)&gt; = Vec::with_capacity(subs.len());
-    <span class="kw">let </span><span class="kw-2">mut </span>time_to_sleep = <span class="prelude-val">None</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>time_to_sleep = Duration::ZERO;
 
     <span class="comment">// First we extract all the subscriptions into an array so that they
     // can be processed
@@ -539,9 +545,9 @@
                     <span class="comment">// If the timeout duration is zero then this is an immediate check rather than
                     // a sleep itself
                     </span><span class="kw">if </span>clock_info.timeout == <span class="number">0 </span>{
-                        time_to_sleep = <span class="prelude-val">Some</span>(Duration::ZERO);
+                        time_to_sleep = Duration::MAX;
                     } <span class="kw">else </span>{
-                        time_to_sleep = <span class="prelude-val">Some</span>(Duration::from_nanos(clock_info.timeout));
+                        time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
                     }
                     <span class="kw">continue</span>;
@@ -611,19 +617,25 @@
             fd_guards
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(time_to_sleep) = time_to_sleep.as_ref() {
-            <span class="kw">if </span><span class="kw-2">*</span>time_to_sleep == Duration::ZERO {
+        <span class="comment">// If the time is infinite then we omit the time_to_sleep parameter
+        </span><span class="kw">let </span>asyncify_time = <span class="kw">match </span>time_to_sleep {
+            Duration::ZERO =&gt; {
                 Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;nonblocking&quot;</span>);
-            } <span class="kw">else </span>{
-                Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, time_to_sleep.as_millis());
+                <span class="prelude-val">Some</span>(Duration::ZERO)
             }
-        } <span class="kw">else </span>{
-            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;infinite&quot;</span>);
-        }
+            Duration::MAX =&gt; {
+                Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;infinite&quot;</span>);
+                <span class="prelude-val">None
+            </span>}
+            time =&gt; {
+                Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, time.as_millis());
+                <span class="prelude-val">Some</span>(time)
+            }
+        };
 
         <span class="comment">// Block polling the file descriptors
         </span><span class="kw">let </span>batch = PollBatch::new(pid, tid, <span class="kw-2">&amp;mut </span>guards);
-        __asyncify(ctx, time_to_sleep, batch)<span class="question-mark">?
+        __asyncify(ctx, asyncify_time, batch)<span class="question-mark">?
     </span>};
 
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
@@ -638,7 +650,7 @@
         }
         <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; {
             <span class="comment">// The timeout has triggerred so lets add that event
-            </span><span class="kw">if </span>clock_subs.is_empty() &amp;&amp; time_to_sleep != <span class="prelude-val">Some</span>(Duration::ZERO) {
+            </span><span class="kw">if </span>clock_subs.is_empty() {
                 <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
             }
             <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
@@ -661,7 +673,7 @@
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(evts))
         }
         <span class="comment">// If nonblocking the Errno::Again needs to be turned into an empty list
-        </span><span class="prelude-val">Err</span>(Errno::Again) <span class="kw">if </span>time_to_sleep == <span class="prelude-val">Some</span>(Duration::ZERO) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(Default::default())),
+        </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(Default::default())),
         <span class="comment">// Otherwise process the rror
         </span><span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
     }

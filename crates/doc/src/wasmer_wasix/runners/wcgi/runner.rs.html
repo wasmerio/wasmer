@@ -360,6 +360,20 @@
 <span id="358">358</span>
 <span id="359">359</span>
 <span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -381,7 +395,7 @@
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        MappedDirectory, WapmContainer,
+        CompileModule, MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
@@ -390,6 +404,7 @@
 <span class="kw">pub struct </span>WcgiRunner {
     program_name: String,
     config: Config,
+    compile: <span class="prelude-ty">Option</span>&lt;Box&lt;CompileModule&gt;&gt;,
 }
 
 <span class="comment">// TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -466,6 +481,7 @@
         WcgiRunner {
             program_name: program_name.into(),
             config: Config::default(),
+            compile: <span class="prelude-val">None</span>,
         }
     }
 
@@ -473,13 +489,30 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.config
     }
 
-    <span class="kw">fn </span>load_module(<span class="kw-2">&amp;</span><span class="self">self</span>, wasi: <span class="kw-2">&amp;</span>Wasi, ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
+    <span class="doccomment">/// Sets the compile function
+    </span><span class="kw">pub fn </span>with_compile(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        compile: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Box::new(compile));
+        <span class="self">self
+    </span>}
+
+    <span class="kw">fn </span>load_module(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wasi: <span class="kw-2">&amp;</span>Wasi, ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
         <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>wasi.atom;
         <span class="kw">let </span>atom = ctx
             .get_atom(atom_name)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to retrieve the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>module = ctx.compile(atom).context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = <span class="kw">match </span><span class="self">self</span>.compile.as_mut() {
+            <span class="prelude-val">Some</span>(compile) =&gt; compile(<span class="kw-2">&amp;</span>ctx.engine, atom).context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?</span>,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;No compile function was provided, falling back to the default&quot;</span>);
+                Module::new(<span class="kw-2">&amp;</span>ctx.engine, atom)
+                    .map_err(Error::from)
+                    .context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?
+            </span>}
+        };
 
         <span class="prelude-val">Ok</span>(module)
     }
@@ -565,11 +598,6 @@
 
     <span class="kw">fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
         <span class="self">self</span>.container.get_atom(name)
-    }
-
-    <span class="kw">fn </span>compile(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
-        <span class="comment">// TODO(Michael-F-Bryan): wire this up to wasmer-cache
-        </span>Module::new(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, wasm).map_err(Error::from)
     }
 
     <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>FileSystem&gt; {
