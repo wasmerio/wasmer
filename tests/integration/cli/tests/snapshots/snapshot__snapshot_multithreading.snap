@@ -8,7 +8,6 @@ expression: snapshot
     "use_packages": [],
     "include_webcs": [],
     "cli_args": [],
-    "stdin": null,
     "debug_output": true,
     "enable_threads": true,
     "enable_network": false

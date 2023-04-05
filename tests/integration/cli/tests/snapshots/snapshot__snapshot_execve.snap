@@ -15,7 +15,6 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": null,
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false

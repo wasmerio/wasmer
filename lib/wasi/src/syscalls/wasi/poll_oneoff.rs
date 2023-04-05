@@ -145,7 +145,7 @@ pub(crate) fn poll_oneoff_internal(
         .filter(|a| a.2.type_ == Eventtype::Clock)
         .count();
     let mut clock_subs: Vec<(SubscriptionClock, u64)> = Vec::with_capacity(subs.len());
-    let mut time_to_sleep = None;
+    let mut time_to_sleep = Duration::ZERO;
 
     // First we extract all the subscriptions into an array so that they
     // can be processed
@@ -204,9 +204,9 @@ pub(crate) fn poll_oneoff_internal(
                     // If the timeout duration is zero then this is an immediate check rather than
                     // a sleep itself
                     if clock_info.timeout == 0 {
-                        time_to_sleep = Some(Duration::ZERO);
+                        time_to_sleep = Duration::MAX;
                     } else {
-                        time_to_sleep = Some(Duration::from_nanos(clock_info.timeout));
+                        time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
                     }
                     continue;
@@ -276,19 +276,25 @@ pub(crate) fn poll_oneoff_internal(
             fd_guards
         };
 
-        if let Some(time_to_sleep) = time_to_sleep.as_ref() {
-            if *time_to_sleep == Duration::ZERO {
+        // If the time is infinite then we omit the time_to_sleep parameter
+        let asyncify_time = match time_to_sleep {
+            Duration::ZERO => {
                 Span::current().record("timeout_ns", "nonblocking");
-            } else {
-                Span::current().record("timeout_ns", time_to_sleep.as_millis());
+                Some(Duration::ZERO)
             }
-        } else {
-            Span::current().record("timeout_ns", "infinite");
-        }
+            Duration::MAX => {
+                Span::current().record("timeout_ns", "infinite");
+                None
+            }
+            time => {
+                Span::current().record("timeout_ns", time.as_millis());
+                Some(time)
+            }
+        };
 
         // Block polling the file descriptors
         let batch = PollBatch::new(pid, tid, &mut guards);
-        __asyncify(ctx, time_to_sleep, batch)?
+        __asyncify(ctx, asyncify_time, batch)?
     };
 
     let mut env = ctx.data();
@@ -303,7 +309,7 @@ pub(crate) fn poll_oneoff_internal(
         }
         Err(Errno::Timedout) => {
             // The timeout has triggerred so lets add that event
-            if clock_subs.is_empty() && time_to_sleep != Some(Duration::ZERO) {
+            if clock_subs.is_empty() {
                 tracing::warn!("triggered_timeout (without any clock subscriptions)",);
             }
             let mut evts = Vec::new();
@@ -326,7 +332,7 @@ pub(crate) fn poll_oneoff_internal(
             Ok(Ok(evts))
         }
         // If nonblocking the Errno::Again needs to be turned into an empty list
-        Err(Errno::Again) if time_to_sleep == Some(Duration::ZERO) => Ok(Ok(Default::default())),
+        Err(Errno::Again) => Ok(Ok(Default::default())),
         // Otherwise process the rror
         Err(err) => Ok(Err(err)),
     }

@@ -10,7 +10,6 @@ expression: snapshot
     "cli_args": [
       "ls"
     ],
-    "stdin": null,
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false
