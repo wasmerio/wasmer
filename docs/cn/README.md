@@ -5,14 +5,17 @@
 
   <p>
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
+      <img src="https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?event=push" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+    </a>
+    <a href="https://docs.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
-    </a> 
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20us!&color=brighgreen" alt="Slack channel">
+    </a>
   </p>
 
   <h3>
@@ -109,12 +112,12 @@ qjs >
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
-[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer
+[rust docs]: https://docs.rs/wasmer/
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/
-[c docs]: https://wasmerio.github.io/wasmer/c/
+[c docs]: https://docs.rs/wasmer-c-api/*/wasmer/wasm_c_api/index.html
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
