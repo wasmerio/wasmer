@@ -1278,14 +1278,14 @@ dependencies = [
 
 [[package]]
 name = "filetime"
-version = "0.2.20"
+version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a3de6e8d11b22ff9edc6d916f890800597d60f8b2da1caf2955c274638d6412"
+checksum = "5cbc844cecaee9d4443931972e1289c8ff485cb4cc2767cb03ca139ed6885153"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "redox_syscall 0.2.16",
- "windows-sys 0.45.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -3715,9 +3715,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.9.19"
+version = "0.9.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f82e6c8c047aa50a7328632d067bcae6ef38772a79e28daf32f735e0e4f3dd10"
+checksum = "d9d684e3ec7de3bf5466b32bd75303ac16f0736426e5a4e0d6e489559ce1249c"
 dependencies = [
  "indexmap",
  "itoa",
@@ -4631,9 +4631,9 @@ dependencies = [
 
 [[package]]
 name = "unsafe-libyaml"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad2024452afd3874bf539695e04af6732ba06517424dbf958fdb16a01f3bef6c"
+checksum = "1865806a559042e51ab5414598446a5871b561d21b6764f2eabb0dd481d880a6"
 
 [[package]]
 name = "untrusted"
@@ -4903,7 +4903,7 @@ dependencies = [
  "url",
  "validator",
  "wapm-toml",
- "wasmer-registry 4.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 4.2.0",
  "webc",
 ]
 
@@ -4918,7 +4918,7 @@ dependencies = [
  "serde",
  "serde_cbor",
  "serde_json",
- "serde_yaml 0.9.19",
+ "serde_yaml 0.9.21",
  "thiserror",
  "toml",
 ]
@@ -5530,6 +5530,42 @@ dependencies = [
 [[package]]
 name = "wasmer-registry"
 version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a2466288c71defce98142c435a11a346222ce863ff7dcd3606da295205bbb55"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "fs_extra",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "regex",
+ "reqwest",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "tldextract",
+ "tokio",
+ "toml",
+ "url",
+ "wasmer-toml",
+ "webc",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
+version = "4.3.0"
 dependencies = [
  "anyhow",
  "console",
@@ -5570,40 +5606,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-registry"
-version = "4.3.0"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "fs_extra",
- "futures-util",
- "graphql_client",
- "hex",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "regex",
- "reqwest",
- "semver 1.0.17",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "tldextract",
- "tokio",
- "toml",
- "url",
- "wasmer-toml",
- "webc",
- "whoami",
-]
-
-[[package]]
 name = "wasmer-sys-utils"
 version = "0.2.0"
 dependencies = [
@@ -5629,7 +5631,7 @@ dependencies = [
  "serde",
  "serde_cbor",
  "serde_json",
- "serde_yaml 0.9.19",
+ "serde_yaml 0.9.21",
  "thiserror",
  "toml",
 ]
