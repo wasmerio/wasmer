@@ -1,7 +1,10 @@
+use crate::runners::WapmContainer;
 use anyhow::Error;
+use wasmer::{Engine, Module};
 use webc::metadata::Command;
 
-use crate::runners::WapmContainer;
+/// A compile module function
+pub type CompileModule = dyn FnMut(&Engine, &[u8]) -> Result<Module, Error>;
 
 /// Trait that all runners have to implement
 pub trait Runner {

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "4.2.0"
+version = "4.3.0"
 edition = "2021"
 license = "MIT"
 description = "Crate to interact with the wasmer registry (wapm.io), download packages, etc."
@@ -27,7 +27,7 @@ tar = "0.4.38"
 flate2 = "1.0.24"
 semver = "1.0.14"
 lzma-rs = "0.2.0"
-webc = { version = "5.0.0-rc.5", features = ["mmap"] }
+webc = { version = "=5.0.0-rc.5", features = ["mmap"] }
 hex = "0.4.3"
 tokio = "1.24.0"
 log = "0.4.17"
@@ -43,7 +43,7 @@ tempfile = "3.4.0"
 rusqlite = { version = "0.28.0", optional = true, features = ["bundled"] }
 time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"], optional = true }
 indexmap = { version = "1.9.3", optional = true }
-wasmer-wasm-interface = { version = "3.2.0-beta.1", path = "../wasm-interface", optional = true }
+wasmer-wasm-interface = { version = "3.2.0-beta.2", path = "../wasm-interface", optional = true }
 wasmparser = { version = "0.51.4", optional = true }
 rpassword = { version = "7.2.0", optional = true }
 minisign = { version = "0.7.2", optional = true }
