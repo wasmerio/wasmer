@@ -8290,3 +8290,144 @@ impl Machine for MachineX86_64 {
         None
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use enumset::enum_set;
+    use std::str::FromStr;
+    use wasmer_types::{CpuFeature, Target, Triple};
+
+    #[test]
+    fn tests_avx() -> Result<(), CompileError> {
+        let set = enum_set!(CpuFeature::AVX);
+        let target = Target::new(Triple::from_str("x86_64-linux-gnu").unwrap(), set);
+        let mut machine = MachineX86_64::new(Some(target))?;
+
+        machine.move_location_for_native(
+            Size::S64,
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RCX),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, 10),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, -10),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::Memory(GPR::RDX, 10),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::Imm64(50),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::Imm32(50),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(Size::S64, Location::Imm8(50), Location::GPR(GPR::RAX))?;
+
+        machine.move_location_for_native(
+            Size::S32,
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RCX),
+        )?;
+        machine.move_location_for_native(
+            Size::S32,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, 10),
+        )?;
+        machine.move_location_for_native(
+            Size::S32,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, -10),
+        )?;
+        machine.move_location_for_native(
+            Size::S32,
+            Location::Memory(GPR::RDX, 10),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(
+            Size::S32,
+            Location::Imm32(50),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(Size::S32, Location::Imm8(50), Location::GPR(GPR::RAX))?;
+
+        machine.move_location_for_native(
+            Size::S16,
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RCX),
+        )?;
+        machine.move_location_for_native(
+            Size::S16,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, 10),
+        )?;
+        machine.move_location_for_native(
+            Size::S16,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, -10),
+        )?;
+        machine.move_location_for_native(
+            Size::S16,
+            Location::Memory(GPR::RDX, 10),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(Size::S16, Location::Imm8(50), Location::GPR(GPR::RAX))?;
+
+        machine.move_location_for_native(
+            Size::S8,
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RCX),
+        )?;
+        machine.move_location_for_native(
+            Size::S8,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, 10),
+        )?;
+        machine.move_location_for_native(
+            Size::S8,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, -10),
+        )?;
+        machine.move_location_for_native(
+            Size::S8,
+            Location::Memory(GPR::RDX, 10),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(Size::S8, Location::Imm8(50), Location::GPR(GPR::RAX))?;
+
+        machine.move_location_for_native(
+            Size::S64,
+            Location::SIMD(XMM::XMM0),
+            Location::GPR(GPR::RAX),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::SIMD(XMM::XMM0),
+            Location::Memory(GPR::RDX, -10),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::GPR(GPR::RAX),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        machine.move_location_for_native(
+            Size::S64,
+            Location::Memory(GPR::RDX, -10),
+            Location::SIMD(XMM::XMM0),
+        )?;
+
+        Ok(())
+    }
+}
