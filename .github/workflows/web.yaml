@@ -24,11 +24,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Configure Git clone credentials
-      uses: de-vri-es/setup-git-credentials@v2
-      with:
-        credentials: ${{secrets.GIT_CREDENTIALS}}
-
     - name: Install Rust
       uses: actions/checkout@v3
       with:
