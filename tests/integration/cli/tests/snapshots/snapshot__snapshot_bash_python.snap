@@ -21,8 +21,7 @@ expression: snapshot
     "stdin_hash": "bda2b0db976f1724ef16ae1491211d52",
     "debug_output": false,
     "enable_threads": true,
-    "enable_network": false,
-    "enable_async_threads": false
+    "enable_network": false
   },
   "result": {
     "Success": {

@@ -44,7 +44,13 @@ pub struct TestSpec {
     pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub enable_async_threads: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    *b == false
 }
 
 static WEBC_BASH: &'static [u8] =
@@ -57,7 +63,7 @@ static WEBC_DASH: &'static [u8] =
     include_bytes!("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc");
 static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
 static WEBC_WEB_SERVER: &'static [u8] =
-    include_bytes!("./webc/static-web-server-1.0.8-a241658c-e409-4749-872c-ae8eab142ef0.webc");
+    include_bytes!("./webc/static-web-server-1.0.92-22ccedaa-3f96-4de0-b24a-ef48ade8151b.webc");
 static WEBC_WASMER_SH: &'static [u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
@@ -573,16 +579,22 @@ fn test_snapshot_minimodem_rx() {
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_web_server() {
-    test_snapshot_web_server_internal(false, 7777)
+    let snapshot = test_snapshot_web_server_internal(function!(), false, 7777);
+    assert_json_snapshot!(snapshot);
 }
 
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_web_server_async() {
-    test_snapshot_web_server_internal(true, 7778)
+    let snapshot = test_snapshot_web_server_internal(function!(), true, 7778);
+    assert_json_snapshot!(snapshot);
 }
 
-fn test_snapshot_web_server_internal(with_async_threads: bool, port: u16) {
+fn test_snapshot_web_server_internal(
+    name: &str,
+    with_async_threads: bool,
+    port: u16,
+) -> TestSnapshot {
     let with_inner = move || {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -666,9 +678,9 @@ rm -f /cfg/config.toml
         port
     );
     let mut builder = TestBuilder::new()
-        .with_name(function!())
+        .with_name(name)
         .enable_network(true)
-        .include_static_package("sharrattj/static-web-server@1.0.8", WEBC_WEB_SERVER)
+        .include_static_package("sharrattj/static-web-server@1.0.92", WEBC_WEB_SERVER)
         .include_static_package("sharrattj/wasmer-sh@1.0.63", WEBC_WASMER_SH)
         .use_coreutils()
         .use_pkg("sharrattj/wasmer-sh")
@@ -678,8 +690,7 @@ rm -f /cfg/config.toml
         builder = builder.with_async_threads();
     }
 
-    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
-    assert_json_snapshot!(snapshot);
+    builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with))
 }
 
 // The ability to fork the current process and run a different image but retain

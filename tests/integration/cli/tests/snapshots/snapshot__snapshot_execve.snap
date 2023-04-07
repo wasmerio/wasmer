@@ -17,8 +17,7 @@ expression: snapshot
     "cli_args": [],
     "debug_output": false,
     "enable_threads": true,
-    "enable_network": false,
-    "enable_async_threads": false
+    "enable_network": false
   },
   "result": {
     "Success": {
