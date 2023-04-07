@@ -221,15 +221,15 @@ impl WasiThread {
     /// Note: if the exit code was already set earlier this method will
     /// just return that earlier set exit code
     pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
-        let default_errno = match sig {
-            Signal::Sigquit | Signal::Sigabrt => Errno::Success,
-            _ => Errno::Intr,
+        let default_exitcode: ExitCode = match sig {
+            Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
+            _ => Errno::Intr.into(),
         };
         // This will only set the status code if its not already set
-        self.set_status_finished(Ok(default_errno.into()));
+        self.set_status_finished(Ok(default_exitcode));
         self.try_join()
-            .map(|r| r.unwrap_or(default_errno.into()))
-            .unwrap_or(default_errno.into())
+            .map(|r| r.unwrap_or(default_exitcode))
+            .unwrap_or(default_exitcode)
     }
 
     /// Marks the thread as finished (which will cause anyone that
