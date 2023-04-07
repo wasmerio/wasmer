@@ -220,7 +220,7 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                let ret = run::<M>(ctx, store, module, tasks, child_handle, None);
+                run::<M>(ctx, store, module, tasks, child_handle, None);
             };
 
             tasks_outer

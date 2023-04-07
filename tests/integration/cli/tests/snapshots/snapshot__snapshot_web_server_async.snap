@@ -6,23 +6,16 @@ expression: snapshot
 {
   "spec": {
     "name": "snapshot::test_snapshot_web_server_async",
-    "use_packages": [
-      "sharrattj/coreutils",
-      "sharrattj/wasmer-sh"
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "--root",
+      "/dev",
+      "--log-level",
+      "warn",
+      "--port",
+      "7778"
     ],
-    "include_webcs": [
-      {
-        "name": "sharrattj/static-web-server@1.0.92"
-      },
-      {
-        "name": "sharrattj/wasmer-sh@1.0.63"
-      },
-      {
-        "name": "sharrattj/coreutils@1.0.16"
-      }
-    ],
-    "cli_args": [],
-    "stdin_hash": "d565078c0e804a85856a4d8f36cbe9af",
     "debug_output": false,
     "enable_threads": true,
     "enable_network": true,
@@ -31,7 +24,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "",
-      "stderr": "# # # # ",
+      "stderr": "",
       "exit_code": 0
     }
   }

@@ -576,96 +576,92 @@ fn test_snapshot_minimodem_rx() {
     assert_json_snapshot!(snapshot);
 }
 
+fn test_run_http_request(
+    port: u16,
+    what: &str,
+    expected_size: Option<usize>,
+) -> Result<i32, anyhow::Error> {
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+
+    let http_get = move |url, max_retries| {
+        rt.block_on(async move {
+            for n in 0..(max_retries+1) {
+                println!("http request: {}", &url);
+                tokio::select! {
+                    resp = reqwest::get(&url) => {
+                        let resp = match resp {
+                            Ok(a) => a,
+                            Err(_) if n < max_retries => {
+                                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                continue;
+                            }
+                            Err(err) => return Err(err.into())
+                        };
+                        if resp.status().is_success() == false {
+                            return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
+                        }
+                        return Ok(resp.bytes().await?);
+                    }
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
+                        eprintln!("retrying request... ({} attempts)", n);
+                        continue;
+                    }
+                }
+            }
+            Err(anyhow::format_err!("timeout while performing HTTP request"))
+        })
+    };
+
+    let expected_size = match expected_size {
+        None => {
+            let url = format!("http://localhost:{}/{}.size", port, what);
+            let expected_size = usize::from_str_radix(
+                String::from_utf8_lossy(http_get(url, 50)?.as_ref()).trim(),
+                10,
+            )?;
+            if expected_size == 0 {
+                return Err(anyhow::format_err!("There was no data returned"));
+            }
+            expected_size
+        }
+        Some(s) => s,
+    };
+    println!("expected_size: {}", expected_size);
+
+    let url = format!("http://localhost:{}/{}", port, what);
+    let reference_data = http_get(url.clone(), 50)?;
+    for _ in 0..20 {
+        let test_data = http_get(url.clone(), 0)?;
+        println!("actual_size: {}", test_data.len());
+
+        if expected_size != test_data.len() {
+            return Err(anyhow::format_err!(
+                "The actual size and expected size does not match {} vs {}",
+                test_data.len(),
+                expected_size
+            ));
+        }
+        if test_data
+            .iter()
+            .zip(reference_data.iter())
+            .any(|(a, b)| a != b)
+        {
+            return Err(anyhow::format_err!("The returned data is inconsistent"));
+        }
+    }
+    Ok(0)
+}
+
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_web_server() {
-    let snapshot = test_snapshot_web_server_internal(function!(), false, 7777);
-    assert_json_snapshot!(snapshot);
-}
-
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
-#[test]
-fn test_snapshot_web_server_async() {
-    let snapshot = test_snapshot_web_server_internal(function!(), true, 7778);
-    assert_json_snapshot!(snapshot);
-}
-
-fn test_snapshot_web_server_internal(
-    name: &str,
-    with_async_threads: bool,
-    port: u16,
-) -> TestSnapshot {
-    let with_inner = move || {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()?;
-
-        let http_get = |url, max_retries| {
-            rt.block_on(async move {
-                for n in 0..(max_retries+1) {
-                    println!("http request: {}", url);
-                    tokio::select! {
-                        resp = reqwest::get(url) => {
-                            let resp = match resp {
-                                Ok(a) => a,
-                                Err(_) if n < max_retries => {
-                                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                                    continue;
-                                }
-                                Err(err) => return Err(err.into())
-                            };
-                            if resp.status().is_success() == false {
-                                return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
-                            }
-                            return Ok(resp.bytes().await?);
-                        }
-                        _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-                            eprintln!("retrying request... ({} attempts)", n);
-                            continue;
-                        }
-                    }
-                }
-                Err(anyhow::format_err!("timeout while performing HTTP request"))
-            })
-        };
-
-        let url = format!("http://localhost:{}/main.js.size", port);
-        let expected_size = usize::from_str_radix(
-            String::from_utf8_lossy(http_get(&url, 50)?.as_ref()).trim(),
-            10,
-        )?;
-        if expected_size == 0 {
-            return Err(anyhow::format_err!("There was no data returned"));
-        }
-        println!("expected_size: {}", expected_size);
-
-        let url = format!("http://localhost:{}/main.js", port);
-        let reference_data = http_get(&url, 0)?;
-        for _ in 0..20 {
-            let test_data = http_get(&url, 0)?;
-            println!("actual_size: {}", test_data.len());
-
-            if expected_size != test_data.len() {
-                return Err(anyhow::format_err!(
-                    "The actual size and expected size does not match {} vs {}",
-                    test_data.len(),
-                    expected_size
-                ));
-            }
-            if test_data
-                .iter()
-                .zip(reference_data.iter())
-                .any(|(a, b)| a != b)
-            {
-                return Err(anyhow::format_err!("The returned data is inconsistent"));
-            }
-        }
-
-        Ok(0)
-    };
+    let name = function!();
+    let port = 7777;
 
     let with = move |mut child: Child| {
-        let ret = with_inner();
+        let ret = test_run_http_request(port, "main.js", None);
         child.kill().ok();
         ret
     };
@@ -677,7 +673,7 @@ rm -f /cfg/config.toml
 /bin/webserver --log-level warn --root /public --port {}"#,
         port
     );
-    let mut builder = TestBuilder::new()
+    let builder = TestBuilder::new()
         .with_name(name)
         .enable_network(true)
         .include_static_package("sharrattj/static-web-server@1.0.92", WEBC_WEB_SERVER)
@@ -686,11 +682,35 @@ rm -f /cfg/config.toml
         .use_pkg("sharrattj/wasmer-sh")
         .stdin_str(script);
 
-    if with_async_threads {
-        builder = builder.with_async_threads();
-    }
+    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with));
+    assert_json_snapshot!(snapshot);
+}
 
-    builder.run_wasm_with(include_bytes!("./wasm/dash.wasm"), Box::new(with))
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_web_server_async() {
+    let name = function!();
+    let port = 7778;
+
+    let with = move |mut child: Child| {
+        let ret = test_run_http_request(port, "null", Some(0));
+        child.kill().ok();
+        ret
+    };
+
+    let builder = TestBuilder::new()
+        .with_name(name)
+        .with_async_threads()
+        .enable_network(true)
+        .arg("--root")
+        .arg("/dev")
+        .arg("--log-level")
+        .arg("warn")
+        .arg("--port")
+        .arg(&format!("{}", port));
+
+    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/web-server.wasm"), Box::new(with));
+    assert_json_snapshot!(snapshot);
 }
 
 // The ability to fork the current process and run a different image but retain
