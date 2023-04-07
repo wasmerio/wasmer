@@ -8298,12 +8298,7 @@ mod test {
     use std::str::FromStr;
     use wasmer_types::{CpuFeature, Target, Triple};
 
-    #[test]
-    fn tests_avx() -> Result<(), CompileError> {
-        let set = enum_set!(CpuFeature::AVX);
-        let target = Target::new(Triple::from_str("x86_64-linux-gnu").unwrap(), set);
-        let mut machine = MachineX86_64::new(Some(target))?;
-
+    fn test_move_location(machine: &mut MachineX86_64) -> Result<(), CompileError> {
         machine.move_location_for_native(
             Size::S64,
             Location::GPR(GPR::RAX),
@@ -8427,6 +8422,163 @@ mod test {
             Location::Memory(GPR::RDX, -10),
             Location::SIMD(XMM::XMM0),
         )?;
+
+        Ok(())
+    }
+
+    fn test_move_location_extended(
+        machine: &mut MachineX86_64,
+        signed: bool,
+        sized: Size,
+    ) -> Result<(), CompileError> {
+        machine.move_location_extend(
+            Size::S64,
+            signed,
+            Location::GPR(GPR::RAX),
+            sized,
+            Location::GPR(GPR::RCX),
+        )?;
+        machine.move_location_extend(
+            Size::S64,
+            signed,
+            Location::GPR(GPR::RAX),
+            sized,
+            Location::Memory(GPR::RCX, 10),
+        )?;
+        machine.move_location_extend(
+            Size::S64,
+            signed,
+            Location::Memory(GPR::RAX, 10),
+            sized,
+            Location::GPR(GPR::RCX),
+        )?;
+        if sized != Size::S32 {
+            machine.move_location_extend(
+                Size::S32,
+                signed,
+                Location::GPR(GPR::RAX),
+                sized,
+                Location::GPR(GPR::RCX),
+            )?;
+            machine.move_location_extend(
+                Size::S32,
+                signed,
+                Location::GPR(GPR::RAX),
+                sized,
+                Location::Memory(GPR::RCX, 10),
+            )?;
+            machine.move_location_extend(
+                Size::S32,
+                signed,
+                Location::Memory(GPR::RAX, 10),
+                sized,
+                Location::GPR(GPR::RCX),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn test_binop_op(
+        machine: &mut MachineX86_64,
+        op: fn(&mut MachineX86_64, Location, Location, Location) -> Result<(), CompileError>,
+    ) -> Result<(), CompileError> {
+        op(
+            machine,
+            Location::GPR(GPR::RDX),
+            Location::GPR(GPR::RDX),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::RDX),
+            Location::Imm32(10),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::Imm32(10),
+            Location::GPR(GPR::RDX),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::RAX),
+            Location::GPR(GPR::RDX),
+            Location::Memory(GPR::RAX, 10),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::RAX),
+            Location::Memory(GPR::RDX, 16),
+            Location::Memory(GPR::RAX, 10),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RAX, 0),
+            Location::Memory(GPR::RDX, 16),
+            Location::Memory(GPR::RAX, 10),
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn tests_avx() -> Result<(), CompileError> {
+        let set = enum_set!(CpuFeature::AVX);
+        let target = Target::new(Triple::from_str("x86_64-linux-gnu").unwrap(), set);
+        let mut machine = MachineX86_64::new(Some(target))?;
+
+        test_move_location(&mut machine)?;
+        test_move_location_extended(&mut machine, false, Size::S8)?;
+        test_move_location_extended(&mut machine, false, Size::S16)?;
+        test_move_location_extended(&mut machine, false, Size::S32)?;
+        test_move_location_extended(&mut machine, true, Size::S8)?;
+        test_move_location_extended(&mut machine, true, Size::S16)?;
+        test_move_location_extended(&mut machine, true, Size::S32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_add32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_add64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_sub32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_sub64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_and32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_and64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_xor32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_xor64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_or32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_or64)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn tests_sse42() -> Result<(), CompileError> {
+        let set = enum_set!(CpuFeature::SSE42);
+        let target = Target::new(Triple::from_str("x86_64-linux-gnu").unwrap(), set);
+        let mut machine = MachineX86_64::new(Some(target))?;
+
+        test_move_location(&mut machine)?;
+        test_move_location_extended(&mut machine, false, Size::S8)?;
+        test_move_location_extended(&mut machine, false, Size::S16)?;
+        test_move_location_extended(&mut machine, false, Size::S32)?;
+        test_move_location_extended(&mut machine, true, Size::S8)?;
+        test_move_location_extended(&mut machine, true, Size::S16)?;
+        test_move_location_extended(&mut machine, true, Size::S32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_add32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_add64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_sub32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_sub64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_and32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_and64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_xor32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_xor64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_or32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_or64)?;
 
         Ok(())
     }
